@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>brain-wide-bench · dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
+</head>
+<body>
+  <nav>
+    <span class="brand">brain-wide-bench</span>
+    <a href="index.html">Leaderboard</a>
+    <a href="submit.html">Submit</a>
+    <a href="dashboard.html">Dashboard</a>
+    <span id="auth-slot"></span>
+  </nav>
+  <main>
+    <h1>My submissions</h1>
+    <div id="gate" hidden>
+      <p class="msg">Please log in to view your submissions.</p>
+      <button id="gate-login">Login</button>
+    </div>
+    <p class="msg" id="msg" hidden></p>
+    <table id="tbl" hidden>
+      <thead>
+        <tr>
+          <th>Title</th><th>Task</th><th>Status</th><th>Public</th><th>Submitted</th>
+        </tr>
+      </thead>
+      <tbody id="body"></tbody>
+    </table>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    let pollTimer = null;
+
+    async function load() {
+      const subs = await apiFetch("/api/submissions/");
+      const body = document.getElementById("body");
+      body.innerHTML = subs
+        .map(
+          (s) =>
+            `<tr><td>${s.title}</td><td>${s.task}</td>` +
+            `<td><span class="badge ${s.status}">${s.status}</span></td>` +
+            `<td>${s.is_public ? "yes" : "no"}</td>` +
+            `<td>${s.created_at.slice(0, 10)}</td></tr>`
+        )
+        .join("");
+      document.getElementById("tbl").hidden = subs.length === 0;
+      const m = document.getElementById("msg");
+      m.hidden = subs.length !== 0;
+      if (subs.length === 0) m.textContent = "No submissions yet.";
+
+      // Poll every 5s while anything is still scoring/pending.
+      const active = subs.some((s) => s.status === "scoring" || s.status === "pending");
+      if (active && !pollTimer) pollTimer = setInterval(load, 5000);
+      if (!active && pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    }
+
+    (async () => {
+      await initAuth();
+      await renderNav();
+      const authed = await isAuthenticated();
+      document.getElementById("gate").hidden = authed;
+      if (!authed) {
+        document.getElementById("gate-login").onclick = login;
+        return;
+      }
+      try {
+        await load();
+      } catch (e) {
+        const m = document.getElementById("msg");
+        m.hidden = false;
+        m.textContent = "Failed to load: " + e.message;
+      }
+    })();
+  </script>
+</body>
+</html>

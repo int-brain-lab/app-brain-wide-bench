@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>brain-wide-bench · submit</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
+</head>
+<body>
+  <nav>
+    <span class="brand">brain-wide-bench</span>
+    <a href="index.html">Leaderboard</a>
+    <a href="submit.html">Submit</a>
+    <a href="dashboard.html">Dashboard</a>
+    <span id="auth-slot"></span>
+  </nav>
+  <main>
+    <h1>New submission</h1>
+    <div id="gate" hidden>
+      <p class="msg">Please log in to submit.</p>
+      <button id="gate-login">Login</button>
+    </div>
+    <form id="form" hidden>
+      <label>Title<input name="title" required /></label>
+      <label>Description<textarea name="description" rows="3"></textarea></label>
+      <label>Affiliation<input name="affiliation" /></label>
+      <label>Email<input name="email" type="email" /></label>
+      <label>DOI (optional)<input name="doi" /></label>
+      <label>Task
+        <select name="task"><option value="ts1">ts1</option></select>
+      </label>
+      <label class="row-inline" style="grid-auto-flow: column; justify-content: start;">
+        <input type="checkbox" name="is_public" style="width:auto" /> Make public on leaderboard
+      </label>
+      <label>Predictions (.zip)<input name="file" type="file" accept=".zip,application/zip" required /></label>
+      <button type="submit">Upload &amp; score</button>
+    </form>
+    <p class="msg" id="msg"></p>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    const msg = (t) => (document.getElementById("msg").textContent = t);
+
+    async function handleSubmit(e) {
+      e.preventDefault();
+      const f = e.target;
+      const file = f.file.files[0];
+      if (!file) return msg("Choose a .zip file first.");
+      try {
+        msg("Requesting upload URL…");
+        const presign = await apiFetch("/api/submissions/presign", {
+          method: "POST",
+          body: JSON.stringify({
+            title: f.title.value,
+            description: f.description.value,
+            affiliation: f.affiliation.value,
+            email: f.email.value,
+            doi: f.doi.value || null,
+            is_public: f.is_public.checked,
+            task: f.task.value,
+          }),
+        });
+
+        msg("Uploading file to storage…");
+        const put = await fetch(presign.upload_url, {
+          method: "PUT",
+          headers: { "Content-Type": "application/zip" },
+          body: file,
+        });
+        if (!put.ok) throw new Error("S3 upload failed: " + put.status);
+
+        msg("Enqueuing scoring…");
+        await apiFetch(`/api/submissions/${presign.submission_id}/submit`, { method: "POST" });
+        msg("Submitted! Track progress on the dashboard.");
+        f.reset();
+      } catch (err) {
+        msg("Error: " + err.message);
+      }
+    }
+
+    (async () => {
+      await initAuth();
+      await renderNav();
+      const authed = await isAuthenticated();
+      document.getElementById("gate").hidden = authed;
+      document.getElementById("form").hidden = !authed;
+      if (!authed) document.getElementById("gate-login").onclick = login;
+      else document.getElementById("form").addEventListener("submit", handleSubmit);
+    })();
+  </script>
+</body>
+</html>

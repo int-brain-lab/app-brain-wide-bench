@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>brain-wide-bench · leaderboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
+</head>
+<body>
+  <nav>
+    <span class="brand">brain-wide-bench</span>
+    <a href="index.html">Leaderboard</a>
+    <a href="submit.html">Submit</a>
+    <a href="dashboard.html">Dashboard</a>
+    <span id="auth-slot"></span>
+  </nav>
+  <main>
+    <h1>Public leaderboard</h1>
+    <p class="msg" id="msg">Loading…</p>
+    <table id="lb" hidden>
+      <thead><tr id="lb-head"></tr></thead>
+      <tbody id="lb-body"></tbody>
+    </table>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    let LB = [];
+
+    function metricKeys(rows) {
+      const keys = new Set();
+      rows.forEach((r) => Object.keys(r.summary || {}).forEach((k) => keys.add(k)));
+      return [...keys].sort();
+    }
+
+    function render(rows) {
+      const tasks = metricKeys(rows);
+      const head = document.getElementById("lb-head");
+      head.innerHTML =
+        `<th data-key="title">Title</th>` +
+        `<th data-key="affiliation">Affiliation</th>` +
+        `<th data-key="task">Task</th>` +
+        `<th data-key="created_at">Submitted</th>` +
+        tasks.map((t) => `<th data-key="m:${t}">${t}</th>`).join("");
+
+      const body = document.getElementById("lb-body");
+      body.innerHTML = rows
+        .map((r) => {
+          const cells = tasks.map((t) => {
+            const m = (r.summary || {})[t];
+            return `<td>${m ? m.mean.toFixed(4) : "—"}</td>`;
+          });
+          return `<tr><td>${r.title}</td><td>${r.affiliation || "—"}</td>` +
+            `<td>${r.task}</td><td>${r.created_at.slice(0, 10)}</td>${cells.join("")}</tr>`;
+        })
+        .join("");
+
+      // refresh sortable bindings for the (possibly new) headers
+      makeSortable(document.getElementById("lb"), () => LB, render);
+    }
+
+    (async () => {
+      await initAuth();
+      await renderNav();
+      try {
+        const rows = await apiFetch("/api/leaderboard");
+        LB = rows.map((r) => ({
+          ...r,
+          _sort: {
+            title: r.title,
+            affiliation: r.affiliation,
+            task: r.task,
+            created_at: r.created_at,
+            ...Object.fromEntries(
+              Object.entries(r.summary || {}).map(([k, v]) => [`m:${k}`, v.mean])
+            ),
+          },
+        }));
+        document.getElementById("msg").hidden = true;
+        document.getElementById("lb").hidden = false;
+        render(LB);
+      } catch (e) {
+        document.getElementById("msg").textContent = "Failed to load leaderboard: " + e.message;
+      }
+    })();
+  </script>
+</body>
+</html>
