@@ -5,6 +5,8 @@ services:
       POSTGRES_DB: brainwidebench
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -15,6 +17,8 @@ services:
 
   redis:
     image: redis:7-alpine
+    ports:
+      - "6379:6379"
 
   web:
     build:
@@ -22,14 +26,25 @@ services:
       context: ..
       dockerfile: app-brain-wide-bench/Dockerfile
     command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8080
-    ports:
-      - "80:8080"
+    expose:
+      - "8080"
     env_file: .env
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_started
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web
+    restart: unless-stopped
 
   worker:
     build:
