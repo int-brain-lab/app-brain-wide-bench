@@ -51,7 +51,12 @@ async function logout() {
 
 async function getToken() {
   if (DEV_MODE || !auth0Client) return null;
-  return auth0Client.getTokenSilently();
+  try {
+    return await auth0Client.getTokenSilently();
+  } catch {
+    // Not authenticated or Auth0 error — proceed without a token.
+    return null;
+  }
 }
 
 // Fetch wrapper that injects the bearer token when available.
