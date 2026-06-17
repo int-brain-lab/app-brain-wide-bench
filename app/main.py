@@ -1,7 +1,10 @@
 """FastAPI application entrypoint: CORS, routers, health check."""
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.routers import leaderboard, submissions, users
@@ -25,3 +28,10 @@ app.include_router(users.router)
 async def health() -> dict:
     """Liveness probe."""
     return {"status": "ok"}
+
+
+# Serve the frontend SPA last so API routes take precedence.
+# html=True makes nginx-style directory index work and serves index.html at /.
+_frontend = Path(__file__).parent.parent / "frontend"
+if _frontend.is_dir():
+    app.mount("/", StaticFiles(directory=_frontend, html=True), name="frontend")
