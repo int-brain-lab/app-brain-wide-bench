@@ -17,19 +17,25 @@ let auth0Client = null;
 
 async function initAuth() {
   if (DEV_MODE) return null;
-  auth0Client = await auth0.createAuth0Client({
-    domain: CONFIG.auth0Domain,
-    clientId: CONFIG.auth0ClientId,
-    authorizationParams: {
-      audience: CONFIG.auth0Audience,
-      redirect_uri: window.location.origin + window.location.pathname,
-    },
-  });
-  // Handle the redirect callback.
-  const q = window.location.search;
-  if (q.includes("code=") && q.includes("state=")) {
-    await auth0Client.handleRedirectCallback();
-    window.history.replaceState({}, document.title, window.location.pathname);
+  try {
+    auth0Client = await auth0.createAuth0Client({
+      domain: CONFIG.auth0Domain,
+      clientId: CONFIG.auth0ClientId,
+      authorizationParams: {
+        audience: CONFIG.auth0Audience,
+        redirect_uri: window.location.origin + window.location.pathname,
+      },
+    });
+    // Handle the redirect callback.
+    const q = window.location.search;
+    if (q.includes("code=") && q.includes("state=")) {
+      await auth0Client.handleRedirectCallback();
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  } catch (e) {
+    // Auth0 unavailable or misconfigured — degrade gracefully (public pages still load).
+    console.warn("Auth0 init failed:", e);
+    auth0Client = null;
   }
   return auth0Client;
 }

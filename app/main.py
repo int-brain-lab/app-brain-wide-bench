@@ -31,7 +31,14 @@ async def health() -> dict:
 
 
 # Serve the frontend SPA last so API routes take precedence.
-# html=True makes nginx-style directory index work and serves index.html at /.
+# html=True serves index.html at /. no-cache so browsers always revalidate after deploys.
 _frontend = Path(__file__).parent.parent / "frontend"
 if _frontend.is_dir():
-    app.mount("/", StaticFiles(directory=_frontend, html=True), name="frontend")
+
+    class NoCacheStaticFiles(StaticFiles):
+        async def get_response(self, path, scope):
+            response = await super().get_response(path, scope)
+            response.headers["Cache-Control"] = "no-cache"
+            return response
+
+    app.mount("/", NoCacheStaticFiles(directory=_frontend, html=True), name="frontend")
