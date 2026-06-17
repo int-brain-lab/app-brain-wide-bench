@@ -5,6 +5,8 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
 from app.config import settings
 from app.routers import leaderboard, submissions, users
@@ -19,6 +21,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+class NoCacheStaticMiddleware(BaseHTTPMiddleware):
+    """Add Cache-Control: no-cache to all static asset responses."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/") and not request.url.path.startswith("/api"):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+app.add_middleware(NoCacheStaticMiddleware)
+
 app.include_router(submissions.router)
 app.include_router(leaderboard.router)
 app.include_router(users.router)
@@ -31,14 +46,7 @@ async def health() -> dict:
 
 
 # Serve the frontend SPA last so API routes take precedence.
-# html=True serves index.html at /. no-cache so browsers always revalidate after deploys.
+# html=True serves index.html at /.
 _frontend = Path(__file__).parent.parent / "frontend"
 if _frontend.is_dir():
-
-    class NoCacheStaticFiles(StaticFiles):
-        async def get_response(self, path, scope):
-            response = await super().get_response(path, scope)
-            response.headers["Cache-Control"] = "no-cache"
-            return response
-
-    app.mount("/", NoCacheStaticFiles(directory=_frontend, html=True), name="frontend")
+    app.mount("/", StaticFiles(directory=_frontend, html=True), name="frontend")
