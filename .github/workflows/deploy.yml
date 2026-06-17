@@ -15,7 +15,9 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd /srv/app
+            set -e
+            cd /srv/app-brain-wide-bench
             git pull
             docker compose up -d --build
             docker compose exec -T web uv run alembic upgrade head
+            curl -sf http://localhost/health | grep -q '"status":"ok"'
