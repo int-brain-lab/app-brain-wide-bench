@@ -6,8 +6,8 @@
 
 const CONFIG = {
   apiBase: "", // same origin; set to e.g. "http://localhost:8080" for split hosting
-  auth0Domain: "your-tenant.us.auth0.com",
-  auth0ClientId: "YOUR_AUTH0_CLIENT_ID",
+  auth0Domain: "dev-dmv00yvt1n0i036m.us.auth0.com",
+  auth0ClientId: "jYERzEVe5MWl0r8SKGshQLRvxswseQlS",
   auth0Audience: "https://api.brainwidebench.org",
 };
 
