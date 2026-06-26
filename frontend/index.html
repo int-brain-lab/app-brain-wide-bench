@@ -1,89 +1,109 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>brain-wide-bench · leaderboard</title>
-  <link rel="stylesheet" href="style.css" />
-  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brain-Wide Bench</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <nav>
-    <span class="brand">brain-wide-bench</span>
-    <a href="index.html">Leaderboard</a>
-    <a href="submit.html">Submit</a>
-    <a href="dashboard.html">Dashboard</a>
-    <span id="auth-slot"></span>
-  </nav>
-  <main>
-    <h1>Public leaderboard</h1>
-    <p class="msg" id="msg">Loading…</p>
-    <table id="lb" hidden>
-      <thead><tr id="lb-head"></tr></thead>
-      <tbody id="lb-body"></tbody>
-    </table>
-  </main>
 
-  <script src="app.js"></script>
-  <script>
-    let LB = [];
+  <div class="main">
+    <nav class="nav" id="top-nav"></nav>
+    <div class="content">
 
-    function metricKeys(rows) {
-      const keys = new Set();
-      rows.forEach((r) => Object.keys(r.summary || {}).forEach((k) => keys.add(k)));
-      return [...keys].sort();
-    }
+      <section class="hero">
+        <h1>How well does your model understand the brain?</h1>
+        <p>Brain-Wide Bench evaluates neural population models across behavior, dynamics, and anatomy — on held-out data from the International Brain Laboratory.</p>
+        <div class="hero-btns">
+          <a class="btn btn--theme btn--lg" href="leaderboard.html">View leaderboard</a>
+          <a class="btn btn--lg" href="#">Read the docs</a>
+        </div>
+      </section>
 
-    function render(rows) {
-      const tasks = metricKeys(rows);
-      const head = document.getElementById("lb-head");
-      head.innerHTML =
-        `<th data-key="title">Title</th>` +
-        `<th data-key="affiliation">Affiliation</th>` +
-        `<th data-key="task">Task</th>` +
-        `<th data-key="created_at">Submitted</th>` +
-        tasks.map((t) => `<th data-key="m:${t}">${t}</th>`).join("");
+            <!-- Stats: task suites is static (there are 3); the other two are filled by landing.js. -->
+      <div class="stats-grid stats-grid--cnt">
+        <div class="stat-card">
+          <h2 class="stat-card__val">3</h2>
+          <p class="stat-card__lbl">task suites</p>
+        </div>
 
-      const body = document.getElementById("lb-body");
-      body.innerHTML = rows
-        .map((r) => {
-          const cells = tasks.map((t) => {
-            const m = (r.summary || {})[t];
-            return `<td>${m ? m.mean.toFixed(4) : "—"}</td>`;
-          });
-          return `<tr><td>${r.title}</td><td>${r.affiliation || "—"}</td>` +
-            `<td>${r.task}</td><td>${r.created_at.slice(0, 10)}</td>${cells.join("")}</tr>`;
-        })
-        .join("");
+        <div class="stat-card"><div class="stat-card__val" id="stat-submissions">—</div><div class="stat-card__lbl">submissions</div></div>
+        <div class="stat-card"><div class="stat-card__val" id="stat-models">—</div><div class="stat-card__lbl">models submitted</div></div>
+      </div>
 
-      // refresh sortable bindings for the (possibly new) headers
-      makeSortable(document.getElementById("lb"), () => LB, render);
-    }
 
-    (async () => {
-      await initAuth();
-      await renderNav();
-      try {
-        const rows = await apiFetch("/api/leaderboard");
-        LB = rows.map((r) => ({
-          ...r,
-          _sort: {
-            title: r.title,
-            affiliation: r.affiliation,
-            task: r.task,
-            created_at: r.created_at,
-            ...Object.fromEntries(
-              Object.entries(r.summary || {}).map(([k, v]) => [`m:${k}`, v.mean])
-            ),
-          },
-        }));
-        document.getElementById("msg").hidden = true;
-        document.getElementById("lb").hidden = false;
-        render(LB);
-      } catch (e) {
-        document.getElementById("msg").textContent = "Failed to load leaderboard: " + e.message;
-      }
-    })();
-  </script>
+      <section class="section">
+        <div class="header">
+          <h2>Task suites</h2>
+          <a href="#">View dataset details →</a>
+        </div>
+        <div class="task-grid">
+          <div class="task-card">
+            <span class="task-badge ts1">TS1</span>
+            <h3>Behavior</h3>
+            <p>Predict trial-level behavioral outcomes from neural population activity.</p>
+            <div class="metric-badge-row">
+              <span>R²</span><span>D²</span><span>Balanced Acc.</span><span>F1</span>
+            </div>
+          </div>
+          <div class="task-card">
+            <span class="task-badge ts2">TS2</span>
+            <h3>Dynamics</h3>
+            <p>Reconstruct firing rate trajectories and spike predictions across brain regions.</p>
+            <div class="metric-badge-row">
+              <span>D²</span><span>Bits/spike</span>
+            </div>
+          </div>
+          <div class="task-card">
+            <span class="task-badge ts3">TS3</span>
+            <h3>Anatomy</h3>
+            <p>Classify recorded neurons to their brain region from activity alone.</p>
+            <div class="metric-badge-row">
+              <span>Macro-F1</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <section class="section">
+        <div class="header">
+          <h2>Leaderboard</h2>
+          <a href="leaderboard.html">Full leaderboard →</a>
+        </div>
+        <div class="lb-preview">
+          <table class="lb-table">
+            <thead>
+            <tr>
+              <th>#</th>
+              <th>Model</th>
+              <th class="num">Overall</th>
+              <th class="num">TS1</th>
+              <th class="num">TS2</th>
+              <th class="num">TS3</th>
+            </tr>
+            </thead>
+            <tbody id="lb-table-preview"></tbody>
+          </table>
+          <div class="lb-footer">
+            <span id="lb-table-count">Loading…</span>
+            <a href="leaderboard.html">See all models →</a>
+          </div>
+        </div>
+
+      </section>
+
+
+    </div>
+
+  </div>
+
+<script src="js/utils.js"></script>
+<script src="js/api.js"></script>
+<script src="js/nav_top.js"></script>
+<script src="js/tables.js"></script>
+<script src="js/landing.js"></script>
+
 </body>
 </html>

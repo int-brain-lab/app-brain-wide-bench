@@ -1,84 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>brain-wide-bench · dashboard</title>
-  <link rel="stylesheet" href="style.css" />
-  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brain-Wide Bench - Leaderboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <nav>
-    <span class="brand">brain-wide-bench</span>
-    <a href="index.html">Leaderboard</a>
-    <a href="submit.html">Submit</a>
-    <a href="dashboard.html">Dashboard</a>
-    <span id="auth-slot"></span>
-  </nav>
-  <main>
-    <h1>My submissions</h1>
-    <div id="gate" hidden>
-      <p class="msg">Please log in to view your submissions.</p>
-      <button id="gate-login">Login</button>
+
+    <div class="main-private">
+      <nav class="nav" id="top-nav"></nav>
+      <aside class="sidebar" id="side-nav"></aside>
+      <div class="content-private">
+
+
+      <section class="section">
+        <div class="header">
+          <h2>Task suites</h2>
+          <a href="#">View dataset details →</a>
+        </div>
+        <div class="task-grid">
+          <div class="task-card">
+            <span class="task-badge ts1">TS1</span>
+            <h3>Behavior</h3>
+            <p>Predict trial-level behavioral outcomes from neural population activity.</p>
+            <div class="metric-badge-row">
+              <span>R²</span><span>D²</span><span>Balanced Acc.</span><span>F1</span>
+            </div>
+          </div>
+          <div class="task-card">
+            <span class="task-badge ts2">TS2</span>
+            <h3>Dynamics</h3>
+            <p>Reconstruct firing rate trajectories and spike predictions across brain regions.</p>
+            <div class="metric-badge-row">
+              <span>D²</span><span>Bits/spike</span>
+            </div>
+          </div>
+          <div class="task-card">
+            <span class="task-badge ts3">TS3</span>
+            <h3>Anatomy</h3>
+            <p>Classify recorded neurons to their brain region from activity alone.</p>
+            <div class="metric-badge-row">
+              <span>Macro-F1</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      </div>
     </div>
-    <p class="msg" id="msg" hidden></p>
-    <table id="tbl" hidden>
-      <thead>
-        <tr>
-          <th>Title</th><th>Task</th><th>Status</th><th>Public</th><th>Submitted</th>
-        </tr>
-      </thead>
-      <tbody id="body"></tbody>
-    </table>
-  </main>
 
-  <script src="app.js"></script>
-  <script>
-    let pollTimer = null;
 
-    async function load() {
-      const subs = await apiFetch("/api/submissions/");
-      const body = document.getElementById("body");
-      body.innerHTML = subs
-        .map(
-          (s) =>
-            `<tr><td>${s.title}</td><td>${s.task}</td>` +
-            `<td><span class="badge ${s.status}">${s.status}</span></td>` +
-            `<td>${s.is_public ? "yes" : "no"}</td>` +
-            `<td>${s.created_at.slice(0, 10)}</td></tr>`
-        )
-        .join("");
-      document.getElementById("tbl").hidden = subs.length === 0;
-      const m = document.getElementById("msg");
-      m.hidden = subs.length !== 0;
-      if (subs.length === 0) m.textContent = "No submissions yet.";
+<script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/api.js"></script>
+<script src="js/nav_top.js"></script>
+<script src="js/nav_side.js"></script>
 
-      // Poll every 5s while anything is still scoring/pending.
-      const active = subs.some((s) => s.status === "scoring" || s.status === "pending");
-      if (active && !pollTimer) pollTimer = setInterval(load, 5000);
-      if (!active && pollTimer) {
-        clearInterval(pollTimer);
-        pollTimer = null;
-      }
-    }
-
-    (async () => {
-      await initAuth();
-      await renderNav();
-      const authed = await isAuthenticated();
-      document.getElementById("gate").hidden = authed;
-      if (!authed) {
-        document.getElementById("gate-login").onclick = login;
-        return;
-      }
-      try {
-        await load();
-      } catch (e) {
-        const m = document.getElementById("msg");
-        m.hidden = false;
-        m.textContent = "Failed to load: " + e.message;
-      }
-    })();
-  </script>
 </body>
 </html>
