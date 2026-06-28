@@ -41,6 +41,13 @@ function sideMarkup() {
     <hr class="nav-divider">
 
     <div class="nav-section" style="padding-top:4px">
+      <div class="nav-label">Your models</div>
+      <div id="nav-models"></div>
+    </div>
+
+    <hr class="nav-divider">
+
+    <div class="nav-section" style="padding-top:4px">
       <div class="nav-label">Public</div>
       ${pub}
     </div>
@@ -62,12 +69,34 @@ function sideMarkup() {
 async function fillSideAvatar() {
   if (typeof setSidebarUser === "function") return;
   try {
-    const user = await getJSON("/api/users/me");
+    const user = await apiFetch("/api/users/me");
     document.getElementById("user-name").textContent = user.name || user.email;
     document.getElementById("user-affiliation").textContent = user.affiliation || "";
     document.getElementById("user-initials").textContent = initials(user.name || user.email);
   } catch (e) {
     /* leave the placeholder dashes */
+  }
+}
+
+// List the logged-in user's models, linking each to its private detail page.
+async function fillSideModels() {
+  const container = document.getElementById("nav-models");
+  if (!container) return;
+  try {
+    const models = await apiFetch("/api/users/me/models");
+    const page = window.location.pathname.split("/").pop();
+    const currentId = new URLSearchParams(location.search).get("id");
+    container.innerHTML = models
+      .map((m) => {
+        const active = page === "my_model_details.html" && m.id === currentId;
+        const href = `my_model_details.html?id=${m.id}`;
+        return active
+          ? `<div class="nav-item active">${m.name}</div>`
+          : `<a class="nav-item" href="${href}">${m.name}</a>`;
+      })
+      .join("");
+  } catch (e) {
+    /* leave the section empty */
   }
 }
 
@@ -82,6 +111,7 @@ async function renderSideNav() {
   if (await isAuthenticated()) {
     document.body.classList.add("is-authed");
     await fillSideAvatar();
+    await fillSideModels();
   }
 }
 

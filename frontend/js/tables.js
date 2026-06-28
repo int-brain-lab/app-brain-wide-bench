@@ -2,31 +2,42 @@
 
 
 /**
- * Converts a flat list of submissions into one row per model,
- * with each task's score as a separate field and an overall mean score.
+ * Converts a list of submissions into one row per model, with each task suite's
+ * score as a separate field and an overall mean score.
  *
- * @param {Submission[]} submissions - List of submission objects, where each
- *   object represents one model completing one task. Each submission should
- *   have title, affiliation, task, and summary fields.
+ * A submission's scores are keyed by sub-task (e.g. "ts1-choice", "ts1-wheel"),
+ * and a single submission may span several suites. The suite each sub-task
+ * belongs to is derived from its id prefix (the part before the first hyphen),
+ * so this first groups the sub-tasks by suite (ts1, ts2, ts3) and then averages
+ * each suite's sub-task scores into a single per-suite score.
+ *
+ * @param {Submission[]} submissions - List of submission objects. Each should
+ *   have model_name, team_name, and a `scores` map of sub-task id -> {mean}.
  * @returns {LeaderboardRow[]} An array of row objects, one per unique model, each
- *   containing title, affiliation, individual task scores (ts1, ts2, ts3),
+ *   containing title, affiliation, individual suite scores (ts1, ts2, ts3),
  *   and an overall mean score.
  */
 function toTableRows(submissions) {
   const rowsByModel = new Map();
 
   for (const submission of submissions) {
-    const modelKey = `${submission.title}|${submission.affiliation}`;
+    const modelKey = `${submission.model_name}`;
 
     if (!rowsByModel.has(modelKey)) {
       rowsByModel.set(modelKey, {
-        title: submission.title,
-        affiliation: submission.affiliation,
+        title: submission.model_name,
+        affiliation: submission.team_name,
       });
     }
 
     const modelRow = rowsByModel.get(modelKey);
-    modelRow[submission.task] = suiteMean(submission.summary);
+
+    // Find the suites this submission covers (ts1, ts2, ts3) from its sub-task
+    // scores, then store each suite's mean on the row.
+    const scoresBySuite = groupScoresBySuite(submission.scores);
+    for (const [suite, suiteScores] of Object.entries(scoresBySuite)) {
+      modelRow[suite] = suiteMean(suiteScores);
+    }
   }
 
   const rows = [...rowsByModel.values()];
@@ -37,6 +48,36 @@ function toTableRows(submissions) {
   assignRanks(rows, 'overall')
 
   return rows;
+}
+
+/**
+ * Groups a submission's sub-task scores by their task suite. Sub-task ids have
+ * the form "<suite>-<subtask>" (e.g. "ts1-choice"), so the suite is the part
+ * before the first hyphen.
+ *
+ * @param {Object.<string, {mean: number}>} scores - Map of sub-task id -> score
+ *   object. May be undefined/empty (e.g. a submission still being scored).
+ * @returns {Object.<string, Object.<string, {mean: number}>>} Map of suite ->
+ *   { sub-task id: score object } containing only the suites present.
+ *
+ * @example
+ * groupScoresBySuite({
+ *   "ts1-choice": { mean: 0.83 },
+ *   "ts1-wheel":  { mean: 0.71 },
+ *   "ts2-choice": { mean: 0.66 },
+ * });
+ * // {
+ * //   ts1: { "ts1-choice": { mean: 0.83 }, "ts1-wheel": { mean: 0.71 } },
+ * //   ts2: { "ts2-choice": { mean: 0.66 } },
+ * // }
+ */
+function groupScoresBySuite(scores) {
+  const bySuite = {};
+  for (const [taskId, scoreObj] of Object.entries(scores || {})) {
+    const suite = taskId.split("-")[0];
+    (bySuite[suite] ??= {})[taskId] = scoreObj;
+  }
+  return bySuite;
 }
 
 /**

@@ -1,0 +1,56 @@
+[
+  {
+    "id": "ts1-choice",
+    "task_suite": "ts1",
+    "task_type": "classification",
+    "primary_metric": "accuracy"
+  },
+  {
+    "id": "ts1-block",
+    "task_suite": "ts1",
+    "task_type": "classification",
+    "primary_metric": "accuracy"
+  },
+  {
+    "id": "ts1-wheel",
+    "task_suite": "ts1",
+    "task_type": "regression",
+    "primary_metric": "r2"
+  },
+  {
+    "id": "ts2-choice",
+    "task_suite": "ts2",
+    "task_type": "classification",
+    "primary_metric": "accuracy"
+  },
+  {
+    "id": "ts2-block",
+    "task_suite": "ts2",
+    "task_type": "classification",
+    "primary_metric": "accuracy"
+  },
+  {
+    "id": "ts2-wheel",
+    "task_suite": "ts2",
+    "task_type": "regression",
+    "primary_metric": "r2"
+  },
+  {
+    "id": "ts3-choice",
+    "task_suite": "ts3",
+    "task_type": "classification",
+    "primary_metric": "accuracy"
+  },
+  {
+    "id": "ts3-block",
+    "task_suite": "ts3",
+    "task_type": "classification",
+    "primary_metric": "accuracy"
+  },
+  {
+    "id": "ts3-wheel",
+    "task_suite": "ts3",
+    "task_type": "regression",
+    "primary_metric": "r2"
+  }
+]

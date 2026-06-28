@@ -66,6 +66,9 @@ MAIN SHELLS ETC
   max-width: 800px;
 }
 
+.content-wide {
+  max-width: 1000px;
+}
 
 
 /* App shell: a single grid pins the top nav across the top, a fixed-width
@@ -396,6 +399,84 @@ CARDS
 }
 
 
+/* Generic cards with header */
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #fff;
+}
+
+.card-header {
+  padding: 11px 16px;
+  /*border-bottom: 1px solid var(--border);*/
+  /*background: var(--bg-secondary);*/
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-header__title {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.card-header__sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.card-body {
+  padding: 16px;
+}
+
+
+/* Rows in card with key: value info */
+
+.info-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-key {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.info-val {
+  font-size: 12px;
+  text-align: right;
+}
+
+.info-val.mono {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+
+/* Two-column card rows */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+
+
+
+
 .section {
   margin: 0 20px 48px;
 }
@@ -702,3 +783,111 @@ TABLES
 .ts1-bar { background: var(--theme); }
 .ts2-bar { background: #378ADD; }
 .ts3-bar { background: #7F77DD; }
+
+
+/* Rows in card with bar */
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+}
+.bar-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  width: 90px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.bar-track {
+  flex: 1;
+  height: 6px;
+  background: #eee;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 6px;
+  border-radius: 10px;
+}
+
+.bar-val {
+  font-size: 12px;
+  font-weight: 500;
+  width: 44px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+
+
+
+
+
+/* Model details
+ */
+
+.model-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.model-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.model-title {
+  font-size: 20px;
+  font-weight: 500;
+}
+.model-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  max-width: 520px;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+.detail-meta {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+
+.rank-block {
+  text-align: right;
+  flex-shrink: 0;
+}
+.rank-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+.rank-num {
+  font-size: 34px;
+  font-weight: 500;
+  color: #BA7517;
+  line-height: 1;
+}
+.rank-sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+.rank-link {
+  font-size: 12px;
+  color: var(--theme);
+  display: block;
+  margin-top: 6px;
+}
