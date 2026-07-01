@@ -38,25 +38,28 @@ _TABLE_MAP = [
 ]
 
 # Mirror of the Alembic migration seed — tests use create_all, not migrations.
+# Plain dicts (not Task instances): SQLAlchemy marks committed ORM objects as
+# detached once their session closes, so reusing the same instances across
+# tests' separate engines silently skips the INSERT on every call after the first.
 _TASK_ROWS = [
-    Task(id="ts1-choice",                task_suite=TaskSuite.ts1, task_type=TaskType.categorical,   primary_metric="bacc"),
-    Task(id="ts1-reward",                task_suite=TaskSuite.ts1, task_type=TaskType.categorical,   primary_metric="bacc"),
-    Task(id="ts1-stimulus_contrast",     task_suite=TaskSuite.ts1, task_type=TaskType.categorical,   primary_metric="bacc"),
-    Task(id="ts1-licking_rate",          task_suite=TaskSuite.ts1, task_type=TaskType.point_process, primary_metric="cohens_r2"),
-    Task(id="ts1-whisker_motion_energy", task_suite=TaskSuite.ts1, task_type=TaskType.continuous,    primary_metric="r2"),
-    Task(id="ts1-wheel_speed",           task_suite=TaskSuite.ts1, task_type=TaskType.continuous,    primary_metric="r2"),
-    Task(id="ts1-right_paw_speed",       task_suite=TaskSuite.ts1, task_type=TaskType.continuous,    primary_metric="r2"),
-    Task(id="ts1-left_paw_speed",        task_suite=TaskSuite.ts1, task_type=TaskType.continuous,    primary_metric="r2"),
-    Task(id="ts2-co_smoothing",          task_suite=TaskSuite.ts2, task_type=TaskType.firing_rate,   primary_metric="d2"),
-    Task(id="ts2-forecasting",           task_suite=TaskSuite.ts2, task_type=TaskType.firing_rate,   primary_metric="d2"),
-    Task(id="ts3-cosmos",                task_suite=TaskSuite.ts3, task_type=TaskType.brain_region,  primary_metric="f1_macro"),
+    dict(id="ts1-choice",                task_suite=TaskSuite.ts1, task_type=TaskType.categorical,   primary_metric="bacc"),
+    dict(id="ts1-reward",                task_suite=TaskSuite.ts1, task_type=TaskType.categorical,   primary_metric="bacc"),
+    dict(id="ts1-stimulus_contrast",     task_suite=TaskSuite.ts1, task_type=TaskType.categorical,   primary_metric="bacc"),
+    dict(id="ts1-licking_rate",          task_suite=TaskSuite.ts1, task_type=TaskType.point_process, primary_metric="cohens_r2"),
+    dict(id="ts1-whisker_motion_energy", task_suite=TaskSuite.ts1, task_type=TaskType.continuous,    primary_metric="r2"),
+    dict(id="ts1-wheel_speed",           task_suite=TaskSuite.ts1, task_type=TaskType.continuous,    primary_metric="r2"),
+    dict(id="ts1-right_paw_speed",       task_suite=TaskSuite.ts1, task_type=TaskType.continuous,    primary_metric="r2"),
+    dict(id="ts1-left_paw_speed",        task_suite=TaskSuite.ts1, task_type=TaskType.continuous,    primary_metric="r2"),
+    dict(id="ts2-co_smoothing",          task_suite=TaskSuite.ts2, task_type=TaskType.firing_rate,   primary_metric="d2"),
+    dict(id="ts2-forecasting",           task_suite=TaskSuite.ts2, task_type=TaskType.firing_rate,   primary_metric="d2"),
+    dict(id="ts3-cosmos",                task_suite=TaskSuite.ts3, task_type=TaskType.brain_region,  primary_metric="f1_macro"),
 ]
 
 
 async def seed_tasks(session: AsyncSession) -> None:
     """Populate the static task lookup table (replaces the Alembic seed in tests)."""
-    for task in _TASK_ROWS:
-        session.add(task)
+    for row in _TASK_ROWS:
+        session.add(Task(**row))
     await session.commit()
 
 

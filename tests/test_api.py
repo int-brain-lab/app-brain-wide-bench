@@ -4,7 +4,7 @@ import uuid
 
 from sqlalchemy import select
 
-from app.models import Submission, SubmissionStatus, TaskScore, TaskSubmission
+from app.models import Submission, SubmissionStatus, SubmissionUser, SubmissionUserRole, TaskScore, TaskSubmission
 
 # IDs from tests/fixtures/ts1_baseline.json
 TEAM_ID   = "3a7c5f8e-1b9d-4e2a-8f6c-0d3b7a5e9c1f"
@@ -57,8 +57,9 @@ async def test_presign_persists_and_lists(client, session_factory):
     await client.post("/api/submissions/presign", json=PRESIGN_BODY)
     r = await client.get("/api/submissions/")
     assert r.status_code == 200
-    # fixture has 1 submission; presign adds 1 more
-    assert len(r.json()) == 2
+    # listing is scoped to the current user; the fixture submission belongs to a
+    # different user, so only the one just created via presign shows up.
+    assert len(r.json()) == 1
 
 
 async def test_presign_unknown_task_rejected(client, session_factory):
@@ -90,6 +91,19 @@ async def test_get_submission_detail(client, session_factory):
     from pathlib import Path
     async with session_factory() as s:
         await load_fixture(s, Path(__file__).parent / "fixtures" / "ts1_baseline.json")
+
+    # Detail is owner/collaborator only; add the dev user as a collaborator on
+    # the fixture submission so this test can read it.
+    me = await client.get("/api/users/me")
+    async with session_factory() as s:
+        s.add(
+            SubmissionUser(
+                submission_id=uuid.UUID(SUB_ID),
+                user_id=uuid.UUID(me.json()["id"]),
+                role=SubmissionUserRole.collaborator,
+            )
+        )
+        await s.commit()
 
     r = await client.get(f"/api/submissions/{SUB_ID}")
     assert r.status_code == 200

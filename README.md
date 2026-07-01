@@ -33,7 +33,7 @@ Dockerfile, docker-compose.yml, .github/workflows/   deployment
 ## Run locally
 
 ```bash
-uv sync
+uv sync1
 uv run pytest                       # scoring tests (uses local GT if present)
 
 # API in dev mode (no Auth0, no Postgres needed for read endpoints)
