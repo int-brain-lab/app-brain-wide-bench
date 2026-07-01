@@ -9,8 +9,15 @@ from sqlalchemy.orm import selectinload
 
 from app.auth import get_current_user
 from app.database import get_session
-from app.models import Role, Submission, SubmissionStatus, SubmissionUser, Task, User
-from app.scoring import get_scorer
+from app.models import (
+    Submission,
+    SubmissionStatus,
+    SubmissionUser,
+    SubmissionUserRole,
+    Task,
+    TaskSubmission,
+    User,
+)
 from app.schemas.submissions import (
     PresignResponse,
     SubmissionCreate,
@@ -29,35 +36,35 @@ async def presign(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> PresignResponse:
-    """Create a pending submission and return a presigned S3 PUT URL.
+    """Create a pending submission, its TaskSubmission rows, and return a presigned S3 PUT URL.
 
-    Rejects unsupported tasks with HTTP 400.
+    Rejects unknown task IDs with HTTP 400.
     """
-    try:
-        get_scorer(body.task)  # validate task is supported
-    except KeyError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unsupported task: {body.task}") from exc
-
-    # Generate the id in Python so the S3 key can be built without a flush
-    # (flushing here would make `links.append` trigger an async lazy-load).
-    submission = Submission(
-        id=uuid.uuid4(),
-        title=body.title,
-        description=body.description,
-        affiliation=body.affiliation,
-        email=body.email,
-        doi=body.doi,
-        is_public=body.is_public,
-        task=Task(body.task),
-        s3_key="",
+    known_ids = set(
+        (await session.execute(select(Task.id))).scalars().all()
     )
-    submission.s3_key = f"submissions/{submission.id}/{body.task}.zip"
-    submission.links.append(SubmissionUser(user=user, role=Role.owner))
+    bad = set(body.task_ids) - known_ids
+    if bad:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unknown task IDs: {sorted(bad)}")
+
+    # Pre-assign id so the S3 key is stable before the first flush.
+    sub_id = uuid.uuid4()
+    submission = Submission(
+        id=sub_id,
+        team_id=body.team_id,
+        model_id=body.model_id,
+        label=body.label,
+        is_public=body.is_public,
+        s3_key=f"submissions/{sub_id}/{body.label}.zip",
+    )
     session.add(submission)
+    session.add(SubmissionUser(submission_id=sub_id, user_id=user.id, role=SubmissionUserRole.owner))
+    for task_id in body.task_ids:
+        session.add(TaskSubmission(submission_id=sub_id, task_id=task_id))
     await session.commit()
 
     return PresignResponse(
-        submission_id=submission.id,
+        submission_id=sub_id,
         upload_url=presign_put(submission.s3_key),
         s3_key=submission.s3_key,
     )
@@ -99,23 +106,29 @@ async def get_submission(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Submission:
-    """Return a submission's detail; owner or collaborator only."""
-    return await _get_owned(session, submission_id, user)
+    """Return a submission's detail with per-task scores; owner or collaborator only."""
+    return await _get_owned(session, submission_id, user, load_scores=True)
 
 
 async def _get_owned(
-    session: AsyncSession, submission_id: uuid.UUID, user: User
+    session: AsyncSession,
+    submission_id: uuid.UUID,
+    user: User,
+    load_scores: bool = False,
 ) -> Submission:
     """Fetch a submission, enforcing that ``user`` is owner or collaborator."""
+    opts = [selectinload(Submission.user_links)]
+    if load_scores:
+        opts.append(
+            selectinload(Submission.task_submissions).selectinload(TaskSubmission.score)
+        )
     submission = (
         await session.execute(
-            select(Submission)
-            .options(selectinload(Submission.links))
-            .where(Submission.id == submission_id)
+            select(Submission).options(*opts).where(Submission.id == submission_id)
         )
     ).scalar_one_or_none()
     if submission is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Submission not found")
-    if not any(link.user_id == user.id for link in submission.links):
+    if not any(link.user_id == user.id for link in submission.user_links):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Not authorised for this submission")
     return submission

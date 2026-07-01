@@ -1,0 +1,78 @@
+{
+  "teams": [
+    {"id": "3a7c5f8e-1b9d-4e2a-8f6c-0d3b7a5e9c1f", "name": "Brain Wide Bench"}
+  ],
+
+  "users": [
+    {
+      "id": "8e2f4a6c-0b1d-4c9e-a7b5-3f1d8e2c6a0b",
+      "auth0_sub": "google-oauth2|000000000000000000000",
+      "email": "benchmark@internationalbrainlab.org",
+      "name": "Brain Wide Bench",
+      "affiliation": "International Brain Laboratory",
+      "provider": "google-oauth2"
+    }
+  ],
+
+  "models": [
+    {
+      "id": "1c9e7b3a-5f2d-4a8c-b6e0-9d1f3c7a5b2e",
+      "team_id": "3a7c5f8e-1b9d-4e2a-8f6c-0d3b7a5e9c1f",
+      "name": "mlp-baseline",
+      "link_project": null,
+      "link_weights": null,
+      "link_code": "https://github.com/int-brain-lab/ibl-benchmark",
+      "publication_doi": null,
+      "n_parameters": 50000,
+      "temporal_context_s": 2.0,
+      "is_pretrained": false,
+      "pretrained_in_modalities": "spikes",
+      "pretrained_out_modalities": null,
+      "pretraining_data": null
+    }
+  ],
+
+  "submissions": [
+    {
+      "id": "6f0d4e2a-8c1b-4b7d-a9e3-5c2f0d8a6b4e",
+      "team_id": "3a7c5f8e-1b9d-4e2a-8f6c-0d3b7a5e9c1f",
+      "model_id": "1c9e7b3a-5f2d-4a8c-b6e0-9d1f3c7a5b2e",
+      "label": "mlp-ts1-baseline",
+      "s3_key": "submissions/6f0d4e2a-8c1b-4b7d-a9e3-5c2f0d8a6b4e/mlp-ts1-baseline.zip",
+      "status": "done",
+      "is_public": true,
+      "narrative_public": "Single-session MLP trained independently per task (TSS paradigm). Linear readout on binned spike counts over a 2-second window. No pretraining, no cross-session transfer.",
+      "narrative_private": null
+    }
+  ],
+
+  "submission_users": [
+    {
+      "submission_id": "6f0d4e2a-8c1b-4b7d-a9e3-5c2f0d8a6b4e",
+      "user_id": "8e2f4a6c-0b1d-4c9e-a7b5-3f1d8e2c6a0b",
+      "role": "owner"
+    }
+  ],
+
+  "task_submissions": [
+    {"id": "a1f3c7e9-2b4d-4a6c-8e0f-1d3b5f7a9c2e", "submission_id": "6f0d4e2a-8c1b-4b7d-a9e3-5c2f0d8a6b4e", "task_id": "ts1-choice",                "training_paradigm": "TSS", "calibration": "inductive"},
+    {"id": "b2e4d8f0-3c5a-4b7d-9f1e-2c4a6e8b0d3f", "submission_id": "6f0d4e2a-8c1b-4b7d-a9e3-5c2f0d8a6b4e", "task_id": "ts1-reward",                "training_paradigm": "TSS", "calibration": "inductive"},
+    {"id": "c3f5e9a1-4d6b-4c8e-0a2f-3d5b7f9c1e4a", "submission_id": "6f0d4e2a-8c1b-4b7d-a9e3-5c2f0d8a6b4e", "task_id": "ts1-stimulus_contrast",     "training_paradigm": "TSS", "calibration": "inductive"},
+    {"id": "d4a6f0b2-5e7c-4d9f-1b3a-4e6c8a0d2f5b", "submission_id": "6f0d4e2a-8c1b-4b7d-a9e3-5c2f0d8a6b4e", "task_id": "ts1-licking_rate",          "training_paradigm": "TSS", "calibration": "inductive"},
+    {"id": "e5b7a1c3-6f8d-4e0a-2c4b-5f7d9b1e3a6c", "submission_id": "6f0d4e2a-8c1b-4b7d-a9e3-5c2f0d8a6b4e", "task_id": "ts1-whisker_motion_energy", "training_paradigm": "TSS", "calibration": "inductive"},
+    {"id": "f6c8b2d4-7a9e-4f1b-3d5c-6a8e0c2f4b7d", "submission_id": "6f0d4e2a-8c1b-4b7d-a9e3-5c2f0d8a6b4e", "task_id": "ts1-wheel_speed",           "training_paradigm": "TSS", "calibration": "inductive"},
+    {"id": "a7d9c3e5-8b0f-4a2c-4e6d-7b9f1d3c5e8a", "submission_id": "6f0d4e2a-8c1b-4b7d-a9e3-5c2f0d8a6b4e", "task_id": "ts1-right_paw_speed",       "training_paradigm": "TSS", "calibration": "inductive"},
+    {"id": "b8e0d4f6-9c1a-4b3d-5f7e-8c0a2e4d6f9b", "submission_id": "6f0d4e2a-8c1b-4b7d-a9e3-5c2f0d8a6b4e", "task_id": "ts1-left_paw_speed",        "training_paradigm": "TSS", "calibration": "inductive"}
+  ],
+
+  "task_scores": [
+    {"task_submission_id": "a1f3c7e9-2b4d-4a6c-8e0f-1d3b5f7a9c2e", "n_seeds": 5, "primary_metric_mean": 0.72, "primary_metric_sem": 0.03},
+    {"task_submission_id": "b2e4d8f0-3c5a-4b7d-9f1e-2c4a6e8b0d3f", "n_seeds": 5, "primary_metric_mean": 0.85, "primary_metric_sem": 0.02},
+    {"task_submission_id": "c3f5e9a1-4d6b-4c8e-0a2f-3d5b7f9c1e4a", "n_seeds": 5, "primary_metric_mean": 0.65, "primary_metric_sem": 0.04},
+    {"task_submission_id": "d4a6f0b2-5e7c-4d9f-1b3a-4e6c8a0d2f5b", "n_seeds": 5, "primary_metric_mean": 0.31, "primary_metric_sem": 0.05},
+    {"task_submission_id": "e5b7a1c3-6f8d-4e0a-2c4b-5f7d9b1e3a6c", "n_seeds": 5, "primary_metric_mean": 0.54, "primary_metric_sem": 0.06},
+    {"task_submission_id": "f6c8b2d4-7a9e-4f1b-3d5c-6a8e0c2f4b7d", "n_seeds": 5, "primary_metric_mean": 0.48, "primary_metric_sem": 0.05},
+    {"task_submission_id": "a7d9c3e5-8b0f-4a2c-4e6d-7b9f1d3c5e8a", "n_seeds": 5, "primary_metric_mean": 0.41, "primary_metric_sem": 0.07},
+    {"task_submission_id": "b8e0d4f6-9c1a-4b3d-5f7e-8c0a2e4d6f9b", "n_seeds": 5, "primary_metric_mean": 0.39, "primary_metric_sem": 0.06}
+  ]
+}

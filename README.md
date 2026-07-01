@@ -1,7 +1,7 @@
 # brain-wide-bench
 
-Prototype neural-model benchmarking platform. Users upload a zip of `safetensors`
-predictions; a Celery worker scores them against a private ground-truth oracle and
+Neural-model benchmarking platform. Users upload a zip of `safetensors`
+predictions; a Celery worker scores them against a ground-truth oracle and
 publishes results to a public leaderboard.
 
 This directory is the git repository root. The `ibl-benchmark/` package (which
@@ -15,11 +15,11 @@ app/                       FastAPI backend (importable as the `app` package)
   main.py                  app factory: CORS + routers + /health
   config.py                pydantic-settings from env
   auth.py                  Auth0 JWT validation (+ dev stub) → get_current_user
-  database.py              async SQLAlchemy engine/session
-  models.py                User / Submission / SubmissionUser
+  database.py              async SQLAlchemy engine/session (SQLModel + psycopg3)
+  models.py                SQLModel ORM models: User / Submission / SubmissionUser
   storage.py               S3 presign + GT/submission download (local-dir fallback)
   routers/                 submissions, leaderboard, users
-  schemas/                 Pydantic request/response models
+  schemas/                 Pydantic request/response models (non-table shapes)
   scoring/                 pure scorers (BaseScorer ABC, TS1Scorer, get_scorer)
   worker.py                Celery app (Redis broker)
   tasks/score.py           Celery glue: S3 → scorer → DB
@@ -48,14 +48,64 @@ dev mode against the stub backend.
 ### Ground truth
 
 The scorer reads ground truth from `S3_GT_PREFIX`. If that points at an existing
-local directory it is used directly (no S3 needed). Local dev copy:
-`~/Documents/datadisk/brain-wide-bench/ts1`.
+local directory it is used directly (no S3 needed).
 
 ## Full stack
 
 `docker compose up --build` starts Postgres, Redis, the web service (port 80) and a
 Celery worker. Migrations run with `alembic upgrade head`. Deploy to EC2 happens via
 `.github/workflows/deploy.yml` on push to `main`.
+
+The production instance runs at `http://brainwidebench.iblcore.org` (EC2 t3.small,
+us-east-1). Full deployment instructions, resource IDs, and operational notes are in
+[`iblsre/brain-wide-bench/aws_deploy.md`](https://github.com/int-brain-lab/iblsre/blob/main/brain-wide-bench/aws_deploy.md).
+
+## Submission format
+
+### 1. Zip layout
+
+The upload is a zip that extracts to:
+
+```
+<label>/
+  <task>/
+    <recording_id>/
+      seed_42.safetensors
+      seed_43.safetensors
+      …
+```
+
+`label` is a free-form model name (e.g. `mlp-baseline`). `task` is a flat task id
+(e.g. `ts1-licking_rate`). `recording_id` is the session UUID. Multiple seeds are
+expected — the scorer averages over them and reports the standard error of the mean.
+
+The scorer reads `label`, `task`, `recording_id`, and `seed` from the **safetensors
+metadata**, so the directory layout is just for human readability and does not need to
+be perfectly consistent with the file contents.
+
+### 2. Prediction files (`.safetensors`)
+
+Each file carries string metadata and prediction tensors. The tensor layout depends on
+the task type:
+
+**Timestep-level tasks** (e.g. `ts1-licking_rate`, `ts1-whisker_motion_energy`):
+
+| Tensor | Shape | dtype |
+|--------|-------|-------|
+| `predictions` | `(N_trials, T, D)` | float32 |
+| `trial_id` | `(N_trials,)` | int64 |
+| `timestamps` | `(N_trials, T)` | float32 |
+
+**Trial-level classification tasks** (e.g. `ts1-reward`):
+
+| Tensor | Shape | dtype |
+|--------|-------|-------|
+| `predictions` | `(N_trials, 1, n_classes)` — raw logits | float32 |
+| `trial_id` | `(N_trials,)` | int64 |
+
+Predictions are aligned to ground truth by `trial_id` intersection, so partial
+submissions (missing trials or recordings) are handled gracefully — only matched trials
+are scored.
 
 ## Adding a task
 
