@@ -19,8 +19,10 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 # Helper: reference a pre-created PG enum type without re-creating it.
-def _enum(name: str) -> sa.Enum:
-    return sa.Enum(name=name, create_type=False)
+# Must be the postgres-dialect ENUM (not the generic sa.Enum): only that class's
+# _on_table_create actually honours create_type=False and skips CREATE TYPE.
+def _enum(name: str) -> postgresql.ENUM:
+    return postgresql.ENUM(name=name, create_type=False)
 
 
 def upgrade() -> None:
@@ -156,8 +158,8 @@ def upgrade() -> None:
     tasks_tbl = sa.table(
         "tasks",
         sa.column("id", sa.String()),
-        sa.column("task_suite", sa.String()),
-        sa.column("task_type", sa.String()),
+        sa.column("task_suite", _enum("tasksuite")),
+        sa.column("task_type", _enum("tasktype")),
         sa.column("primary_metric", sa.String()),
     )
     op.bulk_insert(tasks_tbl, [
