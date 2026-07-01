@@ -1,0 +1,282 @@
+{
+  "id": "b6fc1e02-d986-4d9c-accd-b9ede9c17035",
+  "team_id": "9f1e4c41-01c1-4ec8-a2d0-73766947442d",
+  "name": "Baseline CNN",
+  "link_project": null,
+  "link_weights": null,
+  "link_code": "https://github.com/aelab/baseline-cnn",
+  "publication_doi": null,
+  "n_parameters": 4200000,
+  "temporal_context_s": 0.5,
+  "is_pretrained": false,
+  "pretrained_in_modalities": null,
+  "pretrained_out_modalities": null,
+  "pretraining_data": null,
+  "created_at": "2026-05-10T10:00:00Z",
+  "team_name": "Analytical Engine Lab",
+  "submissions": [
+    {
+      "id": "35d5f074-39f3-4f5a-96f0-c1452feddffc",
+      "label": "baseline-cnn-v1",
+      "status": "done",
+      "is_public": true,
+      "created_at": "2026-06-01T12:00:00Z",
+      "updated_at": "2026-06-01T12:30:00Z",
+      "task_submissions": [
+        {
+          "id": "64045bb6-7040-4dea-9cee-a350070f2fd8",
+          "task_id": "ts1-choice",
+          "extra_input_modality": null,
+          "training_paradigm": "from_scratch",
+          "supervision_regime": "supervised",
+          "calibration": "none",
+          "finetuning_strategy": null,
+          "score": {
+            "id": "2edba26b-1186-4352-8349-3b4d945e5a91",
+            "n_seeds": 10,
+            "primary_metric_mean": 0.812,
+            "primary_metric_sem": 0.0162,
+            "metrics": {
+              "accuracy": {
+                "mean": 0.812,
+                "sem": 0.0162,
+                "n": 10
+              },
+              "loss": {
+                "mean": 0.188,
+                "sem": 0.01,
+                "n": 10
+              }
+            }
+          }
+        },
+        {
+          "id": "0b480e7f-d9b4-49f0-b7d9-9576ee56fe2d",
+          "task_id": "ts1-block",
+          "extra_input_modality": null,
+          "training_paradigm": "from_scratch",
+          "supervision_regime": "supervised",
+          "calibration": "none",
+          "finetuning_strategy": null,
+          "score": {
+            "id": "0c537581-06d2-4aeb-b3db-1496e757f49b",
+            "n_seeds": 10,
+            "primary_metric_mean": 0.744,
+            "primary_metric_sem": 0.0149,
+            "metrics": {
+              "accuracy": {
+                "mean": 0.744,
+                "sem": 0.0149,
+                "n": 10
+              },
+              "loss": {
+                "mean": 0.256,
+                "sem": 0.01,
+                "n": 10
+              }
+            }
+          }
+        },
+        {
+          "id": "02b2ae9a-e364-4300-a9ce-af5a3c431efa",
+          "task_id": "ts1-wheel",
+          "extra_input_modality": null,
+          "training_paradigm": "from_scratch",
+          "supervision_regime": "supervised",
+          "calibration": "none",
+          "finetuning_strategy": null,
+          "score": {
+            "id": "4d152cc6-d526-4137-83d9-639b3b159c33",
+            "n_seeds": 10,
+            "primary_metric_mean": 0.69,
+            "primary_metric_sem": 0.0138,
+            "metrics": {
+              "r2": {
+                "mean": 0.69,
+                "sem": 0.0138,
+                "n": 10
+              },
+              "loss": {
+                "mean": 0.31,
+                "sem": 0.01,
+                "n": 10
+              }
+            }
+          }
+        },
+        {
+          "id": "1e98c605-416a-46ca-8fe4-f52685b65418",
+          "task_id": "ts2-choice",
+          "extra_input_modality": null,
+          "training_paradigm": "from_scratch",
+          "supervision_regime": "supervised",
+          "calibration": "none",
+          "finetuning_strategy": null,
+          "score": {
+            "id": "10e880d1-c78d-4206-bc33-13c3a08d0b0c",
+            "n_seeds": 10,
+            "primary_metric_mean": 0.795,
+            "primary_metric_sem": 0.0159,
+            "metrics": {
+              "accuracy": {
+                "mean": 0.795,
+                "sem": 0.0159,
+                "n": 10
+              },
+              "loss": {
+                "mean": 0.205,
+                "sem": 0.01,
+                "n": 10
+              }
+            }
+          }
+        },
+        {
+          "id": "a30bbcc1-3f16-4941-9b1a-4d744646fd39",
+          "task_id": "ts2-block",
+          "extra_input_modality": null,
+          "training_paradigm": "from_scratch",
+          "supervision_regime": "supervised",
+          "calibration": "none",
+          "finetuning_strategy": null,
+          "score": {
+            "id": "dd2b0ee1-4000-4152-98bc-36b6fa724139",
+            "n_seeds": 10,
+            "primary_metric_mean": 0.731,
+            "primary_metric_sem": 0.0146,
+            "metrics": {
+              "accuracy": {
+                "mean": 0.731,
+                "sem": 0.0146,
+                "n": 10
+              },
+              "loss": {
+                "mean": 0.269,
+                "sem": 0.01,
+                "n": 10
+              }
+            }
+          }
+        },
+        {
+          "id": "a689c218-c0de-4d2b-b4bc-fb62743fe61f",
+          "task_id": "ts2-wheel",
+          "extra_input_modality": null,
+          "training_paradigm": "from_scratch",
+          "supervision_regime": "supervised",
+          "calibration": "none",
+          "finetuning_strategy": null,
+          "score": {
+            "id": "f7851417-7a12-4ce5-a38e-298833c20b8e",
+            "n_seeds": 10,
+            "primary_metric_mean": 0.672,
+            "primary_metric_sem": 0.0134,
+            "metrics": {
+              "r2": {
+                "mean": 0.672,
+                "sem": 0.0134,
+                "n": 10
+              },
+              "loss": {
+                "mean": 0.328,
+                "sem": 0.01,
+                "n": 10
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "5d96ff65-de1f-482c-b5e1-3282f41fe054",
+      "label": "baseline-cnn-ts3",
+      "status": "done",
+      "is_public": false,
+      "created_at": "2026-06-01T12:00:00Z",
+      "updated_at": "2026-06-01T12:30:00Z",
+      "task_submissions": [
+        {
+          "id": "d2bbbf93-2458-4d71-b31c-c5dc49b45238",
+          "task_id": "ts3-choice",
+          "extra_input_modality": null,
+          "training_paradigm": "from_scratch",
+          "supervision_regime": "supervised",
+          "calibration": "none",
+          "finetuning_strategy": null,
+          "score": {
+            "id": "9665524a-c216-4691-8f0b-7342109125cd",
+            "n_seeds": 10,
+            "primary_metric_mean": 0.778,
+            "primary_metric_sem": 0.0156,
+            "metrics": {
+              "accuracy": {
+                "mean": 0.778,
+                "sem": 0.0156,
+                "n": 10
+              },
+              "loss": {
+                "mean": 0.222,
+                "sem": 0.01,
+                "n": 10
+              }
+            }
+          }
+        },
+        {
+          "id": "cb5cd829-76d5-4e61-9d98-0dfba687a692",
+          "task_id": "ts3-block",
+          "extra_input_modality": null,
+          "training_paradigm": "from_scratch",
+          "supervision_regime": "supervised",
+          "calibration": "none",
+          "finetuning_strategy": null,
+          "score": {
+            "id": "1708af1d-a3d9-456d-8b2a-f87d07e57003",
+            "n_seeds": 10,
+            "primary_metric_mean": 0.713,
+            "primary_metric_sem": 0.0143,
+            "metrics": {
+              "accuracy": {
+                "mean": 0.713,
+                "sem": 0.0143,
+                "n": 10
+              },
+              "loss": {
+                "mean": 0.287,
+                "sem": 0.01,
+                "n": 10
+              }
+            }
+          }
+        },
+        {
+          "id": "ce338461-3f02-409e-9b95-890412d28832",
+          "task_id": "ts3-wheel",
+          "extra_input_modality": null,
+          "training_paradigm": "from_scratch",
+          "supervision_regime": "supervised",
+          "calibration": "none",
+          "finetuning_strategy": null,
+          "score": {
+            "id": "debad798-045f-49c7-afb9-f1fa7c642ea7",
+            "n_seeds": 10,
+            "primary_metric_mean": 0.659,
+            "primary_metric_sem": 0.0132,
+            "metrics": {
+              "r2": {
+                "mean": 0.659,
+                "sem": 0.0132,
+                "n": 10
+              },
+              "loss": {
+                "mean": 0.341,
+                "sem": 0.01,
+                "n": 10
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

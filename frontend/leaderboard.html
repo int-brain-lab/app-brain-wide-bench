@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brain-Wide Bench - Leaderboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <div class="main">
+      <nav class="nav" id="top-nav"></nav>
+      <div class="content">
+
+        <div class="page-header">
+          <div>
+            <h1>Leaderboard</h1>
+            <p>Public, completed submissions scored against held-out test data.</p>
+          </div>
+       </div>
+
+        <div class="tab-row">
+          <div class="tab active" data-metric="overall">Overall</div>
+          <div class="tab" data-metric="ts1">TS1 · Behavior</div>
+          <div class="tab" data-metric="ts2">TS2 · Dynamics</div>
+          <div class="tab" data-metric="ts3">TS3 · Anatomy</div>
+        </div>
+
+        <div id="leaderboard"></div>
+
+      </div>
+    </div>
+
+
+<script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/api.js"></script>
+<script src="js/nav_top.js"></script>
+<script src="js/tables.js"></script>
+<script src="js/leaderboard.js"></script>
+
+</body>
+</html>

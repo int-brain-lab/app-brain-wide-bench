@@ -1,0 +1,34 @@
+[
+  {
+    "id": "9f1e4c41-01c1-4ec8-a2d0-73766947442d",
+    "name": "Analytical Engine Lab",
+    "members": [
+      {
+        "id": "c7130f21-73ff-4f2d-a827-2001b16aa129",
+        "name": "Ada Lovelace",
+        "email": "ada@example.org"
+      },
+      {
+        "id": "0e95daf7-2e2f-4850-a196-6b03e20151a2",
+        "name": "Rosalind Franklin",
+        "email": "rosalind@example.org"
+      }
+    ]
+  },
+  {
+    "id": "9b441b4c-256a-4bfd-a002-dd340159e100",
+    "name": "Bletchley Neuroscience",
+    "members": [
+      {
+        "id": "708a7a3f-0a1a-48d5-bb72-828284cf087b",
+        "name": "Alan Turing",
+        "email": "alan@example.org"
+      },
+      {
+        "id": "0e95daf7-2e2f-4850-a196-6b03e20151a2",
+        "name": "Rosalind Franklin",
+        "email": "rosalind@example.org"
+      }
+    ]
+  }
+]

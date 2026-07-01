@@ -1,0 +1,260 @@
+{
+  "id": "9441fa21-d348-4881-9c4f-718bede038ad",
+  "team_id": "9b441b4c-256a-4bfd-a002-dd340159e100",
+  "team_name": "Bletchley Neuroscience",
+  "model_id": "353aaf0b-1b86-4c25-8f24-92b7199229e4",
+  "model_name": "Ensemble v2",
+  "label": "ensemble-v2-all-suites",
+  "s3_key": "submissions/9441fa21-d348-4881-9c4f-718bede038ad/ts1.zip",
+  "status": "done",
+  "narrative_public": "Ensemble of three pretrained backbones, evaluated on all task suites.",
+  "narrative_private": "",
+  "is_public": true,
+  "created_at": "2026-06-01T12:00:00Z",
+  "updated_at": "2026-06-01T12:30:00Z",
+  "task_submissions": [
+    {
+      "id": "fb8bb5a8-25dc-4a45-9263-3fb3c269a024",
+      "task_id": "ts1-choice",
+      "extra_input_modality": null,
+      "training_paradigm": "from_scratch",
+      "supervision_regime": "supervised",
+      "calibration": "none",
+      "finetuning_strategy": null,
+      "score": {
+        "id": "161c2ca6-d21f-491a-a7ae-c01327782af9",
+        "n_seeds": 10,
+        "primary_metric_mean": 0.901,
+        "primary_metric_sem": 0.018,
+        "metrics": {
+          "accuracy": {
+            "mean": 0.901,
+            "sem": 0.018,
+            "n": 10
+          },
+          "loss": {
+            "mean": 0.099,
+            "sem": 0.01,
+            "n": 10
+          }
+        }
+      }
+    },
+    {
+      "id": "276a6b95-c089-491b-a286-c7143a3aa051",
+      "task_id": "ts1-block",
+      "extra_input_modality": null,
+      "training_paradigm": "from_scratch",
+      "supervision_regime": "supervised",
+      "calibration": "none",
+      "finetuning_strategy": null,
+      "score": {
+        "id": "9d95808d-3158-45af-bdb6-f126bb5726ea",
+        "n_seeds": 10,
+        "primary_metric_mean": 0.823,
+        "primary_metric_sem": 0.0165,
+        "metrics": {
+          "accuracy": {
+            "mean": 0.823,
+            "sem": 0.0165,
+            "n": 10
+          },
+          "loss": {
+            "mean": 0.177,
+            "sem": 0.01,
+            "n": 10
+          }
+        }
+      }
+    },
+    {
+      "id": "3a2f8010-d9c3-4abb-854a-39c89e15431a",
+      "task_id": "ts1-wheel",
+      "extra_input_modality": null,
+      "training_paradigm": "from_scratch",
+      "supervision_regime": "supervised",
+      "calibration": "none",
+      "finetuning_strategy": null,
+      "score": {
+        "id": "6e8c0758-fee9-4e5e-87cf-1289e18298e2",
+        "n_seeds": 10,
+        "primary_metric_mean": 0.768,
+        "primary_metric_sem": 0.0154,
+        "metrics": {
+          "r2": {
+            "mean": 0.768,
+            "sem": 0.0154,
+            "n": 10
+          },
+          "loss": {
+            "mean": 0.232,
+            "sem": 0.01,
+            "n": 10
+          }
+        }
+      }
+    },
+    {
+      "id": "760d5f48-d543-42dd-9ad9-43b7c1080c35",
+      "task_id": "ts2-choice",
+      "extra_input_modality": null,
+      "training_paradigm": "from_scratch",
+      "supervision_regime": "supervised",
+      "calibration": "none",
+      "finetuning_strategy": null,
+      "score": {
+        "id": "dc97722d-984a-4dac-9f33-3fd66c9a2254",
+        "n_seeds": 10,
+        "primary_metric_mean": 0.884,
+        "primary_metric_sem": 0.0177,
+        "metrics": {
+          "accuracy": {
+            "mean": 0.884,
+            "sem": 0.0177,
+            "n": 10
+          },
+          "loss": {
+            "mean": 0.116,
+            "sem": 0.01,
+            "n": 10
+          }
+        }
+      }
+    },
+    {
+      "id": "1706453a-bb73-48e5-8b17-f22174df7c57",
+      "task_id": "ts2-block",
+      "extra_input_modality": null,
+      "training_paradigm": "from_scratch",
+      "supervision_regime": "supervised",
+      "calibration": "none",
+      "finetuning_strategy": null,
+      "score": {
+        "id": "f3f149ad-fa64-4b8e-b6b8-f0907812097f",
+        "n_seeds": 10,
+        "primary_metric_mean": 0.802,
+        "primary_metric_sem": 0.016,
+        "metrics": {
+          "accuracy": {
+            "mean": 0.802,
+            "sem": 0.016,
+            "n": 10
+          },
+          "loss": {
+            "mean": 0.198,
+            "sem": 0.01,
+            "n": 10
+          }
+        }
+      }
+    },
+    {
+      "id": "93e48b04-4472-4028-b0df-5580e41864f4",
+      "task_id": "ts2-wheel",
+      "extra_input_modality": null,
+      "training_paradigm": "from_scratch",
+      "supervision_regime": "supervised",
+      "calibration": "none",
+      "finetuning_strategy": null,
+      "score": {
+        "id": "4a60f47d-2585-4612-9460-dfac06718007",
+        "n_seeds": 10,
+        "primary_metric_mean": 0.749,
+        "primary_metric_sem": 0.015,
+        "metrics": {
+          "r2": {
+            "mean": 0.749,
+            "sem": 0.015,
+            "n": 10
+          },
+          "loss": {
+            "mean": 0.251,
+            "sem": 0.01,
+            "n": 10
+          }
+        }
+      }
+    },
+    {
+      "id": "6129cd64-1a8e-4deb-8aa1-c7b30474fc68",
+      "task_id": "ts3-choice",
+      "extra_input_modality": null,
+      "training_paradigm": "from_scratch",
+      "supervision_regime": "supervised",
+      "calibration": "none",
+      "finetuning_strategy": null,
+      "score": {
+        "id": "eb02d16e-17f9-4cc9-8016-6643fcb7fb5d",
+        "n_seeds": 10,
+        "primary_metric_mean": 0.867,
+        "primary_metric_sem": 0.0173,
+        "metrics": {
+          "accuracy": {
+            "mean": 0.867,
+            "sem": 0.0173,
+            "n": 10
+          },
+          "loss": {
+            "mean": 0.133,
+            "sem": 0.01,
+            "n": 10
+          }
+        }
+      }
+    },
+    {
+      "id": "f9cc8021-ba25-4028-81e9-a260a3c51815",
+      "task_id": "ts3-block",
+      "extra_input_modality": null,
+      "training_paradigm": "from_scratch",
+      "supervision_regime": "supervised",
+      "calibration": "none",
+      "finetuning_strategy": null,
+      "score": {
+        "id": "c0cd32ec-f8ca-465c-aad7-cc5a39fc20fc",
+        "n_seeds": 10,
+        "primary_metric_mean": 0.788,
+        "primary_metric_sem": 0.0158,
+        "metrics": {
+          "accuracy": {
+            "mean": 0.788,
+            "sem": 0.0158,
+            "n": 10
+          },
+          "loss": {
+            "mean": 0.212,
+            "sem": 0.01,
+            "n": 10
+          }
+        }
+      }
+    },
+    {
+      "id": "7555ff56-de1b-48db-a548-1682ae554fc9",
+      "task_id": "ts3-wheel",
+      "extra_input_modality": null,
+      "training_paradigm": "from_scratch",
+      "supervision_regime": "supervised",
+      "calibration": "none",
+      "finetuning_strategy": null,
+      "score": {
+        "id": "1fd73042-bbdd-4de3-8392-6f4fd87a994e",
+        "n_seeds": 10,
+        "primary_metric_mean": 0.731,
+        "primary_metric_sem": 0.0146,
+        "metrics": {
+          "r2": {
+            "mean": 0.731,
+            "sem": 0.0146,
+            "n": 10
+          },
+          "loss": {
+            "mean": 0.269,
+            "sem": 0.01,
+            "n": 10
+          }
+        }
+      }
+    }
+  ]
+}

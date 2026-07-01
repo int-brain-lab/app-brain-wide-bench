@@ -1,0 +1,167 @@
+[
+  {
+    "submission_id": "35d5f074-39f3-4f5a-96f0-c1452feddffc",
+    "label": "baseline-cnn-v1",
+    "model_name": "Baseline CNN",
+    "team_name": "Analytical Engine Lab",
+    "created_at": "2026-06-01T12:00:00Z",
+    "scores": {
+      "ts1-choice": {
+        "mean": 0.812,
+        "sem": 0.0162,
+        "n_seeds": 10
+      },
+      "ts1-block": {
+        "mean": 0.744,
+        "sem": 0.0149,
+        "n_seeds": 10
+      },
+      "ts1-wheel": {
+        "mean": 0.69,
+        "sem": 0.0138,
+        "n_seeds": 10
+      },
+      "ts2-choice": {
+        "mean": 0.795,
+        "sem": 0.0159,
+        "n_seeds": 10
+      },
+      "ts2-block": {
+        "mean": 0.731,
+        "sem": 0.0146,
+        "n_seeds": 10
+      },
+      "ts2-wheel": {
+        "mean": 0.672,
+        "sem": 0.0134,
+        "n_seeds": 10
+      }
+    }
+  },
+  {
+    "submission_id": "3e6ca603-0514-44a2-864c-27aa073f1bc1",
+    "label": "ssm-finetuned",
+    "model_name": "Recurrent SSM",
+    "team_name": "Bletchley Neuroscience",
+    "created_at": "2026-06-01T12:00:00Z",
+    "scores": {
+      "ts1-choice": {
+        "mean": 0.857,
+        "sem": 0.0171,
+        "n_seeds": 10
+      },
+      "ts1-block": {
+        "mean": 0.781,
+        "sem": 0.0156,
+        "n_seeds": 10
+      },
+      "ts1-wheel": {
+        "mean": 0.712,
+        "sem": 0.0142,
+        "n_seeds": 10
+      }
+    }
+  },
+  {
+    "submission_id": "9441fa21-d348-4881-9c4f-718bede038ad",
+    "label": "ensemble-v2-all-suites",
+    "model_name": "Ensemble v2",
+    "team_name": "Bletchley Neuroscience",
+    "created_at": "2026-06-01T12:00:00Z",
+    "scores": {
+      "ts1-choice": {
+        "mean": 0.901,
+        "sem": 0.018,
+        "n_seeds": 10
+      },
+      "ts1-block": {
+        "mean": 0.823,
+        "sem": 0.0165,
+        "n_seeds": 10
+      },
+      "ts1-wheel": {
+        "mean": 0.768,
+        "sem": 0.0154,
+        "n_seeds": 10
+      },
+      "ts2-choice": {
+        "mean": 0.884,
+        "sem": 0.0177,
+        "n_seeds": 10
+      },
+      "ts2-block": {
+        "mean": 0.802,
+        "sem": 0.016,
+        "n_seeds": 10
+      },
+      "ts2-wheel": {
+        "mean": 0.749,
+        "sem": 0.015,
+        "n_seeds": 10
+      },
+      "ts3-choice": {
+        "mean": 0.867,
+        "sem": 0.0173,
+        "n_seeds": 10
+      },
+      "ts3-block": {
+        "mean": 0.788,
+        "sem": 0.0158,
+        "n_seeds": 10
+      },
+      "ts3-wheel": {
+        "mean": 0.731,
+        "sem": 0.0146,
+        "n_seeds": 10
+      }
+    }
+  },
+  {
+    "submission_id": "62267094-e115-4402-b682-41eee05074e4",
+    "label": "linear-readout",
+    "model_name": "Linear readout",
+    "team_name": "Analytical Engine Lab",
+    "created_at": "2026-06-01T12:00:00Z",
+    "scores": {
+      "ts1-choice": {
+        "mean": 0.689,
+        "sem": 0.0138,
+        "n_seeds": 10
+      },
+      "ts1-block": {
+        "mean": 0.64,
+        "sem": 0.0128,
+        "n_seeds": 10
+      },
+      "ts1-wheel": {
+        "mean": 0.601,
+        "sem": 0.012,
+        "n_seeds": 10
+      }
+    }
+  },
+  {
+    "submission_id": "a2ca2259-b41c-4ac7-ad11-8ae1d11a6800",
+    "label": "ssm-ts3",
+    "model_name": "Recurrent SSM",
+    "team_name": "Bletchley Neuroscience",
+    "created_at": "2026-06-01T12:00:00Z",
+    "scores": {
+      "ts3-choice": {
+        "mean": 0.842,
+        "sem": 0.0168,
+        "n_seeds": 10
+      },
+      "ts3-block": {
+        "mean": 0.769,
+        "sem": 0.0154,
+        "n_seeds": 10
+      },
+      "ts3-wheel": {
+        "mean": 0.704,
+        "sem": 0.0141,
+        "n_seeds": 10
+      }
+    }
+  }
+]

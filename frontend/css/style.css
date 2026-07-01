@@ -1,0 +1,893 @@
+/* Universal reset — the "*" selector matches EVERY element on the page. */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Page-wide defaults: the <body> wraps all visible content, and most text
+   properties are inherited by the elements inside it. */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--text-primary);
+  background: #fff;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+/* Links: strip the browser's default underline + blue, so links inherit the
+   surrounding text colour and we can style them deliberately per context. */
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Design tokens: reusable values (colours, sizes) defined once here and
+   referenced everywhere with var(). Change a value here, and it updates
+   across the whole site. */
+:root {
+  --theme: #1D9E75;
+  --theme-dark: #0F6E56;
+  --theme-light: #E1F5EE;
+  --border: #e5e5e5;
+  --bg-secondary: #f8f8f7;
+  --text-primary: #1a1a1a;
+  --text-secondary: #666;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --ts1: #085041;
+  --bg-ts1: #E1F5EE;
+  --ts2: #0C447C;
+  --bg-ts2: #E6F1FB;
+  --ts3: #3C3489;
+  --bg-ts3: #EEEDFE;
+}
+
+
+/*----------------------------------------------------------------------------------------
+MAIN SHELLS ETC
+--------------------------------------------------------------------------------------*/
+.main {
+    height: auto;
+    overflow: visible;
+}
+
+
+
+.content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;        /* take all height left under the top nav */
+  min-height: 0;  /* allow the inner .main to scroll instead of growing the page */
+  overflow: hidden;
+  background: transparent;
+  justify-content: center;
+  margin: 0 auto;
+  max-width: 800px;
+}
+
+.content-wide {
+  max-width: 1000px;
+}
+
+
+/* App shell: a single grid pins the top nav across the top, a fixed-width
+   sidebar on the left, and lets the content area scroll on its own. The
+   minmax(0, 1fr) row is what allows the content to scroll instead of
+   stretching the page taller than the viewport. */
+.main-private {
+  display: grid;
+  grid-template-columns: 210px 1fr;        /* sidebar | content */
+  grid-template-rows: auto minmax(0, 1fr); /* nav | body */
+  grid-template-areas:
+    "nav  nav"
+    "sidebar content";
+  height: 100dvh;
+}
+
+.nav             { grid-area: nav; }
+.sidebar         { grid-area: sidebar; }
+.content-private {
+  grid-area: content;
+  overflow-y: auto;
+  background: #fff;
+  padding: 24px 28px;
+}
+
+
+/*----------------------------------------------------------------------------------------
+TOP NAVIGATION BAR
+--------------------------------------------------------------------------------------*/
+.nav {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 14px 40px;
+  border-bottom: 1px solid var(--border);
+  background: #fff;
+}
+
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.nav-logo-mark {
+  width: 28px;
+  height: 28px;
+  background: var(--theme);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+.nav-links {
+  display: flex;
+  gap: 28px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.nav-links .active {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.nav-auth {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/*----------------------------------------------------------------------------------------
+SIDE NAVIGATION BAR
+--------------------------------------------------------------------------------------*/
+
+.sidebar {
+  /* width comes from the .main-private grid column track */
+  border-right: 1px solid var(--border);
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+}
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-logo span {
+  font-size: 14px;
+  font-weight: 500;
+}
+.nav-section {
+  padding: 16px 8px 0;
+}
+.nav-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0 8px 6px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  margin-bottom: 1px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.nav-item:hover {
+  background: #fff;
+  color: var(--text-primary);
+}
+.nav-item.active {
+  background: #fff;
+  color: var(--theme);
+  font-weight: 500;
+}
+.nav-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 12px;
+}
+.sidebar-bottom {
+  margin-top: auto;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+}
+
+
+.avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+}
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--theme-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--theme-dark);
+  flex-shrink: 0;
+}
+.avatar-name {
+  font-size: 12px;
+  font-weight: 500;
+}
+.avatar-role {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/*----------------------------------------------------------------------------------------
+User logo
+----------------------------------------------------------------------------------------*/
+
+.user-logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--theme-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--theme-dark);
+  flex-shrink: 0;
+}
+
+.user-logo-lg {
+  width: 35px;
+  height: 35px;
+  font-size: 12px
+}
+
+
+/*----------------------------------------------------------------------------------------
+BUTTONS
+--------------------------------------------------------------------------------------*/
+
+/* Base button: a small pill with a light outline and transparent fill.
+   Used on both <a> and <button> elements. .btn-primary builds on top of it. */
+.btn {
+  font-size: 13px;
+  padding: 8px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-primary);
+  display: inline-block;
+  font-weight: 500;
+}
+
+.btn--lg {
+  font-size: 14px;
+  padding: 11px 24px;
+}
+
+.btn--theme {
+  background: var(--theme);
+  color: #fff;
+  border-color: var(--theme);
+}
+
+
+/*----------------------------------------------------------------------------------------
+HERO SECTION
+--------------------------------------------------------------------------------------*/
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 64px 40px 48px;
+  margin: 0 50px;
+  text-align: center;
+}
+
+.hero h1{
+  font-size: 38px;
+  font-weight: 500;
+  line-height: 1.2;
+  margin-bottom: 16px;
+}
+
+.hero p {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin: 0 auto 28px;
+}
+
+.hero-btns {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+
+/*----------------------------------------------------------------------------------------
+TABLES
+--------------------------------------------------------------------------------------*/
+
+
+/*----------------------------------------------------------------------------------------
+CARDS
+--------------------------------------------------------------------------------------*/
+/* Statistic cards */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.stats-grid--cnt {
+  margin: 0 90px 52px;
+  text-align: center;
+}
+
+.stat-card {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: 14px 20px;
+}
+
+.stat-card__lbl {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+  margin-top: 2px;
+}
+
+.stat-card__val {
+  font-size: 24px;
+  font-weight: 500;
+}
+
+.stat-card__sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
+
+/* Task suite cards */
+.task-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.task-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  text-align: left;
+}
+
+.task-card h3 {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 5px;
+}
+
+.task-card p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+
+/* Generic cards with header */
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #fff;
+}
+
+.card-header {
+  padding: 11px 16px;
+  /*border-bottom: 1px solid var(--border);*/
+  /*background: var(--bg-secondary);*/
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-header__title {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.card-header__sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.card-body {
+  padding: 16px;
+}
+
+
+/* Rows in card with key: value info */
+
+.info-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-key {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.info-val {
+  font-size: 12px;
+  text-align: right;
+}
+
+.info-val.mono {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+
+/* Two-column card rows */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+
+
+
+
+.section {
+  margin: 0 20px 48px;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.header h2 {
+  font-size: 16px;
+  font-weight: 500;
+}
+.header a {
+  font-size: 12px;
+  color: var(--theme);
+}
+
+
+/*----------------------------------------------------------------------------------------
+BADGES
+--------------------------------------------------------------------------------------*/
+/* Task suite badges */
+.task-badge-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.task-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.task-badge.ts1 { background: var(--bg-ts1); color: var(--ts1); }
+.task-badge.ts2 { background: var(--bg-ts2); color: var(--ts2); }
+.task-badge.ts3 { background: var(--bg-ts3); color: var(--ts3); }
+.task-badge.ts-na { background: var(--bg-secondary); color: var(--text-secondary); }
+
+/* Metric badges */
+
+.metric-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.metric-badge-row span {
+  font-size: 11px;
+  background: var(--bg-secondary);
+  border-radius: 20px;
+  padding: 2px 8px;
+  color: var(--text-secondary);
+}
+
+/* Status badges */
+.status-badge {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 20px;
+  display: inline-block;
+}
+
+.status-badge.done { background: #E1F5EE; color: #085041; }
+.status-badge.fail { background: #FCEBEB; color: #A32D2D; }
+.status-badge.scoring { background: #E6F1FB; color: #185FA5; }
+
+
+/*----------------------------------------------------------------------------------------
+TABLES
+--------------------------------------------------------------------------------------*/
+
+
+/* Wrapper card (.tabulator is its own wrapper; .lb-preview wraps the native <table>). */
+.lb-preview,
+.tabulator {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #fff;
+  font-size: 13px;
+  text-align: left;
+}
+
+/* Header bar: grey background + bottom border (the container element). */
+.lb-table th,
+.tabulator .tabulator-header {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* Row separators: on the cell natively, on the row in Tabulator; none on the last row. */
+.lb-table td,
+.tabulator .tabulator-row {
+  border-bottom: 1px solid var(--border);
+  background: #fff;
+}
+
+.lb-table tbody tr:last-child td,
+.tabulator .tabulator-row:last-child {
+  border-bottom: none;
+}
+
+/* Cells: padding + font. */
+.lb-table td,
+.tabulator .tabulator-cell {
+  padding: 11px 16px;
+  font-size: 13px;
+  border-right: none;
+}
+
+
+.lb-table .rank-gold,
+.tabulator .tabulator-row .tabulator-cell.rank-gold {
+  color: #BA7517;
+  font-weight: 600;
+}
+
+.lb-table .rank-silver,
+.tabulator .tabulator-row .tabulator-cell.rank-silver {
+  color: #888;
+  font-weight: 600;
+}
+
+.lb-table .rank-bronze,
+.tabulator .tabulator-row .tabulator-cell.rank-bronze {
+  color: #854F0B;
+  font-weight: 600;
+}
+
+.tabulator .tabulator-row .tabulator-cell.overall-cell {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* --- Native preview table (.lb-table) only --- */
+.lb-table {
+  width: 100%;
+  border-collapse: collapse; /* merge cell borders into single 1px lines */
+  table-layout: fixed;       /* honour the column widths below; Model takes the rest */
+}
+
+.tabulator .tabulator-row .tabulator-cell.rank-cell,
+.lb-table th:first-child {
+  width: 50px;
+}
+
+/* # */
+.lb-table th.num { width: 80px; } /* score columns */
+
+
+.lb-footer a {
+  color: var(--theme);
+}
+
+/* --- Tabulator only --- */
+.tabulator .tabulator-header .tabulator-col {
+  background: transparent;
+  border-right: none;
+}
+
+.tabulator .tabulator-row:hover {
+  background: var(--bg-secondary);
+}
+
+
+/* Footer / pagination, recolored to our palette */
+.lb-footer,
+.tabulator .tabulator-footer {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Tabulator footer: the footerElement note on the left, pagination on the right.
+   Making .tabulator-footer flex (above) turned Tabulator's .tabulator-footer-contents
+   into a flex item that shrank; let it grow back to full width so its right-aligned
+   paginator reaches the right edge. */
+.tabulator .tabulator-footer .tabulator-footer-contents {
+  flex: 1;
+  margin: 0;
+  padding: 0; /* the footer already supplies padding */
+}
+
+.tbl-footer-note {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.tabulator .tabulator-footer .tabulator-page {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--text-secondary);
+  padding: 3px 9px;
+  margin: 0 2px;
+}
+
+.tabulator .tabulator-footer .tabulator-page.active {
+  background: var(--theme-light);
+  border-color: #5DCAA5;
+  color: #085041;
+  font-weight: 500;
+}
+
+
+.model-name {
+  font-weight: 500;
+  font-size: 13px;
+}
+.model-org {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  margin-top: 40px;
+}
+
+/* The page title (the <h1> inside the header). */
+.page-header h1 {
+  font-size: 22px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+/* The sub-text under the title (the <p> inside the header). */
+.page-header p {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+
+.tab-row {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+.tab {
+  padding: 8px 20px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px; /* pull the tab's 2px underline over the row's 1px border */
+}
+.tab.active {
+  color: var(--text-primary);
+  font-weight: 500;
+  border-bottom-color: var(--theme);
+}
+
+
+/* Mini score-bars column: one thin bar per suite, width = score x 100%. */
+.mini-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mini-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.mini-lbl {
+  font-size: 10px;
+  color: var(--text-secondary);
+  width: 24px;
+  flex-shrink: 0;
+}
+.bar-bg {
+  flex: 1;
+  height: 4px;
+  background: #eee;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 4px;
+  border-radius: 10px;
+}
+.ts1-bar { background: var(--theme); }
+.ts2-bar { background: #378ADD; }
+.ts3-bar { background: #7F77DD; }
+
+
+/* Rows in card with bar */
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+}
+.bar-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  width: 90px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.bar-track {
+  flex: 1;
+  height: 6px;
+  background: #eee;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 6px;
+  border-radius: 10px;
+}
+
+.bar-val {
+  font-size: 12px;
+  font-weight: 500;
+  width: 44px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+
+
+
+
+
+/* Model details
+ */
+
+.model-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.model-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.model-title {
+  font-size: 20px;
+  font-weight: 500;
+}
+.model-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  max-width: 520px;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+.detail-meta {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+
+.rank-block {
+  text-align: right;
+  flex-shrink: 0;
+}
+.rank-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+.rank-num {
+  font-size: 34px;
+  font-weight: 500;
+  color: #BA7517;
+  line-height: 1;
+}
+.rank-sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+.rank-link {
+  font-size: 12px;
+  color: var(--theme);
+  display: block;
+  margin-top: 6px;
+}
