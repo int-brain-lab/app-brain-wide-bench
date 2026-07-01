@@ -109,3 +109,24 @@ async def get_current_user(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Missing bearer token")
     claims = await _decode_token(authorization.split(" ", 1)[1])
     return await _upsert_user(session, claims)
+
+
+async def get_current_user_optional(
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> User | None:
+    """Like :func:`get_current_user`, but returns ``None`` instead of a 401.
+
+    For endpoints serving both anonymous and authenticated viewers — e.g. a
+    public model card that shows private submissions to the model's own team
+    only. In dev mode this still resolves to the stub user, matching
+    :func:`get_current_user`; there is no unauthenticated request in dev mode.
+    """
+    if settings.dev_mode:
+        return await get_current_user(authorization, session)
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    try:
+        return await get_current_user(authorization, session)
+    except HTTPException:
+        return None

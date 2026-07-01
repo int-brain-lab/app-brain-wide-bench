@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.database import async_session_factory
-from app.models import Submission, SubmissionStatus, TaskScore, TaskSubmission
+from app.models import Submission, SubmissionStatus, TaskScore
 from app.scoring import get_scorer
 from app.storage import download_ground_truth, download_submission
 from app.worker import celery_app

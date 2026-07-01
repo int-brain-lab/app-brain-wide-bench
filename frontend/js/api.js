@@ -1,7 +1,7 @@
 // When true, GET requests are served from the static mock JSON in mock_api/
 // instead of the backend (POST/PUT/PATCH still hit the network). Lets the
 // frontend run with no backend at all. See mock_api/README.md.
-const FAKE_DATA = true;
+const FAKE_DATA = false;
 // Anchor the mock dir to THIS script's URL (frontend/js/api.js), not the page URL,
 // so it resolves to frontend/mock_api/ no matter which page loads it or how the
 // site is served. mock_api/ is a sibling of js/, hence "../mock_api".

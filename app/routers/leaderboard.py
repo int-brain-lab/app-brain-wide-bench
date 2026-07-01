@@ -15,14 +15,16 @@ router = APIRouter(prefix="/api", tags=["leaderboard"])
 async def leaderboard(session: AsyncSession = Depends(get_session)) -> list[dict]:
     """Return all public, completed submissions for the leaderboard.
 
-    Each row includes per-task primary-metric means so the frontend can build
-    one sortable column per task.
+    Each row includes per-task primary-metric means (as ``mean``/``sem``) so the
+    frontend can build one sortable column per task suite.
     """
     result = await session.execute(
         select(Submission)
         .where(Submission.is_public.is_(True), Submission.status == SubmissionStatus.done)
         .options(
-            selectinload(Submission.task_submissions).selectinload(TaskSubmission.score)
+            selectinload(Submission.task_submissions).selectinload(TaskSubmission.score),
+            selectinload(Submission.team),
+            selectinload(Submission.model),
         )
         .order_by(Submission.created_at.desc())
     )
@@ -30,8 +32,8 @@ async def leaderboard(session: AsyncSession = Depends(get_session)) -> list[dict
     for sub in result.scalars().all():
         scores = {
             ts.task_id: {
-                "primary_metric_mean": ts.score.primary_metric_mean,
-                "primary_metric_sem": ts.score.primary_metric_sem,
+                "mean": ts.score.primary_metric_mean,
+                "sem": ts.score.primary_metric_sem,
                 "n_seeds": ts.score.n_seeds,
             }
             for ts in sub.task_submissions
@@ -42,7 +44,9 @@ async def leaderboard(session: AsyncSession = Depends(get_session)) -> list[dict
                 "id": str(sub.id),
                 "label": sub.label,
                 "team_id": str(sub.team_id),
+                "team_name": sub.team.name,
                 "model_id": str(sub.model_id),
+                "model_name": sub.model.name,
                 "created_at": sub.created_at.isoformat(),
                 "scores": scores,
             }

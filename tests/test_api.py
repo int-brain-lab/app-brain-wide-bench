@@ -2,9 +2,12 @@
 
 import uuid
 
-from sqlalchemy import select
 
-from app.models import Submission, SubmissionStatus, SubmissionUser, SubmissionUserRole, TaskScore, TaskSubmission
+from app.models import (
+    SubmissionUser,
+    SubmissionUserRole,
+    UserTeam,
+)
 
 # IDs from tests/fixtures/ts1_baseline.json
 TEAM_ID   = "3a7c5f8e-1b9d-4e2a-8f6c-0d3b7a5e9c1f"
@@ -118,6 +121,51 @@ async def test_leaderboard_shows_fixture_submission(seeded_client):
     assert r.status_code == 200
     rows = r.json()
     assert len(rows) == 1
-    scores = rows[0]["scores"]
+    row = rows[0]
+    assert row["model_name"] == "mlp-baseline"
+    assert row["team_name"] == "Brain Wide Bench"
+    scores = row["scores"]
     assert "ts1-reward" in scores
-    assert scores["ts1-reward"]["primary_metric_mean"] == 0.85
+    assert scores["ts1-reward"]["mean"] == 0.85
+
+
+async def test_get_model_hides_private_submissions_from_non_members(seeded_client):
+    """A viewer outside the model's team must not see its private submissions."""
+    r = await seeded_client.get(f"/api/models/{MODEL_ID}")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["team_name"] == "Brain Wide Bench"
+    assert all(s["is_public"] for s in body["submissions"])
+
+
+async def test_get_model_shows_all_submissions_to_team_member(seeded_client, session_factory):
+    """A member of the model's team sees both public and private submissions."""
+    me = await seeded_client.get("/api/users/me")
+    async with session_factory() as s:
+        s.add(UserTeam(user_id=uuid.UUID(me.json()["id"]), team_id=uuid.UUID(TEAM_ID)))
+        await s.commit()
+
+    r = await seeded_client.get(f"/api/models/{MODEL_ID}")
+    assert r.status_code == 200
+    assert len(r.json()["submissions"]) >= 1
+
+
+async def test_get_model_not_found(seeded_client):
+    r = await seeded_client.get(f"/api/models/{uuid.uuid4()}")
+    assert r.status_code == 404
+
+
+async def test_users_me_models_scoped_to_team_membership(seeded_client, session_factory):
+    """Only models on teams the user belongs to are listed."""
+    r = await seeded_client.get("/api/users/me/models")
+    assert r.status_code == 200
+    assert r.json() == []
+
+    me = await seeded_client.get("/api/users/me")
+    async with session_factory() as s:
+        s.add(UserTeam(user_id=uuid.UUID(me.json()["id"]), team_id=uuid.UUID(TEAM_ID)))
+        await s.commit()
+
+    r = await seeded_client.get("/api/users/me/models")
+    assert r.status_code == 200
+    assert [m["id"] for m in r.json()] == [MODEL_ID]
