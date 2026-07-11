@@ -50,6 +50,8 @@ class Modality(str, enum.Enum):
     anatomy = "anatomy"
     spikes = "spikes"
     behavior = "behavior"
+    lfp = "lfp"
+    waveforms =  "waveforms"
 
 
 class TrainingParadigm(str, enum.Enum):
@@ -136,7 +138,7 @@ class UserTeam(SQLModel, table=True):
 
 # ── Core ───────────────────────────────────────────────────────────────────────
 
-
+# todo: the modalities fields need to be a list of modalities
 class Model(SQLModel, table=True):
     __tablename__ = "models"
 

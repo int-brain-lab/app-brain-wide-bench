@@ -1,0 +1,197 @@
+{
+  "_readme": "Draft DB fixture for the 2026-07 dataset drop (updated GT + mlp/autoencoder/nuclr/ndt-stitch baselines). Self-contained: its own team/user, does not reuse ts1_baseline.json's IDs. primary_metric_mean/sem values are PLACEHOLDERS pending real scoring runs once ../ibl-benchmark is pulled (ts2_scoring.py/ts3_scoring.py don't exist on the local checkout yet) — see PR/commit notes for the known Task.primary_metric-name vs scorer-output-key mismatches (ts2: 'd2' vs 'cohens_r2'/'bps'; ts3: 'f1_macro' vs 'macro/f1-score') that need resolving before those numbers can be filled in for real.",
+
+  "teams": [
+    {"id": "8acfbc68-b098-47df-9f7c-8bd2d0359e7a", "name": "Brain Wide Bench"}
+  ],
+
+  "users": [
+    {
+      "id": "8f132262-7b15-4d88-b571-c2de1d76d298",
+      "auth0_sub": "google-oauth2|000000000000000000001",
+      "email": "benchmark@internationalbrainlab.org",
+      "name": "Brain Wide Bench",
+      "affiliation": "International Brain Laboratory",
+      "provider": "google-oauth2"
+    }
+  ],
+
+  "models": [
+    {
+      "id": "2058ace8-6e23-4815-8eb2-d6b8f3ae40c7",
+      "team_id": "8acfbc68-b098-47df-9f7c-8bd2d0359e7a",
+      "name": "mlp-baseline",
+      "link_code": "https://github.com/int-brain-lab/ibl-benchmark",
+      "n_parameters": -1,
+      "temporal_context_s": 1.0,
+      "is_pretrained": false,
+      "pretrained_in_modalities": null,
+      "pretrained_out_modalities": null,
+      "pretraining_data": null
+    },
+    {
+      "id": "59fdd60e-e15b-4e13-9199-ba9a14904135",
+      "team_id": "8acfbc68-b098-47df-9f7c-8bd2d0359e7a",
+      "name": "ndt-stitch-baseline",
+      "link_code": "https://github.com/int-brain-lab/ibl-benchmark",
+      "n_parameters": -1,
+      "temporal_context_s": 1.0,
+      "is_pretrained": true,
+      "pretrained_in_modalities": "spikes",
+      "pretrained_out_modalities": "spikes",
+      "pretraining_data": "Multi-session IBL brain-wide map recordings, per-session stitching layer"
+    },
+    {
+      "id": "c9422cde-a6e2-442e-9f94-b6ab63bc4d6d",
+      "team_id": "8acfbc68-b098-47df-9f7c-8bd2d0359e7a",
+      "name": "autoencoder-baseline",
+      "link_code": "https://github.com/int-brain-lab/ibl-benchmark",
+      "n_parameters": -1,
+      "temporal_context_s": 1.0,
+      "is_pretrained": false,
+      "pretrained_in_modalities": null,
+      "pretrained_out_modalities": null,
+      "pretraining_data": null
+    },
+    {
+      "id": "890e9b99-3d5f-4db8-bf88-669737baf18c",
+      "team_id": "8acfbc68-b098-47df-9f7c-8bd2d0359e7a",
+      "name": "nuclr-linear-probe-single-unit",
+      "link_code": "https://github.com/int-brain-lab/ibl-benchmark",
+      "n_parameters": null,
+      "temporal_context_s": 1.0,
+      "is_pretrained": true,
+      "pretrained_in_modalities": "spikes",
+      "pretrained_out_modalities": null,
+      "pretraining_data": "NuCLR single-unit waveform/feature pretraining corpus"
+    },
+    {
+      "id": "ebd78c37-0ce9-499b-ab12-587b6bc9acdd",
+      "team_id": "8acfbc68-b098-47df-9f7c-8bd2d0359e7a",
+      "name": "nuclr-linear-probe-multi-unit",
+      "link_code": "https://github.com/int-brain-lab/ibl-benchmark",
+      "n_parameters": null,
+      "temporal_context_s": 1.0,
+      "is_pretrained": true,
+      "pretrained_in_modalities": "spikes",
+      "pretrained_out_modalities": null,
+      "pretraining_data": "NuCLR multi-unit (population) feature pretraining corpus"
+    }
+  ],
+
+  "submissions": [
+    {
+      "id": "bbf6dfec-7281-48a4-b4e6-57c98aeb0855",
+      "team_id": "8acfbc68-b098-47df-9f7c-8bd2d0359e7a",
+      "model_id": "2058ace8-6e23-4815-8eb2-d6b8f3ae40c7",
+      "label": "mlp-ts1-baseline-2026-07",
+      "s3_key": "submissions/bbf6dfec-7281-48a4-b4e6-57c98aeb0855/mlp-ts1-baseline-2026-07.zip",
+      "status": "done",
+      "is_public": true,
+      "narrative_public": "Single-session MLP, TS1-TSS paradigm. Only 3 of 8 ts1-* tasks covered in this drop (choice, licking_rate, whisker_motion_energy).",
+      "narrative_private": "Need to add the remaining tasks"
+    },
+    {
+      "id": "f76a9d9c-02f2-4777-bf65-796a8c7a030c",
+      "team_id": "8acfbc68-b098-47df-9f7c-8bd2d0359e7a",
+      "model_id": "59fdd60e-e15b-4e13-9199-ba9a14904135",
+      "label": "ndt-stitch-ts1-baseline-2026-07",
+      "s3_key": "submissions/f76a9d9c-02f2-4777-bf65-796a8c7a030c/ndt-stitch-baseline-2026-07.zip",
+      "status": "done",
+      "is_public": true,
+      "narrative_public": "NDT backbone pretrained across sessions with a per-session stitching layer, linear-probe readout, evaluated transductively (ts1 tasks).",
+      "narrative_private": "Source zip contains both ts1-* and ts2-* predictions; split into two Submission rows here since the current scoring pipeline (app/tasks/score.py) infers one suite per submission from the first task_submission."
+    },
+    {
+      "id": "3aadcc15-32e9-4d70-ba91-b5b936066f51",
+      "team_id": "8acfbc68-b098-47df-9f7c-8bd2d0359e7a",
+      "model_id": "c9422cde-a6e2-442e-9f94-b6ab63bc4d6d",
+      "label": "autoencoder-ts2-baseline-2026-07",
+      "s3_key": "submissions/3aadcc15-32e9-4d70-ba91-b5b936066f51/autoencoder-ts2-baseline-2026-07.zip",
+      "status": "done",
+      "is_public": true,
+      "narrative_public": "Single-session autoencoder, TSS paradigm, evaluated on forecasting and co-smoothing.",
+      "narrative_private": null
+    },
+    {
+      "id": "00d531b8-beb6-464f-94f3-6771c033ca8e",
+      "team_id": "8acfbc68-b098-47df-9f7c-8bd2d0359e7a",
+      "model_id": "59fdd60e-e15b-4e13-9199-ba9a14904135",
+      "label": "ndt-stitch-ts2-baseline-2026-07",
+      "s3_key": "submissions/00d531b8-beb6-464f-94f3-6771c033ca8e/ndt-stitch-baseline-2026-07.zip",
+      "status": "done",
+      "is_public": true,
+      "narrative_public": "Same NDT-stitch backbone as the ts1 submission; ts2 half of the same source zip (forecasting, co_smoothing).",
+      "narrative_private": null
+    },
+    {
+      "id": "048d81b9-a389-4058-8c62-2562dacf68f7",
+      "team_id": "8acfbc68-b098-47df-9f7c-8bd2d0359e7a",
+      "model_id": "890e9b99-3d5f-4db8-bf88-669737baf18c",
+      "label": "nuclr-linear-single-ts3-baseline-2026-07",
+      "s3_key": "submissions/048d81b9-a389-4058-8c62-2562dacf68f7/nuclr-linear-single-ts3-baseline-2026-07.zip",
+      "status": "done",
+      "is_public": true,
+      "narrative_public": "NuCLR pretrained single-unit features + linear probe, brain-region (Cosmos) classification.",
+      "narrative_private": null
+    },
+    {
+      "id": "9369a7ab-065e-474c-ab1c-c0b39cd811b7",
+      "team_id": "8acfbc68-b098-47df-9f7c-8bd2d0359e7a",
+      "model_id": "ebd78c37-0ce9-499b-ab12-587b6bc9acdd",
+      "label": "nuclr-linear-multi-ts3-baseline-2026-07",
+      "s3_key": "submissions/9369a7ab-065e-474c-ab1c-c0b39cd811b7/nuclr-linear-multi-ts3-baseline-2026-07.zip",
+      "status": "done",
+      "is_public": true,
+      "narrative_public": "NuCLR pretrained multi-unit (population) features + linear probe, brain-region (Cosmos) classification.",
+      "narrative_private": null
+    }
+  ],
+
+  "submission_users": [
+    {"submission_id": "bbf6dfec-7281-48a4-b4e6-57c98aeb0855", "user_id": "8f132262-7b15-4d88-b571-c2de1d76d298", "role": "owner"},
+    {"submission_id": "f76a9d9c-02f2-4777-bf65-796a8c7a030c", "user_id": "8f132262-7b15-4d88-b571-c2de1d76d298", "role": "owner"},
+    {"submission_id": "3aadcc15-32e9-4d70-ba91-b5b936066f51", "user_id": "8f132262-7b15-4d88-b571-c2de1d76d298", "role": "owner"},
+    {"submission_id": "00d531b8-beb6-464f-94f3-6771c033ca8e", "user_id": "8f132262-7b15-4d88-b571-c2de1d76d298", "role": "owner"},
+    {"submission_id": "048d81b9-a389-4058-8c62-2562dacf68f7", "user_id": "8f132262-7b15-4d88-b571-c2de1d76d298", "role": "owner"},
+    {"submission_id": "9369a7ab-065e-474c-ab1c-c0b39cd811b7", "user_id": "8f132262-7b15-4d88-b571-c2de1d76d298", "role": "owner"}
+  ],
+
+  "task_submissions": [
+    {"id": "d7cc206f-cd01-42cc-b8a6-057f0b5b79b5", "submission_id": "bbf6dfec-7281-48a4-b4e6-57c98aeb0855", "task_id": "ts1-choice",                "training_paradigm": "TSS", "calibration": "transductive"},
+    {"id": "27a532b2-1cc3-4b4c-8e07-70f7a534109b", "submission_id": "bbf6dfec-7281-48a4-b4e6-57c98aeb0855", "task_id": "ts1-licking_rate",          "training_paradigm": "TSS", "calibration": "transductive"},
+    {"id": "fe8ae4d7-a726-4c7a-b37c-958327866752", "submission_id": "bbf6dfec-7281-48a4-b4e6-57c98aeb0855", "task_id": "ts1-whisker_motion_energy", "training_paradigm": "TSS", "calibration": "transductive"},
+
+    {"id": "5eef715b-e64e-4eba-bd00-5f0c3a7b287d", "submission_id": "f76a9d9c-02f2-4777-bf65-796a8c7a030c", "task_id": "ts1-choice",                "training_paradigm": "TSU", "calibration": "transductive", "finetuning_strategy": "full_finetuning"},
+    {"id": "f1f8690b-5470-41d0-ae2a-452466637d16", "submission_id": "f76a9d9c-02f2-4777-bf65-796a8c7a030c", "task_id": "ts1-licking_rate",          "training_paradigm": "TSU", "calibration": "transductive", "finetuning_strategy": "full_finetuning"},
+    {"id": "48b7d4af-353c-4510-aa06-6f172add019a", "submission_id": "f76a9d9c-02f2-4777-bf65-796a8c7a030c", "task_id": "ts1-whisker_motion_energy", "training_paradigm": "TSU", "calibration": "transductive", "finetuning_strategy": "full_finetuning"},
+
+    {"id": "0802923d-f156-4ddd-adfb-dbd5027f4bff", "submission_id": "3aadcc15-32e9-4d70-ba91-b5b936066f51", "task_id": "ts2-forecasting",  "training_paradigm": "TSS", "calibration": "transductive"},
+    {"id": "8f16d830-73f9-4c10-9107-13cd3915ffec", "submission_id": "3aadcc15-32e9-4d70-ba91-b5b936066f51", "task_id": "ts2-co_smoothing", "training_paradigm": "TSS", "calibration": "transductive"},
+
+    {"id": "f4ecc03b-d6ad-446e-92cb-9f5190414bf0", "submission_id": "00d531b8-beb6-464f-94f3-6771c033ca8e", "task_id": "ts2-forecasting",  "training_paradigm": "TSU", "calibration": "transductive", "finetuning_strategy": "full_finetuning"},
+    {"id": "6b91a3fe-0849-4e13-9d4f-fd015304885e", "submission_id": "00d531b8-beb6-464f-94f3-6771c033ca8e", "task_id": "ts2-co_smoothing", "training_paradigm": "TSU", "calibration": "transductive", "finetuning_strategy": "full_finetuning"},
+
+    {"id": "8e652845-738a-4231-b4d6-f51fe0484d27", "submission_id": "048d81b9-a389-4058-8c62-2562dacf68f7", "task_id": "ts3-cosmos", "training_paradigm": "TSU", "calibration": "inductive", "finetuning_strategy": "linear_probe"},
+    {"id": "30acf900-2d0c-401c-a1e3-1aea4a518dbc", "submission_id": "9369a7ab-065e-474c-ab1c-c0b39cd811b7", "task_id": "ts3-cosmos", "training_paradigm": "TSU", "calibration": "inductive", "finetuning_strategy": "linear_probe"}
+  ],
+
+  "task_scores": [
+    {"task_submission_id": "d7cc206f-cd01-42cc-b8a6-057f0b5b79b5", "n_seeds": 3, "primary_metric_mean": 0.68, "primary_metric_sem": 0.03},
+    {"task_submission_id": "27a532b2-1cc3-4b4c-8e07-70f7a534109b", "n_seeds": 3, "primary_metric_mean": 0.29, "primary_metric_sem": 0.04},
+    {"task_submission_id": "fe8ae4d7-a726-4c7a-b37c-958327866752", "n_seeds": 3, "primary_metric_mean": 0.51, "primary_metric_sem": 0.05},
+
+    {"task_submission_id": "5eef715b-e64e-4eba-bd00-5f0c3a7b287d", "n_seeds": 3, "primary_metric_mean": 0.74, "primary_metric_sem": 0.02},
+    {"task_submission_id": "f1f8690b-5470-41d0-ae2a-452466637d16", "n_seeds": 3, "primary_metric_mean": 0.37, "primary_metric_sem": 0.03},
+    {"task_submission_id": "48b7d4af-353c-4510-aa06-6f172add019a", "n_seeds": 3, "primary_metric_mean": 0.58, "primary_metric_sem": 0.04},
+
+    {"task_submission_id": "0802923d-f156-4ddd-adfb-dbd5027f4bff", "n_seeds": 3, "primary_metric_mean": 0.22, "primary_metric_sem": 0.03},
+    {"task_submission_id": "8f16d830-73f9-4c10-9107-13cd3915ffec", "n_seeds": 3, "primary_metric_mean": 0.31, "primary_metric_sem": 0.02},
+
+    {"task_submission_id": "f4ecc03b-d6ad-446e-92cb-9f5190414bf0", "n_seeds": 3, "primary_metric_mean": 0.30, "primary_metric_sem": 0.03},
+    {"task_submission_id": "6b91a3fe-0849-4e13-9d4f-fd015304885e", "n_seeds": 3, "primary_metric_mean": 0.40, "primary_metric_sem": 0.03},
+
+    {"task_submission_id": "8e652845-738a-4231-b4d6-f51fe0484d27", "n_seeds": 5, "primary_metric_mean": 0.61, "primary_metric_sem": 0.02},
+    {"task_submission_id": "30acf900-2d0c-401c-a1e3-1aea4a518dbc", "n_seeds": 5, "primary_metric_mean": 0.66, "primary_metric_sem": 0.02}
+  ]
+}
