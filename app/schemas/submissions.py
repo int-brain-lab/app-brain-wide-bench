@@ -2,17 +2,18 @@
 
 import uuid
 from datetime import datetime
-from typing import Literal
 
-from app.schemas.base import SubmissionBase
-from app.schemas.scoring import TS1ScoreResult
 from pydantic import BaseModel, ConfigDict
 
 
-class SubmissionCreate(SubmissionBase):
+class SubmissionCreate(BaseModel):
     """Request body for ``POST /api/submissions/presign``."""
 
-    task: Literal["ts1"]
+    team_id: uuid.UUID
+    model_id: uuid.UUID
+    label: str
+    task_ids: list[str]  # flat task IDs, e.g. ["ts1-reward", "ts1-choice"]
+    is_public: bool = False
 
 
 class PresignResponse(BaseModel):
@@ -23,18 +24,41 @@ class PresignResponse(BaseModel):
     s3_key: str
 
 
-class SubmissionResponse(SubmissionBase):
+class TaskScoreOut(BaseModel):
+    """Score payload for one task."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    n_seeds: int
+    primary_metric_mean: float
+    primary_metric_sem: float | None = None
+    metrics: dict | None = None
+
+
+class TaskSubmissionOut(BaseModel):
+    """Task entry within a submission, with optional score."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    task_id: str
+    score: TaskScoreOut | None = None
+
+
+class SubmissionResponse(BaseModel):
     """List item for ``GET /api/submissions/``."""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    task: str
+    label: str
     status: str
+    team_id: uuid.UUID
+    model_id: uuid.UUID
     created_at: datetime
 
 
 class SubmissionDetail(SubmissionResponse):
-    """Detail view for ``GET /api/submissions/{id}`` with typed score results."""
+    """Detail view for ``GET /api/submissions/{id}`` — includes per-task scores."""
 
-    score_results: TS1ScoreResult | None = None
+    task_submissions: list[TaskSubmissionOut] = []

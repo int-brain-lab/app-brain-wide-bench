@@ -20,6 +20,9 @@ def _client():
 def presign_put(key: str, content_type: str = "application/zip") -> str:
     """Generate a presigned ``PUT`` URL for a direct browser upload.
 
+    In dev mode (``AUTH0_DOMAIN=dev``) a placeholder URL is returned so the
+    endpoint works without real AWS credentials.
+
     Parameters
     ----------
     key : str
@@ -30,8 +33,10 @@ def presign_put(key: str, content_type: str = "application/zip") -> str:
     Returns
     -------
     str
-        A time-limited presigned URL.
+        A time-limited presigned URL, or a ``mock-s3://`` placeholder in dev mode.
     """
+    if settings.dev_mode:
+        return f"mock-s3://{settings.s3_bucket}/{key}"
     return _client().generate_presigned_url(
         "put_object",
         Params={"Bucket": settings.s3_bucket, "Key": key, "ContentType": content_type},

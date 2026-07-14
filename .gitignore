@@ -1,4 +1,5 @@
 # Secrets
+.env.local
 .env
 *.env
 !.env.example
