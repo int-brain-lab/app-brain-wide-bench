@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brain-Wide Bench - Submit</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="main-private">
+    <nav class="nav" id="top-nav"></nav>
+    <aside class="sidebar" id="side-nav"></aside>
+    <div class="content-private">
+
+      <div class="page-header">
+        <div>
+          <h1>New submission</h1>
+          <p>Upload a zip of predictions to score against the held-out test data.</p>
+        </div>
+      </div>
+
+      <div class="card" id="gate" hidden>
+        <div class="card-body">
+          <p>Please sign in to submit.</p>
+          <button class="btn btn--theme" id="gate-login">Sign in</button>
+        </div>
+      </div>
+
+      <form class="card submit-form" id="submit-form" hidden>
+        <div class="card-body">
+          <label class="field">
+            <span class="field-label">Model</span>
+            <select name="model_id" id="model-select" required></select>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Team</span>
+            <input id="team-display" type="text" readonly placeholder="—" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Submission name</span>
+            <input name="label" id="label-input" type="text" required
+                   placeholder="e.g. mlp-ts1-baseline-2026-07" />
+          </label>
+
+          <label class="field field--inline">
+            <input name="is_public" id="is-public" type="checkbox" />
+            <span class="field-label">Make public on the leaderboard</span>
+          </label>
+
+          <div class="field">
+            <span class="field-label">Predictions (.zip)</span>
+            <div class="dropzone" id="dropzone" tabindex="0" role="button"
+                 aria-label="Drag a zip file here or click to choose one">
+              <input type="file" id="file-input" accept=".zip,application/zip" hidden />
+              <p class="dropzone-hint">Drag a <code>.zip</code> here, or <span class="dropzone-link">choose a file</span></p>
+              <p class="dropzone-file" id="dropzone-file" hidden></p>
+            </div>
+          </div>
+
+          <div class="field" id="methodology-block" hidden>
+            <span class="field-label">Task details</span>
+            <div class="carousel">
+              <div class="carousel-steps" id="carousel-steps"></div>
+              <div class="carousel-body" id="carousel-body"></div>
+              <div class="carousel-nav"></div>
+            </div>
+          </div>
+
+          <div class="field" id="manual-add">
+            <span class="field-label">Add a task manually</span>
+            <div class="manual-add-row">
+              <select id="manual-task-select"></select>
+              <button type="button" class="btn" id="manual-add-btn">Add</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <button type="button" class="btn btn--theme btn--lg" id="submit-btn" disabled>Submit</button>
+          </div>
+        </div>
+      </form>
+
+      <p class="msg" id="msg"></p>
+
+    </div>
+  </div>
+
+  <script src="js/utils.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/nav_top.js"></script>
+  <script src="js/nav_side.js"></script>
+  <script src="js/zip_list.js"></script>
+  <script src="js/submit.js"></script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 const NAV_LINKS = [
   { label: "Leaderboard", href: "leaderboard.html", match: "leaderboard.html" },
   { label: "Docs", href: "#" },
-  { label: "Submit", href: "submit.html", match: "submit.html" },
+  { label: "Submit", href: "submit_submission.html", match: "submit_submission.html" },
   { label: "About", href: "#" },
   { label: "Dashboard", href: "dashboard.html", match: "dashboard.html" },
 ];

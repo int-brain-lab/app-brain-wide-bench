@@ -11,6 +11,7 @@ from app.schemas.submissions import (
     TaskScoreOut,
     TaskSubmissionOut,
 )
+from app.schemas.tasks import TaskResponse
 from app.schemas.users import UserResponse, UserUpdate
 
 __all__ = [
@@ -28,6 +29,7 @@ __all__ = [
     "SubmissionResponse",
     "TaskScoreOut",
     "TaskSubmissionOut",
+    "TaskResponse",
     "UserResponse",
     "UserUpdate",
 ]

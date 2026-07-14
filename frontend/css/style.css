@@ -891,3 +891,75 @@ TABLES
   display: block;
   margin-top: 6px;
 }
+
+
+/*----------------------------------------------------------------------------------------
+FORMS (submit page)
+--------------------------------------------------------------------------------------*/
+.submit-form .card-body { display: flex; flex-direction: column; gap: 18px; }
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+
+.field input[type="text"],
+.field select {
+  font-size: 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #fff;
+  color: var(--text-primary);
+  width: 100%;
+}
+.field input[readonly] { background: var(--bg-secondary); color: var(--text-secondary); }
+.field input:focus, .field select:focus { outline: none; border-color: var(--theme); }
+
+.field--inline { flex-direction: row; align-items: center; gap: 10px; }
+.field--inline input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--theme); }
+
+.msg { margin-top: 16px; font-size: 14px; color: var(--text-secondary); }
+
+.dropzone {
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-md);
+  padding: 28px 16px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: border-color .15s, background .15s;
+}
+.dropzone:hover, .dropzone:focus { outline: none; border-color: var(--theme); }
+.dropzone--over { border-color: var(--theme); background: var(--theme-light); }
+.dropzone-hint { font-size: 14px; margin: 0; }
+.dropzone-link { color: var(--theme); font-weight: 500; }
+.dropzone-file { font-size: 13px; color: var(--text-primary); margin: 8px 0 0; font-weight: 500; }
+
+
+.carousel { display: flex; flex-direction: column; gap: 14px; }
+.carousel-steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.step-pill {
+  font-size: 12px; padding: 4px 10px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-secondary);
+}
+.step-pill.current { border-color: var(--theme); color: var(--theme-dark); }
+.step-pill.confirmed { background: var(--theme-light); border-color: var(--theme); color: var(--theme-dark); }
+.step-pill.pending { opacity: 0.55; }
+
+.carousel-card {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-md);
+}
+.carousel-card.confirmed { border-color: var(--theme); background: var(--theme-light); }
+.carousel-card-title { font-weight: 600; font-size: 14px; }
+
+.carousel-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.manual-add-row { display: flex; gap: 8px; align-items: center; }
+.manual-add-row select { flex: 1; }
+.carousel-card-header { display: flex; align-items: center; justify-content: space-between; }
+.carousel-remove { font-size: 12px; padding: 4px 10px; }
+
+.step-pill.invalid { background: #fdecec; border-color: #d33; color: #b30000; }
+.carousel-card.invalid { border-color: #d33; background: #fdecec; }
+.invalid-note { font-size: 13px; color: #b30000; margin: 0; }

@@ -118,8 +118,7 @@ async function apiFetch(path, options = {}) {
     console.warn(`FAKE_DATA: no mock mapping for GET ${path}; using network`);
   }
 
-
-
+  
   const headers = new Headers(options.headers || {});
   const token = await getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
