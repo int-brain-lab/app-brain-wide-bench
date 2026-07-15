@@ -32,7 +32,7 @@ dev = [
 python-preference = "managed"
 
 [tool.uv.sources]
-ibl-benchmark = { path = "../ibl-benchmark", editable = true }
+ibl-benchmark = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,4 +1,4 @@
-"""TS1 scorer: thin OOP wrapper over ``core.scoring.ts1_scoring``."""
+"""TS2 scorer: thin OOP wrapper over ``core.scoring.ts2_scoring``."""
 
 from collections import defaultdict
 from pathlib import Path
@@ -7,18 +7,19 @@ import numpy as np
 
 from app.scoring.base import BaseScorer
 
+PRIMARY_METRIC = "bps"  # bits-per-spike, the headline co-smoothing/forecasting metric
 
-class TS1Scorer(BaseScorer):
-    """Score TS1 submissions against the ground-truth oracle.
 
-    Delegates all numerical work to :func:`core.scoring.ts1_scoring.score_dir` and
-    :func:`~core.scoring.ts1_scoring.summarize`, then flattens the tuple-keyed
-    summary into a JSON-serialisable structure (see :class:`app.schemas.scoring.TS1ScoreResult`).
+class TS2Scorer(BaseScorer):
+    """Score TS2 submissions against the ground-truth oracle.
+
+    Same (label, task, recording_id) row/summary shape as :class:`~app.scoring.ts1.TS1Scorer`,
+    but TS2's metrics (``cohens_r2``, ``bps``) are fixed rather than per-task.
     """
 
     def score(self, pred_dir: Path, gt_dir: Path) -> dict:
         """Score predictions and return a JSON-serialisable result dict."""
-        from core.scoring.ts1_scoring import score_dir, summarize
+        from core.scoring.ts2_scoring import score_dir, summarize
 
         raw = score_dir(pred_dir, gt_dir)
         summary = summarize(raw)  # {(label, task, recording_id): {metric: (mean, sem, n)}}
@@ -37,9 +38,8 @@ class TS1Scorer(BaseScorer):
                     },
                 }
             )
-            primary = self._primary_metric(task)
-            if primary in metrics:
-                per_task_primary[task].append(metrics[primary][0])
+            if PRIMARY_METRIC in metrics:
+                per_task_primary[task].append(metrics[PRIMARY_METRIC][0])
 
         task_summary = {}
         for task, means in per_task_primary.items():
@@ -51,10 +51,3 @@ class TS1Scorer(BaseScorer):
             }
 
         return {"rows": rows, "summary": task_summary}
-
-    @staticmethod
-    def _primary_metric(flat_task: str) -> str:
-        """Return the primary metric name for a flat task id (e.g. ``ts1-choice``)."""
-        from ts1 import get_readout_spec
-
-        return get_readout_spec(flat_task.split("-", 1)[1]).primary_metric
