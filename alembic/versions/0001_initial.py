@@ -174,11 +174,11 @@ def upgrade() -> None:
         {"id": "ts1-wheel_speed",           "task_suite": "ts1", "task_type": "continuous",   "primary_metric": "r2"},
         {"id": "ts1-right_paw_speed",       "task_suite": "ts1", "task_type": "continuous",   "primary_metric": "r2"},
         {"id": "ts1-left_paw_speed",        "task_suite": "ts1", "task_type": "continuous",   "primary_metric": "r2"},
-        # ts2 — population firing-rate (D²)
-        {"id": "ts2-co_smoothing",          "task_suite": "ts2", "task_type": "firing_rate",  "primary_metric": "d2"},
-        {"id": "ts2-forecasting",           "task_suite": "ts2", "task_type": "firing_rate",  "primary_metric": "d2"},
+        # ts2 — population firing-rate (Poisson deviance R², a.k.a. D²)
+        {"id": "ts2-co_smoothing",          "task_suite": "ts2", "task_type": "firing_rate",  "primary_metric": "cohens_r2"},
+        {"id": "ts2-forecasting",           "task_suite": "ts2", "task_type": "firing_rate",  "primary_metric": "cohens_r2"},
         # ts3 — brain region (macro F1)
-        {"id": "ts3-cosmos",                "task_suite": "ts3", "task_type": "brain_region", "primary_metric": "f1_macro"},
+        {"id": "ts3-cosmos",                "task_suite": "ts3", "task_type": "brain_region", "primary_metric": "macro/f1-score"},
     ])
 
 
