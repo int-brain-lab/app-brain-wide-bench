@@ -32,7 +32,10 @@ dev = [
 python-preference = "managed"
 
 [tool.uv.sources]
-ibl-benchmark = { workspace = true }
+# Path source, NOT a uv workspace: ibl-benchmark is a separately-versioned
+# sibling repo with no shared committed root pyproject, so `workspace = true`
+# cannot resolve. The Docker build context (`..`) and uv.lock both rely on this.
+ibl-benchmark = { path = "../ibl-benchmark", editable = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

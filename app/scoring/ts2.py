@@ -7,7 +7,7 @@ import numpy as np
 
 from app.scoring.base import BaseScorer
 
-PRIMARY_METRIC = "bps"  # bits-per-spike, the headline co-smoothing/forecasting metric
+PRIMARY_METRIC = "cohens_r2"  # Poisson deviance R² (D²), the headline TS2 metric
 
 
 class TS2Scorer(BaseScorer):

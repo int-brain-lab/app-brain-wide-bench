@@ -60,6 +60,19 @@ The production instance runs at `http://brainwidebench.iblcore.org` (EC2 t3.smal
 us-east-1). Full deployment instructions, resource IDs, and operational notes are in
 [`iblsre/brain-wide-bench/aws_deploy.md`](https://github.com/int-brain-lab/iblsre/blob/main/brain-wide-bench/aws_deploy.md).
 
+### Continuous integration
+
+`.github/workflows/test.yml` checks out this repo and `neuro-galaxy/ibl-benchmark`
+as siblings so the `../ibl-benchmark` dependency resolves, then runs `uv sync` + pytest.
+The cross-org (private) checkout authenticates with the `IBL_BENCH_PAT` repo secret.
+
+<!-- TODO(ci): IBL_BENCH_PAT is currently a personal, read-only fine-grained PAT scoped
+     to neuro-galaxy/ibl-benchmark. It expires and is tied to one account, so CI breaks
+     if the token lapses or that account loses access — check the token's expiry first
+     when CI suddenly can't find ibl-benchmark. This is a temporary solution until 
+     ibl-benchmark gets a public release and public pypi package   -->
+
+
 ## Submission format
 
 ### 1. Zip layout
