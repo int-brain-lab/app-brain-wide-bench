@@ -20,10 +20,9 @@ jobs:
         with:
           repository: neuro-galaxy/ibl-benchmark
           # Cross-org private repo: needs a PAT (or deploy key) with read access,
-          # stored as the IBL_BENCH_PAT repo/org secret. Tracks the `app-bwb` branch
-          # (the ibl-benchmark work this app depends on); repoint to `main` once
-          # app-bwb is merged there.
-          ref: app-bwb
+          # stored as the IBL_BENCH_PAT repo/org secret. Pin `ref:` to a tag/SHA
+          # for a reproducible build.
+          ref: main
           token: ${{ secrets.IBL_BENCH_PAT }}
           path: ibl-benchmark
       - name: Install uv
