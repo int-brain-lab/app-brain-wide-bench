@@ -2,10 +2,13 @@
 // instead of the backend (POST/PUT/PATCH still hit the network). Lets the
 // frontend run with no backend at all. See mock_api/README.md.
 const FAKE_DATA = false;
-// Anchor the mock dir to THIS script's URL (frontend/js/api.js), not the page URL,
+// Anchor the mock dir to THIS module's URL (frontend/js/api.js), not the page URL,
 // so it resolves to frontend/mock_api/ no matter which page loads it or how the
 // site is served. mock_api/ is a sibling of js/, hence "../mock_api".
-const FAKE_DATA_BASE = new URL("../mock_api", document.currentScript.src).href;
+//
+// `import.meta.url`, not `document.currentScript.src`: currentScript is null
+// inside an ES module, so the old form would have thrown on load here.
+const FAKE_DATA_BASE = new URL("../mock_api", import.meta.url).href;
 
 // Map a GET API path to its mock file. Returns null if there's no mapping.
 function fakeDataFile(path) {
@@ -15,6 +18,7 @@ function fakeDataFile(path) {
     "/api/users/me/models": "user_models.json",
     "/api/users/me": "users_me.json",
     "/api/tasks": "tasks.json",
+    "/api/meta/enums": "meta_enums.json",
     "/api/teams": "teams.json",
     "/api/models": "models.json",
     "/api/models_details": "models_details.json",
@@ -132,3 +136,9 @@ async function apiFetch(path, options = {}) {
   }
   return res.status === 204 ? null : res.json();
 }
+
+
+// `CONFIG` and `getToken` stay module-private — everything outside goes through
+// apiFetch. `auth0` is still expected as a CDN global inside initAuth, but that
+// call is wrapped in try/catch and DEV_MODE short-circuits it.
+export { apiFetch, initAuth, isAuthenticated, login, logout, CONFIG };

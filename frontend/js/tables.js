@@ -27,6 +27,7 @@ function toTableRows(submissions) {
       rowsByModel.set(modelKey, {
         title: submission.model_name,
         affiliation: submission.team_name,
+        modelId: submission.model_id,
       });
     }
 
@@ -182,5 +183,15 @@ function leaderboardIndex(leaderboardSubmissions) {
   const map = new Map(rows.map((r) => [`${r.title}|${r.affiliation}`, r]));
   return { map, total: rows.length };
 }
+
+
+export {
+  toTableRows,
+  groupScoresBySuite,
+  suiteMean,
+  overallMean,
+  assignRanks,
+  leaderboardIndex,
+};
 
 

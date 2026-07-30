@@ -1,74 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Brain-Wide Bench - Leaderboard</title>
+  <title>Brain-Wide Bench - My model</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body data-view="public">
 
-    <div class="main">
+<body data-view="private">
+
+    <div class="main-private">
+
       <nav class="nav" id="top-nav"></nav>
-      <div class="content content-wide">
+      <aside class="sidebar" id="side-nav"></aside>
 
-        <div class="model-header">
-          <div>
-            <div class="model-title-row">
-              <span class="model-title" id="model-title"></span>
+      <div class="content-private">
+
+          <a class="link" href="model_list.html">← Back to models</a>
+
+          <div class="page-header">
+            <h1 class="section-title" id="page-title">Chosen model</h1>
+            <p class="section-description" id="page-description"></p>
+          </div>
+
+          <div class="tab-row">
+            <div class="tab active" data-tab="overview">Overview</div>
+            <div class="tab" data-tab="details">Details</div>
+            <div class="tab" data-tab="submissions">Submissions</div>
+            <div class="tab" data-tab="evaluation">Evaluation</div>
+          </div>
+
+          <section class="model-overview" data-tab="overview">
+            <div class="model-scores">
+              <div class="card secondary column gap-lg">
+                <div class="column gap-xs" id="overall-score-card"></div>
+                <div class="column gap-lg" id="suite-list"></div>
+              </div>
             </div>
-            <div class="detail-meta" id="model-meta"></div>
-            <div class="task-badge-row" id="model-badges"></div>
-          </div>
-          <div class="rank-block">
-            <div class="rank-label">Overall rank</div>
-            <div class="rank-num" id="rank-num"></div>
-            <div class="rank-sub" id="rank-sub"></div>
-            <a href="leaderboard.html" class="rank-link">View on leaderboard →</a>
-          </div>
-        </div>
-
-        <div class="two-col">
-          <div class="card">
-            <div class="card-header"><span class="card-header__title">Model details</span></div>
-            <div id="model-details"></div>
-          </div>
-
-          <div>
-            <div class="header"><h2>Performance</h2></div>
-            <div id="task-bars"></div>
-
-          </div>
-
-        </div>
 
 
-        <div class="header"><h2>Submissions</h2></div>
-        <div class="lb-preview">
-            <table class="lb-table">
-              <thead>
-                <tr>
-                  <th style="width:30%">Label</th>
-                  <th style="width:22%">Last updated</th>
-                  <th style="width:16%">Status</th>
-                  <th style="width:32%">Suites</th>
-                </tr>
-              </thead>
-              <tbody id="submissions-list"></tbody>
-            </table>
-          </div>
+            <div class="model-stats grid-4" id="model-stats"></div>
+            <div class="model-details card secondary column gap-lg">
+              <span class="card-description">Details</span>
+              <div class="column gap-lg" id="model-details"></div>
+              <span class="link push-end" id="see-all-details-link">See all model details →</span>
+            </div>
+          </section>
 
+          <section class="tab-section" data-tab="details" hidden>
+            <div class="card secondary column gap-lg">
+              <div class="row">
+                <span class="card-title">Model details</span>
+                <span class="btn" id="edit-model">Edit</span>
+              </div>
+              <div class="column gap-lg" id="model-details-full"></div>
+            </div>
+          </section>
+
+
+          <section class="tab-section" data-tab="details-edit" hidden>
+            <div class="card secondary column gap-lg">
+              <div class="row">
+                <span class="card-title">Update model</span>
+                <div class="row gap-md">
+                  <span class="btn primary" id="save-model">Save Changes</span>
+                  <span class="btn" id="cancel-model">Cancel</span>
+                </div>
+              </div>
+              <div class="column gap-lg" id="model-details-edit"></div>
+            </div>
+          </section>
+
+
+          <section class="tab-section" data-tab="submissions" hidden>
+            <div class="table">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:80%">Label</th>
+                    <th style="width:22%">Last updated</th>
+                    <th style="width:16%">Status</th>
+                    <th style="width:32%">Suites</th>
+                  </tr>
+                </thead>
+                <tbody id="submissions-list"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="tab-section" data-tab="evaluation" hidden>
+            <div class="grid-3" id="evaluation-suites"></div>
+          </section>
 
       </div>
     </div>
 
-
-<script src="js/utils.js"></script>
-<script src="js/api.js"></script>
-<script src="js/tables.js"></script>
-<script src="js/nav_top.js"></script>
-<script src="js/model_details.js"></script>
-
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module" src="js/nav_top.js"></script>
+  <script type="module" src="js/nav_side.js"></script>
+  <script type="module" src="js/models/details/details.js"></script>
 
 </body>
 </html>

@@ -1,3 +1,10 @@
+// `score` is imported rather than assumed global: index.html never loaded
+// js/utils.js, so every call here was a ReferenceError and the preview table
+// silently failed to render.
+import { escapeHtml, score } from "./utils.js";
+import { apiFetch } from "./api.js";
+import { toTableRows } from "./tables.js";
+
 const RANK_CLASSES = [
   "rank-gold",
   "rank-silver",
@@ -11,8 +18,8 @@ function renderTableRow(row, index) {
     <tr>
       <td class="${rankClass}">${index + 1}</td>
       <td>
-        <div class="model-name">${row.title}</div>
-        <div class="model-org">${row.affiliation}</div>
+        <div class="label">${escapeHtml(row.title)}</div>
+        <div class="metadata">${escapeHtml(row.affiliation)}</div>
       </td>
       <td>${score(row.overall)}</td>
       <td>${score(row.ts1)}</td>

@@ -1,3 +1,10 @@
+import { escapeHtml, score } from "./utils.js";
+import { apiFetch } from "./api.js";
+import { assignRanks, toTableRows } from "./tables.js";
+
+// `Tabulator` is still a global — it comes from the unpkg <script> in
+// leaderboard.html, not from this module graph.
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const METRICS = ["overall", "ts1", "ts2", "ts3"];
@@ -17,9 +24,9 @@ const MEDAL_CLASSES = {
 };
 
 const SUITES = [
-  { key: "ts1", label: "TS1", cls: "ts1-bar" },
-  { key: "ts2", label: "TS2", cls: "ts2-bar" },
-  { key: "ts3", label: "TS3", cls: "ts3-bar" },
+  { key: "ts1", label: "TS1", cls: "ts1" },
+  { key: "ts2", label: "TS2", cls: "ts2" },
+  { key: "ts3", label: "TS3", cls: "ts3" },
 ];
 
 let activeMetric = "overall";
@@ -63,12 +70,18 @@ function scoreFormatter(cell) {
   return score(cell.getValue())
 }
 
+// Tabulator inserts a formatter's returned string as HTML, so this is an
+// innerHTML sink in all but name — and `title`/`affiliation` are the model and
+// team names as submitted by users. This table is the public leaderboard, so it
+// is the widest-reach injection point in the app.
 function renderModelCell(cell) {
   const row = cell.getData();
 
   return `
-    <div class="model-name">${row.title}</div>
-    <div class="model-org">${row.affiliation}</div>
+    <a href="model_details.html?id=${encodeURIComponent(row.modelId)}" class="column">
+      <div class="label">${escapeHtml(row.title)}</div>
+      <div class="metadata">${escapeHtml(row.affiliation)}</div>
+    </a>
   `;
 }
 
@@ -91,12 +104,12 @@ function renderSuiteBar(row, suite) {
       : Math.round(value * 100);
 
   return `
-    <div class="mini-bar-row">
-      <span class="mini-lbl">${suite.label}</span>
+    <div class="row gap-sm">
+      <span class="metadata">${escapeHtml(suite.label)}</span>
 
-      <div class="bar-bg">
+      <div class="bar-track">
         <div
-          class="bar-fill ${suite.cls}"
+          class="bar ${escapeHtml(suite.cls)}"
           style="width:${pct}%"
         ></div>
       </div>
@@ -112,7 +125,7 @@ function renderBarsCell(cell) {
     .join("");
 
   return `
-    <div class="mini-bars">
+    <div class="column gap-sm">
       ${bars}
     </div>
   `;
@@ -177,7 +190,7 @@ function createTable(rows) {
     paginationSize: 10,
 
     footerElement:
-      `<span class="tbl-footer-note">${rows.length} models</span>`,
+      `<span class="text-md muted">${rows.length} models</span>`,
 
     initialSort: [
       {

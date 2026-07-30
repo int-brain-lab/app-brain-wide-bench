@@ -77,3 +77,5 @@ function inferTasks(paths) {
   }
   return [...tasks].sort();
 }
+
+export { listZipEntries, inferTasks };
