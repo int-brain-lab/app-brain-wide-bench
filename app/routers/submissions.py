@@ -23,6 +23,9 @@ from app.schemas.submissions import (
     SubmissionCreate,
     SubmissionDetail,
     SubmissionResponse,
+    SubmissionUpdate,
+    TaskSubmissionDetail,
+    TaskSubmissionUpdate,
 )
 from app.storage import presign_put
 from app.tasks.score import score_submission
@@ -38,14 +41,26 @@ async def presign(
 ) -> PresignResponse:
     """Create a pending submission, its TaskSubmission rows, and return a presigned S3 PUT URL.
 
+    Each entry in ``body.tasks`` carries that task's methodology, which is stored
+    on the TaskSubmission row up front; it stays editable afterwards via
+    ``PATCH /api/submissions/{id}/tasks/{task_submission_id}``.
+
     Rejects unknown task IDs with HTTP 400.
     """
     known_ids = set(
         (await session.execute(select(Task.id))).scalars().all()
     )
-    bad = set(body.task_ids) - known_ids
+    requested_ids = [task.task_id for task in body.tasks]
+
+    bad = set(requested_ids) - known_ids
     if bad:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unknown task IDs: {sorted(bad)}")
+
+    # A task can only appear once — two rows for the same task would each carry
+    # their own methodology, with nothing to say which one describes the run.
+    duplicates = {task_id for task_id in requested_ids if requested_ids.count(task_id) > 1}
+    if duplicates:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Duplicate task IDs: {sorted(duplicates)}")
 
     # Pre-assign id so the S3 key is stable before the first flush.
     sub_id = uuid.uuid4()
@@ -59,8 +74,8 @@ async def presign(
     )
     session.add(submission)
     session.add(SubmissionUser(submission_id=sub_id, user_id=user.id, role=SubmissionUserRole.owner))
-    for task_id in body.task_ids:
-        session.add(TaskSubmission(submission_id=sub_id, task_id=task_id))
+    for task in body.tasks:
+        session.add(TaskSubmission(submission_id=sub_id, **task.model_dump()))
     await session.commit()
 
     return PresignResponse(
@@ -75,29 +90,34 @@ async def submit(
     submission_id: uuid.UUID,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> Submission:
+) -> SubmissionResponse:
     """Mark the upload complete and enqueue the scoring task."""
     submission = await _get_owned(session, submission_id, user)
     submission.status = SubmissionStatus.pending
     await session.commit()
     score_submission.delay(str(submission.id))
-    await session.refresh(submission)
-    return submission
+
+    # Re-read rather than session.refresh(): refresh expires the `team` / `model`
+    # relationships, and SubmissionResponse needs their names.
+    return SubmissionResponse.from_submission(
+        await _get_owned(session, submission_id, user)
+    )
 
 
 @router.get("/", response_model=list[SubmissionResponse])
 async def list_submissions(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> list[Submission]:
+) -> list[SubmissionResponse]:
     """List the current user's submissions, newest first."""
     result = await session.execute(
         select(Submission)
+        .options(selectinload(Submission.team), selectinload(Submission.model))
         .join(SubmissionUser)
         .where(SubmissionUser.user_id == user.id)
         .order_by(Submission.created_at.desc())
     )
-    return list(result.scalars().all())
+    return [SubmissionResponse.from_submission(s) for s in result.scalars().all()]
 
 
 @router.get("/{submission_id}", response_model=SubmissionDetail)
@@ -105,9 +125,98 @@ async def get_submission(
     submission_id: uuid.UUID,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> Submission:
+) -> SubmissionDetail:
     """Return a submission's detail with per-task scores; owner or collaborator only."""
-    return await _get_owned(session, submission_id, user, load_scores=True)
+    return SubmissionDetail.from_submission(
+        await _get_owned(session, submission_id, user, load_scores=True)
+    )
+
+
+@router.patch("/{submission_id}", response_model=SubmissionDetail)
+async def update_submission(
+    submission_id: uuid.UUID,
+    body: SubmissionUpdate,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> SubmissionDetail:
+    """Update a submission's label, visibility or narratives; owner or collaborator only.
+
+    The model, team, storage key and status are immutable — see SubmissionUpdate.
+
+    Note that flipping ``is_public`` is a publishing action: it changes what
+    ``GET /api/leaderboard`` and the public model card expose.
+    """
+    submission = await _get_owned(session, submission_id, user)
+
+    # exclude_unset: an omitted field keeps its value, while an explicit null
+    # clears it. A "skip if None" loop could never clear a narrative.
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(submission, field, value)
+
+    await session.commit()
+
+    return SubmissionDetail.from_submission(
+        await _get_owned(session, submission_id, user, load_scores=True)
+    )
+
+
+@router.patch(
+    "/{submission_id}/tasks/{task_submission_id}",
+    response_model=TaskSubmissionDetail,
+)
+async def update_task_submission(
+    submission_id: uuid.UUID,
+    task_submission_id: uuid.UUID,
+    body: TaskSubmissionUpdate,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> TaskSubmission:
+    """Update one task's methodology metadata; owner or collaborator only.
+
+    Allowed at any status: these fields describe *how* the run was done, so they
+    don't invalidate a score that has already been computed.
+    """
+    # Authorisation lives on the parent submission — nested so a task submission
+    # can't be reached without proving access to the submission that owns it.
+    await _get_owned(session, submission_id, user)
+
+    task_submission = await _get_task_submission(session, submission_id, task_submission_id)
+
+    # exclude_unset: an omitted field keeps its value, while an explicit null
+    # clears it. A "skip if None" loop could never clear a field back to unset.
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(task_submission, field, value)
+
+    await session.commit()
+
+    # Re-read rather than returning the committed instance: commit expires its
+    # attributes, and `score` is a relationship — touching it lazily on an async
+    # session raises MissingGreenlet (see test_submit_marks_pending_and_enqueues).
+    return await _get_task_submission(session, submission_id, task_submission_id)
+
+
+async def _get_task_submission(
+    session: AsyncSession,
+    submission_id: uuid.UUID,
+    task_submission_id: uuid.UUID,
+) -> TaskSubmission:
+    """Fetch a task submission, with its score, asserting it belongs to ``submission_id``."""
+    task_submission = (
+        await session.execute(
+            select(TaskSubmission)
+            .options(selectinload(TaskSubmission.score))
+            .where(
+                TaskSubmission.id == task_submission_id,
+                TaskSubmission.submission_id == submission_id,
+            )
+        )
+    ).scalar_one_or_none()
+
+    if task_submission is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "Task submission not found on this submission"
+        )
+    return task_submission
 
 
 async def _get_owned(
@@ -116,8 +225,17 @@ async def _get_owned(
     user: User,
     load_scores: bool = False,
 ) -> Submission:
-    """Fetch a submission, enforcing that ``user`` is owner or collaborator."""
-    opts = [selectinload(Submission.user_links)]
+    """Fetch a submission, enforcing that ``user`` is owner or collaborator.
+
+    ``team`` and ``model`` are always loaded because SubmissionResponse flattens
+    their names — reading them lazily after this returns would raise
+    MissingGreenlet on the async session.
+    """
+    opts = [
+        selectinload(Submission.user_links),
+        selectinload(Submission.team),
+        selectinload(Submission.model),
+    ]
     if load_scores:
         opts.append(
             selectinload(Submission.task_submissions).selectinload(TaskSubmission.score)
