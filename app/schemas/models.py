@@ -3,69 +3,70 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
-from app.models import Modality
-from app.schemas.submissions import TaskSubmissionOut
+from app.models import Modality, TaskSuite
+from app.schemas.tasksubmission import TaskSubmissionResponse
 
 
-class ModelResponse(BaseModel):
-    """List item for ``GET /api/users/me/models``."""
+class ModelMetadata(BaseModel):
+    """Optional metadata describing a model."""
+
+    link_project: str | None = None
+    link_weights: str | None = None
+    link_code: str | None = None
+    publication_doi: str | None = None
+    n_parameters: int | None = None
+    is_pretrained: bool | None = None
+    pretrained_in_modalities: list[Modality] | None = None
+    pretrained_out_modalities: list[Modality] | None = None
+    pretraining_data: str | None = None
+
+
+class ModelResponse(ModelMetadata):
+    """Fields common to every model API response."""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     team_id: uuid.UUID
     name: str
-    link_project: str | None = None
-    link_weights: str | None = None
-    link_code: str | None = None
-    publication_doi: str | None = None
-    n_parameters: int | None = None
     temporal_context_s: float
-    is_pretrained: bool | None = None
-    pretrained_in_modalities: list[Modality] | None = None
-    pretrained_out_modalities: list[Modality] | None = None
-    pretraining_data: str | None = None
     created_at: datetime | None = None
 
+    # Optional here only because it lives on the ``team`` relationship rather than on
+    # the ORM object, so ``model_validate(model)`` can't populate it — ``from_model``
+    # fills it in, so responses always carry it. Same arrangement as
+    # ``SubmissionList.team_name``.
+    team_name: str | None = None
 
-class ModelCreate(BaseModel):
-    """Request body for ``POST /api/models``."""
+    @classmethod
+    def from_model(cls, model, **extra):
+        """Build any model response from an ORM ``Model`` with ``team`` loaded.
 
-    team_id: uuid.UUID
-    name: str
-    link_project: str | None = None
-    link_weights: str | None = None
-    link_code: str | None = None
-    publication_doi: str | None = None
-    n_parameters: int | None = None
-    temporal_context_s: float = 1.0
-    is_pretrained: bool | None = None
-    pretrained_in_modalities: list[Modality] | None = None
-    pretrained_out_modalities: list[Modality] | None = None
-    pretraining_data: str | None = None
+        Resolving ``team_name`` once here is why the subclasses need no ``from_model``
+        of their own — their extra fields come through ``extra`` and land on ``cls``.
+        Whatever the caller passes there (``n_submissions``, ``task_suites``,
+        ``submissions``) must already be visibility-scoped: the public directory must
+        not count private submissions.
 
+        Validates against ``ModelResponse`` rather than ``cls`` on purpose. With
+        ``cls``, ModelDetail would read and coerce ``Model.submissions`` off the
+        relationship — the *unscoped* list — only for ``extra`` to replace it.
 
-class ModelUpdate(BaseModel):
-    """Request body for ``PATCH /api/models/{id}``. All fields optional; only set ones are applied."""
+        ``exclude={"team_name"}`` because it would otherwise be passed twice: once as
+        the ``None`` from validation, once resolved.
+        """
+        return cls(
+            **ModelResponse.model_validate(model).model_dump(exclude={"team_name"}),
+            team_name=model.team.name,
+            **extra,
+        )
 
-    name: str | None = None
-    team_id: uuid.UUID | None = None
-    link_project: str | None = None
-    link_weights: str | None = None
-    link_code: str | None = None
-    publication_doi: str | None = None
-    n_parameters: int | None = None
-    temporal_context_s: float | None = None
-    is_pretrained: bool | None = None
-    pretrained_in_modalities: list[Modality] | None = None
-    pretrained_out_modalities: list[Modality] | None = None
-    pretraining_data: str | None = None
 
 
 class ModelSubmissionOut(BaseModel):
-    """Submission entry embedded in a model's card."""
+    """Submission embedded within a model detail response."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -73,47 +74,58 @@ class ModelSubmissionOut(BaseModel):
     label: str
     status: str
     is_public: bool
-    created_at: datetime
+    created_at: datetime | None = None
     updated_at: datetime | None = None
-    task_submissions: list[TaskSubmissionOut] = []
+    task_submissions: list[TaskSubmissionResponse] = Field(default_factory=list)
 
 
-class ModelListItem(ModelResponse):
-    """List item for ``GET /api/models`` and ``GET /api/users/me/models``.
 
-    Deliberately not ``ModelDetail``: a listing shouldn't carry every model's full
-    submission objects, only how many there are.
+class ModelList(ModelResponse):
+    """List item for GET /api/models and GET /api/users/me/models.
 
-    ``n_submissions`` counts what the caller is entitled to see, so its meaning
-    depends on the row: for a model the caller is a team member of it's every
-    submission, and for one they can see only because it has public work it's the
-    public ones. On ``/me/models`` every row is the caller's own, so it is always
-    the full count.
+    Both fields are aggregates over the model's submissions rather than columns, so
+    they can't come from ``model_validate`` — the caller computes them (``model_stats``
+    in app/routers/models.py) and passes them to ``from_model``.
+
+    They default to "nothing known" so a bare ``from_model(model)`` still works. That
+    does mean a caller who forgets them reports 0 submissions rather than failing
+    loudly, which is what the tests on both list endpoints are for.
     """
 
-    team_name: str
     n_submissions: int = 0
-
-    @classmethod
-    def from_model(cls, model, n_submissions: int) -> "ModelListItem":
-        """Build from an ORM ``Model`` whose ``team`` relationship is already loaded.
-
-        The caller works out ``n_submissions``, because the rule differs per
-        endpoint — see the note above.
-        """
-        return cls(
-            **ModelResponse.model_validate(model).model_dump(),
-            team_name=model.team.name,
-            n_submissions=n_submissions,
-        )
+    task_suites: list[TaskSuite] = Field(default_factory=list)
 
 
 class ModelDetail(ModelResponse):
-    """Detail view for ``GET /api/models/{id}`` — model card plus its submissions.
+    """Detailed model information for GET /api/models/{id}.
 
-    ``submissions`` is visibility-scoped: only public ones for anonymous or
-    non-team viewers, all of them for a member of the model's team.
+    Deliberately a sibling of ModelList rather than a subclass: ModelList's
+    ``n_submissions`` and ``task_suites`` are summaries *of* ``submissions``, which
+    this response already carries in full and already visibility-scoped. A client can
+    derive both from it, so shipping them too would mean two numbers that can
+    disagree, plus a round of aggregate queries to produce them.
+
+    ``submissions`` must already be visibility-scoped by the caller — see
+    ``_load_model_detail``.
     """
 
-    team_name: str
-    submissions: list[ModelSubmissionOut] = []
+    submissions: list[ModelSubmissionOut] = Field(default_factory=list)
+
+class ModelCreate(ModelMetadata):
+    """Request body for POST /api/models."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    team_id: uuid.UUID
+    name: str
+    temporal_context_s: float = 1.0
+
+
+class ModelUpdate(ModelMetadata):
+    """Request body for PATCH /api/models/{id}."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = None
+    team_id: uuid.UUID | None = None
+    temporal_context_s: float | None = None

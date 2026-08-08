@@ -77,6 +77,8 @@ class FinetuningStrategy(str, enum.Enum):
     mlp_probe = "mlp_probe"
     gradual_unfreezing = "gradual_unfreezing"
     full_finetuning = "full_finetuning"
+    single_unit = "single_unit"
+    multi_unit = "multi_unit"
     other = "other"
 
 
@@ -138,7 +140,6 @@ class UserTeam(SQLModel, table=True):
 
 # ── Core ───────────────────────────────────────────────────────────────────────
 
-# todo: the modalities fields need to be a list of modalities
 class Model(SQLModel, table=True):
     __tablename__ = "models"
 
@@ -155,8 +156,8 @@ class Model(SQLModel, table=True):
     temporal_context_s: float = 1.0
     # Pretraining — all nullable for single-session baselines
     is_pretrained: bool | None = None
-    pretrained_in_modalities: Modality | None = None
-    pretrained_out_modalities: Modality | None = None
+    pretrained_in_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON))
+    pretrained_out_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON))
     pretraining_data: str | None = None
     created_at: datetime | None = _ts()
 
@@ -236,11 +237,11 @@ class TaskSubmission(SQLModel, table=True):
     id: uuid.UUID = _uuid()
     submission_id: uuid.UUID = Field(foreign_key="submissions.id")
     task_id: str = Field(foreign_key="tasks.id")
-    extra_input_modality: str | None = None
+    extra_input_modality: list[Modality] | None = Field(default=None, sa_column=Column(JSON))
     training_paradigm: TrainingParadigm | None = None
     supervision_regime: SupervisionRegime | None = None
     calibration: Calibration | None = None
-    finetuning_strategy: FinetuningStrategy | None = None
+    finetuning_strategy: list[FinetuningStrategy] | None = Field(default=None, sa_column=Column(JSON))
 
     submission: Submission | None = Relationship(back_populates="task_submissions")
     task: Task | None = Relationship(back_populates="task_submissions")

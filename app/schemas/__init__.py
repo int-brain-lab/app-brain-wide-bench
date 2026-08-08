@@ -8,10 +8,16 @@ from app.schemas.submissions import (
     SubmissionCreate,
     SubmissionDetail,
     SubmissionResponse,
-    TaskScoreOut,
-    TaskSubmissionOut,
 )
+from app.schemas.tasksubmission import TaskSubmissionCreate, TaskSubmissionDetail, TaskSubmissionResponse, TaskScoreOut
 from app.schemas.tasks import TaskResponse
+from app.schemas.teams import (
+    TeamCreate,
+    TeamDetail,
+    TeamMemberOut,
+    TeamResponse,
+    TeamUpdate,
+)
 from app.schemas.users import UserResponse, UserUpdate
 
 __all__ = [
@@ -28,8 +34,15 @@ __all__ = [
     "SubmissionDetail",
     "SubmissionResponse",
     "TaskScoreOut",
-    "TaskSubmissionOut",
+    "TaskSubmissionResponse",
+    "TaskSubmissionCreate",
+    "TaskSubmissionDetail",
     "TaskResponse",
+    "TeamCreate",
+    "TeamDetail",
+    "TeamMemberOut",
+    "TeamResponse",
+    "TeamUpdate",
     "UserResponse",
     "UserUpdate",
 ]
