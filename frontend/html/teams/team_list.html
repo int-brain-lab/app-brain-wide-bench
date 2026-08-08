@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brain-Wide Bench - Teams</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body data-view="private">
+
+    <div class="main-private">
+
+      <aside class="sidebar" id="side-nav"></aside>
+
+      <div class="content-private">
+              <!-- Page Header -->
+        <div class="row">
+          <div class="page-header side">
+            <h1 class="page-title">My teams</h1>
+            <p class="page-description">Teams you belong to. Select one to see its members and models.</p>
+          </div>
+
+          <div class="row right gap-md">
+            <!-- A button, not a link: creating a team is the popup below. -->
+            <a class="btn primary with-icon" href="/html/teams/team_create.html">
+              <i class="btn-icon" data-lucide="plus"></i>
+              Create team
+            </a>
+          </div>
+        </div>
+
+        <div id="teams-list"></div>
+
+      </div>
+
+
+    </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module" src="/js/nav_side.js"></script>
+  <script type="module" src="/js/teams/teamList.js"></script>
+
+</body>
+</html>

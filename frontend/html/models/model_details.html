@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brain-Wide Bench - My model</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body data-view="private">
+
+    <div class="main-private">
+
+<!--      <nav class="nav" id="top-nav"></nav>-->
+      <aside class="sidebar" id="side-nav"></aside>
+
+      <div class="content-private">
+              <!-- Page Header -->
+
+        <a class="link un" id="back-to-model" href="/html/models/model_list.html">← Back</a>
+
+        <div class="row">
+          <div class="page-header side">
+            <h1 class="page-title" id="model-title"></h1>
+            <p class="section-description" id="model-description"></p>
+          </div>
+
+          <div class="row right gap-md">
+            <a class="btn with-icon" id="edit-model">
+              <i class="btn-icon" data-lucide="pencil"></i>
+              Edit
+            </a>
+            <a class="btn primary with-icon" id="save-model" hidden>
+              <i class="btn-icon" data-lucide="check"></i>
+              Save
+            </a>
+            <a class="btn with-icon" id="cancel-model" hidden>
+              <i class="btn-icon" data-lucide="x"></i>
+              Cancel
+            </a>
+          </div>
+        </div>
+
+        <div id="model-details"></div>
+
+
+      </div>
+
+
+    </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module" src="/js/nav_top.js"></script>
+  <script type="module" src="/js/nav_side.js"></script>
+  <script type="module" src="/js/models/modelDetails.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brain-Wide Bench - Submit</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+  <div class="main-private">
+
+    <aside class="sidebar" id="side-nav"></aside>
+
+    <div class="content-private">
+
+      <!-- Page Header -->
+      <div class="page-header">
+          <h1 class="page-title">New submission</h1>
+          <p class="page-description">Upload a zip of predictions to score against the held-out test data.</p>
+      </div>
+
+      <div class="card" id="gate" hidden>
+        <div>
+          <p>Please sign in to submit.</p>
+          <button class="btn primary" id="gate-login">Sign in</button>
+        </div>
+      </div>
+
+      <!-- Wizard Form : two columns -->
+      <form class="wizard" id="wizard" hidden>
+
+        <!-- Wizard Progress Bar : left column, populated by submissions-wizard.js -->
+        <ol class="column gap-sm" id="wizard-progress"></ol>
+
+        <!-- Wizard Panels and Navigation Buttons : right column -->
+        <div class="column gap-lg">
+
+          <!-- Step 1 — Select model -->
+          <section class="wizard-panel" data-step="1">
+
+            <!-- Panel Header -->
+            <div class="section-header">
+              <h2 class="section-title">1. Select model</h2>
+              <p class="section-description">Choose the model this submission is for.</p>
+            </div>
+
+            <!-- Model Selection Dropdown -->
+            <div class="column gap-lg" id="submission-model"></div>
+
+            <!-- Model Info : hidden until model selected, populated by submissions-model.js -->
+            <div id="model-info" hidden></div>
+          </section>
+
+
+          <!-- Step 2 — Submission details -->
+          <!-- Name Input and Publish Checkbox : state synced to `state` by submissions-details.js -->
+          <section class="wizard-panel" data-step="2" hidden>
+
+            <div class="panel-header">
+              <h2 class="heading">2. Submission details</h2>
+              <p class="subheading">Add a name for this submission.</p>
+            </div>
+
+
+            <div class="column gap-lg" id="submission-name"></div>
+
+          </section>
+
+          <!-- Step 3 — Upload predictions -->
+          <section class="wizard-panel" data-step="3" hidden>
+
+            <div class="panel-header">
+              <h2 class="heading">3. Upload predictions</h2>
+              <p class="subheading">Upload a .zip file containing your model predictions.</p>
+            </div>
+
+            <div class="dropzone" id="dropzone">
+              <input type="file" id="file-input" accept=".zip,application/zip" hidden />
+              <p class="dropzone-label">Drag and drop or select your <code>.zip</code> file here</p>
+            </div>
+
+              <!-- File Info Card : shown once a file is chosen, populated by tasks/tasks.js -->
+            <div class="card row" id="file-info" hidden>
+              <div class="column gap-xs">
+                <span class="text-lg bold" id="file-name"></span>
+                <span class="text-sm muted" id="file-size"></span>
+              </div>
+              <button type="button" class="btn" id="file-remove">Delete</button>
+            </div>
+
+              <!-- Task Info : detected-task pills or status message, populated by tasks/tasks.js -->
+            <div id="task-info" hidden></div>
+
+          </section>
+
+
+          <!-- Step 4 — Review tasks -->
+          <section class="wizard-panel" data-step="4" hidden>
+
+
+            <div class="panel-header">
+              <h2 class="heading">4. Review tasks</h2>
+              <p class="subheading">Review and configure the tasks detected in your file.</p>
+            </div>
+
+            <!-- Task Count and Add-Missing-Task Trigger : opens the modal via tasks/tasks.js -->
+            <div class="row">
+              <span class="info-msg" id="task-count">Detected tasks (0)</span>
+              <button type="button" class="btn theme" id="open-task-popup">+ Add missing task</button>
+            </div>
+
+            <!-- Task Rows : populated by tasks/tasks-view.js, one per detected/added task -->
+            <div class="task-list" id="task-list"></div>
+
+          </section>
+
+          <!-- Step 4 — Review submission and submit -->
+          <section class="card column gap-lg wizard-panel" data-step="5" hidden>
+
+            <div class="panel-header">
+              <h2 class="heading">5. Submit</h2>
+              <p class="subheading">Review your submission before sending.</p>
+            </div>
+
+              <!-- Summary Rows : populated by create.js / create-view.js -->
+            <div class="summary" id="summary"></div>
+
+            <div class="row left gap-sm">
+              <label class="label" for="final-confirm">I confirm that these task settings are correct.</label>
+              <input class="input-checkbox" name="final-confirm" id="final-confirm" type="checkbox" />
+            </div>
+          </section>
+
+          <div id="form-message"></div>
+
+          <!-- Footer Navigation : Back / Next / Submit, controlled by submissions-wizard.js -->
+          <div class="row">
+            <button type="button" class="btn" id="wizard-back">Back</button>
+
+            <div class="row right">
+              <button type="button" class="btn primary" id="wizard-next">Next</button>
+              <button type="button" class="btn primary" id="wizard-submit" disabled hidden>
+                Submit submission
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </form>
+
+      <!-- Add-Missing-Task Modal : controlled by tasks/tasks.js -->
+      <div class="task-popup" id="task-popup" hidden>
+
+        <div class="popup-card" role="dialog">
+
+          <div class="row">
+            <h3 class="info-title" id="add-task-title">Add missing task</h3>
+            <button type="button" class="modal-close" id="close-task-popup">x</button>
+          </div>
+
+          <div class="column gap-sm">
+            <label class="field-label" for="task-search">Search for a task</label>
+            <input class="field-text" name="task-search" id="task-search" type="text" placeholder="Start typing to search…" autocomplete="off"/>
+          </div>
+
+          <div class="column gap-sm">
+            <div class="info-msg">Matching tasks</div>
+            <!-- Search Results : populated by tasks/tasks-view.js -->
+            <div class="match-list" id="match-list"></div>
+          </div>
+
+          <div class="row right">
+            <button type="button" class="btn" id="cancel-task-popup">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module" src="/js/nav_top.js"></script>
+  <script type="module" src="/js/nav_side.js"></script>
+  <script type="module" src="/js/submissions/submissionCreate.js"></script>
+</body>
+</html>

@@ -156,4 +156,10 @@ function trainingFieldKeys() {
   return fieldsForPanel(TASK_FIELDS, 1);
 }
 
-export { TASK_FIELDS, loadTaskFields, trainingFieldKeys };
+// One card, since every editable task field is methodology. Declared anyway so the
+// task editor builds its layout the same way the model and submission ones do.
+const TASK_PANELS = [
+  { panel: 1, title: "Methodology", columns: 2 },
+];
+
+export { TASK_FIELDS, TASK_PANELS, loadTaskFields, trainingFieldKeys };

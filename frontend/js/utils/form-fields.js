@@ -28,9 +28,9 @@ function parseFieldValue(field, value) {
   }
 }
 
-function fieldsForPanel(fields, panel) {
+function fieldsForPanel(fields, panel, editableOnly=true) {
   return Object.keys(fields)
-    .filter(key => fields[key].panel === panel);
+    .filter(key => fields[key].panel === panel && (!editableOnly || fields[key].editable !== false));
 }
 
 
@@ -109,17 +109,62 @@ function displayValue(field, raw) {
   return raw;
 }
 
-function renderDisplayField(key, state, fields) {
+// A textarea's value is prose, so its display row takes the whole width whatever
+// the card's `columns` is — half a row is the one place it can't afford. Any field
+// can opt in the same way with `fullRow: true` in its schema, for a long joined
+// checkbox list say.
+//
+// Safe to emit unconditionally: `.span-all` is a grid-column rule, so it does
+// nothing to a flex child in a single-column card.
+function fullRowClass(field) {
+  return field.fullRow || field.input === "textarea" ? " span-all" : "";
+}
+
+
+// A field's optional `icon` is a Lucide name, rendered only on display rows —
+// an edit form's labels stay plain, since there the input itself carries the
+// meaning. The `<i>` is a placeholder: lucide.createIcons() replaces it with an
+// <svg>, so whatever injects this HTML has to call that afterwards (renderDetails
+// and the editor's renderDraft both do).
+//
+// The row/gap utilities go on the label only when there's an icon to space, so
+// `.field-label` keeps its default inline layout everywhere else.
+function renderFieldLabel(field) {
+  if (!field.icon) {
+    return `<label class="field-label">${escapeHtml(field.label)}</label>`;
+  }
+
+  return `
+    <label class="field-label row left gap-xs">
+      <i class="field-icon" data-lucide="${escapeHtml(field.icon)}"></i>
+      ${escapeHtml(field.label)}
+    </label>
+  `;
+}
+
+
+function renderDisplayField(key, state, fields, inline=false) {
   const field = fields[key];
   const value = displayValue(field, state[key]);
 
+  if (inline) {
+    return `
+      <div class="row${fullRowClass(field)}">
+        ${renderFieldLabel(field)}
+        <p class="field-value">${value == null || value === "" ? "—" : escapeHtml(value)}</p>
+      </div>
+    `;
+  }
+
   return `
-    <div class="column gap-xs">
-      <label class="field-label">${escapeHtml(field.label)}</label>
+    <div class="column gap-xs${fullRowClass(field)}">
+      ${renderFieldLabel(field)}
       <p class="field-value">${value == null || value === "" ? "—" : escapeHtml(value)}</p>
     </div>
   `;
 }
+
+
 
 
 function isDisabled(field, state) {
@@ -309,10 +354,75 @@ function renderFields(keys, state, fields) {
 }
 
 
-function renderDisplayFields(keys, state, fields) {
+function renderDisplayFields(keys, state, fields, inline=false) {
     return keys
-    .map(key => renderDisplayField(key, state, fields))
+    .map(key => renderDisplayField(key, state, fields, inline))
     .join("");
+}
+
+
+// The grid utilities that exist in style.css. A `columns` value with no class
+// here (1, undefined, or something nobody wrote a rule for) falls back to the
+// card's own single flex column rather than emitting a class that does nothing.
+const GRID_CLASS = { 2: "grid-2", 3: "grid-3", 4: "grid-4" };
+
+
+// Fields arrive as a flat run of sibling divs, so it's the container that decides
+// how they flow: one column needs no wrapper (the card is already a flex column),
+// more than one needs a grid around them.
+function wrapColumns(html, columns) {
+  const gridClass = GRID_CLASS[columns];
+  return gridClass ? `<div class="${gridClass}">${html}</div>` : html;
+}
+
+
+// Renders one card per group, so a read-only view and its edit form can share a
+// single layout definition instead of each hardcoding the same card titles.
+//
+// Deliberately knows nothing about `panel`: a group is just `{title, keys,
+// inline, columns}`, which leaves callers free to group by something else
+// entirely. `render` is the per-group field renderer — renderFields for an edit
+// form, renderDisplayFields for a read-only view; both take (keys, state,
+// fields, inline), so either can be passed straight in.
+//
+// `columns` lays a group's fields out N-up instead of stacked. Mostly useful on a
+// read-only view, where a row is a short label/value pair and one per line wastes
+// most of the card's width; inputs and textareas usually want the full width, so
+// an edit form tends to override it back to 1 (see panelGroups).
+function renderGroups(groups, state, fields, render) {
+  return `
+    <div class="column gap-lg">
+      ${groups.map(group => `
+        <div class="card column gap-md">
+          ${group.title ? `<p class="title muted">${escapeHtml(group.title)}</p>` : ""}
+          ${wrapColumns(render(group.keys, state, fields, group.inline), group.columns)}
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+
+// Builds renderGroups' groups from a panel layout — declared alongside the schema
+// it describes as [{panel, title, inline, columns}].
+//
+// `editableOnly` mirrors fieldsForPanel's third argument inverted: false (the
+// default) keeps `editable: false` keys, which an edit form still wants as
+// read-only context rows. A panel whose keys all filter out is dropped rather
+// than rendering an empty card.
+//
+// `columns`, if given, overrides every panel's own value — this is how one layout
+// serves both modes: the display view takes the panels as declared, and the edit
+// form passes `{columns: 1}` so inputs get the card's full width.
+function panelGroups(fields, panels, { editableOnly = false, columns } = {}) {
+  return panels
+    .map(({ panel, title, inline, columns: panelColumns }) => ({
+      title,
+      inline,
+      columns: columns ?? panelColumns,
+      keys: fieldsForPanel(fields, panel, editableOnly),
+    }))
+    .filter(group => group.keys.length);
 }
 
 
@@ -369,6 +479,8 @@ function getFieldValue(field, key, input, container) {
 export {
   renderFields,
   renderDisplayFields,
+  renderGroups,
+  panelGroups,
   attachFieldEvents,
   fieldsForPanel,
   createFieldState,

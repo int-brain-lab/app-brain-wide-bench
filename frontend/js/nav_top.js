@@ -1,14 +1,15 @@
 import { escapeHtml, initials} from "./utils.js";
 import { apiFetch, isAuthenticated, login, logout } from "./api.js";
+import { renderLogo } from "./logo.js";
 
 // ─── CONSTANTS ─────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
-  { label: "Leaderboard", href: "leaderboard.html" },
+  { label: "Leaderboard", href: "/leaderboard.html" },
   { label: "Docs", href: "#" },
-  { label: "Submit", href: "submit_submission.html" },
+  { label: "Submit", href: "/submit_submission.html" },
   { label: "About", href: "#" },
-  { label: "Dashboard", href: "dashboard.html" },
+  { label: "Dashboard", href: "/html/dashboard/dashboard.html" },
 ];
 
 
@@ -38,27 +39,17 @@ function topNav() {
 
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 
+// The whole path, not just the filename — nav hrefs are root-relative now that pages
+// live at more than one depth, and this is compared against them to mark the active
+// item. Same as nav_side.js.
 function currentPage() {
-  return window.location.pathname.split("/").pop() || "index.html";
+  const path = window.location.pathname;
+
+  return path === "/" ? "/index.html" : path;
 }
 
 
 // ─── RENDERING ──────────────────────────────────────────────────────────────
-
-function renderLogo() {
-  return `
-    <div class="nav-logo">
-      <div class="nav-logo-mark">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="8" r="5" stroke="white" stroke-width="1.5" />
-          <circle cx="8" cy="8" r="2" fill="white" />
-        </svg>
-      </div>
-
-      <span>brain-wide bench</span>
-    </div>
-  `;
-}
 
 function renderNavItem(item, page) {
   const active = item.href === page;

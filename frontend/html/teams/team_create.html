@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brain-Wide Bench - New team</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body data-view="private">
+
+    <div class="main-private">
+
+      <aside class="sidebar" id="side-nav"></aside>
+
+      <div class="content-private">
+
+          <a class="link un" href="/html/teams/team_list.html">← Back to teams</a>
+
+          <div class="page-header side">
+            <h1 class="page-title">New team</h1>
+            <p class="section-description">Name the team and add anyone who should have access to its models and submissions.</p>
+          </div>
+
+          <div id="form-message" hidden></div>
+
+          <section class="page-section">
+            <div class="card column gap-md">
+              <div class="column gap-xs">
+                <label class="field-label" for="team-name">Team name</label>
+                <input class="field-input" id="team-name" type="text" placeholder="e.g. Cortex Lab" autocomplete="off">
+              </div>
+            </div>
+          </section>
+
+          <section class="page-section">
+            <div class="row">
+              <h2 class="section-title">Members</h2>
+            </div>
+
+            <div class="card column gap-md">
+
+              <div class="column gap-xs">
+                <label class="field-label" for="member-search">Add a member</label>
+                <input class="field-input" id="member-search" type="search"
+                       placeholder="Search by name or email…" autocomplete="off">
+                <p class="info-msg">They must have signed in at least once before they can be added.</p>
+              </div>
+
+              <!-- Search results; hidden until there's something to show. -->
+              <div class="column gap-sm" id="member-results" hidden></div>
+
+              <!-- Chips for everyone picked so far. -->
+              <div class="row left gap-md" id="member-chips"></div>
+
+            </div>
+          </section>
+
+          <div class="row right gap-md">
+            <a class="btn with-icon" href="/html/teams/team_list.html">
+              <i class="btn-icon" data-lucide="x"></i>
+              Cancel
+            </a>
+            <button type="button" class="btn primary with-icon" id="create-team">
+              <i class="btn-icon" data-lucide="check"></i>
+              Create team
+            </button>
+          </div>
+
+      </div>
+    </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module" src="/js/nav_side.js"></script>
+  <script type="module" src="/js/teams/teamCreate.js"></script>
+
+</body>
+</html>

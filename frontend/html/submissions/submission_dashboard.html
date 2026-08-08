@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brain-Wide Bench - Submission</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body data-view="private">
+
+    <div class="main-private">
+
+      <aside class="sidebar" id="side-nav"></aside>
+
+      <div class="content-private">
+
+          <a class="link un" href="/html/submissions/submission_list.html">← Back to submissions</a>
+
+          <div class="page-header side">
+            <h1 class="page-title" id="submission-title"></h1>
+            <p class="section-description" id="submission-description"></p>
+          </div>
+
+          <div id="form-message" hidden></div>
+
+          <section class="page-section">
+            <div class="grid-4" id="submission-stats"></div>
+          </section>
+
+          <section class="page-section">
+            <div class="row">
+              <h2 class="section-title">Task Scores</h2>
+              <a class="btn with-icon" id="submission-scores-link" href="#">
+                <i class="btn-icon" data-lucide="book-open"></i>
+                View task scores
+              </a>
+            </div>
+            <div id="submission-scores"></div>
+          </section>
+
+          <section class="page-section">
+            <div class="row">
+              <h2 class="section-title">Submission Details</h2>
+              <!-- href is set in dashboard-view.js, which has the submission id. -->
+              <a class="btn with-icon" id="submission-details-link" href="#">
+                <i class="btn-icon" data-lucide="book-open"></i>
+                View submission details
+              </a>
+            </div>
+            <div id="submission-details"></div>
+          </section>
+
+          <section class="page-section">
+            <div class="row">
+              <h2 class="section-title">Task Submissions</h2>
+              <a class="btn with-icon" id="submission-tasks-link" href="#">
+                <i class="btn-icon" data-lucide="chart-column"></i>
+                View task details
+              </a>
+            </div>
+            <div id="submission-tasks"></div>
+          </section>
+
+
+
+      </div>
+    </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module" src="/js/nav_side.js"></script>
+  <script type="module" src="/js/submissions/submissionDashboard.js"></script>
+
+</body>
+</html>

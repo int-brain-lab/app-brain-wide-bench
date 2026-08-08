@@ -45,7 +45,9 @@ a {
   --text-muted: #666;
 
   --surface: #fff;
-  --surface-secondary: #f1f1f1;
+  /*--surface-secondary: #f1f1f1;*/
+  /*--surface-secondary: #f1f1f1;*/
+  --surface-secondary: #fbfbfb;
 
   --border-color: #e5e5e5;
 
@@ -106,12 +108,12 @@ a {
   --font-md: 1rem;
   --font-lg: 1.125rem;
   --font-xl: 1.25rem;
-  --font-hd: 1.5rem;
+  --font-hd: 1.75rem;
 
 
   /* Font weight */
   --bold: 500;
-  --xbold: 600;
+  --xbold: 650;
 
   /* Spacing */
   --gap-xs: 2px;
@@ -157,6 +159,7 @@ MAIN SHELLS ETC
     "nav  nav"
     "sidebar content-private";
   height: 100dvh;
+  background: var(--surface-secondary);
 
 }
 
@@ -232,6 +235,17 @@ SIDE NAVIGATION BAR
   flex-direction: column;
 }
 
+/* Brand mark at the top of the sidebar. 12px of horizontal padding lines the logo
+   up with the nav labels below it: .sidebar-section contributes 8px and
+   .sidebar-item another 10px, but the logo's 28px mark is wider than an icon, so it
+   starts a little further left by design rather than matching that 18px exactly.
+   Matches .sidebar-bottom's padding and border so the rail is bookended. */
+.sidebar-logo {
+  display: block;
+  padding: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
 .sidebar-section {
   padding: 4px 8px 0;
 }
@@ -242,9 +256,17 @@ SIDE NAVIGATION BAR
 }
 
 .stat-icon {
-  width: 18px;
-  height: 18px;
+  width: 25px;
+  height: 25px;
   color: var(--text-muted);
+}
+
+/* Sized to the label it sits beside (--font-xs), and flex-shrink: 0 so a long
+   label wrapping in a narrow multi-column cell can't squash the icon. */
+.field-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
 }
 .sidebar-item {
   display: flex;
@@ -339,6 +361,23 @@ BUTTONS
 }
 
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* A button with a leading icon. Sets its own flex rather than borrowing `.row`,
+   which would only beat .btn's `display: inline-block` by being further down this
+   file — a source-order dependency that breaks the moment either rule moves. */
+.btn.with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Sized to the button's --font-sm text; flex-shrink: 0 so a narrow header can't
+   squash the glyph before it wraps the label. */
+.btn-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
 /*----------------------------------------------------------------------------------------
 SECTIONS
 --------------------------------------------------------------------------------------*/
@@ -402,6 +441,7 @@ MODEL OVERVIEW
 /*----------------------------------------------------------------------------------------
 GRIDS, COLUMNS AND ROWS
 --------------------------------------------------------------------------------------*/
+
 
 .column {
   display: flex;
@@ -468,6 +508,13 @@ GRIDS, COLUMNS AND ROWS
   gap: var(--gap-lg);
 }
 
+/* A grid child that takes the whole row whatever the column count — used by the
+   field renderers for textareas, which need the full width of a multi-column
+   card. Ignored outside a grid, so it costs nothing on a single-column card. */
+.span-all {
+  grid-column: 1 / -1;
+}
+
 /*----------------------------------------------------------------------------------------
 CARDS
 --------------------------------------------------------------------------------------*/
@@ -475,8 +522,13 @@ CARDS
   padding: 16px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  background: var(--surface);
+  background: transparent;
   overflow: hidden;
+}
+
+.card.primary {
+  border-color: transparent;
+  background: var(--surface);
 }
 
 .card.secondary {
@@ -489,12 +541,15 @@ CARDS
 }
 
 .stat-card {
+  display: flex;
+  flex-direction: column;
   padding: 32px;
   border-radius: var(--radius-lg);
   border-color: transparent;
-  background: var(--surface-secondary);
+  background: var(--surface);
   overflow: hidden;
-
+  align-items: center;
+  justify-content: center;
 }
 
 /*.card.ts1 {*/
@@ -570,6 +625,10 @@ HEADERS
   margin-top: 40px;
 }
 
+.page-header.side {
+  margin-top: 10px;
+}
+
 .section-header {
   display: flex;
   flex-direction: column;
@@ -633,8 +692,12 @@ GENERIC TEXT
 }
 
 .link {
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   color: var(--primary);
+}
+
+.link.un {
+  border-bottom: 1px solid var(--primary);
 }
 
 .message {
@@ -648,9 +711,19 @@ GENERIC TEXT
   font-weight: var(--bold);
 }
 
+.title {
+  font-size: var(--font-md);
+  font-weight: var(--bold);
+}
+
 .field-value,
 .value {
   font-size: var(--font-sm);
+  /* UUIDs, URLs and DOIs carry no spaces to break at, so in a multi-column card
+     (see `columns` in the panel layouts) a value would overflow its cell rather
+     than wrap. `anywhere` rather than `break-word` because only `anywhere` shrinks
+     the min-content width, which is what lets an inline row's flex item give way. */
+  overflow-wrap: anywhere;
 }
 
 .field-label,
@@ -661,12 +734,10 @@ GENERIC TEXT
 
 .statistic {
   font-size: 28px;
-  font-weight: var(--xbold);
+  font-weight: var(--bold);
 }
 
-.statistic.tile {
-  font-size: var(--font-xl);
-}
+
 
 
 /*.text {*/
@@ -800,16 +871,21 @@ RANKS
 BADGES
 --------------------------------------------------------------------------------------*/
 .badge {
-  display: inline-block;
+  /*display: inline-block;*/
 
   padding: 3px 8px;
-  margin-block-end: 10px;
+  /*margin-block-end: 10px;*/
 
   border: 1px solid transparent;
   border-radius: var(--radius-xl);
 
   font-size: var(--font-sm);
   font-weight: var(--bold);
+}
+
+.badge.sm {
+  padding: 2px 6px;
+  font-size: var(--font-xs);
 }
 
 /* Task badges */
@@ -923,6 +999,26 @@ table {
   background: var(--surface-secondary);
 }
 
+/* Cells all carry a border-bottom (above), which on the final row doubles up with
+   .tabulator's own 1px border: the two lines sit flush with nothing between them.
+   With pagination on, the footer separated them and the row border read as the
+   footer's top edge — turn pagination off and they collapse into one thick line.
+   So drop it on the last row and let the container's border be the bottom edge.
+   Both selectors because the row border may come from our .tabulator-cell rule or
+   from Tabulator's own stylesheet, depending on its theme. */
+.tabulator .tabulator-row:last-child,
+.tabulator .tabulator-row:last-child .tabulator-cell {
+  border-bottom: none;
+}
+
+/* The same doubling in the hand-written tables: `.table` carries the container border
+   (above) and every `td` a border-bottom, so the final row's line sits flush inside it.
+   `tbody` is explicit so a `tfoot`, if one is ever added, doesn't make the last body
+   row stop being last. */
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
 
 /* Table footer */
 .table-footer,
@@ -934,6 +1030,14 @@ table {
   font-weight: var(--bold);
 }
 
+
+/* With the last row's border-bottom gone, a footer needs its own top edge or it butts
+   straight onto the final row. Both kinds, now that the hand-written tables have lost
+   that line too — .table-footer sits inside the same .table container (index.html). */
+.table-footer,
+.tabulator .tabulator-footer {
+  border-top: 1px solid var(--border-color);
+}
 
 .tabulator .tabulator-footer .tabulator-page {
   border: 1px solid var(--border-color);
@@ -996,7 +1100,7 @@ BARS
 }
 
 .wide-bar {
-  height: 11px;
+  height: 6px;
 }
 
 .bar.ts1 { background: var(--ts1); }
@@ -1211,7 +1315,10 @@ WIZARD
 
 
 
-.task-popup {
+/* Modal backdrop. `.task-popup` is the original name from the submit wizard's
+   add-task dialog; `.popup` is the same thing without the task-specific name. */
+.task-popup,
+.popup {
   position: fixed;
   inset: 0;
   z-index: 50;

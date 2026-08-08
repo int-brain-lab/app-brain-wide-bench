@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brain-Wide Bench - My submissions</title>
+  <!-- Tabulator's stylesheet first so style.css's `.tabulator` overrides win,
+       same order as dashboard.html and leaderboard.html. -->
+  <link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body data-view="private">
+
+    <div class="main-private">
+
+      <aside class="sidebar" id="side-nav"></aside>
+
+      <div class="content-private">
+              <!-- Page Header -->
+        <div class="row">
+          <div class="page-header side">
+            <h1 class="page-title">My submissions</h1>
+            <p class="page-description">Select a submission to explore or create a new submission.</p>
+          </div>
+          <div class="row right gap-md">
+            <!-- View switch. Callbacks are attached in js/submissions/submissionList.js;
+                 `primary` marks the active one. -->
+            <a class="btn with-icon primary" id="view-cards">
+              <i class="btn-icon" data-lucide="layout-grid"></i>
+              Cards
+            </a>
+            <a class="btn with-icon" id="view-table">
+              <i class="btn-icon" data-lucide="table"></i>
+              Table
+            </a>
+
+            <a class="btn with-icon" id="create_submission" href="/html/submissions/submission_create.html">
+              <i class="btn-icon" data-lucide="plus"></i>
+              New Submission
+            </a>
+          </div>
+        </div>
+
+        <div id="submission-list"></div>
+
+      </div>
+
+
+    </div>
+
+  <!-- A classic script, so it runs before the deferred modules below regardless of
+       position — js/tables/utils.js reads `Tabulator` off the global. -->
+  <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module" src="/js/nav_top.js"></script>
+  <script type="module" src="/js/nav_side.js"></script>
+  <script type="module" src="/js/submissions/submissionList.js"></script>
+
+</body>
+</html>

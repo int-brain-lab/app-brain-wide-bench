@@ -1,18 +1,19 @@
 import { initials} from "./utils.js";
 import { apiFetch, isAuthenticated } from "./api.js";
+import { renderLogo } from "./logo.js";
 // ─── CONSTANTS ─────────────────────────────────────────────────────────────
 
 const MAIN_NAV_ITEMS = [
-  { label: "Dashboard", href: "dashboard.html", icon: "layout-grid" },
-  { label: "Models", href: "model_list.html", icon: "chart-column" },
-  { label: "Submissions", href: "submission_list.html", icon: "chart-column" },
-  { label: "Teams", href: "my_teams.html", icon: "chart-column" },
-  { label: "Settings", href: "my_settings.html", icon: "settings" },
+  { label: "Dashboard", href: "/html/dashboard/dashboard.html", icon: "layout-grid" },
+  { label: "Models", href: "/html/models/model_list.html", icon: "chart-column" },
+  { label: "Submissions", href: "/html/submissions/submission_list.html", icon: "chart-column" },
+  { label: "Teams", href: "/html/teams/team_list.html", icon: "users" },
+  { label: "Settings", href: "/my_settings.html", icon: "settings" },
 ];
 
 const PUBLIC_NAV_ITEMS = [
-  { label: "Leaderboard", href: "leaderboard.html", icon: "trophy" },
-  { label: "Home", href: "index.html", icon: "house" },
+  { label: "Leaderboard", href: "/leaderboard.html", icon: "trophy" },
+  { label: "Home", href: "/index.html", icon: "house" },
 ];
 
 // ─── API ────────────────────────────────────────────────────────────────────
@@ -41,8 +42,13 @@ function sidebar() {
 
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 
+// The whole path, not just the filename. Nav hrefs became root-relative when pages
+// stopped all living at the same depth (models are under /html/models/), and this is
+// compared against them to mark the active item — so it has to be the same shape.
 function currentPage() {
-  return window.location.pathname.split("/").pop() || "index.html";
+  const path = window.location.pathname;
+
+  return path === "/" ? "/index.html" : path;
 }
 
 
@@ -69,6 +75,10 @@ function renderSidebar() {
   const page = currentPage();
 
   return `
+    <a class="sidebar-logo" href="/index.html">
+      ${renderLogo()}
+    </a>
+
     <div class="sidebar-section">
       ${renderSidebarItems(MAIN_NAV_ITEMS, page)}
     </div>
@@ -89,8 +99,13 @@ function renderSidebar() {
 }
 
 
+
+
 // ─── USER ───────────────────────────────────────────────────────────────────
 
+// Exported so the settings page can re-run it after a rename — otherwise the
+// sidebar keeps showing the old name until the next navigation. The lookups are
+// optional because an external caller can't assume renderSidebar() has run.
 async function fillSidebarUser() {
 
     const user = await loadCurrentUser();
@@ -101,8 +116,11 @@ async function fillSidebarUser() {
 
     const name = user.name || user.email;
 
-    document.getElementById("user-name").textContent = name;
-    document.getElementById("user-initials").textContent = initials(name);
+    const nameElement = document.getElementById("user-name");
+    const initialsElement = document.getElementById("user-initials");
+
+    if (nameElement) nameElement.textContent = name;
+    if (initialsElement) initialsElement.textContent = initials(name);
 }
 
 
@@ -124,3 +142,5 @@ async function initialiseSidebar() {
 }
 
 initialiseSidebar();
+
+export { fillSidebarUser };

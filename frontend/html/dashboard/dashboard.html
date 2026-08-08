@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brain-Wide Bench - Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body data-view="private">
+
+    <div class="main-private">
+
+      <aside class="sidebar" id="side-nav"></aside>
+
+      <div class="content-private">
+
+          <div class="page-header side">
+            <!-- Filled in by dashboard.js once the user loads; the fallback keeps the
+                 heading from being blank while that request is in flight. -->
+            <h1 class="page-title" id="dashboard-title">Welcome</h1>
+            <p class="section-description">Your models, submissions and results.</p>
+          </div>
+
+          <section class="page-section">
+            <div class="grid-3" id="dashboard-stats"></div>
+          </section>
+
+          <!-- Models and Teams side by side: both are short card lists, and a full-width
+               row of three cards each would push everything below them off the fold. -->
+          <div class="grid-2">
+
+            <section class="page-section">
+              <div class="row">
+                <h2 class="section-title">Models</h2>
+                <div class="row right gap-md">
+                  <a class="btn with-icon" href="/html/models/model_list.html">
+                    <i class="btn-icon" data-lucide="chart-column"></i>
+                    View all
+                  </a>
+                  <a class="btn primary with-icon" href="/html/models/model_create.html">
+                    <i class="btn-icon" data-lucide="plus"></i>
+                    Create model
+                  </a>
+                </div>
+              </div>
+              <div id="dashboard-models"></div>
+            </section>
+
+            <section class="page-section">
+              <div class="row">
+                <h2 class="section-title">Teams</h2>
+                <div class="row right gap-md">
+                  <a class="btn with-icon" href="/html/teams/team_list.html">
+                    <i class="btn-icon" data-lucide="users"></i>
+                    View all
+                  </a>
+                  <a class="btn primary with-icon" href="/html/teams/team_create.html">
+                    <i class="btn-icon" data-lucide="plus"></i>
+                    Create team
+                  </a>
+                </div>
+              </div>
+              <div id="dashboard-teams"></div>
+            </section>
+
+          </div>
+
+          <section class="page-section">
+            <div class="row">
+              <h2 class="section-title">Recent submissions</h2>
+              <div class="row right gap-md">
+                <a class="btn with-icon" href="/html/submissions/submission_list.html">
+                  <i class="btn-icon" data-lucide="layers"></i>
+                  View all
+                </a>
+                <a class="btn primary with-icon" href="/html/submissions/submission_create.html">
+                  <i class="btn-icon" data-lucide="plus"></i>
+                  Create submission
+                </a>
+              </div>
+            </div>
+            <div id="dashboard-submissions"></div>
+          </section>
+
+          <section class="page-section">
+            <div class="row">
+              <h2 class="section-title">Task scores</h2>
+              <a class="btn with-icon" href="/html/dashboard/dashboard_scores.html">
+                <i class="btn-icon" data-lucide="book-open"></i>
+                View all scores
+              </a>
+            </div>
+            <div id="dashboard-scores"></div>
+          </section>
+
+      </div>
+    </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module" src="/js/nav_side.js"></script>
+  <script type="module" src="/js/dashboard/dashboard.js"></script>
+
+</body>
+</html>
