@@ -16,9 +16,9 @@
 // per-submission payload into one row per (model, team) is this table's shape, not shared
 // score maths. What is shared — SUITES, suiteOf, mean — comes from scores/scoreMaths.js.
 
-import { escapeHtml, score } from "../utils.js";
-import { SUITES, mean, suiteOf } from "../scores/scoreMaths.js";
-import { createFilterableTable, matchIncludes, numericSorter } from "../utils/tables.js";
+import { escapeHtml, mean} from "../utils.js";
+import { SUITES, suiteFromTask } from "../utils/suites.js";
+import { createFilterableTable, matchIncludes, numericSorter, score } from "../utils/tables.js";
 
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────
@@ -74,7 +74,7 @@ function toRow(submission) {
   for (const suite of SUITES) {
     row[suite] = mean(
       Object.entries(scores)
-        .filter(([taskId]) => suiteOf(taskId) === suite)
+        .filter(([taskId]) => suiteFromTask(taskId) === suite)
         .map(([, entry]) => entry.mean)
         .filter(value => value != null),
     );
@@ -153,7 +153,7 @@ function taskMetrics(rows) {
 
   for (const row of rows) {
     for (const key of Object.keys(row)) {
-      if (key.includes("-") && suiteOf(key) !== null) ids.add(key);
+      if (key.includes("-") && suiteFromTask(key) !== null) ids.add(key);
     }
   }
 
@@ -282,7 +282,7 @@ function getColumns(getMetric) {
         const metric = getMetric();
         const bars = metric === "overall"
           ? SUITE_BARS
-          : SUITE_BARS.filter(bar => bar.key === suiteOf(metric));
+          : SUITE_BARS.filter(bar => bar.key === suiteFromTask(metric));
 
         return `<div class="column gap-sm">${bars.map(bar => {
           const percent = row[bar.key] == null ? 0 : Math.round(row[bar.key] * 100);

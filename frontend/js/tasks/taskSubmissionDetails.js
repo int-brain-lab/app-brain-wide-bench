@@ -20,18 +20,21 @@ import {
   updateTaskSubmissions,
 } from "../submissions/submissionApi.js";
 import { loadModel } from "../models/modelApi.js";
-import { subtaskLabel, suiteOf } from "../scores/scoreMaths.js";
+import { suiteFromTask } from "../utils/suites.js";
 import {showError, showMessage} from "../utils.js";
 import {
   panelGroups,
   renderDisplayFields,
   renderGroups,
 } from "../utils/form-fields.js";
+import { isAuthenticated } from "../api.js";
+import { showGate } from "../utils/gate.js";
 
 // ─── DOM ────────────────────────────────────────────────────────────────────
 
 function getElements() {
   return {
+    gate: document.getElementById("gate"),
     title: document.getElementById("task-title"),
     description: document.getElementById("task-description"),
     backLink: document.getElementById("back-to-tasks"),
@@ -49,14 +52,14 @@ function getElements() {
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 
 function suiteLabel(taskId) {
-  return suiteOf(taskId)?.toUpperCase() ?? null;
+  return suiteFromTask(taskId)?.toUpperCase() ?? null;
 }
 
 function suiteSiblings(submission, taskSubmission) {
-  const suite = suiteOf(taskSubmission.task_id);
+  const suite = suiteFromTask(taskSubmission.task_id);
 
   return (submission.task_submissions ?? []).filter(
-    sibling => suiteOf(sibling.task_id) === suite,
+    sibling => suiteFromTask(sibling.task_id) === suite,
   );
 }
 
@@ -69,7 +72,7 @@ function buildPatch(draft) {
 // ─── RENDERING ──────────────────────────────────────────────────────────────
 
 function renderHeader(elements, submission, taskSubmission) {
-  elements.title.textContent = subtaskLabel(taskSubmission.task_id);
+  elements.title.textContent = taskSubmission.task_id;
 
   elements.description.textContent = [
     suiteLabel(taskSubmission.task_id),
@@ -121,7 +124,7 @@ function showApplyToSuite(elements, visible) {
 // requested by the page.
 function reportUpdated(elements, updated) {
   const names = updated
-    .map(row => subtaskLabel(row.task_id))
+    .map(row => row.task_id)
     .sort();
 
   showMessage(
@@ -204,6 +207,13 @@ function attachEditor(elements, taskSubmission, submission, model, fields) {
 async function loadTaskSubmissionDetailsPage() {
   const elements = getElements();
   try {
+    if (!(await isAuthenticated())) {
+      showGate(elements, false);
+      return;
+    }
+
+    showGate(elements, true);
+
 
     const params = new URLSearchParams(location.search);
     const submissionId = params.get("submission");

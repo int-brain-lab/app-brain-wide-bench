@@ -4,7 +4,6 @@
 //
 // This code just defines the columns, rows and controls. Table infrastructure lives in utils/tables.js
 
-import { submissionSuites } from "../scores/scoreMaths.js";
 import {
   SUITE_OPTIONS,
   createFilterableTable,

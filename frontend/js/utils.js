@@ -27,11 +27,6 @@ function initials(name) {
 }
 
 
-function score(value) {
-  return value == null ? "—" : value.toFixed(3);
-}
-
-
 // Human-readable file size, e.g. "41.2 MB".
 function formatBytes(bytes) {
   if (bytes == null || Number.isNaN(bytes)) return "";
@@ -41,29 +36,6 @@ function formatBytes(bytes) {
   let i = 0;
   while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
   return `${val.toFixed(1)} ${units[i]}`;
-}
-
-
-// Relative time, e.g. "3 days ago". Returns "" for missing/unparseable input.
-function timeAgo(dateStr) {
-  if (!dateStr) return "";
-  const then = new Date(dateStr).getTime();
-  if (Number.isNaN(then)) return "";
-  const secs = Math.round((Date.now() - then) / 1000);
-  const units = [
-    ["year", 31536000],
-    ["month", 2592000],
-    ["week", 604800],
-    ["day", 86400],
-    ["hour", 3600],
-    ["minute", 60],
-  ];
-  if (secs < 45) return "just now";
-  for (const [name, size] of units) {
-    const n = Math.floor(secs / size);
-    if (n >= 1) return `${n} ${name}${n > 1 ? "s" : ""} ago`;
-  }
-  return "just now";
 }
 
 
@@ -121,30 +93,9 @@ function showError(element, message) {
   renderMessage(element, message, "error-msg");
 }
 
-// Returns an element, not a string: the structure here is fixed and both slots
-// are pure text, so there's no reason to go through the HTML parser (and no
-// escaping to forget). Callers use `replaceChildren`, not `innerHTML`.
-function renderInfoRow([label, value]) {
-  const row = document.createElement("div");
-  row.className = "details-row";
-
-  for (const [className, text] of [["details-label", label], ["details-value", value]]) {
-    const span = document.createElement("span");
-    span.className = className;
-    span.textContent = text;
-    row.append(span);
-  }
-
-  return row;
+function mean(values) {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 }
-
-// A fragment so a caller can drop the whole set in with one replaceChildren().
-function renderInfoRows(rows) {
-  const fragment = document.createDocumentFragment();
-  fragment.append(...rows.map(renderInfoRow));
-  return fragment;
-}
-
 
 
 export {
@@ -152,10 +103,8 @@ export {
   formatDate,
   initials,
   formatBytes,
-  score,
   renderMessage,
-  renderInfoRows,
-  renderInfoRow,
   showMessage,
-  showError
+  showError,
+  mean
 };

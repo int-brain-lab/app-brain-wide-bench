@@ -6,11 +6,14 @@
 import { loadModel } from "./modelApi.js";
 import { renderSubmissionsTable } from "../submissions/submissionTable.js";
 import { showError, showMessage } from "../utils.js";
+import { isAuthenticated } from "../api.js";
+import { showGate } from "../utils/gate.js";
 
 // ─── DOM ────────────────────────────────────────────────────────────────────
 
 function getElements() {
   return {
+    gate: document.getElementById("gate"),
     description: document.getElementById("page-description"),
     backLink: document.getElementById("back-to-model"),
     submissions: document.getElementById("submissions-list"),
@@ -39,6 +42,13 @@ function renderBackLink(elements, model) {
 async function loadModelSubmissionsPage() {
   const elements = getElements();
   try {
+    if (!(await isAuthenticated())) {
+      showGate(elements, false);
+      return;
+    }
+
+    showGate(elements, true);
+
 
     const modelId = new URLSearchParams(location.search).get("id");
 

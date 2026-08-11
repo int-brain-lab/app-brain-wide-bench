@@ -40,6 +40,7 @@ import {
   submitSubmission,
   uploadToPresignedUrl,
 } from "./submissionApi.js";
+import { showGate } from "../utils/gate.js";
 
 // ─── PANEL CONFIGURATION ────────────────────────────────────────────────────
 
@@ -89,7 +90,6 @@ function hasDependentFields(fields) {
 function getElements() {
   return {
     gate: document.getElementById("gate"),
-    form: document.getElementById("submission-create"),
     panels: document.getElementById("submission-panels"),
     taskPanel: document.getElementById("task-panel"),
     taskInfo: document.getElementById("task-info"),
@@ -113,11 +113,6 @@ function getPanel(elements, panelNumber) {
 }
 
 // ─── GENERAL UI ─────────────────────────────────────────────────────────────
-
-function showGate(elements, signedIn) {
-  elements.gate.hidden = signedIn;
-  elements.form.hidden = !signedIn;
-}
 
 // ─── PANEL RENDERING ──────────────────────────────────────────────────────────
 
@@ -197,6 +192,33 @@ async function loadSelectedModel(
 
     showError(elements.message, "Could not load model details.");
   }
+}
+
+// ─── PRESELECTION ───────────────────────────────────────────────────────────
+
+// `?model=<id>` lets a caller arrive with the model already chosen. The model dashboard's
+// create strip and the post-create card on model_details.html both pass it, so "for this
+// model" is honoured rather than being a promise this form breaks.
+//
+// Validated against the picker's own options first: an id that isn't one of the caller's
+// models would select nothing, leaving the dropdown blank while `state.model_id` claimed a
+// value — and panel 2 would unlock against a model the server would refuse.
+async function preselectModel(state, fields, taskSection, elements) {
+  const requested = new URLSearchParams(location.search).get("model");
+
+  if (!requested) return;
+
+  const known = fields.model_id.options.some(
+    option => String(option.value) === requested,
+  );
+
+  if (!known) return;
+
+  state.model_id = requested;
+
+  // The same call the change handler makes, so team_id, model_name and the task panel's
+  // model-dependent options all end up as they would had the user picked it by hand.
+  await loadSelectedModel(requested, state, taskSection, elements);
 }
 
 // ─── DETECTED TASKS ─────────────────────────────────────────────────────────
@@ -484,7 +506,7 @@ async function handleSubmit(
     );
 
     window.location.href =
-      "/html/dashboard/dashboard.html";
+      `/html/submissions/submission_details.html?id=${encodeURIComponent(presigned.submission_id)}`;
   } catch (error) {
     console.error(error);
 
@@ -532,6 +554,10 @@ async function loadSubmissionCreatePage() {
     });
 
     await taskSection.initialise(knownTasks);
+
+    // Before the first render, so the dropdown shows the choice and panel 2 is already
+    // unlocked rather than opening a moment later.
+    await preselectModel(state, fields, taskSection, elements);
 
     renderPanels(elements, state, fields);
     refresh(elements, state, taskSection);

@@ -16,11 +16,29 @@
 
       <div class="content-private">
 
+        <div class="card" id="gate" hidden>
+          <div class="column gap-md">
+            <p>Please sign in to view this model.</p>
+            <button class="btn primary" id="gate-login">Sign in</button>
+          </div>
+        </div>
+
           <a class="link un" href="/html/models/model_list.html">← Back to models</a>
 
-          <div class="page-header side">
-            <h1 class="page-title" id="model-title"></h1>
-            <p class="section-description" id="model-description"></p>
+          <div class="row">
+            <div class="page-header side">
+              <h1 class="page-title" id="model-title"></h1>
+              <p class="section-description" id="model-description"></p>
+            </div>
+
+            <!-- href set in JS, which has the id. Carries `&edit`, so it lands on the
+                 details page already editing rather than on its read-only card. -->
+            <div class="row right gap-md">
+              <a class="btn with-icon" id="edit-model-link" href="#">
+                <i class="btn-icon" data-lucide="pencil"></i>
+                Edit
+              </a>
+            </div>
           </div>
 
           <div id="form-message" hidden></div>
@@ -60,6 +78,11 @@
               </a>
             </div>
             <div id="model-submissions"></div>
+
+            <!-- "New submission", rendered by renderCreateRow. Its own container rather
+                 than part of #model-submissions, which the static table replaces
+                 wholesale. -->
+            <div id="model-submissions-create"></div>
           </section>
 
 

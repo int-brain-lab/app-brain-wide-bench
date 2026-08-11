@@ -7,12 +7,15 @@ import { loadAllScores } from "./dashboardApi.js";
 import { renderTaskScoresTable } from "../scores/scoreTable.js";
 import { showError, showMessage} from "../utils.js";
 import { buildCount } from "../components/cards.js";
+import { isAuthenticated } from "../api.js";
+import { showGate } from "../utils/gate.js";
 
 
 // ─── DOM ────────────────────────────────────────────────────────────────────
 
 function getElements() {
   return {
+    gate: document.getElementById("gate"),
     description: document.getElementById("page-description"),
     scores: document.getElementById("task-scores"),
     message: document.getElementById("task-scores")
@@ -41,6 +44,13 @@ async function loadScoresPage() {
   const elements = getElements();
 
   try {
+    if (!(await isAuthenticated())) {
+      showGate(elements, false);
+      return;
+    }
+
+    showGate(elements, true);
+
     const { models, submissions, tasks } = await loadAllScores();
 
     const taskCount = countTaskSubmissions(submissions);

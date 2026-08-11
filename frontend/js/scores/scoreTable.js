@@ -6,8 +6,8 @@
 // covering four tasks becomes four rows. That's what makes "which submission scored
 // best on ts1-reward" answerable, which the per-submission tables can't show.
 
-import { escapeHtml, score } from "../utils.js";
-import { suiteOf } from "./scoreMaths.js";
+import { escapeHtml } from "../utils.js";
+import { suiteFromTask } from "../utils/suites.js";
 import {
   SUITE_OPTIONS,
   createFilterableTable,
@@ -18,6 +18,7 @@ import {
   metricPillsFormatter,
   optionsFromRows,
   suiteBadgeFormatter,
+  score
 } from "../utils/tables.js";
 
 
@@ -41,7 +42,7 @@ function toRows(submissions, tasks = []) {
       id: taskSubmission.id,
       task_id: taskSubmission.task_id,
       task_name: taskSubmission.task_id,
-      suite: suiteOf(taskSubmission.task_id),
+      suite: suiteFromTask(taskSubmission.task_id),
       submission_id: submission.id,
       submission_label: submission.label,
       // Only a model *detail* response's submissions lack these, so a caller flattening

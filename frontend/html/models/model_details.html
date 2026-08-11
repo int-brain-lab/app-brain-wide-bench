@@ -16,7 +16,13 @@
       <aside class="sidebar" id="side-nav"></aside>
 
       <div class="content-private">
-              <!-- Page Header -->
+
+        <div class="card" id="gate" hidden>
+          <div class="column gap-md">
+            <p>Please sign in to view this model's details.</p>
+            <button class="btn primary" id="gate-login">Sign in</button>
+          </div>
+        </div>
 
         <a class="link un" id="back-to-model" href="/html/models/model_list.html">← Back</a>
 
@@ -46,6 +52,9 @@
 
         <div id="model-details"></div>
 
+        <!-- Only filled in when the page was reached straight from
+             model_create.html — see renderPostCreate in js/models/modelDetails.js. -->
+        <div id="model-post-create"></div>
 
       </div>
 

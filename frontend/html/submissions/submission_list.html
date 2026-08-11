@@ -18,7 +18,14 @@
       <aside class="sidebar" id="side-nav"></aside>
 
       <div class="content-private">
-              <!-- Page Header -->
+
+        <div class="card" id="gate" hidden>
+          <div class="column gap-md">
+            <p>Please sign in to view your submissions.</p>
+            <button class="btn primary" id="gate-login">Sign in</button>
+          </div>
+        </div>
+
         <div class="row">
           <div class="page-header side">
             <h1 class="page-title">My submissions</h1>
@@ -27,7 +34,7 @@
           <div class="row right gap-md">
             <!-- View switch. Callbacks are attached in js/submissions/submissionList.js;
                  `primary` marks the active one. -->
-            <a class="btn with-icon primary" id="view-cards">
+            <a class="btn with-icon primary-inv" id="view-cards">
               <i class="btn-icon" data-lucide="layout-grid"></i>
               Cards
             </a>

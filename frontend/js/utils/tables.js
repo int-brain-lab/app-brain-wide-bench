@@ -10,7 +10,8 @@
 // both the tabulator JS and CSS tags — copy them from dashboard.html.
 
 import { escapeHtml, formatDate } from "../utils.js";
-import { SUITES, buildSuiteBadgeList } from "./score-cards.js";
+import { SUITES } from "../utils/suites.js";
+import { buildSuiteBadgeList } from "../components/badges.js"
 
 
 // ─── SUITES ─────────────────────────────────────────────────────────────────
@@ -124,6 +125,11 @@ function dateSorter(a, b) {
   if (!a) return -1;
   if (!b) return 1;
   return a < b ? -1 : a > b ? 1 : 0;
+}
+
+
+function score(value) {
+  return value == null ? "—" : value.toFixed(3);
 }
 
 
@@ -297,8 +303,6 @@ function createFilterableTable({
   noun = "rows",
   initialSort,
   paginationSize = 10,
-  selectable = false,
-  onSelectionChange,
   onControlChange,
   caller = "createFilterableTable",
 }) {
@@ -356,12 +360,16 @@ function createFilterableTable({
 
     ...(initialSort ? { initialSort } : {}),
 
-    // Tabulator 6 renamed this from `selectable`. Selection survives filtering — a row
-    // filtered out of view stays selected — which is what makes "search, tick, search
-    // again, tick" work as a way to build up a set.
-    ...(selectable ? { selectableRows: true } : {}),
-
-    ...(onSelectionChange ? { rowSelectionChanged: data => onSelectionChange(data) } : {}),
+    // No row selection here. It was configurable — `selectableRows` plus a
+    // `rowSelectionChanged` handler — as groundwork for bulk-editing task submissions
+    // against PATCH /api/tasksubmissions, which takes a list of ids. No page ever passed
+    // the flag, so neither line had run; unverified plumbing is worse than none, because
+    // whoever turns it on would trust it and debug their own code first.
+    //
+    // Two things worth knowing when it comes back: the option is `selectableRows` in
+    // Tabulator 6 (it was `selectable` in 5), and selection survives filtering — a row
+    // filtered out of view stays selected, which is what makes "search, tick, search again,
+    // tick" work as a way to build up a set.
 
     // Fires on every filter change, so the count reflects what's actually on
     // screen rather than the total the table was built with.
@@ -446,4 +454,5 @@ export {
   optionsFromRows,
   renderStaticTable,
   createFilterableTable,
+  score
 };

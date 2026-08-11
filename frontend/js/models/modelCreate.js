@@ -23,7 +23,8 @@ import {
 } from "./modelSchema.js";
 import { createModel } from "./modelApi.js";
 import { isAuthenticated } from "../api.js";
-import { showError } from "../utils.js";
+import {showError, showMessage} from "../utils.js";
+import { showGate } from "../utils/gate.js";
 
 // ─── PANEL CONFIGURATION ────────────────────────────────────────────────────
 
@@ -73,10 +74,10 @@ function hasDependentFields(fields) {
 function getElements() {
   return {
     gate: document.getElementById("gate"),
-    form: document.getElementById("model-create"),
     panels: document.getElementById("model-panels"),
     message: document.getElementById("form-message"),
     createButton: document.getElementById("create-model"),
+    createCard: document.getElementById("create-submission")
   };
 }
 
@@ -87,11 +88,6 @@ function getPanel(elements, panelNumber) {
 }
 
 // ─── GENERAL UI ─────────────────────────────────────────────────────────────
-
-function showGate(elements, signedIn) {
-  elements.gate.hidden = signedIn;
-  elements.form.hidden = !signedIn;
-}
 
 // ─── PANEL RENDERING ────────────────────────────────────────────────────────
 
@@ -189,14 +185,15 @@ function handleFieldChange(
 // ─── SUBMISSION ─────────────────────────────────────────────────────────────
 
 async function handleSubmit(elements, state) {
-  clearMessage(elements);
+  showMessage(elements.message, "")
   elements.createButton.disabled = true;
 
   try {
     const model = await createModel(state);
 
     window.location.href =
-      `/html/models/model_dashboard.html?id=${encodeURIComponent(model.id)}`;
+      `/html/models/model_details.html?id=${encodeURIComponent(model.id)}&created`;
+
   } catch (error) {
     console.error(error);
 

@@ -21,12 +21,15 @@ import {
   renderDisplayFields,
   renderGroups,
 } from "../utils/form-fields.js";
+import { isAuthenticated } from "../api.js";
+import { showGate } from "../utils/gate.js";
 
 
 // ─── DOM ────────────────────────────────────────────────────────────────────
 
 function getElements() {
   return {
+    gate: document.getElementById("gate"),
     message: document.getElementById("form-message"),
     title: document.getElementById("submission-title"),
     description: document.getElementById("submission-description"),
@@ -87,11 +90,27 @@ function attachEditor(submission, fields, elements) {
     .attach();
 }
 
+// The dashboard's Edit button links here with `&edit` so it lands in edit mode rather than
+// on the read-only card. Clicking the button rather than calling the editor's startEditing
+// directly keeps one path into edit mode, which anything hanging off onEdit relies on.
+function openEditIfRequested(elements) {
+  if (new URLSearchParams(location.search).has("edit")) {
+    elements.editButton.click();
+  }
+}
+
 // ─── INITIALISATION ─────────────────────────────────────────────────────────
 
 async function loadSubmissionDetailsPage() {
   const elements = getElements();
   try {
+    if (!(await isAuthenticated())) {
+      showGate(elements, false);
+      return;
+    }
+
+    showGate(elements, true);
+
 
     const submissionId = new URLSearchParams(location.search).get("id");
 
@@ -121,6 +140,7 @@ async function loadSubmissionDetailsPage() {
     renderBackLink(submission, elements);
     renderDetails(elements, submission, fields);
     attachEditor(submission, fields, elements);
+    openEditIfRequested(elements);
 
     globalThis.lucide?.createIcons?.();
     } catch (error) {

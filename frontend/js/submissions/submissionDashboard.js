@@ -2,11 +2,6 @@
 //
 // A dashboard for a single submission, showing its details, scores, and task submissions.
 
-
-import {
-  countTasks,
-  scoresBySuite,
-} from "../scores/scoreMaths.js";
 import {
   scoreSorter,
   taskScoreColumns,
@@ -18,20 +13,24 @@ import {
   toRow as toTaskRow,
 } from "../tasks/taskSubmissionTable.js";
 import {
-  suitesOf,
-} from "../utils/score-cards.js";
+  suitesFromSubmission,
+} from "../utils/suites.js";
 import { renderDisplayFields } from "../utils/form-fields.js";
 import { renderStaticTable } from "../utils/tables.js";
 import { formatDate, showMessage, showError } from "../utils.js";
 import { loadSubmission } from "./submissionApi.js";
 import { loadSubmissionFields } from "./submissionSchema.js";
 import {buildStatCards} from "../components/cards.js";
+import { isAuthenticated } from "../api.js";
+import { showGate } from "../utils/gate.js";
 
 // ─── CONFIGURATION ──────────────────────────────────────────────────────────────
 
 const SCORE_LIMIT = 5;
 
 const SUBMISSION_PAGE_LINKS = {
+  "edit-submission-link":
+    "/html/submissions/submission_details.html",
   "submission-scores-link":
     "/html/submissions/submission_scores.html",
   "submission-details-link":
@@ -39,6 +38,10 @@ const SUBMISSION_PAGE_LINKS = {
   "submission-tasks-link":
     "/html/submissions/submission_tasks.html",
 };
+
+// Which of those land the target already editing. Only Edit does; the rest are
+// read-only views, and `&edit` on them would open a form the page doesn't want.
+const EDIT_ON_ARRIVAL = new Set(["edit-submission-link"]);
 
 const SUMMARY_KEYS = [
   "label",
@@ -52,6 +55,7 @@ const SUMMARY_KEYS = [
 
 function getElements() {
   return {
+    gate: document.getElementById("gate"),
     message: document.getElementById("form-message"),
     title: document.getElementById("submission-title"),
     description: document.getElementById("submission-description"),
@@ -70,7 +74,7 @@ function getElements() {
 
 // ─── DATA ───────────────────────────────────────────────────────────────────
 
-function getStatistics(submission, taskSubmissions, taskCount) {
+function getStatistics(submission, taskSubmissions) {
 
   return [
     [
@@ -79,11 +83,11 @@ function getStatistics(submission, taskSubmissions, taskCount) {
       "list-checks"],
     [
       "task suites",
-      suitesOf(submission).length,
+      suitesFromSubmission(submission).length,
       "grid-3x3"],
     [
-      "scored tasks",
-      taskCount,
+      "scoring status",
+      submission.status,
       "check-check"],
     [
       "visibility",
@@ -94,11 +98,9 @@ function getStatistics(submission, taskSubmissions, taskCount) {
 }
 
 function getDashboardData(submission) {
-  const taskCount = countTasks(scoresBySuite([submission]));
   const taskSubmissions = submission.task_submissions ?? [];
 
   return {
-    taskCount,
     taskSubmissions
   };
 }
@@ -196,7 +198,6 @@ function renderDashboard(
   dashboardData
 ) {
   const {
-    taskCount,
     taskSubmissions,
   } = dashboardData
 
@@ -207,7 +208,6 @@ function renderDashboard(
     getStatistics(
       submission,
       taskSubmissions,
-      taskCount
     )
 );
 
@@ -238,7 +238,8 @@ function attachLinks(elements, submission) {
     if (!link) continue;
 
     link.href =
-      `${page}?id=${encodeURIComponent(submission.id)}`;
+      `${page}?id=${encodeURIComponent(submission.id)}`
+      + (EDIT_ON_ARRIVAL.has(id) ? "&edit" : "");
   }
 }
 
@@ -248,6 +249,13 @@ async function loadSubmissionDashboardPage() {
   const elements = getElements();
 
   try {
+    if (!(await isAuthenticated())) {
+      showGate(elements, false);
+      return;
+    }
+
+    showGate(elements, true);
+
     const submissionId = new URLSearchParams(location.search).get("id");
 
     if (!submissionId) {

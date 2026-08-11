@@ -6,7 +6,9 @@
 import { getMyTeams } from "./teamApi.js";
 import { buildTeamCards} from "../components/cards.js";
 import {appendCreateCard} from "../utils/create-card.js";
-import {showError} from "../utils";
+import {showError} from "../utils.js";
+import { isAuthenticated } from "../api.js";
+import { showGate } from "../utils/gate.js";
 
 // ─── CONFIGURATION ──────────────────────────────────────────────────────────
 
@@ -18,6 +20,7 @@ const CREATE = {
 
 function getElements() {
   return {
+    gate: document.getElementById("gate"),
     list: document.getElementById("teams-list"),
     create: document.getElementById("teams-create"),
   };
@@ -49,6 +52,13 @@ async function loadTeamListPage() {
   const elements = getElements();
 
   try {
+    if (!(await isAuthenticated())) {
+      showGate(elements, false);
+      return;
+    }
+
+    showGate(elements, true);
+
 
     const teams = await getMyTeams();
 

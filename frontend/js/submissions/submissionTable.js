@@ -4,7 +4,8 @@
 //
 // This code just defines the columns, rows and controls. Table infrastructure lives in utils/tables.js
 
-import { buildStatusBadge, suitesOf } from "../utils/score-cards.js";
+import { suitesFromSubmission } from "../utils/suites.js";
+import { buildStatusBadge} from "../components/badges.js";
 import {
   SUITE_OPTIONS,
   createFilterableTable,
@@ -38,7 +39,7 @@ function toRow(submission) {
     team_name: submission.team_name ?? null,
     updated_at: submission.updated_at,
     status: submission.status,
-    suites: suitesOf(submission),
+    suites: suitesFromSubmission(submission),
   };
 }
 

@@ -17,13 +17,13 @@ import {
 } from "../utils/form-fields.js";
 import { loadMe, updateMe } from "./userApi.js";
 import { USER_FIELDS, USER_PANELS } from "./userSchema.js";
+import { showGate } from "../utils/gate.js";
 
 // ─── DOM ─────────────────────────────────────────────────────────────────────
 
 function getElements() {
   return {
     gate: document.getElementById("gate"),
-    actions: document.getElementById("user-actions"),
     details: document.getElementById("user-details"),
     editButton: document.getElementById("edit-user"),
     saveButton: document.getElementById("save-user"),
@@ -33,12 +33,6 @@ function getElements() {
 }
 
 // ─── RENDERING ───────────────────────────────────────────────────────────────
-
-function showGate(elements, signedIn) {
-  elements.gate.hidden = signedIn;
-  elements.actions.hidden = !signedIn;
-  elements.details.hidden = !signedIn;
-}
 
 function renderDetails(elements, user, fields) {
   const groups = panelGroups(fields, USER_PANELS);

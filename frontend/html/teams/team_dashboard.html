@@ -16,6 +16,13 @@
 
       <div class="content-private">
 
+        <div class="card" id="gate" hidden>
+          <div class="column gap-md">
+            <p>Please sign in to view this team.</p>
+            <button class="btn primary" id="gate-login">Sign in</button>
+          </div>
+        </div>
+
           <a class="link" href="/html/teams/team_list.html">← Back to teams</a>
 
           <div class="row">
@@ -36,12 +43,17 @@
 
           <div id="form-message" hidden></div>
 
+          <!-- Members / models / submissions, from the server's own counts. Same
+               grid-3 + .stat-card shape as the model and submission dashboards. -->
+          <section class="page-section">
+            <div class="grid-3" id="team-stats"></div>
+          </section>
 
           <section class="page-section">
             <div class="row">
               <h2 class="section-title">Members</h2>
               <!-- Beside the section it acts on, rather than in the page header. -->
-              <a class="btn primary with-icon" id="manage-members" href="#" hidden>
+              <a class="btn with-icon" id="manage-members" href="#" hidden>
                 <i class="btn-icon" data-lucide="users"></i>
                 Manage members
               </a>

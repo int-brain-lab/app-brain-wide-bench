@@ -8,11 +8,14 @@ import { getTasks } from "../tasks/taskSubmissionApi.js";
 import { renderTaskScoresTable } from "../scores/scoreTable.js";
 import { showError, showMessage } from "../utils.js";
 import { buildCount} from "../components/cards.js";
+import { isAuthenticated } from "../api.js";
+import { showGate } from "../utils/gate.js";
 
 // ─── DOM ────────────────────────────────────────────────────────────────────
 
 function getElements() {
   return {
+    gate: document.getElementById("gate"),
     description: document.getElementById("page-description"),
     backLink: document.getElementById("back-to-model"),
     scores: document.getElementById("task-scores"),
@@ -63,6 +66,13 @@ async function loadModelTaskScoresPage() {
   const elements = getElements();
 
   try {
+    if (!(await isAuthenticated())) {
+      showGate(elements, false);
+      return;
+    }
+
+    showGate(elements, true);
+
 
     const modelId = new URLSearchParams(location.search).get("id");
 

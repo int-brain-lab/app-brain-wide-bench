@@ -4,7 +4,7 @@
 
 
 import { escapeHtml } from "../utils.js";
-import { suiteOf } from "../scores/scoreMaths.js";
+import { suiteFromTask } from "../utils/suites.js";
 import { TASK_FIELDS, trainingFieldKeys } from "./taskSubmissionSchema.js";
 import {
   SUITE_OPTIONS,
@@ -38,7 +38,7 @@ function toRow(submission, taskSubmission) {
     id: taskSubmission.id,
     submission_id: submission.id,
     task_id: taskSubmission.task_id,
-    suite: suiteOf(taskSubmission.task_id),
+    suite: suiteFromTask(taskSubmission.task_id),
     ...parameters,
   };
 }

@@ -27,7 +27,8 @@ import {
   loadTaskFields,
   trainingFieldKeys,
 } from "./taskSubmissionSchema.js";
-import { SUITES, buildSuiteBadgeList } from "../utils/score-cards.js";
+import { SUITES } from "../utils/suites.js";
+import { buildSuiteBadgeList } from "../components/badges.js"
 
 /**
  * @param {HTMLElement} container
@@ -79,7 +80,7 @@ function createTaskSection({ container, onChange } = {}) {
     return taskSuites.size === 0 || taskSuites.has(taskId);
   }
 
-  function suiteOf(taskId) {
+  function getSuite(taskId) {
     return taskSuites.get(taskId) ?? null;
   }
 
@@ -103,7 +104,7 @@ function createTaskSection({ container, onChange } = {}) {
     const groups = new Map();
 
     for (const task of tasks.values()) {
-      const suite = suiteOf(task.taskId);
+      const suite = getSuite(task.taskId);
       const key = suite ?? "unknown";
 
       if (!groups.has(key)) {
@@ -142,12 +143,12 @@ function createTaskSection({ container, onChange } = {}) {
   // ─── APPLY TO SUITE ─────────────────────────────────────────────────────
 
   function suiteSiblings(task) {
-    const suite = suiteOf(task.taskId);
+    const suite = getSuite(task.taskId);
 
     if (suite === null) return [];
 
     return [...tasks.values()].filter(
-      other => suiteOf(other.taskId) === suite,
+      other => getSuite(other.taskId) === suite,
     );
   }
 
@@ -287,7 +288,7 @@ function createTaskSection({ container, onChange } = {}) {
     if (siblings.length < 2) return "";
 
     const id = escapeHtml(task.taskId);
-    const suite = escapeHtml(suiteOf(task.taskId).toUpperCase());
+    const suite = escapeHtml(getSuite(task.taskId).toUpperCase());
 
     return `
       <div class="card row left gap-sm">

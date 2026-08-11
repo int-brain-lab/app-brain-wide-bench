@@ -130,6 +130,34 @@ a {
 .gap-lg { gap: var(--gap-lg); }
 .gap-xl { gap: var(--gap-xl); }
 
+/* Stops grid/flex children stretching to the tallest in their row. The dashboard needs it:
+   two .page-section columns of unequal length would both stretch, and .page-section's
+   `justify-content: space-between` then pushes the shorter one's content to the bottom of
+   the row instead of leaving it at the top. Same reason .wizard and .task-split set it. */
+.align-start { align-items: start; }
+
+/* Numbered steps, for the dashboard's getting-started panel. `align-items: flex-start` so
+   the number sits level with the step's heading rather than centred against a tall
+   paragraph, and `flex: none` on the circle so a long paragraph can't squash it. */
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gap-md);
+}
+
+.step-number {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--primary);
+  color: #fff;
+  font-size: var(--font-sm);
+  font-weight: var(--bold);
+}
+
 /*----------------------------------------------------------------------------------------
 MAIN SHELLS ETC
 --------------------------------------------------------------------------------------*/
@@ -354,6 +382,12 @@ BUTTONS
   padding: 11px 24px;
 }
 
+.btn.primary-inv {
+  background: var(--surface);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
 .btn.primary {
   background: var(--primary);
   color: var(--surface);
@@ -537,15 +571,17 @@ CREATE CARD
   color: var(--primary-dark);
 }
 
-/* Table view: a strip the width of the table rather than a card. Square-topped and pulled
-   up a pixel so its border meets the table's bottom edge instead of floating below it —
-   .content-private stacks these two containers with no gap, so -1px is the whole overlap. */
+/* Table view: a strip the width of the table rather than a card — shorter than the grid
+   variant, and rounded on all four corners.
+
+   It used to be square-topped and pulled up a pixel, to meet the table's bottom edge. That
+   was wrong about the layout: createFilterableTable renders the row count *below* its grid,
+   and the strip is a sibling of that whole block, so the edge it was butting against was
+   the count paragraph rather than the table. Rounded and spaced off it instead. */
 .create-card.as-row {
   min-height: 0;
   padding: 10px 16px;
-  margin-top: -1px;
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
+  margin-top: var(--gap-md);
 }
 
 
@@ -575,7 +611,8 @@ CARDS
   flex-direction: column;
   padding: 32px;
   border-radius: var(--radius-lg);
-  border-color: transparent;
+  border: 1px solid var(--border-color);
+  /*border-color: transparent;*/
   background: var(--surface);
   overflow: hidden;
   align-items: center;

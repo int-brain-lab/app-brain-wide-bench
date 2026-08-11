@@ -1,5 +1,6 @@
 import {escapeHtml, formatDate} from "../utils.js";
-import {buildStatusBadge, buildSuiteCoverageBadges, suitesOf} from "../utils/score-cards.js";
+import {buildStatusBadge, buildSuiteCoverageBadges} from "./badges.js"
+import { suitesFromSubmission } from "../utils/suites.js";
 
 
 function buildCount(count, noun) {
@@ -60,7 +61,7 @@ function buildSubmissionCards(submissions) {
           ${buildStatusBadge(submission.status)}
 
           <div class="row left gap-sm">
-            ${buildSuiteCoverageBadges(suitesOf(submission))}
+            ${buildSuiteCoverageBadges(suitesFromSubmission(submission))}
           </div>
 
           <p class="metadata">

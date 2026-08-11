@@ -14,6 +14,8 @@ import {
   clearCreateRow,
   renderCreateRow,
 } from "../utils/create-card.js";
+import { isAuthenticated } from "../api.js";
+import { showGate } from "../utils/gate.js";
 
 // ─── CONFIGURATION ──────────────────────────────────────────────────────────
 
@@ -33,6 +35,7 @@ const VIEWS = {
 
 function getElements() {
   return {
+    gate: document.getElementById("gate"),
     list: document.getElementById("models-list"),
     create: document.getElementById("models-create"),
     cardsButton: document.getElementById("view-cards"),
@@ -70,7 +73,7 @@ function renderTable(elements, models) {
 
 function setActiveView(elements, activeId) {
   for (const button of [elements.cardsButton, elements.tableButton]) {
-    button?.classList.toggle("primary", button.id === activeId);
+    button?.classList.toggle("primary-inv", button.id === activeId);
   }
 }
 
@@ -114,6 +117,13 @@ async function loadModelListPage() {
   const elements = getElements();
 
   try {
+    if (!(await isAuthenticated())) {
+      showGate(elements, false);
+      return;
+    }
+
+    showGate(elements, true);
+
     const models = await getMyModels();
 
     if (!models) {

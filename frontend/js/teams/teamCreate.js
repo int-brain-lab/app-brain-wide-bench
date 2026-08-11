@@ -1,241 +1,222 @@
-// Page entry for html/teams/team_create.html — name a team, pick its members, submit.
+// Create a new team.
 //
-// Two API steps, not one: POST /api/teams then POST .../members per person. The team is
-// created first and exists regardless, so a member who can't be added is reported by
-// name rather than losing the whole form. That's why submit navigates to the new team's
-// page on success but stays put when some members failed — the message is the only place
-// that information exists.
+// The form is a single page with two panels. The second is locked until the first is
+// complete, the same shape modelCreate.js and submissionCreate.js use.
+//
+//   1. Details  the team name
+//   2. Members  who else should have access
+//
+// The members block is createMembersSection — the same module team_details.html mounts for
+// editing. It fits creation because it records changes rather than sending them, and
+// `apply()` reads the team id at call time: the draft below starts with a null id, POST
+// /api/teams fills it in, and only then does apply() have somewhere to send the additions.
+//
+// Two API steps, not one, and deliberately so: the team is created first and exists
+// regardless, so a member who can't be added is reported by name rather than costing the
+// whole form. That's why submit navigates to the new team on success but stays put when
+// some members failed — the message is the only place that information exists.
 
-import { addTeamMember, createTeam } from "./teamApi.js";
-import { searchUsers } from "../users/userApi.js";
-import { escapeHtml, initials, renderMessage } from "../utils.js";
+import { createTeam } from "./teamApi.js";
+import { loadMe } from "../users/userApi.js";
+import { createMembersSection } from "./teamMembers.js";
+import { TEAM_FIELDS, TEAM_PANELS } from "./teamSchema.js";
+import {
+  attachFieldEvents,
+  createFieldState,
+  panelGroups,
+  renderFields,
+  renderGroups,
+} from "../utils/form-fields.js";
+import { showError, showMessage } from "../utils.js";
+import { isAuthenticated } from "../api.js";
+import { showGate } from "../utils/gate.js";
 
-// The server enforces this too; matching it here avoids a request per keystroke that
-// can only 422.
-const MIN_QUERY = 2;
+// ─── PANEL CONFIGURATION ────────────────────────────────────────────────────
 
+// Panel 2 requires nothing of its own: a team with no one but its creator is valid, and
+// the creator is added by the server regardless.
+const PANELS = [
+  { panel: 1, required: ["name"] },
+  { panel: 2, required: [] },
+];
 
-// ─── STATE ──────────────────────────────────────────────────────────────────
+const PANEL_BY_NUMBER = new Map(PANELS.map(panel => [panel.panel, panel]));
 
-// Keyed by id so the same person can't be added twice, and so removal is a delete
-// rather than a scan.
-const picked = new Map();
+// ─── STATE HELPERS ──────────────────────────────────────────────────────────
 
+function isFilled(value) {
+  if (value == null) return false;
+  if (typeof value === "string") return value.trim() !== "";
+  if (Array.isArray(value)) return value.length > 0;
+
+  return true;
+}
+
+function isPanelComplete(panelNumber, state) {
+  const panel = PANEL_BY_NUMBER.get(panelNumber);
+
+  return (panel?.required ?? []).every(key => isFilled(state[key]));
+}
+
+function isPanelOpen(panelNumber, state) {
+  return PANELS
+    .filter(panel => panel.panel < panelNumber)
+    .every(panel => isPanelComplete(panel.panel, state));
+}
 
 // ─── DOM ────────────────────────────────────────────────────────────────────
 
-function teamName() {
-  return document.getElementById("team-name");
+function getElements() {
+  return {
+    gate: document.getElementById("gate"),
+    message: document.getElementById("form-message"),
+    panels: document.getElementById("team-panels"),
+    createButton: document.getElementById("create-team"),
+  };
 }
 
-function memberSearch() {
-  return document.getElementById("member-search");
+function getPanel(elements, panelNumber) {
+  return elements.panels.querySelector(`[data-panel="${panelNumber}"]`);
 }
 
-function memberResults() {
-  return document.getElementById("member-results");
-}
+// ─── PANEL RENDERING ────────────────────────────────────────────────────────
 
-function memberChips() {
-  return document.getElementById("member-chips");
-}
+// Only the schema-driven panel is rendered. Panel 2's markup is static, because the
+// members section attaches listeners to elements inside it that must outlive a re-render.
+function renderPanels(elements, state, fields) {
+  for (const panel of TEAM_PANELS) {
+    const panelElement = getPanel(elements, panel.panel);
 
-function showMessage(message, className = "info-msg") {
-  const container = document.getElementById("form-message");
+    if (!panelElement) continue;
 
-  if (!message) {
-    container.hidden = true;
-    container.replaceChildren();
-    return;
-  }
-
-  renderMessage(container, message, className);
-}
-
-
-// ─── SEARCH RESULTS ─────────────────────────────────────────────────────────
-
-function userLabel(user) {
-  return user.name || user.email;
-}
-
-function buildResult(user) {
-  return `
-    <div class="row" data-user-id="${escapeHtml(user.id)}">
-      <div class="row left gap-md">
-        <div class="user-logo">${escapeHtml(initials(userLabel(user)))}</div>
-        <div class="column left">
-          <p class="label">${escapeHtml(user.name || "—")}</p>
-          <p class="metadata">${escapeHtml(user.email)}</p>
-        </div>
-      </div>
-      <button type="button" class="btn add-member" data-user-id="${escapeHtml(user.id)}">
-        + Add
-      </button>
-    </div>
-  `;
-}
-
-function renderResults(users) {
-  const container = memberResults();
-
-  // Already-picked people are filtered out rather than shown disabled: the chips below
-  // are where "already added" is visible, and a dead row in the results is just noise.
-  const available = users.filter(user => !picked.has(user.id));
-
-  if (available.length === 0) {
-    container.hidden = true;
-    container.replaceChildren();
-    return;
-  }
-
-  container.hidden = false;
-  container.innerHTML = available.map(buildResult).join("");
-}
-
-
-// ─── CHIPS ──────────────────────────────────────────────────────────────────
-
-function buildChip(user) {
-  return `
-    <span class="row left gap-sm" data-user-id="${escapeHtml(user.id)}">
-      <span class="user-logo">${escapeHtml(initials(userLabel(user)))}</span>
-      <span class="column left">
-        <span class="label">${escapeHtml(user.name || user.email)}</span>
-        <span class="metadata">${escapeHtml(user.email)}</span>
-      </span>
-      <button type="button" class="modal-close remove-member" data-user-id="${escapeHtml(user.id)}"
-              aria-label="Remove ${escapeHtml(userLabel(user))}">x</button>
-    </span>
-  `;
-}
-
-function renderChips() {
-  memberChips().innerHTML = [...picked.values()].map(buildChip).join("");
-}
-
-
-// ─── EVENTS ─────────────────────────────────────────────────────────────────
-
-function attachSearch() {
-  memberSearch().addEventListener("input", async event => {
-    const query = event.target.value.trim();
-
-    if (query.length < MIN_QUERY) {
-      memberResults().hidden = true;
-      memberResults().replaceChildren();
-      return;
-    }
-
-    const users = await searchUsers(query);
-
-    // Guard against an older request resolving after a newer one: only render if the
-    // box still holds the query this call was made for.
-    if (memberSearch().value.trim() !== query) {
-      return;
-    }
-
-    renderResults(users);
-  });
-
-  // Delegated, so it survives every re-render of the results list.
-  memberResults().addEventListener("click", event => {
-    const button = event.target.closest(".add-member");
-    if (!button) return;
-
-    const row = button.closest("[data-user-id]");
-
-    picked.set(button.dataset.userId, {
-      id: button.dataset.userId,
-      name: row.querySelector(".label").textContent.trim(),
-      email: row.querySelector(".metadata").textContent.trim(),
+    const groups = panelGroups(fields, [panel], {
+      editableOnly: true,
+      columns: 1,
     });
 
-    renderChips();
+    panelElement.innerHTML = renderGroups(groups, state, fields, renderFields);
+  }
 
-    // Clearing the box is the signal that the pick landed — the chip appears below and
-    // the results collapse rather than leaving a row that can no longer be added.
-    memberSearch().value = "";
-    memberResults().hidden = true;
-    memberResults().replaceChildren();
-  });
-
-  memberChips().addEventListener("click", event => {
-    const button = event.target.closest(".remove-member");
-    if (!button) return;
-
-    picked.delete(button.dataset.userId);
-    renderChips();
-  });
+  globalThis.lucide?.createIcons?.();
 }
 
+function applyLocks(elements, state) {
+  for (const panel of PANELS) {
+    const panelElement = getPanel(elements, panel.panel);
+
+    if (panelElement) {
+      panelElement.disabled = !isPanelOpen(panel.panel, state);
+    }
+  }
+}
+
+// A team can be created with no one but its creator, so the only gate is the name.
+function updateSubmit(elements, state) {
+  elements.createButton.disabled = !isPanelComplete(1, state);
+}
 
 // ─── SUBMIT ─────────────────────────────────────────────────────────────────
 
-// The team is created first, so a member that can't be added doesn't cost the team.
-// Failures are collected rather than thrown so one bad address doesn't stop the rest.
-async function addMembers(teamId) {
-  const failed = [];
+// The draft is mutated rather than replaced so the members section — which holds
+// `getTeam` as a closure — sees the real id once the team exists.
+async function handleSubmit(elements, state, draft, members) {
+  elements.createButton.disabled = true;
+  showMessage(elements.message, "Creating team…");
 
-  for (const member of picked.values()) {
-    try {
-      await addTeamMember(teamId, member.email);
-    } catch (err) {
-      console.error(err);
-      failed.push(member.email);
-    }
+  let team;
+
+  try {
+    team = await createTeam(state.name.trim());
+  } catch (error) {
+    console.error(error);
+
+    showError(elements.message, error.message);
+    updateSubmit(elements, state);
+    return;
   }
 
-  return failed;
+  draft.id = team.id;
+
+  // Staged additions only reach the server here. `apply` collects per-member failures
+  // rather than throwing, so one unknown address doesn't strand the rest.
+  const failed = await members.apply();
+
+  // `&created` is read by teamDetails.js, which then offers the next step — registering a
+  // model for the team just made. It has to travel in the URL: this assignment navigates, so
+  // anything rendered here would belong to a document about to be replaced.
+  if (failed.length === 0) {
+    window.location.href =
+      `/html/teams/team_details.html?id=${encodeURIComponent(team.id)}&created`;
+    return;
+  }
+
+  // Deliberately does not navigate: this message is the only record of who didn't make
+  // it, and the team's own page can't say what was attempted.
+  showError(
+    elements.message,
+    `Team created, but could not add: ${failed.join("; ")}. `
+    + "They may not have signed in yet — add them from the team page.",
+  );
+
+  elements.createButton.disabled = false;
 }
-
-function attachSubmit() {
-  const button = document.getElementById("create-team");
-
-  button.addEventListener("click", async () => {
-    const name = teamName().value.trim();
-
-    // Checked here as well as server-side so the obvious mistake doesn't need a round
-    // trip; the server rejects a blank name with a 422 regardless.
-    if (!name) {
-      showMessage("Give the team a name first.", "error-msg");
-      teamName().focus();
-      return;
-    }
-
-    button.disabled = true;
-    showMessage("Creating team…");
-
-    let team;
-    try {
-      team = await createTeam(name);
-    } catch (err) {
-      console.error(err);
-      button.disabled = false;
-      showMessage(err.message, "error-msg");
-      return;
-    }
-
-    const failed = await addMembers(team.id);
-
-    if (failed.length === 0) {
-      window.location.href = `/html/teams/team_dashboard.html?id=${encodeURIComponent(team.id)}`;
-      return;
-    }
-
-    // Deliberately does not navigate: this message is the only record of which members
-    // didn't make it, and the team's own page can't tell you what was attempted.
-    button.disabled = false;
-    showMessage(
-      `Team created, but could not add: ${failed.join(", ")}. `
-      + `They may not have signed in yet — add them from the team page.`,
-      "error-msg",
-    );
-  });
-}
-
 
 // ─── INITIALISATION ─────────────────────────────────────────────────────────
 
-attachSearch();
-attachSubmit();
+async function loadTeamCreatePage() {
+  const elements = getElements();
+
+  try {
+    if (!(await isAuthenticated())) {
+      showGate(elements, false);
+      return;
+    }
+
+    showGate(elements, true);
+
+    const me = await loadMe();
+
+    if (!me) {
+      showError(elements.message, "Could not load your account.");
+      return;
+    }
+
+    const fields = TEAM_FIELDS;
+    const state = createFieldState(fields);
+
+    // Stands in for the team that doesn't exist yet. The creator is listed from the
+    // start because POST /api/teams adds them as the first member — showing them is
+    // reporting what will happen, not pre-empting it.
+    const draft = { id: null, members: [me] };
+
+    const members = createMembersSection({
+      getTeam: () => draft,
+      onMessage: message => showMessage(elements.message, message),
+      canRemove: member => member.id !== me.id,
+    });
+
+    // Staged mode starts read-only, for team_details.html where the block only opens on
+    // Edit. Here the panel's own lock is the gate, so the block is open from the start.
+    members.setEditing(true);
+
+    renderPanels(elements, state, fields);
+    applyLocks(elements, state);
+    updateSubmit(elements, state);
+
+    attachFieldEvents(elements.panels, state, fields, () => {
+      applyLocks(elements, state);
+      updateSubmit(elements, state);
+    });
+
+    elements.createButton.addEventListener("click", () =>
+      handleSubmit(elements, state, draft, members));
+
+    globalThis.lucide?.createIcons?.();
+  } catch (error) {
+    console.error("Failed to initialise the team create page:", error);
+
+    showError(elements.message, "Team create page could not be loaded.");
+  }
+}
+
+loadTeamCreatePage();
