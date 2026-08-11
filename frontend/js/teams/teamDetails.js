@@ -1,4 +1,4 @@
-import { createDetailEditor } from "../utils/detail-editor.js";
+import { Editor } from "../utils/editor.js";
 import { TEAM_FIELDS, TEAM_PANELS } from "./teamSchema.js";
 import { loadTeam, updateTeam } from "./teamApi.js";
 import { renderMessage } from "../utils.js";
@@ -73,7 +73,7 @@ function renderAll(team) {
 let failedMembers = [];
 
 function attachEditor(team) {
-  createDetailEditor({
+  Editor({
     container: document.getElementById("team-details"),
     editButton: document.getElementById("edit-team"),
     saveButton: document.getElementById("save-team"),
@@ -81,6 +81,13 @@ function attachEditor(team) {
     record: team,
     fields: TEAM_FIELDS,
     groups: () => panelGroups(TEAM_FIELDS, TEAM_PANELS, { columns: 1 }),
+
+    // The members block is read-only until the page enters edit mode. This used to be a
+    // second click listener on the Edit button, because the editor had no hook for
+    // *entering* edit mode; it has onEdit now, which also fires for the ?edit deep link
+    // below since that goes through startEditing.
+    onEdit: () => members.setEditing(true),
+
     // Members first, then the rename: the PATCH answers with the full TeamDetail, so
     // doing it last means the response already reflects the membership changes and
     // onSaved can re-render the whole page from it without re-fetching.
@@ -138,12 +145,6 @@ async function loadTeamDetailsPage() {
 
       renderAll(team);
       attachEditor(team);
-
-      // createDetailEditor has no hook for *entering* edit mode, so the members block is
-      // switched on from the Edit button directly — a second listener alongside the
-      // editor's own, which is harmless since they do independent things.
-      document.getElementById("edit-team")
-        .addEventListener("click", () => members.setEditing(true));
 
       openEditIfRequested();
 

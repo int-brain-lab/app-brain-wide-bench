@@ -3,10 +3,13 @@
 // the same lifecycle; the pages differ only in their schema, their save call,
 // and which DOM ids they use.
 //
-// Assumes the tab convention in js/tab.js: a read-only `section[data-tab]` and a
-// hidden edit `section[data-tab]` alongside it.
+// One container serves both modes: the caller renders the read-only view into it, this
+// replaces that with the form while editing, and the caller's onSaved/onCancel puts the
+// read-only view back. It used to assume a pair of `section[data-tab]` panels switched by
+// js/tab.js — that stopped being true, but the import lingered and the `showTab` it named
+// was never called, so a page still built that way had its form rendered into a section
+// nothing ever unhid.
 
-import { showTab } from "../tab.js";
 import {
   createFieldState,
   getFieldValue,
@@ -38,8 +41,11 @@ import {
  *                     themselves. A thunk, so it can pick up values that load late.
 
  */
-function createDetailEditor({
+function Editor({
   container,
+  editButton,
+  saveButton,
+  cancelButton,
   fields,
   keys,
   groups,
@@ -48,9 +54,7 @@ function createDetailEditor({
   onSaved,
   onCleared,
   onError,
-  editButton,
-  saveButton,
-  cancelButton,
+  onEdit,
   onCancel,
   context,
 }) {
@@ -117,6 +121,7 @@ function createDetailEditor({
 
   function startEditing() {
     showButtons(true);
+    onEdit?.();
 
     // `context` is merged in after createFieldState, which by design keeps only
     // editable fields — so a schema whose predicates read something that *isn't* an
@@ -170,7 +175,7 @@ function createDetailEditor({
     container.addEventListener("change", handleFieldChange);
   }
 
-  return { attach, startEditing, cancelEditing, saveEdits };
+  return { attach };
 }
 
-export { createDetailEditor };
+export { Editor };

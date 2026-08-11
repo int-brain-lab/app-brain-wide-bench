@@ -1,56 +1,81 @@
-import { getMyTeams } from "./teamApi.js";
-import { escapeHtml } from "../utils.js";
-
-// The caller's own teams only, from /api/users/me/teams — the same shape as the model
-// and submission lists, which are also "mine". /api/teams (every team on the benchmark)
-// is still there for the model-create team picker; showing it here meant fetching both
-// and tagging each row with an `is_member` flag the card no longer displays.
+// Team list
 //
-// Cards only, at any length: a team row has little to show beyond its name and two
-// counts, so a table would mostly be header. js/tables/teams.js has one if that changes.
+// A page showing the teams that the user has created or has access to.
+
+
+import { getMyTeams } from "./teamApi.js";
+import { buildTeamCards} from "../components/cards.js";
+import {appendCreateCard} from "../utils/create-card.js";
+import {showError} from "../utils";
+
+// ─── CONFIGURATION ──────────────────────────────────────────────────────────
+
+const CREATE = {
+  href: "/html/teams/team_create.html",
+  label: "New team" };
+
+// ─── DOM ─────────────────────────────────────────────────────────────────────
+
+function getElements() {
+  return {
+    list: document.getElementById("teams-list"),
+    create: document.getElementById("teams-create"),
+  };
+}
 
 // ─── RENDERING ──────────────────────────────────────────────────────────────
 
-function buildCount(count, noun) {
-  return `<p class="metadata">${count ?? 0} ${noun}${(count ?? 0) === 1 ? "" : "s"}</p>`;
+function renderCards(elements, teams) {
+
+  elements.list.className = 'grid-2'
+  elements.list.innerHTML = buildTeamCards(teams);
+
+  appendCreateCard(elements.list, CREATE);
 }
 
-function buildTeamCards(teams) {
+// ─── EMPTY STATE ────────────────────────────────────────────────────────────
 
-  return teams.map(team => `
-    <a class="card column left gap-sm" href="/html/teams/team_dashboard.html?id=${encodeURIComponent(team.id)}">
-      <p class="title">${escapeHtml(team.name)}</p>
-      ${buildCount(team.n_members, "member")}
-      ${buildCount(team.n_models, "model")}
-    </a>
-  `).join("");
+function renderEmptyState(elements) {
+  elements.list.className = "grid-2";
+  elements.list.replaceChildren();
+
+  appendCreateCard(elements.list, CREATE);
+
 }
-
-function renderTeamCards(teams) {
-  const teamList = document.getElementById("teams-list")
-
-  teamList.className = 'grid-2'
-  teamList.innerHTML = buildTeamCards(teams);
-}
-
 
 // ─── INITIALISATION ──────────────────────────────────────────────────────────
 
 async function loadTeamListPage() {
+  const elements = getElements();
 
-  const teams = await getMyTeams();
-  if (!teams) {
-    return
+  try {
+
+    const teams = await getMyTeams();
+
+    if (!teams) {
+      showError(
+        elements.message,
+        "Could not load teams."
+      );
+    }
+
+    if (teams.length === 0) {
+      renderEmptyState(elements);
+      return;
+    }
+
+    renderCards(elements, teams);
+  } catch (error) {
+    console.error(
+      "Failed to load team list:",
+      error,
+    );
+
+    showError(
+      elements.message,
+      "Teams list page could not be loaded.",
+    );
   }
-
-  if (teams.length === 0) {
-    document.getElementById("teams-list").replaceChildren();
-  } else {
-    renderTeamCards(teams);
-  }
-
 }
-
-
 
 loadTeamListPage();

@@ -1,13 +1,12 @@
-import { escapeHtml, initials} from "./utils.js";
-import { apiFetch, isAuthenticated, login, logout } from "./api.js";
-import { renderLogo } from "./logo.js";
+import { escapeHtml, initials} from "../utils.js";
+import { apiFetch, isAuthenticated, login, logout } from "../api.js";
 
 // ─── CONSTANTS ─────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
-  { label: "Leaderboard", href: "/leaderboard.html" },
+  { label: "Leaderboard", href: "/html/leaderboard/leaderboard.html" },
   { label: "Docs", href: "#" },
-  { label: "Submit", href: "/submit_submission.html" },
+  { label: "Submit", href: "/html/submissions/submission_create.html" },
   { label: "About", href: "#" },
   { label: "Dashboard", href: "/html/dashboard/dashboard.html" },
 ];
@@ -50,6 +49,29 @@ function currentPage() {
 
 
 // ─── RENDERING ──────────────────────────────────────────────────────────────
+
+// The brand mark, exported because nav_side.js puts the same one at the top of the
+// sidebar. It used to be its own module to avoid importing this file from there —
+// initialiseNav() runs at import time, and on a private page with no top nav that was a
+// crash. It returns early on a missing #top-nav now, so importing this from the sidebar
+// costs nothing but the module evaluation.
+//
+// An inline SVG rather than a Lucide placeholder: it isn't a Lucide icon, and it needs no
+// createIcons() pass to appear.
+function renderLogo() {
+  return `
+    <div class="nav-logo">
+      <div class="nav-logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <circle cx="8" cy="8" r="5" stroke="white" stroke-width="1.5" />
+          <circle cx="8" cy="8" r="2" fill="white" />
+        </svg>
+      </div>
+
+      <span>brain-wide bench</span>
+    </div>
+  `;
+}
 
 function renderNavItem(item, page) {
   const active = item.href === page;
@@ -143,3 +165,5 @@ async function initialiseNav() {
 }
 
 initialiseNav();
+
+export { renderLogo };

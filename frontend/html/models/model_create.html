@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,17 +8,19 @@
   <link rel="stylesheet" href="/css/style.css">
 </head>
 
-<body>
+<body data-view="private">
+
   <div class="main-private">
 
     <aside class="sidebar" id="side-nav"></aside>
 
     <div class="content-private">
 
-      <!-- Page Header -->
+      <a class="link un" id="back-to-models" href="/html/models/model_list.html">← Back to models</a>
+
       <div class="page-header">
-          <h1 class="page-title">New model</h1>
-          <p class="page-description">Register a model so you can submit predictions for it.</p>
+        <h1 class="page-title">New model</h1>
+        <p class="section-description">Register a model so you can submit predictions for it.</p>
       </div>
 
       <div class="card" id="gate" hidden>
@@ -27,76 +30,30 @@
         </div>
       </div>
 
-      <!-- Wizard Form : two columns -->
-      <form class="wizard" id="wizard" hidden>
+      <!-- The three panel cards, and the submit below them. Both are rendered/driven by
+           js/models/modelCreate.js — a panel stays dimmed and read-only until the ones
+           above it are complete. -->
+      <div class="column gap-lg" id="model-create" hidden>
 
-        <!-- Wizard Progress Bar : left column, populated by model-create-wizard.js -->
-        <ol class="column gap-sm" id="wizard-progress"></ol>
+        <div class="column gap-lg" id="model-panels"></div>
 
-        <!-- Wizard Panels and Navigation Buttons : right column -->
-        <div class="column gap-lg">
+        <div id="form-message" hidden></div>
 
-          <!-- Step 1 — Name & team -->
-          <section class="wizard-panel" data-step="1">
-
-            <div class="panel-header">
-              <h2 class="heading">1. Name & team</h2>
-              <p class="subheading">Give the model a name and choose which team owns it.</p>
-            </div>
-
-            <div class="column gap-lg" id="model-create-name"></div>
-
-          </section>
-
-          <!-- Step 2 — Links & publication -->
-          <section class="wizard-panel" data-step="2" hidden>
-
-            <div class="panel-header">
-              <h2 class="heading">2. Links & publication</h2>
-              <p class="subheading">Optional links to the project, code, weights and publication.</p>
-            </div>
-
-            <!-- Field Inputs : populated by model-create-form.js from MODEL_FIELDS -->
-            <div class="column gap-lg" id="model-create-links"></div>
-
-          </section>
-
-          <!-- Step 3 — Parameters -->
-          <section class="wizard-panel" data-step="3" hidden>
-
-            <div class="panel-header">
-              <h2 class="heading">3. Parameters</h2>
-              <p class="subheading">Architecture and pretraining details.</p>
-            </div>
-
-            <!-- Field Inputs : populated by model-create-form.js from MODEL_FIELDS -->
-            <div class="column gap-lg" id="model-create-parameters"></div>
-
-            <!-- Status/Error Message : populated by model-create-submit.js -->
-            <div id="form-message" hidden></div>
-
-          </section>
-
-          <!-- Footer Navigation : Back / Next / Submit, controlled by model-create-wizard.js -->
-          <div class="row">
-            <button type="button" class="btn" id="wizard-back">Back</button>
-
-            <div class="row right">
-              <button type="button" class="btn primary" id="wizard-next">Next</button>
-              <button type="button" class="btn primary" id="wizard-submit" disabled hidden>
-                Create model
-              </button>
-            </div>
-          </div>
-
+        <div class="row right">
+          <button type="button" class="btn primary with-icon" id="create-model" disabled>
+            <i class="btn-icon" data-lucide="plus"></i>
+            Create model
+          </button>
         </div>
-      </form>
+
+      </div>
 
     </div>
   </div>
 
-  <script type="module" src="/js/nav_top.js"></script>
-  <script type="module" src="/js/nav_side.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module" src="/js/nav/nav_side.js"></script>
   <script type="module" src="/js/models/modelCreate.js"></script>
+
 </body>
 </html>

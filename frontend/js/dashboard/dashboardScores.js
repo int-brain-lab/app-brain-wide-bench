@@ -1,30 +1,25 @@
-// Page entry for html/dashboard/dashboard_scores.html — every task score across every model and submission
-// the caller can see, filterable by model, submission, suite and task name.
+// Dashboard scores
 //
-// The dashboard's score preview is the top five of exactly this table; this is where it
-// links to.
+// A page showing a table of task scores for all submissions for all models for a user.
+// The table allows you to search by model name and filter by suite or task name
 
 import { loadAllScores } from "./dashboardApi.js";
-import { renderTaskScoresTable } from "../tables/tasks.js";
-import { renderMessage } from "../utils.js";
+import { renderTaskScoresTable } from "../scores/scoreTable.js";
+import { showError, showMessage} from "../utils.js";
+import { buildCount } from "../components/cards.js";
 
 
 // ─── DOM ────────────────────────────────────────────────────────────────────
 
-function taskScores() {
-  return document.getElementById("task-scores");
+function getElements() {
+  return {
+    description: document.getElementById("page-description"),
+    scores: document.getElementById("task-scores"),
+    message: document.getElementById("task-scores")
+  };
 }
 
-
-// ─── RENDERING ──────────────────────────────────────────────────────────────
-
-function renderHeader(modelCount, scoredCount) {
-  document.getElementById("page-description").textContent =
-    `${scoredCount} task${scoredCount === 1 ? "" : "s"} across ${modelCount} model${modelCount === 1 ? "" : "s"}`;
-}
-
-
-// ─── ENTRY POINT ────────────────────────────────────────────────────────────
+// ─── DATA ───────────────────────────────────────────────────────────────────
 
 function countTaskSubmissions(submissions) {
   return submissions.reduce(
@@ -33,27 +28,51 @@ function countTaskSubmissions(submissions) {
   );
 }
 
+// ─── RENDERING ──────────────────────────────────────────────────────────────
+
+function renderHeader(elements, modelCount, scoredCount) {
+  elements.description.textContent =
+    `${buildCount(scoredCount, "tasks")} across ${buildCount(modelCount, "models")}`;
+}
+
+// ─── INITIALISATION ─────────────────────────────────────────────────────────
+
 async function loadScoresPage() {
-  const { models, submissions, tasks } = await loadAllScores();
+  const elements = getElements();
 
-  const taskCount = countTaskSubmissions(submissions);
+  try {
+    const { models, submissions, tasks } = await loadAllScores();
 
-  renderHeader(models.length, taskCount);
+    const taskCount = countTaskSubmissions(submissions);
+    renderHeader(elements, models.length, taskCount);
 
-  if (taskCount === 0) {
-    renderMessage(taskScores(), "No tasks yet.");
-    return;
+    if (taskCount === 0) {
+        showMessage(
+        elements.message,
+    "No task scores available. Please submit models to see scores here.",
+      );
+      return;
+    }
+
+    // Show both the model and submissions as columns
+    renderTaskScoresTable({
+      container: elements.scores,
+      submissions,
+      tasks,
+      showModel: true,
+      showSubmission: true,
+    });
+
+  } catch (error) {
+    console.error(
+      "Failed to load task scores:",
+      error);
+
+    showError(
+      elements.message,
+      "Could not load the task scores",
+    )
   }
-
-  // Both dimensions on: this is the one table that spans models *and* submissions, so
-  // those columns and their selects are the whole point of the page.
-  renderTaskScoresTable({
-    container: taskScores(),
-    submissions,
-    tasks,
-    showModel: true,
-    showSubmission: true,
-  });
 }
 
 loadScoresPage();

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brain-Wide Bench - Settings</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body data-view="private">
+
+    <div class="main-private">
+
+      <aside class="sidebar" id="side-nav"></aside>
+
+      <div class="content-private">
+
+        <div class="row">
+          <div class="page-header side">
+            <h1 class="page-title">Settings</h1>
+            <p class="section-description">
+              Your profile details. Name and affiliation are yours to change; the rest comes
+              from your sign-in provider.
+            </p>
+          </div>
+
+          <!-- Hidden as a group when signed out; within it, createDetailEditor swaps Edit
+               for Save/Cancel. -->
+          <div class="row right gap-md" id="user-actions">
+            <a class="btn with-icon" id="edit-user">
+              <i class="btn-icon" data-lucide="pencil"></i>
+              Edit
+            </a>
+            <a class="btn primary with-icon" id="save-user" hidden>
+              <i class="btn-icon" data-lucide="check"></i>
+              Save
+            </a>
+            <a class="btn with-icon" id="cancel-user" hidden>
+              <i class="btn-icon" data-lucide="x"></i>
+              Cancel
+            </a>
+          </div>
+        </div>
+
+        <div class="card secondary column gap-md" id="gate" hidden>
+          <p class="info-msg">Sign in to view your settings.</p>
+        </div>
+
+        <div id="form-message" hidden></div>
+
+        <!-- One container for both modes: the read-only cards on load, the edit form in
+             their place while editing. Same as model_details.html / team_details.html. -->
+        <div id="user-details"></div>
+
+      </div>
+    </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module" src="/js/nav/nav_side.js"></script>
+  <script type="module" src="/js/users/userDetails.js"></script>
+
+</body>
+</html>

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Brain-Wide Bench - Leaderboard</title>
   <link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
@@ -18,13 +18,9 @@
             <p class="page-description">Public, completed submissions scored against held-out test data.</p>
        </div>
 
-        <div class="tab-row">
-          <div class="tab active" data-metric="overall">Overall</div>
-          <div class="tab" data-metric="ts1">TS1 · Behavior</div>
-          <div class="tab" data-metric="ts2">TS2 · Dynamics</div>
-          <div class="tab" data-metric="ts3">TS3 · Anatomy</div>
-        </div>
-
+        <!-- The metric tabs that used to sit here are now the grouping and metric selects
+             in the table's own filter bar, which createFilterableTable renders into this
+             container along with the grid and the row count. -->
         <div id="leaderboard"></div>
 
       </div>
@@ -32,8 +28,8 @@
 
 
 <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
-<script type="module" src="js/nav_top.js"></script>
-<script type="module" src="js/leaderboard.js"></script>
+<script type="module" src="/js/nav/nav_top.js"></script>
+<script type="module" src="/js/leaderboard/leaderboard.js"></script>
 
 </body>
 </html>

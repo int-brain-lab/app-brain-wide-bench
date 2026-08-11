@@ -1,348 +1,599 @@
-import { createWizard } from "../wizard.js";
+// Create a new submission.
+//
+// The form is a single page with four panels. Each panel is locked until the panels above it
+// are complete.
+//
+//   1. Model        pick a model
+//   2. Information  name, visibility, narratives
+//   3. Predictions  upload a zip and detect tasks
+//   4. Tasks        per-task methodology
+//
+// The final Create button is enabled only when every panel is complete and every
+// detected task is valid and confirmed.
+
 import {
   attachFieldEvents,
   createFieldState,
+  panelGroups,
+  renderFields,
+  renderGroups,
 } from "../utils/form-fields.js";
-
-import { loadSubmissionFields } from "./submissionSchema.js";
-
 import {
-  attachDropzoneVisuals,
-  clearModelPreview,
-  formElement,
-  formPanels,
-  onFileDropped,
-  onFileRemoved,
-  onFileSelected,
-  onSubmit,
-  renderForm,
-  renderModelPreview,
-  renderSummary,
-  setSubmitEnabled,
-  showDropzone,
-  showGate,
-  showMessage,
-  showSelectedFile,
-  finalCheckbox, onConfirmed
-} from "./submissionCreateView.js";
+  SUBMISSION_PANELS,
+  loadSubmissionFields,
+} from "./submissionSchema.js";
+import { loadModel } from "../models/modelApi.js";
+import { apiFetch, isAuthenticated } from "../api.js";
+import {
+  escapeHtml,
+  formatBytes,
+  showError,
+  showMessage
+} from "../utils.js";
+import {
+  inferTasks,
+  listZipEntries,
+} from "../zip_list.js";
+import { createTaskSection } from "../tasks/taskSubmissionsCreate.js";
+import {
+  presignSubmission,
+  submitSubmission,
+  uploadToPresignedUrl,
+} from "./submissionApi.js";
 
-import {applyDetectedTasks, getTaskIds, getTaskPayloads, initialiseTasks, isTasksConfirmed, isTasksValid, setSelectedModel} from "../tasks/tasks.js";
-import {loadModel} from "../models/modelApi.js";
-import {formatBytes} from "../utils.js";
-import {presignSubmission, submitSubmission, uploadToPresignedUrl} from "./submissionApi.js";
-import {isAuthenticated} from "../api.js";
-import {inferTasks, listZipEntries} from "../zip_list.js";
+// ─── PANEL CONFIGURATION ────────────────────────────────────────────────────
 
-
-// ─── WIZARD ────────────────────────────────────────────────
-const WIZARD_STEPS = [
-  "Select model",
-  "Submission details",
-  "Upload predictions",
-  "Review tasks",
-  "Submit",
+// Panel 4 is required but the requirement is handled by the tasks
+const PANELS = [
+  { panel: 1, required: ["label", "model_id"] },
+  { panel: 2, required: [] },
+  { panel: 3, required: ["file"] },
+  { panel: 4, required: [] },
 ];
 
+const PANEL_BY_NUMBER = new Map(
+  PANELS.map(panel => [panel.panel, panel]),
+);
 
-function canAdvance(step, state) {
-  switch (step) {
-    case 1:
-      return state.model_id != null;
+// ─── STATE HELPERS ──────────────────────────────────────────────────────────
 
-    case 2:
-      return state.label.trim() !== "";
+// Empty strings, null, and empty arrays are unset. false and 0 are valid values.
+function isFilled(value) {
+  if (value == null) return false;
+  if (typeof value === "string") return value.trim() !== "";
+  if (Array.isArray(value)) return value.length > 0;
 
-    case 3:
-      return state.file != null;
-
-    case 4:
-      return (
-        isTasksValid() &&
-        isTasksConfirmed()
-      );
-
-    case 5:
-      return (
-        isTasksValid() &&
-        isTasksConfirmed() &&
-        finalCheckbox()
-      );
-
-    default:
-      return true;
-  }
+  return true;
 }
 
-function onStepChange(state) {
-  return step => {
-    if (step === WIZARD_STEPS.length) renderSummary(buildSummaryRows(state));
+function isPanelComplete(panelNumber, state) {
+  const panel = PANEL_BY_NUMBER.get(panelNumber);
+
+  return (panel?.required ?? []).every(key => isFilled(state[key]));
+}
+
+function isPanelOpen(panelNumber, state) {
+  return PANELS
+    .filter(panel => panel.panel < panelNumber)
+    .every(panel => isPanelComplete(panel.panel, state));
+}
+
+function hasDependentFields(fields) {
+  return Object.values(fields).some(
+    field => field.disabledWhen || field.disabledOptionsWhen,
+  );
+}
+
+// ─── DOM ────────────────────────────────────────────────────────────────────
+
+function getElements() {
+  return {
+    gate: document.getElementById("gate"),
+    form: document.getElementById("submission-create"),
+    panels: document.getElementById("submission-panels"),
+    taskPanel: document.getElementById("task-panel"),
+    taskInfo: document.getElementById("task-info"),
+    message: document.getElementById("form-message"),
+
+    dropzone: document.getElementById("dropzone"),
+    fileInput: document.getElementById("file-input"),
+    fileInfo: document.getElementById("file-info"),
+    fileName: document.getElementById("file-name"),
+    fileSize: document.getElementById("file-size"),
+    fileRemove: document.getElementById("file-remove"),
+
+    createButton: document.getElementById("create-submission"),
   };
 }
 
-function initialiseWizard(state) {
-  const wizard = createWizard({
-    root: formElement(),
-    steps: WIZARD_STEPS,
-    onStepChange: onStepChange(state),
-    canAdvance: step => canAdvance(step, state),
-  });
+function getPanel(elements, panelNumber) {
+  return elements.panels.querySelector(
+    `[data-panel="${panelNumber}"]`,
+  );
+}
 
-  wizard.initialise();
-  return wizard;
+// ─── GENERAL UI ─────────────────────────────────────────────────────────────
+
+function showGate(elements, signedIn) {
+  elements.gate.hidden = signedIn;
+  elements.form.hidden = !signedIn;
+}
+
+// ─── PANEL RENDERING ──────────────────────────────────────────────────────────
+
+function renderPanels(elements, state, fields) {
+  for (const panel of SUBMISSION_PANELS) {
+    const panelElement = getPanel(elements, panel.panel);
+
+    if (!panelElement) continue;
+
+    const groups = panelGroups(
+      fields,
+      [panel],
+      {
+        editableOnly: true,
+        columns: 1,
+      },
+    );
+
+    panelElement.innerHTML = renderGroups(
+      groups,
+      state,
+      fields,
+      renderFields,
+    );
+  }
+
+  globalThis.lucide?.createIcons?.();
 }
 
 
-// ─── PANEL 1 - MODEL SELECTION ────────────────────────────────────────────────
-// `team_id` and `model_name` are both `editable: false` in SUBMISSION_FIELDS, so
-// createFieldState leaves them out of `state` entirely — they're derived from the
-// chosen model and set here. model_name exists purely for the review summary;
-// forgetting it is why that step used to read "Model: —".
-async function loadSelectedModel(modelId, state) {
+function applyLocks(elements, state) {
+  for (const panel of PANELS) {
+    const panelElement = getPanel(elements, panel.panel);
+
+    if (panelElement) {
+      panelElement.disabled = !isPanelOpen(panel.panel, state);
+    }
+  }
+}
+
+// ─── MODEL ──────────────────────────────────────────────────────────────────
+
+// The selected model supplies team_id/model_name for the submission and the
+// model-dependent rules used by the task methodology fields.
+async function loadSelectedModel(
+  modelId,
+  state,
+  taskSection,
+  elements,
+) {
   if (!modelId) {
     state.team_id = null;
     state.model_name = null;
-    clearModelPreview();
-    setSelectedModel(null);
+    taskSection.setModel(null);
     return;
   }
 
-  showMessage("Loading...");
+  showMessage(elements.message, "Loading…");
 
   try {
     const model = await loadModel(modelId);
+
     state.team_id = model.team_id;
     state.model_name = model.name;
-    renderModelPreview(model);
-    showMessage("")
-    setSelectedModel(model);
-  } catch (err) {
-    console.error(err);
+
+    taskSection.setModel(model);
+    showMessage(elements.message, "");
+  } catch (error) {
+    console.error(error);
+
     state.team_id = null;
     state.model_name = null;
-    showMessage("Could not load model details.");
-    setSelectedModel(null);
+
+    // Clear the task section's model too. Otherwise, it could retain
+    // methodology options from a previously selected model.
+    taskSection.setModel(null);
+
+    showError(elements.message, "Could not load model details.");
   }
 }
 
+// ─── DETECTED TASKS ─────────────────────────────────────────────────────────
 
-// ─── PANEL 3 - FILE SELECTION ────────────────────────────────────────────────
-function removeSelectedFile(state) {
-  state.file = null;
-  showDropzone();
+// One request is shared by the detected-task pills and the task section.
+async function loadKnownTasks(elements) {
+  try {
+    const knownTasks = await apiFetch("/api/tasks/");
+
+    return new Map(
+      knownTasks.map(task => [task.id, task.task_suite]),
+    );
+  } catch (error) {
+    console.error(error);
+
+    showError(
+      elements.message,
+      "Could not load the list of known tasks — task validation is unavailable.",
+    );
+
+    return new Map();
+  }
 }
+
+function isKnownTask(taskId, knownTasks) {
+  return knownTasks.size === 0 || knownTasks.has(taskId);
+}
+
+function renderDetectedTasks(elements, taskIds, knownTasks) {
+  const pills = taskIds
+    .map(taskId => {
+      const status = isKnownTask(taskId, knownTasks)
+        ? "success"
+        : "error";
+
+      return `
+        <span class="badge ${status}">
+          ${escapeHtml(taskId)}
+        </span>
+      `;
+    })
+    .join("");
+
+  elements.taskInfo.hidden = false;
+  elements.taskInfo.className = "card";
+
+  elements.taskInfo.innerHTML = `
+    <div class="column gap-md">
+      <div class="info-msg">
+        Detected ${taskIds.length}
+        task${taskIds.length === 1 ? "" : "s"} in this file
+      </div>
+
+      <div class="row left gap-sm">
+        ${pills}
+      </div>
+    </div>
+  `;
+}
+
+// ─── FILE UPLOAD ────────────────────────────────────────────────────────────
 
 function isValidZip(file) {
-  return Boolean(file && file.name.toLowerCase().endsWith(".zip"));
+  return Boolean(
+    file && file.name.toLowerCase().endsWith(".zip"),
+  );
 }
 
-async function processSubmissionArchive(file, state) {
+function showSelectedFile(elements, file) {
+  elements.dropzone.hidden = true;
+  elements.fileInfo.hidden = false;
+
+  elements.fileName.textContent = file.name;
+  elements.fileSize.textContent = formatBytes(file.size);
+}
+
+function showDropzone(elements) {
+  // Reset the native input as well, otherwise selecting the same file again
+  // would not fire a change event.
+  elements.fileInput.value = "";
+
+  elements.dropzone.hidden = false;
+  elements.fileInfo.hidden = true;
+  elements.taskInfo.hidden = true;
+}
+
+async function processSelectedFile(
+  file,
+  state,
+  knowTasks,
+  taskSection,
+  elements,
+) {
   if (!isValidZip(file)) {
+    showError(elements.message, "That isn't a .zip file.");
     return;
   }
 
-  state.file = file;
-  showSelectedFile(file);
+  showMessage(elements.message, "");
 
-  let detectedTaskIds = [];
-  let error = null;
+  state.file = file;
+  showSelectedFile(elements, file);
+
+  let taskIds = [];
 
   try {
     const paths = await listZipEntries(file);
-    detectedTaskIds = inferTasks(paths);
-  } catch (err) {
-    console.error(err);
-    error = `Could not read the zip (${err.message}). You can add tasks manually in the next step.`;
-  }
 
-  applyDetectedTasks(detectedTaskIds, error);
-}
-
-function initialiseUpload(state, wizard) {
-  onFileSelected(file => processSubmissionArchive(file, state));
-  onFileDropped(file => processSubmissionArchive(file, state));
-  onFileRemoved(() => {
-    removeSelectedFile(state);
-    wizard.updateNavigation();
-  });
-  attachDropzoneVisuals();
-}
-
-
-// ─── FORM FIELD ────────────────────────────────────────────────
-// `cleared` now arrives from attachFieldEvents, which revalidates as part of
-// applying the change — this handler no longer revalidates a second time.
-function createFieldChangeHandler(state, fields) {
-  return async (key, value, cleared) => {
-    if (key === "model_id") {
-      // Awaited so the nav update in attachFormEvents reflects the resolved
-      // model, not a mid-flight one — otherwise a fast click could reach later
-      // steps before the model (and its is_pretrained/modalities) actually
-      // load. Runs first so its own showMessage("") can't wipe the notice below.
-      await loadSelectedModel(state.model_id, state);
-    }
-
-    if (cleared.length) {
-      const labels = cleared.map(clearedKey => fields[clearedKey].label).join(", ");
-      showMessage(`Cleared (no longer valid): ${labels}`);
-    }
-
-    renderForm(state, fields);
-  };
-}
-
-// Scoped to the SUBMISSION_FIELDS panels specifically, not the whole
-// formElement() — #task-list also lives inside the wizard form but renders a
-// different schema (TASK_FIELDS), so binding here instead of the whole form
-// keeps that entirely out of reach rather than relying on a defensive check.
-function attachFormEvents(state, fields, wizard) {
-  const handleFieldChange = createFieldChangeHandler(state, fields);
-  const onChange = async (key, value, cleared) => {
-    await handleFieldChange(key, value, cleared);
-    wizard.updateNavigation();
-  };
-
-  formPanels().forEach(panel => attachFieldEvents(panel, state, fields, onChange));
-}
-
-
-// ─── SUBMIT ────────────────────────────────────────────────────
-function buildSummaryRows(state) {
-  const modelName = state.model_name ?? "—";
-  const submissionName = state.label.trim() || "—";
-  const publish = state.is_public ? "Yes" : "No";
-  const file = state.file
-    ? `${state.file.name} (${formatBytes(state.file.size)})`
-    : "—";
-  const taskCount = getTaskIds().length;
-
-  return [
-    ["Model", modelName],
-    ["Submission name", submissionName],
-    ["Publish on leaderboard", publish],
-    ["File", file],
-    ["Tasks", `${taskCount} task${taskCount === 1 ? "" : "s"}`],
-  ];
-}
-
-// canAdvance only checks the *current* step's own condition (see wizard.js),
-// so e.g. clearing the file while sitting on step 5 doesn't re-disable Submit —
-// this is the safety net that catches that.
-function validateSubmission(state) {
-  if (!state.model_id) {
-    // #form-message sits outside every step panel (always visible), so this
-    // is seen regardless of which step the user's on — but since the model
-    // picker itself only exists on step 1, name the step explicitly.
-    showMessage("Select a model (step 1).");
-    return null;
-  }
-
-  const label = state.label.trim();
-  if (!label) {
-    showMessage("Enter a submission name.");
-    return null;
-  }
-
-  if (!state.file) {
-    showMessage("Choose a .zip file.");
-    return null;
-  }
-
-  // Each entry is {task_id, ...methodology} — the per-task methodology collected
-  // in the carousel is persisted at presign, not discarded as it used to be.
-  const tasks = getTaskPayloads();
-  if (!tasks.length) {
-    showMessage("Add at least one task.");
-    return null;
-  }
-
-  return {
-    teamId: state.team_id,
-    modelId: state.model_id,
-    label,
-    tasks,
-    isPublic: state.is_public,
-    file: state.file,
-  };
-}
-
-async function handleSubmit(state, wizard) {
-  const submission = validateSubmission(state);
-
-  if (!submission) {
-    return;
-  }
-
-  setSubmitEnabled(false);
-
-  try {
-    showMessage("Requesting upload URL…");
-
-    const presign = await presignSubmission({
-      team_id: submission.teamId,
-      model_id: submission.modelId,
-      label: submission.label,
-      tasks: submission.tasks,
-      is_public: submission.isPublic,
-    });
-
-    showMessage("Uploading file…");
-    await uploadToPresignedUrl(presign.upload_url, submission.file);
-
-    showMessage("Finalising submission…");
-    await submitSubmission(presign.submission_id);
-
-    showMessage("Submitted! Redirecting to your dashboard…");
-    window.location.href = "/html/dashboard/dashboard.html";
-
+    taskIds = inferTasks(paths);
+    renderDetectedTasks(elements, taskIds, knowTasks);
   } catch (error) {
     console.error(error);
-    showMessage(`Submission failed: ${error.message}`);
-    wizard.updateNavigation();
+
+    showError(
+      elements.message,
+      `Could not read the zip (${error.message}). Check the file and upload it again.`,
+    );
+  }
+
+  // The task section owns its own rendering and notifies the page through
+  // onChange, which updates panel locks and the submit button.
+  taskSection.applyDetected(taskIds);
+}
+
+function removeSelectedFile(state, taskSection, elements) {
+  state.file = null;
+
+  showDropzone(elements);
+
+  // Tasks are derived entirely from the uploaded file, so removing the file
+  // also removes the detected tasks.
+  taskSection.applyDetected([]);
+}
+
+function attachDropzoneVisuals(elements) {
+  const { dropzone, fileInput } = elements;
+
+  dropzone.addEventListener("click", () => {
+    fileInput.click();
+  });
+
+  for (const eventName of ["dragenter", "dragover"]) {
+    dropzone.addEventListener(eventName, event => {
+      event.preventDefault();
+      dropzone.classList.add("active");
+    });
+  }
+
+  for (const eventName of ["dragleave", "dragend", "drop"]) {
+    dropzone.addEventListener(eventName, () => {
+      dropzone.classList.remove("active");
+    });
   }
 }
 
+function attachFileEvents(
+  state,
+  knowTasks,
+  taskSection,
+  elements,
+) {
+  const { fileInput, dropzone, fileRemove } = elements;
 
-function attachCheckbox(wizard) {
-  onConfirmed(() => {
-    wizard.updateNavigation();
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+
+    if (file) {
+      processSelectedFile(
+        file,
+        state,
+        knowTasks,
+        taskSection,
+        elements,
+      );
+    }
   });
+
+  dropzone.addEventListener("drop", event => {
+    event.preventDefault();
+
+    const file = event.dataTransfer.files[0];
+
+    if (file) {
+      processSelectedFile(
+        file,
+        state,
+        knowTasks,
+        taskSection,
+        elements,
+      );
+    }
+  });
+
+  fileRemove.addEventListener("click", () => {
+    removeSelectedFile(state, taskSection, elements);
+  });
+
+  attachDropzoneVisuals(elements);
+}
+
+// ─── SUBMIT ─────────────────────────────────────────────────────────────
+
+function canSubmit(state, taskSection) {
+  const panelsComplete = PANELS.every(panel =>
+    isPanelComplete(panel.panel, state),
+  );
+
+  return (
+    panelsComplete &&
+    taskSection.allValid() &&
+    taskSection.allConfirmed()
+  );
+}
+
+function updateSubmitButton(elements, state, taskSection) {
+  elements.createButton.disabled = !canSubmit(state, taskSection);
+}
+
+function refresh(elements, state, taskSection) {
+  applyLocks(elements, state);
+  updateSubmitButton(elements, state, taskSection);
 }
 
 
-async function initialise() {
+// ─── FIELD CHANGES ──────────────────────────────────────────────────────────
+
+function handleFieldChange(
+  state,
+  fields,
+  cleared,
+  taskSection,
+  elements,
+) {
+  if (cleared.length) {
+    const labels = cleared
+      .map(key => fields[key].label)
+      .join(", ");
+
+    showError(
+      elements.message,
+      `Cleared (no longer valid): ${labels}`,
+    );
+  }
+
+  if (
+    cleared.length ||
+    hasDependentFields(fields)
+  ) {
+    renderPanels(elements, state, fields);
+  }
+
+  refresh(elements, state, taskSection);
+}
+
+// ─── SUBMISSION ─────────────────────────────────────────────────────────────
+
+async function handleSubmit(
+  state,
+  taskSection,
+  elements,
+) {
+  elements.createButton.disabled = true;
+
+  try {
+    showMessage(elements.message, "Requesting upload URL…");
+
+    const presigned = await presignSubmission(
+      state, taskSection,
+    );
+
+    showMessage(elements.message, "Uploading file…");
+
+    await uploadToPresignedUrl(
+      presigned.upload_url,
+      state.file,
+    );
+
+    showMessage(elements.message, "Finalising submission…");
+
+    await submitSubmission(presigned.submission_id);
+
+    showMessage(
+      elements.message,
+      "Submitted. Redirecting to your dashboard…",
+    );
+
+    window.location.href =
+      "/html/dashboard/dashboard.html";
+  } catch (error) {
+    console.error(error);
+
+    showError(
+      elements.message,
+      `Submission failed: ${error.message}`,
+    );
+
+    // Re-check rather than blindly re-enabling. The state may have changed
+    // while the asynchronous upload was in progress.
+    updateSubmitButton(elements, state, taskSection);
+  }
+}
+
+// ─── INITIALISATION ─────────────────────────────────────────────────────────
+
+async function loadSubmissionCreatePage() {
+  const elements = getElements();
+
   try {
     if (!(await isAuthenticated())) {
-      showGate(false);
+      showGate(elements, false);
       return;
     }
 
-    showGate(true);
+    showGate(elements, true);
 
     const fields = await loadSubmissionFields();
 
     if (!fields.model_id.options.length) {
-      showMessage("You have no models yet — a model is required to submit.");
+      showError(
+        elements.message,
+        "You have no models yet — a model is required to submit.",
+      );
       return;
     }
 
     const state = createFieldState(fields);
+    const knownTasks = await loadKnownTasks(elements);
 
-    renderForm(state, fields);
+    const taskSection = createTaskSection({
+      container: elements.taskPanel,
 
-    const wizard = initialiseWizard(state);
+      onChange: () => refresh(elements, state, taskSection),
+    });
 
-    attachFormEvents(state, fields, wizard);
-    initialiseUpload(state, wizard);
-    await initialiseTasks(wizard);
+    await taskSection.initialise(knownTasks);
 
-    attachCheckbox(wizard);
+    renderPanels(elements, state, fields);
+    refresh(elements, state, taskSection);
 
-    onSubmit(() => handleSubmit(state, wizard));
+    // Bind to the panel fieldsets rather than the whole container. The task
+    // panel uses a different schema and is managed by taskSection.
+    for (const panel of SUBMISSION_PANELS) {
+      const panelElement = getPanel(elements, panel.panel);
 
-  } catch (err) {
-    console.error("Failed to initialise create page:", err);
-    showMessage("Could not load the submission form.");
+      if (!panelElement) continue;
+
+      attachFieldEvents(
+        panelElement,
+        state,
+        fields,
+        async (key, value, cleared) => {
+          if (key === "model_id") {
+            await loadSelectedModel(
+              state.model_id,
+              state,
+              taskSection,
+              elements,
+            );
+          }
+
+          handleFieldChange(
+            state,
+            fields,
+            cleared,
+            taskSection,
+            elements,
+          );
+        },
+      );
+    }
+
+    attachFileEvents(
+      state,
+      knownTasks,
+      taskSection,
+      elements,
+    );
+
+    elements.createButton.addEventListener(
+      "click",
+      () => handleSubmit(
+        state,
+        taskSection,
+        elements,
+      ),
+    );
+  } catch (error) {
+    console.error(
+      "Failed to initialise create page:",
+      error,
+    );
+
+    showError(
+      elements.message,
+      "Could not load the submission form.",
+    );
   }
 }
 
-initialise();
+loadSubmissionCreatePage();

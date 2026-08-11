@@ -401,14 +401,6 @@ SECTIONS
   margin-bottom: 50px;
 }
 
-.tab-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--gap-md);
-  justify-content: space-between;
-  padding: 10px 30px;
-}
-
 
 /*----------------------------------------------------------------------------------------
 MODEL OVERVIEW
@@ -516,6 +508,48 @@ GRIDS, COLUMNS AND ROWS
 }
 
 /*----------------------------------------------------------------------------------------
+CREATE CARD
+--------------------------------------------------------------------------------------*/
+
+/* The "new X" control on the list pages — js/utils/create-card.js.
+   Dashed rather than solid, so it reads as a slot for something that doesn't exist yet
+   next to cards that are real records. No explicit height: as a grid cell it stretches to
+   its row, and min-height only matters when it's alone on an empty list. */
+.create-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap-sm);
+  padding: 16px;
+  min-height: 90px;
+  border: 1.5px dashed var(--primary);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--primary);
+  font-size: var(--font-md);
+  font-weight: var(--bold);
+  cursor: pointer;
+}
+
+.create-card:hover {
+  background: var(--primary-light);
+  border-color: var(--primary-dark);
+  color: var(--primary-dark);
+}
+
+/* Table view: a strip the width of the table rather than a card. Square-topped and pulled
+   up a pixel so its border meets the table's bottom edge instead of floating below it —
+   .content-private stacks these two containers with no gap, so -1px is the whole overlap. */
+.create-card.as-row {
+  min-height: 0;
+  padding: 10px 16px;
+  margin-top: -1px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+
+/*----------------------------------------------------------------------------------------
 CARDS
 --------------------------------------------------------------------------------------*/
 .card {
@@ -534,10 +568,6 @@ CARDS
 .card.secondary {
   border-color: transparent;
   background: var(--surface-secondary);
-}
-
-.card.disabled {
-  opacity: 40%;
 }
 
 .stat-card {
@@ -571,18 +601,6 @@ CARDS
 TEXT UTILS
 --------------------------------------------------------------------------------------*/
 
-.details-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding-bottom: 15px;
-}
-
-.details-title {
-  font-size: var(--font-md);
-  font-weight: var(--bold);
-}
-
 .details-row {
   display: flex;
   align-items: flex-start;
@@ -606,11 +624,6 @@ TEXT UTILS
   text-align: right;
 }
 
-.details-value.mono {
-  font-family: monospace;
-  font-size: var(--font-sm);
-  color: var(--text-muted);
-}
 
 /*----------------------------------------------------------------------------------------
 HEADERS
@@ -636,15 +649,6 @@ HEADERS
   justify-content: space-between;
   gap: var(--gap-sm);
   margin-bottom: 20px;
-}
-
-.details-header {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--gap-sm);
-  padding-bottom: 15px;
 }
 
 
@@ -1186,6 +1190,30 @@ WIZARD
 }
 
 
+/* A panel on the single-page create form (js/models/modelCreate.js), which shows every
+   panel at once and locks the ones below the point the user has reached.
+
+   It's a <fieldset> because that is the one element `disabled` cascades from: setting it
+   disables every control inside without touching their own `disabled` attributes, so a
+   field the schema disables via disabledWhen stays disabled when its panel reopens.
+
+   The reset is what a fieldset needs to lay out like a plain wrapper. `min-inline-size`
+   is the load-bearing part: a fieldset defaults to `min-content`, which overrides the
+   grid and flex children inside it and blows the card's width out. */
+.form-panel {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+/* Locked. Driven off :disabled rather than a class of its own so the dimming can't get
+   out of step with whether the controls are actually locked — one property does both. */
+.form-panel:disabled {
+  opacity: 50%;
+}
+
+
 .wizard-step {
   display: flex;
   align-items: center;
@@ -1260,36 +1288,6 @@ WIZARD
 
 
 
-.task-row {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.task-row.invalid { border-color: #d33; }
-
-.task-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  width: 100%;
-  padding: 12px 14px;
-  border: none;
-  background: #fff;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.task-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 14px;
-  border-top: 1px solid var(--border-color);
-}
-
 /* This is the round icon which can be reused */
 .task-status {
   flex: none;
@@ -1305,47 +1303,63 @@ WIZARD
 .task-status.bad { background: #d33; color: #fff; }
 .task-status.pending { border: 1.5px solid var(--border-color); }
 
-.task-chevron {
-  color: var(--text-muted);
-  font-size: 28px;
-  transition: transform .15s;
+
+/* The task panel of the single-page submission form — js/tasks/taskSubmissionsCreate.js.
+   Master–detail: the suite-grouped picker on the left, the selected task's methodology
+   form on the right. `minmax(0, 1fr)` so a long field can't push the detail column wider
+   than the card; `align-items: start` so a short picker doesn't stretch to the form's
+   height. The .task-row/.task-head rules above belong to the wizard's accordion and are
+   unrelated; only .task-status is shared between the two. */
+.task-split {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: var(--gap-lg);
+  align-items: start;
 }
 
-.task-row.open .task-chevron { transform: rotate(180deg); }
+/* Sticky so the picker stays put while a long methodology form scrolls beside it. */
+.task-picker {
+  position: sticky;
+  top: var(--gap-md);
+}
 
-
-
-/* Modal backdrop. `.task-popup` is the original name from the submit wizard's
-   add-task dialog; `.popup` is the same thing without the task-specific name. */
-.task-popup,
-.popup {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
+.task-item {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: var(--radius-lg);
-}
-
-
-
-.popup-card {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   width: 100%;
-  max-width: 440px;
-  max-height: 80vh;
-  padding: 20px;
-  background: #fff;
-  border-radius: var(--radius-lg);
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-/* CLEAN UP */
+.task-item:hover { background: var(--surface-secondary); }
+
+.task-item.selected {
+  border-color: var(--primary);
+  background: var(--surface);
+}
+
+.task-item.invalid { color: #d33; }
+
+/* Ids can be longer than the column; truncate rather than wrap, so every row is one
+   line high and the list stays scannable. The full id is in the detail pane's title. */
+.task-item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* The modal backdrop (`.task-popup`/`.popup`), its `.popup-card`, and the `.match-list`
+   pair went with the submit wizard's add-task dialog — team creation is its own page
+   (html/teams/team_create.html), so nothing renders a modal any more.
+   `.modal-close` stays: teamCreate.js borrows it for the remove-member buttons on its
+   member chips, which is the only thing left using it. */
 .modal-close {
   border: none;
   background: none;
@@ -1353,16 +1367,4 @@ WIZARD
   font-size: 22px;
   line-height: 1;
   color: var(--text-muted);
-}
-
-.match-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
-.match-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: var(--font-md);
 }

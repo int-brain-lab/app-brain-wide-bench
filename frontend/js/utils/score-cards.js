@@ -3,9 +3,7 @@
 // assumes a particular element id.
 
 import { escapeHtml } from "../utils.js";
-import { submissionSuites, subtaskLabel } from "../scores.js";
-
-const SUITES = ["ts1", "ts2", "ts3"];
+import { SUITES, submissionSuites } from "../scores/scoreMaths.js";
 
 // The suites a submission has results for, whichever shape the record arrived in.
 //
@@ -34,25 +32,6 @@ function statusBadgeClass(status) {
 
 // ─── OVERVIEW ───────────────────────────────────────────────────────────────
 
-// `ranks` is optional: a submission has no leaderboard rank of its own, so the
-// rank column is omitted rather than shown as a placeholder. An unscored record
-// gives `overall` of 0 from getMeanScores, which would read as a real score —
-// pass a null/NaN overall for those and it shows "—".
-function buildOverallScore(meanScores, ranks = {}) {
-  const overall = meanScores.overall;
-  const hasScore = overall != null && !Number.isNaN(overall);
-  const rank = ranks.overall;
-
-  return `
-    <div class="row">
-      <span class="card-description">Overall score</span>
-      ${rank == null ? "" : `<span class="card-description">Leaderboard</span>`}
-    </div>
-    <div class="row">
-      <span class="statistic">${hasScore ? overall.toFixed(3) : "—"}</span>
-      ${rank == null ? "" : `<span class="label">Rank #${escapeHtml(rank)}</span>`}
-    </div>`;
-}
 
 // One wide bar per task suite. A suite with no score renders disabled rather
 // // than being omitted, so the card always shows all three.
@@ -110,20 +89,6 @@ function buildSuiteScoreBars(meanScores, ranks) {
   `;
 }
 
-function buildStatCard([label, value, icon]) {
-  return `
-    <div class="stat-card gap-sm">
-      <div class="row gap-md">
-        <i class="stat-icon" data-lucide="${escapeHtml(icon)}"></i>
-        <p class="statistic">${escapeHtml(value)}</p>
-      </div>
-      <p class="metadata">${escapeHtml(label).toUpperCase()}</p>
-    </div>`;
-}
-
-function buildStatCards(statistics) {
-  return statistics.map(buildStatCard).join("");
-}
 
 
 // ─── BADGES ─────────────────────────────────────────────────────────────────
@@ -137,12 +102,6 @@ function buildSuiteBadgeList(suites) {
     .join("");
 }
 
-// Through suitesOf, so every existing caller — the submissions list cards, the
-// dashboard's recent-submissions rows — picks up the server's `task_suites` where it's
-// there and keeps deriving from `task_submissions` where it isn't.
-function buildSuiteBadges(submission) {
-  return buildSuiteBadgeList(suitesOf(submission));
-}
 
 // Every suite, with the ones absent from `suites` greyed out rather than omitted.
 //
@@ -174,55 +133,15 @@ function buildStatusBadge(status) {
 
 // ─── EVALUATION ─────────────────────────────────────────────────────────────
 
-function buildTaskBar(suite, taskId, mean) {
-  const widthPct = mean == null ? 0 : Math.round(mean * 100);
-  const valueText = mean == null ? "-" : mean.toFixed(2);
 
-  return `
-    <div class="column gap-xs">
-      <div class="row">
-        <span class="label muted">${escapeHtml(subtaskLabel(taskId))}</span>
-        <span class="label">${escapeHtml(valueText)}</span>
-      </div>
-      <div class="bar-track wide-bar">
-        <div class="bar wide-bar ${escapeHtml(suite)}" style="width:${widthPct}%"></div>
-      </div>
-    </div>`;
-}
 
-function buildSuiteCard(suite, tasks) {
-  const bars = Object.entries(tasks)
-    .map(([taskId, mean]) => buildTaskBar(suite, taskId, mean))
-    .join("");
-
-  return `
-    <div class="card secondary column gap-md">
-      <span class="card-description">${escapeHtml(suite.toUpperCase())}</span>
-      ${bars}
-    </div>`;
-}
-
-function buildSuiteCards(suiteScores) {
-  return Object.entries(suiteScores)
-    .map(([suite, tasks]) => buildSuiteCard(suite, tasks))
-    .join("");
-}
 
 
 export {
   SUITES,
   suitesOf,
-  statusBadgeClass,
-  buildOverallScore,
-  buildSuiteScoreBar,
-  buildSuiteScoreBars,
-  buildStatCard,
-  buildStatCards,
+  buildStatusBadge,
   buildSuiteBadgeList,
   buildSuiteCoverageBadges,
-  buildSuiteBadges,
-  buildStatusBadge,
-  buildTaskBar,
-  buildSuiteCard,
-  buildSuiteCards,
+  buildSuiteScoreBars,
 };

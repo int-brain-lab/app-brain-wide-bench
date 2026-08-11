@@ -1,10 +1,8 @@
-// Filterable submissions table: a label search plus suite and status selects above
-// a Tabulator grid. All the table plumbing lives in tables/utils.js — this module
-// is just the rows, the columns and the three controls.
+// Filterable submissions table
 //
-// The columns mirror the "Recent submissions" table on model_dashboard
-// (buildSubmissionRow in js/models/details/details-view.js) and reuse the same
-// badge builders, so a row reads identically in both places.
+// The table allows you to search by submission name and filter by suite or submission status
+//
+// This code just defines the columns, rows and controls. Table infrastructure lives in utils/tables.js
 
 import { buildStatusBadge, suitesOf } from "../utils/score-cards.js";
 import {
@@ -18,15 +16,11 @@ import {
   matchIncludes,
   metadataFormatter,
   suiteBadgesFormatter,
-} from "./utils.js";
+} from "../utils/tables.js";
 
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
-// Mirrors SubmissionStatus in app/models.py. Hardcoded rather than derived from
-// the rows so the select offers every status the server can return — otherwise
-// "failed" would vanish from the dropdown exactly when a user has no failed
-// submissions to go looking for.
 const STATUSES = ["pending", "scoring", "done", "failed"];
 
 const STATUS_OPTIONS = STATUSES.map(status => ({ value: status, label: status }));
@@ -34,9 +28,6 @@ const STATUS_OPTIONS = STATUSES.map(status => ({ value: status, label: status })
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────
 
-// `suites` is resolved once here rather than in the formatter: the filter tests it on
-// every keystroke, and suitesOf may have to walk task_submissions and build a Set. It
-// also keeps the column and the filter reading the same value.
 function toRow(submission) {
   return {
     id: submission.id,
@@ -58,14 +49,8 @@ function statusFormatter(cell) {
   return buildStatusBadge(cell.getValue());
 }
 
-// `showModel` adds the Model and Team columns. Off by default because the callers
-// that sit inside one model's context — model_submissions.html, and the dashboard's
-// recent-submissions preview — would just repeat the page's own heading down every
-// row. The submissions list spans models, so there it earns its width.
-//
-// Exported (as submissionColumns) so the dashboard preview can render these same
-// columns as plain markup via renderStaticTable, rather than restating the link
-// target, date format and badges in its own <td>s.
+// showModel adds the model and team columns, for a list of submissions spanning models.
+// Otherwise the table is for a single model and those columns are redundant.
 function getColumns(showModel) {
   const modelColumns = showModel
     ? [
@@ -138,13 +123,10 @@ function getControls() {
   ];
 }
 
-
+// ─── TABLE ───────────────────────────────────────────────────────────────
 /**
  * @param container   element, or the id of one. Its contents are replaced.
- * @param submissions records from GET /api/models/{id} (`model.submissions`) or
- *                    GET /api/submissions. Suite badges and the suite filter need
- *                    `task_submissions` on each record, which only the former has —
- *                    SubmissionResponse omits it, so those rows show no suites.
+ * @param submissions list of submissions with taskSubmissions attached. Each submission is mapped to a row with toRow().
  * @param showModel   add Model and Team columns. For a list spanning models.
  * @returns the Tabulator instance.
  */

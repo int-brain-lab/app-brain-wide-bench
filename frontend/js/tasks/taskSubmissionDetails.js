@@ -1,178 +1,275 @@
-import { createDetailEditor } from "../utils/detail-editor.js";
-import {loadTaskFields, TASK_PANELS, trainingFieldKeys} from "./schema.js";
-import {loadSubmission, loadTaskSubmission, updateTaskSubmissions} from "../submissions/submissionApi.js";
-import {loadModel} from "../models/modelApi.js";
-import {subtaskLabel, suiteOf} from "../scores.js";
-import {renderMessage} from "../utils.js";
-import {panelGroups, renderDisplayFields, renderGroups} from "../utils/form-fields.js";
-
-
-// ─── RENDERING ──────────────────────────────────────────────────────────────
-
-function renderHeader(taskSubmission, submission) {
-  document.getElementById("task-title").textContent = subtaskLabel(taskSubmission.task_id);
-  document.getElementById("task-description").textContent =
-    `${suiteOf(taskSubmission.task_id).toUpperCase()} · ${submission.label} · ${submission.team_name}`;
-}
-
-function renderBackLink(submission) {
-  const link = document.getElementById("back-to-tasks");
-
-  link.textContent = `← Back to ${submission.label}`;
-  link.href = `/html/submissions/submission_tasks.html?id=${encodeURIComponent(submission.id)}`;
-}
-
-function renderDetails(taskSubmission, fields) {
-  document.getElementById("task-details").innerHTML =
-    renderGroups(panelGroups(fields, TASK_PANELS), taskSubmission, fields, renderDisplayFields);
-}
-
-
-// ─── APPLY TO SUITE ─────────────────────────────────────────────────────────
-
-// The methodology a task declares is usually the same across a whole suite — the same
-// model, trained the same way, evaluated on every ts1 task. This saves re-entering it
-// per task.
+// Task submission details
 //
-// Safe to reuse the draft verbatim: TASK_FIELDS' predicates key off the model and the
-// *suite* (via taskSuite), never the individual task, so values legal here are legal
-// for every sibling in the same suite.
+// A page showing the details for a single task submission.
+//
+// The page contains an edit button that allows the user to update editable fields.
+// The fields and title of each panel in the page is defined in TASK_PANELS.
+// Editable fields are defined in the TASK_FIELDS.
+//
+// Apply to suite propagates the changes made on a single task to all sibling tasks.
 
-function applyToSuiteWrapper() {
-  return document.getElementById("apply-to-suite");
-}
+import { Editor } from "../utils/editor.js";
+import {
+  loadTaskFields,
+  TASK_PANELS,
+  trainingFieldKeys,
+} from "./taskSubmissionSchema.js";
+import {
+  loadSubmission,
+  loadTaskSubmission,
+  updateTaskSubmissions,
+} from "../submissions/submissionApi.js";
+import { loadModel } from "../models/modelApi.js";
+import { subtaskLabel, suiteOf } from "../scores/scoreMaths.js";
+import {showError, showMessage} from "../utils.js";
+import {
+  panelGroups,
+  renderDisplayFields,
+  renderGroups,
+} from "../utils/form-fields.js";
 
-function applyToSuiteInput() {
-  return document.getElementById("apply-to-suite-input");
-}
+// ─── DOM ────────────────────────────────────────────────────────────────────
 
-function renderApplyToSuiteLabel(taskSubmission, siblingCount) {
-  document.getElementById("apply-to-suite-label").textContent =
-    `Apply to all ${suiteOf(taskSubmission.task_id).toUpperCase()} tasks (${siblingCount})`;
-}
-
-// Includes the task being edited, so a checked save is one uniform pass over the suite
-// rather than "this one, plus the others".
-function suiteSiblings(submission, taskSubmission) {
-  const suite = suiteOf(taskSubmission.task_id);
-
-  return (submission.task_submissions ?? [])
-    .filter(sibling => suiteOf(sibling.task_id) === suite);
-}
-
-// Mirrors Save/Cancel, which createDetailEditor toggles itself. It has no hook for
-// *entering* edit mode, so this listens on the Edit button directly — a second listener
-// alongside the editor's own, which is harmless since they do independent things.
-function attachApplyToSuiteVisibility() {
-  const setVisible = visible => { applyToSuiteWrapper().hidden = !visible; };
-
-  document.getElementById("edit-task").addEventListener("click", () => setVisible(true));
-
-  return () => {
-    // Unticked on the way out, so a later edit can't silently fan out to the suite.
-    applyToSuiteInput().checked = false;
-    setVisible(false);
+function getElements() {
+  return {
+    title: document.getElementById("task-title"),
+    description: document.getElementById("task-description"),
+    backLink: document.getElementById("back-to-tasks"),
+    details: document.getElementById("task-details"),
+    message: document.getElementById("task-message"),
+    editButton: document.getElementById("edit-task"),
+    saveButton: document.getElementById("save-task"),
+    cancelButton: document.getElementById("cancel-task"),
+    applyToSuite: document.getElementById("apply-to-suite"),
+    applyToSuiteInput: document.getElementById("apply-to-suite-input"),
+    applyToSuiteLabel: document.getElementById("apply-to-suite-label"),
   };
 }
 
+// ─── HELPERS ────────────────────────────────────────────────────────────────
+
+function suiteLabel(taskId) {
+  return suiteOf(taskId)?.toUpperCase() ?? null;
+}
+
+function suiteSiblings(submission, taskSubmission) {
+  const suite = suiteOf(taskSubmission.task_id);
+
+  return (submission.task_submissions ?? []).filter(
+    sibling => suiteOf(sibling.task_id) === suite,
+  );
+}
+
+function buildPatch(draft) {
+  return Object.fromEntries(
+    trainingFieldKeys().map(key => [key, draft[key]]),
+  );
+}
+
+// ─── RENDERING ──────────────────────────────────────────────────────────────
+
+function renderHeader(elements, submission, taskSubmission) {
+  elements.title.textContent = subtaskLabel(taskSubmission.task_id);
+
+  elements.description.textContent = [
+    suiteLabel(taskSubmission.task_id),
+    submission.label,
+    submission.team_name,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function renderBackLink(elements, submission) {
+  elements.backLink.textContent = `← Back to ${submission.label}`;
+  elements.backLink.href =
+    `/html/submissions/submission_tasks.html?id=${encodeURIComponent(submission.id)}`;
+}
+
+function renderDetails(elements, taskSubmission, fields) {
+  const groups = panelGroups(fields, TASK_PANELS);
+
+  elements.details.innerHTML = renderGroups(
+    groups,
+    taskSubmission,
+    fields,
+    renderDisplayFields,
+  );
+}
+
+function renderApplyToSuiteLabel(elements, taskSubmission, siblingCount) {
+  const suite = suiteLabel(taskSubmission.task_id) ?? "matching";
+
+  elements.applyToSuiteLabel.textContent =
+    `Apply to all ${suite} tasks (${siblingCount})`;
+}
+
+// ─── APPLY TO SUITE ─────────────────────────────────────────────────────────
+
+// Only show this element in editing mode, otherwise hide
+function showApplyToSuite(elements, visible) {
+  elements.applyToSuite.hidden = !visible;
+
+  if (!visible) {
+    elements.applyToSuiteInput.checked = false;
+  }
+}
 
 // ─── EVENTS ─────────────────────────────────────────────────────────────────
 
-// TaskSubmissionUpdate declares `extra="forbid"`, so anything the server doesn't accept
-// is a 422 rather than an ignored key. The draft carries more than that — the schema's
-// predicates need `task_id` and `model` on it (see `context` below) — so the payload is
-// narrowed to the methodology fields here rather than sent whole.
-function buildPatch(draft) {
-  return Object.fromEntries(trainingFieldKeys().map(key => [key, draft[key]]));
-}
+// Names the tasks the server reports it actually updated rather than the tasks
+// requested by the page.
+function reportUpdated(elements, updated) {
+  const names = updated
+    .map(row => subtaskLabel(row.task_id))
+    .sort();
 
-// Names the tasks the server reports it wrote, rather than the ones this page asked it
-// to — a suite-wide apply is otherwise invisible, since the page shows a single task.
-function reportUpdated(updated) {
-  const names = updated.map(row => subtaskLabel(row.task_id)).sort();
-
-  renderMessage(
-    document.getElementById("task-message"),
+  showMessage(
+    elements.message,
     names.length === 1
       ? `Updated ${names[0]}.`
       : `Updated ${names.length} tasks: ${names.join(", ")}.`,
   );
 }
 
-// One bulk call even for a single task, so there is one code path rather than two —
-// and so the server, not this page, decides all-or-nothing. It returns the rows it
-// actually wrote, which is what `reportUpdated` names.
+// A single bulk update is used for both one-task and suite-wide saves. The server
+// therefore remains responsible for applying the update atomically.
 //
-// Returns the *edited* task's response, since createDetailEditor assigns that back onto
-// `record`; the siblings aren't shown on this page.
-async function saveDraft(draft, taskSubmission, submission) {
-  const targets = applyToSuiteInput().checked
+// Returns every row the server reported, not just the edited one — that list is what names
+// the tasks a suite-wide save touched, and the caller narrows it for the editor.
+async function saveTasks(
+  draft,
+  taskSubmission,
+  submission,
+  elements,
+) {
+  const targets = elements.applyToSuiteInput.checked
     ? suiteSiblings(submission, taskSubmission)
     : [taskSubmission];
 
-  const updated = await updateTaskSubmissions(
+  return updateTaskSubmissions(
     submission.id,
     targets.map(target => target.id),
     buildPatch(draft),
   );
-
-  reportUpdated(updated);
-
-  return updated.find(row => row.id === taskSubmission.id) ?? updated[0];
 }
 
-// `model` and `task_id` aren't editable fields, but every disabledOptionsWhen in
-// TASK_FIELDS reads them — which options are legal depends on the model's pretraining
-// and on which suite the task belongs to. Without them the form would silently offer
-// choices the server would reject.
-function attachEditor(taskSubmission, submission, model, fields) {
-  const resetApplyToSuite = attachApplyToSuiteVisibility();
+// ─── EDITOR ─────────────────────────────────────────────────────────────────
 
-  createDetailEditor({
-    container: document.getElementById("task-details"),
-    editButton: document.getElementById("edit-task"),
-    saveButton: document.getElementById("save-task"),
-    cancelButton: document.getElementById("cancel-task"),
+function attachEditor(elements, taskSubmission, submission, model, fields) {
+
+  showApplyToSuite(elements, false);
+
+  let updated = [];
+
+  new Editor({
+    container: elements.details,
+    editButton: elements.editButton,
+    saveButton: elements.saveButton,
+    cancelButton: elements.cancelButton,
     record: taskSubmission,
     fields,
     groups: () => panelGroups(fields, TASK_PANELS, { columns: 1 }),
-    context: () => ({ task_id: taskSubmission.task_id, model }),
-    save: draft => saveDraft(draft, taskSubmission, submission),
-    onSaved: () => {
-      resetApplyToSuite();
-      renderDetails(taskSubmission, fields);
+    // `task_id` and `model` aren't editable fields, but TASK_FIELDS uses both as
+    // context when deciding which methodology options are valid.
+    context: () => ({
+      task_id: taskSubmission.task_id,
+      model,
+    }),
+    // Narrowed to the edited task because that's the record the editor assigns onto; the
+    // siblings a suite-wide save also wrote aren't shown on this page.
+    save: async draft => {
+      updated = await saveTasks(draft, taskSubmission, submission, elements);
+
+      return updated.find(row => row.id === taskSubmission.id) ?? updated[0];
+    },
+    onEdit: () => showApplyToSuite(elements, true),
+    // Renders the record the editor hands back rather than the captured one. They are the
+    // same object today — the editor merges with Object.assign — but relying on that ties
+    // this page to an implementation detail it can't see from here.
+    onSaved: saved => {
+      reportUpdated(elements, updated);
+      showApplyToSuite(elements, false);
+      renderDetails(elements, saved, fields);
     },
     onCancel: () => {
-      resetApplyToSuite();
-      renderDetails(taskSubmission, fields);
+      showApplyToSuite(elements, false);
+      renderDetails(elements, taskSubmission, fields);
     },
   }).attach();
 }
 
+// ─── INITIALISATION ─────────────────────────────────────────────────────────
 
 async function loadTaskSubmissionDetailsPage() {
-      const params = new URLSearchParams(location.search);
-      const submissionId = params.get("submission");
-      const taskSubmissionId = params.get("task");
+  const elements = getElements();
+  try {
 
-      const [taskSubmission, submission, fields] = await Promise.all([
-        loadTaskSubmission(submissionId, taskSubmissionId),
-        loadSubmission(submissionId),
-        loadTaskFields(),
-      ]);
+    const params = new URLSearchParams(location.search);
+    const submissionId = params.get("submission");
+    const taskSubmissionId = params.get("task");
 
-      // The model decides which methodology options are legal, so it's fetched too —
-      // the task submission carries neither it nor its id.
-      // TODO add pretrained to the submission so we don't have to fetch the model
-      const model = submission?.model_id ? await loadModel(submission.model_id) : null;
+    if (!submissionId || !taskSubmissionId) {
+      showError(
+        elements.message,
+        "No submission or task id in the URL.",
+      );
+      return;
+    }
 
-      renderHeader(taskSubmission, submission);
-      renderBackLink(submission);
-      renderDetails(taskSubmission, fields);
-      renderApplyToSuiteLabel(taskSubmission, suiteSiblings(submission, taskSubmission).length);
-      attachEditor(taskSubmission, submission, model, fields);
+    const [taskSubmission, submission, fields] = await Promise.all([
+      loadTaskSubmission(submissionId, taskSubmissionId),
+      loadSubmission(submissionId),
+      loadTaskFields(),
+    ]);
 
-      globalThis.lucide?.createIcons?.();
+    if (!taskSubmission) {
+      showError(
+        elements.message,
+        `Could not load task submission ${taskSubmissionId}.`,
+      );
+      return;
+    }
+
+    if (!submission) {
+      showError(
+        elements.message,
+        `Could not load submission ${submissionId}.`,
+      );
+      return;
+    }
+
+    // The model determines which methodology options are legal.
+    // TODO: Include the model/pretraining information on the submission so this
+    // additional request isn't needed.
+    const model = submission?.model_id
+      ? await loadModel(submission.model_id)
+      : null;
+
+    renderHeader(elements, submission, taskSubmission);
+    renderBackLink(elements, submission);
+    renderDetails(elements, taskSubmission, fields);
+    renderApplyToSuiteLabel(
+      elements,
+      taskSubmission,
+      suiteSiblings(submission, taskSubmission).length,
+    );
+
+    attachEditor(elements, taskSubmission, submission, model, fields);
+
+    globalThis.lucide?.createIcons?.();
+} catch (error) {
+    console.error(
+      "Failed to load task submission details:",
+      error,
+    );
+
+    showError(
+      elements.message,
+      "Task submission details page could not be loaded.",
+    );
+  }
 }
 
-loadTaskSubmissionDetailsPage()
+loadTaskSubmissionDetailsPage();
+

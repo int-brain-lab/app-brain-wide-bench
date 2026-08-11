@@ -1,11 +1,10 @@
-// Filterable models table: a name search plus a team select above a Tabulator
-// grid. All the table plumbing lives in tables/utils.js — this module is just the
-// rows, the columns and the two controls.
+// Filterable models table
 //
-// The columns follow the table that buildModelTable rendered in
-// js/models/list/list-view.js, which this replaces.
+// The table allows you to search by model name and filter by team or suite
+//
+// This code just defines the columns, rows and controls. Table infrastructure lives in utils/tables.js
 
-import { submissionSuites } from "../scores.js";
+import { submissionSuites } from "../scores/scoreMaths.js";
 import {
   SUITE_OPTIONS,
   createFilterableTable,
@@ -17,26 +16,10 @@ import {
   matchIncludes,
   metadataFormatter,
   optionsFromRows,
-  sortSuites,
   suiteBadgesFormatter,
-} from "./utils.js";
-
+} from "../utils/tables.js";
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────
-
-// `task_suites` comes straight off ModelList, already visibility-scoped and already
-// in suite order, and covers only suites with an actual score. The fallback derives
-// the same thing from an embedded `submissions` list, so this also works when handed
-// a model detail response — sortSuites because that path has no guaranteed order.
-function modelSuites(model) {
-  if (model.task_suites?.length) {
-    return model.task_suites;
-  }
-
-  const submissions = model.submissions ?? [];
-
-  return sortSuites([...new Set(submissions.flatMap(submissionSuites))]);
-}
 
 function toRow(model) {
   return {
@@ -45,19 +28,21 @@ function toRow(model) {
     team_name: model.team_name ?? null,
     created_at: model.created_at,
     n_submissions: model.n_submissions ?? 0,
-    suites: modelSuites(model),
+    suites: model.task_suites
   };
 }
 
-
 // ─── COLUMNS ────────────────────────────────────────────────────────────────
 
-function getColumns() {
+function buildColumns() {
   return [
     {
       title: "Model",
       field: "name",
-      formatter: linkFormatter("/html/models/model_dashboard.html", "name"),
+      formatter: linkFormatter(
+        "/html/models/model_dashboard.html",
+        "name",
+      ),
       widthGrow: 2,
     },
     {
@@ -72,9 +57,6 @@ function getColumns() {
       headerSort: false,
     },
     {
-      // Labelled "Created", not "Updated" as the old markup had it: ModelList
-      // carries created_at only, and the previous table showed that value under
-      // the wrong heading.
       title: "Created",
       field: "created_at",
       formatter: dateFormatter,
@@ -88,13 +70,9 @@ function getColumns() {
   ];
 }
 
+// ─── FILTERS ────────────────────────────────────────────────────────────────
 
-// ─── CONTROLS ───────────────────────────────────────────────────────────────
-
-// Team options come from the rows rather than a fetch: the caller already has
-// every model the user can see, so the teams present in that list are exactly the
-// ones worth offering.
-function getControls(rows) {
+function buildControls(rows) {
   return [
     {
       type: "search",
@@ -119,25 +97,31 @@ function getControls(rows) {
   ];
 }
 
+// ─── TABLE ─────────────────────────────────────────────────────────────
 
 /**
- * @param container element, or the id of one. Its contents are replaced.
- * @param models   records from GET /api/users/me/models or GET /api/models.
- * @returns the Tabulator instance.
- */
+ * Render a filterable models table.
+ * /**
+ *  * @param container   element, or the id of one. Its contents are replaced.
+ *  * @param models list of models with taskSuites attached. Each model is mapped to a row with toRow().
+ *  * @returns the Tabulator instance.
+ *  */
 function renderModelsTable({ container, models }) {
   const rows = models.map(toRow);
 
   return createFilterableTable({
     container,
     rows,
-    columns: getColumns(),
-    controls: getControls(rows),
+    columns: buildColumns(),
+    controls: buildControls(rows),
     noun: "models",
-    initialSort: [{ column: "created_at", dir: "desc" }],
+    initialSort: [
+      { column: "created_at", dir: "desc" },
+    ],
     caller: "renderModelsTable",
   });
 }
 
-
 export { renderModelsTable, toRow };
+
+

@@ -1,14 +1,16 @@
-// Shared scaffolding for the Tabulator tables in this directory: the filter bar
-// above the grid, the row count below it, and the plumbing that connects the two.
-// A domain module (tables/submissions.js, tables/models.js) supplies only its rows,
-// columns and filter controls — nothing here knows what it is listing.
+// Shared scaffolding for every Tabulator table in the app: the filter bar above the grid,
+// the row count below it, and the plumbing that connects the two. The tables themselves
+// live beside the domain they list — models/modelTable.js, submissions/submissionTable.js,
+// tasks/taskSubmissionTable.js, scores/scoreTable.js, leaderboard/leaderboardTable.js —
+// and each supplies only its rows, columns and filter controls. Nothing here knows what it
+// is listing.
 //
 // `Tabulator` is a global from the unpkg <script>, not this module graph (the same
-// arrangement as js/leaderboard.js), so a page mounting one of these tables needs
+// arrangement as js/leaderboard/leaderboard.js), so a page mounting one of these tables needs
 // both the tabulator JS and CSS tags — copy them from dashboard.html.
 
 import { escapeHtml, formatDate } from "../utils.js";
-import { SUITES, buildSuiteBadgeList } from "../utils/score-cards.js";
+import { SUITES, buildSuiteBadgeList } from "./score-cards.js";
 
 
 // ─── SUITES ─────────────────────────────────────────────────────────────────
@@ -101,6 +103,18 @@ function metricPillsFormatter(cell) {
   return `<span class="row left gap-sm">${pills}</span>`;
 }
 
+// Scores are nullable — a task a submission never covered, a suite a model didn't enter —
+// and Tabulator's built-in "number" sorter puts a null wherever the browser's comparison
+// happens to land it. Nulls sort smallest here, which under the desc sort these columns use
+// means "no score" always ends up last rather than interleaved with real ones.
+function numericSorter(a, b) {
+  if (a == null && b == null) return 0;
+  if (a == null) return -1;
+  if (b == null) return 1;
+
+  return a - b;
+}
+
 // Timestamps are nullable throughout the API, and Tabulator's built-in "datetime"
 // sorter needs luxon — which this app doesn't load. ISO 8601 strings already order
 // correctly under a plain comparison, so sort on the raw value and treat a missing
@@ -149,13 +163,21 @@ function optionsFromRows(rows, field) {
 
 // The empty-valued first option doubles as the control's label, so an unset filter
 // reads as "All suites" rather than needing a separate <label> above it.
+function buildOptions(control) {
+  return control.options.map(option => `
+    <option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>
+  `).join("");
+}
+
+// `required` omits the blank option. A blank means "don't narrow", which is right for
+// "All statuses" but wrong for a control that picks *which* thing the table is showing —
+// the leaderboard's metric always has a value, and an empty choice there would mean
+// ranking by nothing.
 function buildSelect(control) {
   return `
     <select class="input-select" data-filter="${escapeHtml(control.name)}">
-      <option value="">${escapeHtml(control.placeholder)}</option>
-      ${control.options.map(option => `
-        <option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>
-      `).join("")}
+      ${control.required ? "" : `<option value="">${escapeHtml(control.placeholder)}</option>`}
+      ${buildOptions(control)}
     </select>
   `;
 }
@@ -253,9 +275,14 @@ function renderStaticTable({ columns, rows }) {
  * @param container      element, or the id of one. Its contents are replaced.
  * @param rows           plain row objects — map your API records first.
  * @param columns        Tabulator column definitions.
- * @param controls       [{type: "search"|"select", name, placeholder, match, options}].
- *                       `name` keys the filter state; `match(row, value)` decides a
- *                       row; `options` is required for a select.
+ * @param controls       [{type: "search"|"select", name, placeholder, match, options,
+ *                       required}]. `name` keys the filter state; `match(row, value)`
+ *                       decides a row; `options` is required for a select; `required`
+ *                       drops the blank "don't narrow" option and starts on options[0].
+ * @param onControlChange optional (name, value, {table, setControlOptions}) => void, after
+ *                       a control changes and the rows have been refiltered. For controls
+ *                       that change what's shown rather than which rows — swapping another
+ *                       control's options, toggling column visibility.
  * @param noun           plural noun for the count and empty-state text.
  * @param initialSort    Tabulator initialSort, optional.
  * @param paginationSize rows per page.
@@ -272,6 +299,7 @@ function createFilterableTable({
   paginationSize = 10,
   selectable = false,
   onSelectionChange,
+  onControlChange,
   caller = "createFilterableTable",
 }) {
   if (typeof Tabulator === "undefined") {
@@ -291,7 +319,14 @@ function createFilterableTable({
 
   // Scoped to this call rather than module state, so two tables on one page can't
   // share (and fight over) one set of filter values.
-  const filters = Object.fromEntries(controls.map(control => [control.name, ""]));
+  //
+  // A `required` select starts on its first option rather than blank, matching the markup
+  // buildSelect emits for it — otherwise the state would say "no filter" while the visible
+  // select showed a choice.
+  const filters = Object.fromEntries(controls.map(control => [
+    control.name,
+    control.required && control.options?.length ? String(control.options[0].value) : "",
+  ]));
 
   // A blank control is skipped rather than matched, so "All statuses" means "don't
   // narrow" instead of "status equals empty string".
@@ -344,6 +379,36 @@ function createFilterableTable({
 
   count.textContent = `${rows.length} ${noun}`;
 
+  // Replaces a select's options after mount, for a control whose choices depend on another
+  // control's value — the leaderboard's metric list, which is the suites or the tasks
+  // depending on the grouping.
+  //
+  // The previous value is dropped rather than preserved: the whole point of swapping the
+  // options is that the old one may no longer exist, and leaving a stale value in `filters`
+  // would filter the table against a field no row has. `selected` names the new value
+  // explicitly, since a caller replacing the list usually knows which one should win.
+  function setControlOptions(name, options, selected) {
+    const control = controls.find(candidate => candidate.name === name);
+    const select = root.querySelector(`select[data-filter="${name}"]`);
+    if (!control || !select) return;
+
+    control.options = options;
+    select.innerHTML = `
+      ${control.required ? "" : `<option value="">${escapeHtml(control.placeholder)}</option>`}
+      ${buildOptions(control)}
+    `;
+
+    const value = selected ?? (control.required && options.length ? String(options[0].value) : "");
+
+    select.value = value;
+    filters[name] = value;
+    table.setFilter(matchesFilters);
+
+    return value;
+  }
+
+  const api = { table, setControlOptions };
+
   // Delegated, and on `input` rather than `change`: a <select> fires both, while a
   // text input only fires `change` on blur — which would leave the table stale
   // until the user clicked away.
@@ -353,6 +418,11 @@ function createFilterableTable({
 
     filters[control.dataset.filter] = control.value;
     table.setFilter(matchesFilters);
+
+    // After the filter, so a handler that reads the table sees the new row set. Handlers
+    // use this to react to a control that changes *what* is shown rather than which rows —
+    // swapping another control's options, or showing and hiding columns.
+    onControlChange?.(control.dataset.filter, control.value, api);
   });
 
   return table;
@@ -364,19 +434,16 @@ export {
   suiteBadgesFormatter,
   suiteBadgeFormatter,
   sortSuites,
-  resolveContainer,
   linkFormatter,
   metadataFormatter,
   dateFormatter,
   metricPillsFormatter,
   dateSorter,
+  numericSorter,
   matchIncludes,
   matchEquals,
   matchInArray,
   optionsFromRows,
-  buildSelect,
-  buildSearch,
-  buildFilterBar,
   renderStaticTable,
   createFilterableTable,
 };

@@ -1,92 +1,153 @@
-import { getMyModels } from "./modelApi.js";
-import {escapeHtml, formatDate} from "../utils.js";
-import {buildSuiteCoverageBadges} from "../utils/score-cards.js";
-import {renderModelsTable} from "../tables/models.js";
+// Model list
+//
+// A page showing the models that the user has created or has access to.
+//
+// A toggle at the top of the page allows the user to switch between card and table views.
+// By default, if the user has less than 6 models cards are rendered otherwise a table.
 
-// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+import { getMyModels } from "./modelApi.js";
+import { showError } from "../utils.js";
+import { renderModelsTable } from "./modelTable.js";
+import { buildModelCards} from "../components/cards.js";
+import {
+  appendCreateCard,
+  clearCreateRow,
+  renderCreateRow,
+} from "../utils/create-card.js";
+
+// ─── CONFIGURATION ──────────────────────────────────────────────────────────
 
 const MAX_CARDS = 6;
 
-// ─── RENDERING ──────────────────────────────────────────────────────────────
-
-function renderModelTable(models) {
-  renderModelsTable({ container: document.getElementById("models-list"), models });
-}
-
-function renderModelCards(models) {
-  const modelList = document.getElementById("models-list")
-
-  modelList.className = 'grid-2'
-  modelList.innerHTML = buildModelCards(models);
-}
-
-function buildModelCards(models) {
-
-  return models.map(model => `
-    <a class="card column left gap-sm" href="/html/models/model_dashboard.html?id=${encodeURIComponent(model.id)}">
-      <div class="column left">
-        <p class="title">${escapeHtml(model.name)}</p>
-        <p class="metadata">${escapeHtml(model.team_name || "—")}</p>
-      </div>
-      <div class="row left gap-md">
-        ${buildSuiteCoverageBadges(model.task_suites ?? [])}
-      </div>
-      <p class="metadata">${model.n_submissions ?? 0} submission${(model.n_submissions ?? 0) === 1 ? "" : "s"} · Created ${escapeHtml(formatDate(model.created_at))}</p>
-    </a>
-  `).join("");
-}
-
-
-// ─── VIEW TOGGLE ─────────────────────────────────────────────────────────────
-
-const VIEWS = {
-  "view-cards": renderModelCards,
-  "view-table": renderModelTable,
+const CREATE = {
+  href: "/html/models/model_create.html",
+  label: "New model",
 };
 
+const VIEWS = {
+  "view-cards": renderCards,
+  "view-table": renderTable,
+};
 
-function viewButtons() {
-  return Object.keys(VIEWS).map(id => document.getElementById(id)).filter(Boolean);
+// ─── DOM ────────────────────────────────────────────────────────────────────
+
+function getElements() {
+  return {
+    list: document.getElementById("models-list"),
+    create: document.getElementById("models-create"),
+    cardsButton: document.getElementById("view-cards"),
+    tableButton: document.getElementById("view-table"),
+  };
 }
 
+// ─── RENDERING ──────────────────────────────────────────────────────────────
 
-function setActiveView(activeId) {
-  for (const button of viewButtons()) {
-    button.classList.toggle("primary", button.id === activeId);
+function renderCards(elements, models) {
+  elements.list.className = "grid-2";
+  elements.list.innerHTML = buildModelCards(models);
+
+  // The create card is part of the grid, so it becomes the final cell.
+  appendCreateCard(elements.list, CREATE);
+
+  // Remove the table-view create row, which is not visible in this layout.
+  clearCreateRow(elements.create);
+}
+
+function renderTable(elements, models) {
+  elements.list.className = "";
+
+  renderModelsTable({
+    container: elements.list,
+    models,
+  });
+
+  // Tabulator owns the list container, so the create control lives separately
+  // in a row below the table.
+  renderCreateRow(elements.create, CREATE);
+}
+
+// ─── VIEW TOGGLE ────────────────────────────────────────────────────────────
+
+function setActiveView(elements, activeId) {
+  for (const button of [elements.cardsButton, elements.tableButton]) {
+    button?.classList.toggle("primary", button.id === activeId);
   }
 }
 
-function attachViewToggle(models) {
-  for (const [id, render] of Object.entries(VIEWS)) {
-    document.getElementById(id)?.addEventListener("click", () => {
-      setActiveView(id);
-      render(models);
+function renderView(elements, viewId, models) {
+  const render = VIEWS[viewId];
+
+  if (!render) {
+    console.error(`Unknown model view: ${viewId}`);
+    return;
+  }
+
+  setActiveView(elements, viewId);
+  render(elements, models);
+}
+
+function attachViewToggle(elements, models) {
+  for (const button of [elements.cardsButton, elements.tableButton]) {
+    button?.addEventListener("click", () => {
+      renderView(elements, button.id, models);
     });
   }
 }
 
-// ─── INITIALISATION ──────────────────────────────────────────────────────────────
-async function loadModelListPage() {
+// ─── EMPTY STATE ────────────────────────────────────────────────────────────
 
-  const models = await getMyModels();
-  if (!models) {
-    return
+function renderEmptyState(elements) {
+  elements.list.className = "grid-2";
+  elements.list.replaceChildren();
+
+  appendCreateCard(elements.list, CREATE);
+  clearCreateRow(elements.create);
+
+  for (const button of [elements.cardsButton, elements.tableButton]) {
+    button.hidden = true;
   }
-
-  const modelList = document.getElementById("models-list")
-
-  if (models.length === 0) {
-    modelList.replaceChildren();d.
-    viewButtons().forEach(button => { button.hidden = true; });
-    return
-  }
-
-  const initialView = models.length <= MAX_CARDS ? "view-cards" : "view-table";
-
-  setActiveView(initialView);
-  VIEWS[initialView](models);
-  attachViewToggle(models);
 }
 
+// ─── INITIALISATION ─────────────────────────────────────────────────────────
+
+async function loadModelListPage() {
+  const elements = getElements();
+
+  try {
+    const models = await getMyModels();
+
+    if (!models) {
+      showError(
+        elements.message,
+        "Could not load models."
+      );
+      return;
+    }
+
+    if (models.length === 0) {
+      renderEmptyState(elements);
+      return;
+    }
+
+    const initialView =
+      models.length <= MAX_CARDS
+        ? "view-cards"
+        : "view-table";
+
+    renderView(elements, initialView, models);
+    attachViewToggle(elements, models);
+  } catch (error) {
+    console.error(
+      "Failed to load model list:",
+      error,
+    );
+
+    showError(
+        elements.message,
+        "Models list page could not be loaded",
+      );
+    }
+}
 
 loadModelListPage();
+

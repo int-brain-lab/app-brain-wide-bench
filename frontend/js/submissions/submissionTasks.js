@@ -1,65 +1,94 @@
-import { loadSubmission } from "./submissionApi.js";
-import { loadTaskFields } from "../tasks/schema.js";
-import { renderTaskSubmissionsTable } from "../tables/taskSubmissions.js";
-import { renderMessage } from "../utils.js";
+// Submission tasks
+//
+// A page showing a table of task submissions for a single submission
+// The table allows you to search by task name and select by suite
 
+import { loadSubmission } from "./submissionApi.js";
+import { renderTaskSubmissionsTable } from "../tasks/taskSubmissionTable.js";
+import {showError, showMessage} from "../utils.js";
+import {buildCount} from "../components/cards.js";
 
 // ─── DOM ────────────────────────────────────────────────────────────────────
 
-function taskSubmissions() {
-  return document.getElementById("task-submissions");
+function getElements() {
+  return {
+    description: document.getElementById("page-description"),
+    backLink: document.getElementById("back-to-submission"),
+    table: document.getElementById("task-submissions"),
+    message: document.getElementById("task-submissions")
+  };
 }
-
 
 // ─── RENDERING ──────────────────────────────────────────────────────────────
 
-function renderHeader(submission, taskCount) {
-  document.getElementById("page-description").textContent =
-    `${submission.label} · ${submission.team_name} · ${taskCount} task${taskCount === 1 ? "" : "s"}`;
+function renderHeader(elements, submission, taskCount) {
+  elements.description.textContent = [
+    submission.label,
+    submission.team_name,
+    buildCount(taskCount, 'task')
+    ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
-function renderBackLink(submission) {
-  const link = document.getElementById("back-to-submission");
-
-  link.textContent = `← Back to ${submission.label}`;
-  link.href = `/html/submissions/submission_dashboard.html?id=${encodeURIComponent(submission.id)}`;
+function renderBackLink(elements, submission) {
+  elements.backLink.textContent = `← Back to ${submission.label}`;
+  elements.backLink.href =
+    `/html/submissions/submission_dashboard.html?id=${encodeURIComponent(submission.id)}`;
 }
 
-
-// ─── ENTRY POINT ────────────────────────────────────────────────────────────
+// ─── INITIALISATION ─────────────────────────────────────────────────────────
 
 async function loadSubmissionTasksPage() {
-  const submissionId = new URLSearchParams(location.search).get("id");
+  const elements = getElements();
+  try {
 
-  if (!submissionId) {
-    renderMessage(taskSubmissions(), "No submission specified.", "error-msg");
-    return;
+    const submissionId = new URLSearchParams(location.search).get("id");
+
+    if (!submissionId) {
+        showError(
+          elements.message,
+          "No submission id in the URL.",
+        );
+        return;
+      }
+
+    const submission = await loadSubmission(submissionId)
+
+    if (!submission) {
+      showError(
+        elements.message,
+        "Could not load this submission.",
+        );
+      return;
+    }
+
+    const taskCount = submission.task_submissions?.length ?? 0;
+
+    renderHeader(elements, submission, taskCount);
+    renderBackLink(elements, submission);
+
+    if (taskCount === 0) {
+      showMessage(
+        elements.message,
+        "This submission has no tasks yet.");
+      return;
+    }
+
+    renderTaskSubmissionsTable({
+      container: elements.table,
+      submission,
+    });
+  } catch (error) {
+  console.error(
+    "Failed to load submission tasks:",
+    error);
+
+  showError(
+    elements.message,
+    "Could not load the submission tasks",
+  );
   }
-
-  // loadTaskFields in parallel: the columns take their headings from TASK_FIELDS, and
-  // while the labels are static, awaiting it here keeps this page from racing the
-  // schema's option fetch if a column ever needs those.
-  const [submission] = await Promise.all([loadSubmission(submissionId), loadTaskFields()]);
-
-  if (!submission) {
-    renderMessage(taskSubmissions(), "Could not load this submission.", "error-msg");
-    return;
-  }
-
-  const taskCount = submission.task_submissions?.length ?? 0;
-
-  renderHeader(submission, taskCount);
-  renderBackLink(submission);
-
-  if (taskCount === 0) {
-    renderMessage(taskSubmissions(), "This submission has no tasks.");
-    return;
-  }
-
-  renderTaskSubmissionsTable({
-    container: taskSubmissions(),
-    submission,
-  });
 }
 
 loadSubmissionTasksPage();

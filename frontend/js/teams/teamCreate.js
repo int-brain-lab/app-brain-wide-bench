@@ -7,7 +7,7 @@
 // that information exists.
 
 import { addTeamMember, createTeam } from "./teamApi.js";
-import { searchUsers } from "../users/api.js";
+import { searchUsers } from "../users/userApi.js";
 import { escapeHtml, initials, renderMessage } from "../utils.js";
 
 // The server enforces this too; matching it here avoids a request per keystroke that

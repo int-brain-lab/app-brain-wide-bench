@@ -1,21 +1,18 @@
 // Filterable table of one submission's task submissions and their methodology
-// parameters. All the table plumbing lives in tables/utils.js — this module is just
+// parameters. All the table plumbing lives in utils/tables.js — this module is just
 // the rows, the columns and the two controls.
-//
-// Distinct from tables/tasks.js, which is about *scores* across submissions. This one
-// is about the parameters a submission declared for each task, and each row links to
-// the page that edits them.
+
 
 import { escapeHtml } from "../utils.js";
-import { suiteOf } from "../scores.js";
-import { TASK_FIELDS, trainingFieldKeys } from "../tasks/schema.js";
+import { suiteOf } from "../scores/scoreMaths.js";
+import { TASK_FIELDS, trainingFieldKeys } from "./taskSubmissionSchema.js";
 import {
   SUITE_OPTIONS,
   createFilterableTable,
   matchEquals,
   matchIncludes,
   suiteBadgeFormatter,
-} from "./utils.js";
+} from "../utils/tables.js";
 
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────
@@ -63,9 +60,7 @@ function taskLinkFormatter(cell) {
   return `<a href="${taskEditHref(row)}">${escapeHtml(row.task_id)}</a>`;
 }
 
-// The icon is a Lucide placeholder, which only becomes an <svg> once createIcons()
-// runs — createFilterableTable's renderComplete does that after every render, since
-// Tabulator rebuilds its rows on filter, sort and page changes.
+
 function editFormatter(cell) {
   return `
     <a class="btn with-icon" href="${taskEditHref(cell.getData())}">
@@ -75,9 +70,7 @@ function editFormatter(cell) {
   `;
 }
 
-// Parameter values are enums, or arrays of them for the multi-select fields. Escaped
-// even though they're server-side enums rather than user prose, for the same
-// uniformity as the rest of the app's builders.
+
 function parameterFormatter(cell) {
   const value = cell.getValue();
 
@@ -92,23 +85,9 @@ function parameterFormatter(cell) {
     : `<span class="metadata">${escapeHtml(value)}</span>`;
 }
 
-// `showEdit` appends a per-row Edit button. Off by default so the submission
-// dashboard's static preview stays a summary — there the Task cell's own link is the
-// way through, and a column of buttons would compete with the page's own actions.
-function getColumns(showEdit = false, selectable = false) {
-  // Tabulator's built-in selection column. `cellClick` toggling is what makes the
-  // header's select-all and the per-row checkbox behave; without it the checkbox
-  // renders but does nothing.
-  const selectColumn = selectable
-    ? [{
-        formatter: "rowSelection",
-        titleFormatter: "rowSelection",
-        headerSort: false,
-        width: 44,
-        hozAlign: "center",
-        cellClick: (event, cell) => cell.getRow().toggleSelect(),
-      }]
-    : [];
+// `showEdit` appends a per-row Edit button. Off by default
+function getColumns(showEdit = false) {
+
 
   const editColumn = showEdit
     ? [{
@@ -122,7 +101,6 @@ function getColumns(showEdit = false, selectable = false) {
     : [];
 
   return [
-    ...selectColumn,
     {
       title: "Task",
       field: "task_id",
@@ -150,9 +128,7 @@ function getColumns(showEdit = false, selectable = false) {
 
 // ─── CONTROLS ───────────────────────────────────────────────────────────────
 
-// Two only. A submission covers at most the benchmark's handful of tasks, so anything
-// more would be more filter than table — and suite is the one cut that's actually
-// useful when a submission spans several.
+
 function getControls() {
   return [
     {
@@ -182,20 +158,16 @@ function renderTaskSubmissionsTable({
   container,
   submission,
   showEdit = true,
-  selectable = false,
-  onSelectionChange,
 }) {
   const taskSubmissions = submission.task_submissions ?? [];
 
   return createFilterableTable({
     container,
     rows: taskSubmissions.map(taskSubmission => toRow(submission, taskSubmission)),
-    columns: getColumns(showEdit, selectable),
+    columns: getColumns(showEdit),
     controls: getControls(),
     noun: "tasks",
     initialSort: [{ column: "task_id", dir: "asc" }],
-    selectable,
-    onSelectionChange,
     caller: "renderTaskSubmissionsTable",
   });
 }
@@ -204,8 +176,5 @@ function renderTaskSubmissionsTable({
 export {
   renderTaskSubmissionsTable,
   toRow,
-  // Exported so the submission dashboard can render these same columns as plain
-  // markup via renderStaticTable — one definition of what a task submission row is,
-  // whether it appears as a preview or as the full filterable table.
   getColumns as taskSubmissionColumns,
 };

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Brain-Wide Bench</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
@@ -19,7 +19,7 @@
           <h1 class="hero-title">How well does your model <br> understand the brain?</h1>
           <p class="hero-description">Brain-Wide Bench evaluates neural population models across behavior, dynamics, and anatomy — on held-out data from the International Brain Laboratory.</p>
           <div class="row centre gap-md">
-            <a class="btn primary large" href="leaderboard.html">View leaderboard</a>
+            <a class="btn primary large" href="/html/leaderboard/leaderboard.html">View leaderboard</a>
             <a class="btn large" href="#">Read the docs</a>
           </div>
         </div>
@@ -86,34 +86,21 @@
       <section class="page-section">
         <div class="row">
           <h2 class="section-title">Leaderboard</h2>
-          <a class="link" href="leaderboard.html">Full leaderboard →</a>
+          <a class="link" href="/html/leaderboard/leaderboard.html">Full leaderboard →</a>
         </div>
-        <div class="table">
-          <table>
-            <thead>
-              <tr>
-                <th class="rank">#</th>
-                <th >Model</th>
-                <th class="num">Overall</th>
-                <th class="num">TS1</th>
-                <th class="num">TS2</th>
-                <th class="num">TS3</th>
-              </tr>
-            </thead>
-            <tbody id="lb-table-preview"></tbody>
-          </table>
-          <div class="table-footer">
-            <span id="lb-table-count">Loading…</span>
-          </div>
-        </div>
+        <!-- renderStaticTable emits the whole `.table` block, headers included, from the
+             column definitions in js/leaderboard/leaderboardTable.js — so this is a bare
+             container and the count sits below it, as the filterable tables do. -->
+        <div id="lb-table-preview"></div>
+        <p class="metadata" id="lb-table-count">Loading…</p>
       </section>
 
     </div>
 
   </div>
 
-<script type="module" src="js/nav_top.js"></script>
-<script type="module" src="js/landing.js"></script>
+<script type="module" src="/js/nav/nav_top.js"></script>
+<script type="module" src="/js/landing.js"></script>
 
 </body>
 </html>

@@ -1,6 +1,6 @@
-import { initials} from "./utils.js";
-import { apiFetch, isAuthenticated } from "./api.js";
-import { renderLogo } from "./logo.js";
+import { initials} from "../utils.js";
+import { apiFetch, isAuthenticated } from "../api.js";
+import { renderLogo } from "./nav_top.js";
 // ─── CONSTANTS ─────────────────────────────────────────────────────────────
 
 const MAIN_NAV_ITEMS = [
@@ -8,11 +8,11 @@ const MAIN_NAV_ITEMS = [
   { label: "Models", href: "/html/models/model_list.html", icon: "chart-column" },
   { label: "Submissions", href: "/html/submissions/submission_list.html", icon: "chart-column" },
   { label: "Teams", href: "/html/teams/team_list.html", icon: "users" },
-  { label: "Settings", href: "/my_settings.html", icon: "settings" },
+  { label: "Settings", href: "/html/users/user_details.html", icon: "settings" },
 ];
 
 const PUBLIC_NAV_ITEMS = [
-  { label: "Leaderboard", href: "/leaderboard.html", icon: "trophy" },
+  { label: "Leaderboard", href: "/html/leaderboard/leaderboard.html", icon: "trophy" },
   { label: "Home", href: "/index.html", icon: "house" },
 ];
 

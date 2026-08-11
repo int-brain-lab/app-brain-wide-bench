@@ -10,7 +10,7 @@
 // worth doing if the model count grows past a handful.
 
 import { getMyModels, loadModel } from "../models/modelApi.js";
-import { getTasks } from "../tasks/api.js";
+import { getTasks } from "../tasks/taskSubmissionApi.js";
 
 
 // A model detail's submissions are ModelSubmissionOut, which carries no model_name or

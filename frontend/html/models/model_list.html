@@ -23,7 +23,7 @@
             <h1 class="page-title">My models</h1>
           </div>
           <div class="row right gap-md">
-            <!-- View switch. Callbacks are attached in js/models/list/list.js;
+            <!-- View switch. Callbacks are attached in js/models/modelList.js;
                  `primary` marks the active one. -->
             <a class="btn with-icon primary" id="view-cards">
               <i class="btn-icon" data-lucide="layout-grid"></i>
@@ -33,23 +33,22 @@
               <i class="btn-icon" data-lucide="table"></i>
               Table
             </a>
-
-            <a class="btn with-icon" id="edit_model" href="/html/models/model_create.html">
-              <i class="btn-icon" data-lucide="plus"></i>
-              New Model
-            </a>
           </div>
         </div>
 
         <div id="models-list"></div>
+
+        <!-- "Create new model", rendered by renderCreateCard. Its own container rather than
+             part of #models-list, which Tabulator owns in table view. -->
+        <div id="models-create"></div>
 
       </div>
     </div>
     
   <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
-  <script type="module" src="/js/nav_top.js"></script>
-  <script type="module" src="/js/nav_side.js"></script>
+  <script type="module" src="/js/nav/nav_top.js"></script>
+  <script type="module" src="/js/nav/nav_side.js"></script>
   <script type="module" src="/js/models/modelList.js"></script>
 
 </body>

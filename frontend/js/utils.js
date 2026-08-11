@@ -100,6 +100,27 @@ function renderMessage(container, message, className = "info-msg") {
   container.replaceChildren(paragraph);
 }
 
+function showMessage(element, message) {
+  if (!message) {
+    element.hidden = true;
+    element.replaceChildren();
+    return;
+  }
+
+  renderMessage(element, message);
+}
+
+
+function showError(element, message) {
+  if (!message) {
+    element.hidden = true;
+    element.replaceChildren();
+    return;
+  }
+
+  renderMessage(element, message, "error-msg");
+}
+
 // Returns an element, not a string: the structure here is fixed and both slots
 // are pure text, so there's no reason to go through the HTML parser (and no
 // escaping to forget). Callers use `replaceChildren`, not `innerHTML`.
@@ -135,4 +156,6 @@ export {
   renderMessage,
   renderInfoRows,
   renderInfoRow,
+  showMessage,
+  showError
 };

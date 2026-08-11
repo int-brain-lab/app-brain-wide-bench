@@ -21,7 +21,7 @@
 //   #member-add      (staged only) the card holding the lookup, hidden outside edit mode
 
 import { addTeamMember, removeTeamMember } from "./teamApi.js";
-import { searchUsers } from "../users/api.js";
+import { searchUsers } from "../users/userApi.js";
 import { escapeHtml, initials, renderMessage } from "../utils.js";
 
 

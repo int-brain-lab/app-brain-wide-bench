@@ -35,15 +35,14 @@
               <i class="btn-icon" data-lucide="table"></i>
               Table
             </a>
-
-            <a class="btn with-icon" id="create_submission" href="/html/submissions/submission_create.html">
-              <i class="btn-icon" data-lucide="plus"></i>
-              New Submission
-            </a>
           </div>
         </div>
 
         <div id="submission-list"></div>
+
+        <!-- "Create new submission", rendered by renderCreateCard. Its own container rather
+             than part of #submission-list, which Tabulator owns in table view. -->
+        <div id="submission-create"></div>
 
       </div>
 
@@ -51,11 +50,11 @@
     </div>
 
   <!-- A classic script, so it runs before the deferred modules below regardless of
-       position — js/tables/utils.js reads `Tabulator` off the global. -->
+       position — js/utils/tables.js reads `Tabulator` off the global. -->
   <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
-  <script type="module" src="/js/nav_top.js"></script>
-  <script type="module" src="/js/nav_side.js"></script>
+  <script type="module" src="/js/nav/nav_top.js"></script>
+  <script type="module" src="/js/nav/nav_side.js"></script>
   <script type="module" src="/js/submissions/submissionList.js"></script>
 
 </body>

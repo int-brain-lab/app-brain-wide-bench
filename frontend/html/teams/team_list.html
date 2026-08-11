@@ -21,17 +21,12 @@
             <h1 class="page-title">My teams</h1>
             <p class="page-description">Teams you belong to. Select one to see its members and models.</p>
           </div>
-
-          <div class="row right gap-md">
-            <!-- A button, not a link: creating a team is the popup below. -->
-            <a class="btn primary with-icon" href="/html/teams/team_create.html">
-              <i class="btn-icon" data-lucide="plus"></i>
-              Create team
-            </a>
-          </div>
         </div>
 
         <div id="teams-list"></div>
+
+        <!-- "Create new team", rendered by renderCreateCard. -->
+        <div id="teams-create"></div>
 
       </div>
 
@@ -39,7 +34,7 @@
     </div>
 
   <script src="https://unpkg.com/lucide@latest"></script>
-  <script type="module" src="/js/nav_side.js"></script>
+  <script type="module" src="/js/nav/nav_side.js"></script>
   <script type="module" src="/js/teams/teamList.js"></script>
 
 </body>

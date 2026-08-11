@@ -69,18 +69,6 @@ async function updateTaskSubmission(submissionId, taskSubmissionId, patch) {
 }
 
 
-async function createSubmission(state) {
-
-  try {
-    return await apiFetch("/api/submissions", {
-      method: "POST",
-      body: JSON.stringify(buildPayload(state)),
-    });
-  } catch (err) {
-    console.error(err);
-  }
-}
-
 
 // A submission's name field is `label`, not `name` — this previously read
 // `state.name.trim()` and threw on undefined for every call.
@@ -92,9 +80,24 @@ function buildPayload(state) {
 }
 
 
+function buildPresignPayload(state, taskSection) {
+  return {
+    team_id: state.team_id,
+    model_id: state.model_id,
+    label: state.label.trim(),
+    is_public: state.is_public,
+    narrative_public: state.narrative_public,
+    narrative_private: state.narrative_private,
+    tasks: taskSection.payloads(),
+  };
+}
+
+
+
 // ─── SUBMIT FLOW ────────────────────────────────────────────────────────────
 
-async function presignSubmission(payload) {
+async function presignSubmission(state, taskSection) {
+  const payload = buildPresignPayload(state, taskSection);
   return apiFetch("/api/submissions/presign", {
     method: "POST",
     body: JSON.stringify(payload),
@@ -133,7 +136,6 @@ export {
   loadTaskSubmission,
   updateTaskSubmission,
   updateTaskSubmissions,
-  createSubmission,
   presignSubmission,
   uploadToPresignedUrl,
   submitSubmission,

@@ -1,188 +1,231 @@
-
-
-// Page entry for dashboard.html — one screen covering everything the caller owns:
-// counts, a few models, their most recent submissions, and the best task scores.
+// Main user dashboard
 //
-// Every section is a preview with a "view all" out to the page that owns it, so the
-// dashboard never becomes the place you do the actual work.
+// A dashboard for a user, showing their models, teams, recent submissions and scores.
 
 import { getMyTeams } from "../teams/teamApi.js";
-import { loadMe } from "../users/api.js";
+import { loadMe } from "../users/userApi.js";
 import { getSubmissions } from "../submissions/submissionApi.js";
-import { escapeHtml, formatDate, renderMessage } from "../utils.js";
-import { buildStatCards, buildSuiteCoverageBadges } from "../utils/score-cards.js";
-import { renderStaticTable } from "../tables/utils.js";
-import { submissionColumns, toRow as toSubmissionRow } from "../tables/submissions.js";
-import { scoreSorter, taskScoreColumns, toRows as toTaskScoreRows } from "../tables/tasks.js";
+import { showMessage, showError } from "../utils.js";
+import { renderStaticTable } from "../utils/tables.js";
+import { submissionColumns, toRow as toSubmissionRow } from "../submissions/submissionTable.js";
+import { scoreSorter, taskScoreColumns, toRows as toTaskScoreRows } from "../scores/scoreTable.js";
 import { loadAllScores } from "./dashboardApi.js";
+import { buildModelCards, buildTeamCards, buildStatCards } from "../components/cards.js";
 
 
-// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+// ─── CONFIGURATION ────────────────────────────────────────────────────────────────
 
 const MAX_MODEL_CARDS = 3;
 const MAX_TEAM_CARDS = 3;
 const MAX_SUBMISSIONS = 5;
 const MAX_SCORES = 5;
 
+// ─── DOM ────────────────────────────────────────────────────────────────────
 
-// ─── HEADER ─────────────────────────────────────────────────────────────────
+function getElements() {
+  return {
+    message: document.getElementById("form-message"),
+    title: document.getElementById("dashboard-title"),
+    stats: document.getElementById("dashboard-stats"),
+    models: document.getElementById("dashboard-models"),
+    teams: document.getElementById("dashboard-teams"),
+    submissions: document.getElementById("dashboard-submissions"),
+    scores: document.getElementById("dashboard-scores"), }; }
 
-// Falls back to the static "Welcome" already in the markup rather than printing
-// "Welcome undefined" — loadMe returns undefined if the request fails.
-function renderWelcome(user) {
+
+// ─── DATA ───────────────────────────────────────────────────────────────────
+function getStatistic(models, teams, submissionCount) {
+  return [
+    [
+      "models",
+      models.length,
+      "chart-column"
+    ],
+    [
+      "submissions",
+      submissionCount,
+      "layers"
+    ],
+    [
+      "teams",
+      teams.length,
+      "users"
+    ]
+  ]
+}
+
+function getRecentSubmissions(submissions) {
+  return submissions
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(b.updated_at) -
+        new Date(a.updated_at),
+    )
+    .slice(0, MAX_SUBMISSIONS);
+}
+
+function getScores(scoreSubmissions, knownTasks) {
+    const scores = toTaskScoreRows(scoreSubmissions, knownTasks)
+    .sort((a, b) => scoreSorter(b.mean_score, a.mean_score))
+    .slice(0, MAX_SCORES);
+
+    return scores
+}
+
+
+function getDashboardData(models) {
+  return models.reduce((total, model) => total + (model.n_submissions ?? 0), 0);
+}
+
+
+// ─── RENDERING ──────────────────────────────────────────────────────────────
+
+function renderWelcome(elements, user) {
   const name = user?.name || user?.email;
 
   if (!name) return;
 
-  document.getElementById("dashboard-title").textContent = `Welcome ${name}`;
+  elements.title.textContent = `Welcome ${name}`;
+}
+
+function renderStats(elements, statistics) {
+  elements.stats.innerHTML = buildStatCards(statistics);
 }
 
 
-// ─── STATS ──────────────────────────────────────────────────────────────────
-
-// Submissions are summed from each model's `n_submissions` rather than counted from the
-// submissions list: that field is already visibility-scoped server-side, and a
-// submission belongs to exactly one model, so the sum is the total without a second
-// source of truth.
-function renderStats(models, submissions, teams) {
-  const submissionCount = models.reduce((total, model) => total + (model.n_submissions ?? 0), 0);
-
-  document.getElementById("dashboard-stats").innerHTML = buildStatCards([
-    ["models", models.length, "chart-column"],
-    ["submissions", submissionCount || submissions.length, "layers"],
-    ["teams", teams.length, "users"],
-  ]);
-}
-
-
-// ─── MODELS ─────────────────────────────────────────────────────────────────
-
-// Cards rather than a table: at three rows a table is mostly header, and these are the
-// same cards the models list shows.
-function buildModelCards(models) {
-  return models.map(model => `
-    <a class="card column left gap-sm" href="/html/models/model_dashboard.html?id=${encodeURIComponent(model.id)}">
-      <div class="column left">
-        <p class="title">${escapeHtml(model.name)}</p>
-        <p class="metadata">${escapeHtml(model.team_name || "—")}</p>
-      </div>
-      <div class="row left gap-md">
-        ${buildSuiteCoverageBadges(model.task_suites ?? [])}
-      </div>
-      <p class="metadata">${model.n_submissions ?? 0} submission${(model.n_submissions ?? 0) === 1 ? "" : "s"} · Created ${escapeHtml(formatDate(model.created_at))}</p>
-    </a>
-  `).join("");
-}
-
-function renderModels(models) {
-  const container = document.getElementById("dashboard-models");
+function renderModels(elements, models) {
 
   if (models.length === 0) {
-    renderMessage(container, "No models yet.");
+    showMessage(
+      elements.models,
+      "No models yet.");
     return;
   }
 
-  // One per row: the section is half the page wide now, so cards stack rather than
-  // sitting three abreast.
-  container.className = "column gap-md";
-  container.innerHTML = buildModelCards(models.slice(0, MAX_MODEL_CARDS));
+  elements.models.className = "column gap-md";
+  elements.models.innerHTML = buildModelCards(models.slice(0, MAX_MODEL_CARDS));
 }
 
 
-// ─── TEAMS ──────────────────────────────────────────────────────────────────
-
-// The same card the teams list renders, minus its "Member" badge — every team here is
-// one the caller belongs to, so the badge would be on every card.
-function buildTeamCards(teams) {
-  return teams.map(team => `
-    <a class="card column left gap-sm" href="/html/teams/team_dashboard.html?id=${encodeURIComponent(team.id)}">
-      <p class="title">${escapeHtml(team.name)}</p>
-    </a>
-  `).join("");
-}
-
-function renderTeams(teams) {
-  const container = document.getElementById("dashboard-teams");
+function renderTeams(elements, teams) {
 
   if (teams.length === 0) {
-    renderMessage(container, "No teams yet.");
+    showMessage(
+      elements.teams,
+      "No teams yet.");
     return;
   }
 
-  container.className = "column gap-md";
-  container.innerHTML = buildTeamCards(teams.slice(0, MAX_TEAM_CARDS));
+  elements.teams.className = "column gap-md";
+  elements.teams.innerHTML = buildTeamCards(teams.slice(0, MAX_TEAM_CARDS));
 }
 
+function renderSubmissions(elements, submissions) {
+  const recentSubmissions = getRecentSubmissions(submissions);
 
-// ─── SUBMISSIONS ────────────────────────────────────────────────────────────
-
-// From GET /api/submissions rather than the flattened model details: it already spans
-// every model, and it's the one list carrying `updated_at`, which is what "recent"
-// sorts on. showModel, since this crosses models.
-function renderSubmissions(submissions) {
-  const container = document.getElementById("dashboard-submissions");
-
-  if (submissions.length === 0) {
-    renderMessage(container, "No submissions yet.");
+  if (recentSubmissions.length === 0) {
+    showMessage(
+      elements.submissions,
+      "No submissions yet.");
     return;
   }
 
-  const recent = submissions
-    .slice()
-    .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
-    .slice(0, MAX_SUBMISSIONS);
-
-  container.innerHTML = renderStaticTable({
-    columns: submissionColumns(true),
-    rows: recent.map(toSubmissionRow),
+  elements.submissions.innerHTML =
+    renderStaticTable({
+    columns: submissionColumns({ showModel: true }),
+    rows: recentSubmissions.map(toSubmissionRow),
   });
 }
 
+function renderScores(elements, scoreSubmissions, tasks) {
 
-// ─── TASK SCORES ────────────────────────────────────────────────────────────
+  const scores = getScores(scoreSubmissions, tasks);
 
-// Best-scoring tasks across everything, so the preview answers "how is my work doing"
-// rather than "what did I touch last". Unscored tasks sort last and so fall off the
-// end, which is the right trade for a top-N.
-function renderScores(scoreSubmissions, tasks) {
-  const container = document.getElementById("dashboard-scores");
-
-  const rows = toTaskScoreRows(scoreSubmissions, tasks)
-    .sort((a, b) => scoreSorter(b.mean_score, a.mean_score))
-    .slice(0, MAX_SCORES);
-
-  if (rows.length === 0) {
-    renderMessage(container, "No scored tasks yet.");
+  if (scores.length === 0) {
+    showMessage(elements.scores, "No scored tasks yet.");
     return;
   }
 
-  container.innerHTML = renderStaticTable({
+  elements.scores.innerHTML =
+    renderStaticTable({
     columns: taskScoreColumns({ showModel: true }),
-    rows,
+    rows: scores,
   });
+}
+
+function renderDashboard(
+  elements,
+  models,
+  submissions,
+  teams,
+  user,
+  scoreSubmissions, knownTasks,
+  dashboardData) {
+  const submissionCount = dashboardData;
+
+  renderWelcome(elements, user);
+
+  renderStats(
+    elements,
+    getStatistic(
+      models,
+      teams,
+      submissionCount)
+  );
+
+  renderModels(elements, models);
+
+  renderTeams(elements, teams);
+
+  renderSubmissions(elements, submissions);
+
+  renderScores(
+    elements,
+    scoreSubmissions,
+    knownTasks);
 }
 
 
 // ─── INITIALISATION ─────────────────────────────────────────────────────────
 
 async function loadDashboardPage() {
+  const elements = getElements()
   // loadAllScores is the expensive one (a request per model); the other two are single
   // reads, so they run alongside it rather than after.
-  const [{ models, submissions: scoreSubmissions, tasks }, submissions, teams, user] = await Promise.all([
-    loadAllScores(),
-    getSubmissions(),
-    getMyTeams(),
-    loadMe(),
-  ]);
+  try {
 
-  renderWelcome(user);
-  renderStats(models, submissions ?? [], teams ?? []);
-  renderModels(models);
-  renderTeams(teams ?? []);
-  renderSubmissions(submissions ?? []);
-  renderScores(scoreSubmissions, tasks);
+    const [{ models, submissions: scoreSubmissions, tasks }, submissions, teams, user] = await Promise.all([
+      loadAllScores(),
+      getSubmissions(),
+      getMyTeams(),
+      loadMe(),
+    ]);
 
-  globalThis.lucide?.createIcons?.();
+    const dashboardData = getDashboardData(models);
+    renderDashboard(
+      elements,
+      models,
+      submissions ?? [],
+      teams ?? [],
+      user,
+      scoreSubmissions,
+      tasks,
+      dashboardData
+    );
+
+    globalThis.lucide?.createIcons?.();
+    } catch (error) {
+    console.error(
+      "Failed to load dashboard page:",
+      error,
+    );
+
+    showError(
+      elements.message,
+      "Dashboard page could not be loaded",
+    );
+  }
 }
 
 loadDashboardPage();

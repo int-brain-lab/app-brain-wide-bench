@@ -1,13 +1,6 @@
-import { loadTrainingFields } from "./api.js";
+import { loadTrainingFields } from "./taskSubmissionApi.js";
 import { fieldsForPanel } from "../utils/form-fields.js";
-
-// `state.task_id` is the flat id (e.g. "ts1-reward"); `state.model` is the
-// submission's selected Model (`is_pretrained`/`pretrained_in_modalities`/
-// `pretrained_out_modalities`) — both must be present on a task's state for
-// these predicates to resolve correctly.
-function taskSuite(taskId) {
-  return taskId?.match(/^ts\d/)?.[0] ?? null;
-}
+import { suiteOf } from "../scores/scoreMaths.js";
 
 const SUITE_OUTPUT_MODALITY = { ts1: "behavior", ts2: "spikes", ts3: "anatomy" };
 
@@ -40,7 +33,7 @@ const TASK_FIELDS = {
     disabledOptionsWhen: state => {
       // Spikes is a default input modality for all tasks
       const disabled = ["spikes"];
-      const suite = taskSuite(state.task_id);
+      const suite = suiteOf(state.task_id);
       // For ts1, the target is behavior, so it can't be used as an input modality.
       if (suite === "ts1") disabled.push("behavior");
       // For ts3, the target is anatomy, so it can't be used as an input modality.
@@ -66,7 +59,7 @@ const TASK_FIELDS = {
       const disabled = ["single_session"];
 
       // If the models modalities don't match the pretraining modalities -> rule out TSS
-      const suite = taskSuite(state.task_id);
+      const suite = suiteOf(state.task_id);
       const outputModality = SUITE_OUTPUT_MODALITY[suite];
       const inputMatches = model.pretrained_in_modalities?.includes("spikes");
       const outputMatches = outputModality && model.pretrained_out_modalities?.includes(outputModality);
@@ -97,7 +90,7 @@ const TASK_FIELDS = {
       }
 
       // For ts3, only zero-shot is an option
-      if (taskSuite(state.task_id) === "ts3") {
+      if (suiteOf(state.task_id) === "ts3") {
         ["few_shot", "full", "other"].forEach(option => disabled.add(option));
       }
 

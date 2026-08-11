@@ -1,23 +1,24 @@
 // Filterable task-score table: one row per scored task, across however many
 // submissions the caller passes in. All the table plumbing lives in
-// tables/utils.js — this module is just the rows, the columns and the controls.
+// utils/tables.js — this module is just the rows, the columns and the controls.
 //
 // Rows are the *flattening* of submissions → task_submissions, so one submission
 // covering four tasks becomes four rows. That's what makes "which submission scored
 // best on ts1-reward" answerable, which the per-submission tables can't show.
 
 import { escapeHtml, score } from "../utils.js";
-import { subtaskLabel, suiteOf } from "../scores.js";
+import { suiteOf } from "./scoreMaths.js";
 import {
   SUITE_OPTIONS,
   createFilterableTable,
   linkFormatter,
   matchEquals,
   matchIncludes,
+  numericSorter,
   metricPillsFormatter,
   optionsFromRows,
   suiteBadgeFormatter,
-} from "./utils.js";
+} from "../utils/tables.js";
 
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────
@@ -80,14 +81,6 @@ function semFormatter(cell) {
     : `<span class="metadata">± ${score(value)}</span>`;
 }
 
-// Shared by both numeric columns. A missing value sorts as the smallest, so it
-// lands at the bottom under a desc sort rather than displacing real results.
-function numericSorter(a, b) {
-  if (a == null && b == null) return 0;
-  if (a == null) return -1;
-  if (b == null) return 1;
-  return a - b;
-}
 
 // `showSubmission` off drops the Submission column, for a caller already scoped to one
 // — the submission dashboard's preview, where it would repeat the page's own heading
