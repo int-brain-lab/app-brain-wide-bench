@@ -39,7 +39,7 @@ function buildColumns() {
       title: "Model",
       field: "name",
       formatter: linkFormatter(
-        "/html/models/model_dashboard.html",
+        "/html/models/models.html",
         "name",
       ),
       widthGrow: 2,

@@ -206,7 +206,7 @@ function modelFormatter(cell) {
   const row = cell.getData();
 
   return `
-    <a href="/html/models/model_dashboard.html?id=${encodeURIComponent(row.modelId)}" class="column">
+    <a href="/html/models/models.html?id=${encodeURIComponent(row.modelId)}" class="column">
       <div class="label">${escapeHtml(row.title)}</div>
       <div class="metadata">${escapeHtml(row.affiliation)}</div>
     </a>

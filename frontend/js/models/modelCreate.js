@@ -192,7 +192,7 @@ async function handleSubmit(elements, state) {
     const model = await createModel(state);
 
     window.location.href =
-      `/html/models/model_details.html?id=${encodeURIComponent(model.id)}&created`;
+      `/html/models/models.html?id=${encodeURIComponent(model.id)}&view=details&created`;
 
   } catch (error) {
     console.error(error);

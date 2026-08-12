@@ -1,7 +1,7 @@
 // Team members
 //
 // The add/remove members block: an exact-match lookup above a table of current members.
-// Mounted by both team_create.html and team_details.html, which supply the surrounding
+// Mounted by both team_create.html and the details view of teams.html, which supply the
 // card and differ only in what they hand it.
 //
 // Both use `staged` mode — changes accumulate and the page's own submit applies them via
@@ -54,7 +54,7 @@ function createMembersSection({
   const pendingAdds = new Map();
   const pendingRemoves = new Set();
 
-  // Starts read-only. team_details.html opens it from the editor's onEdit; team_create.html
+  // Starts read-only. teamView.js opens it from the editor's onEdit; team_create.html
   // opens it once at construction, because there the panel's own lock is the gate.
   let editing = false;
 
@@ -106,7 +106,7 @@ function createMembersSection({
   function renderMembers() {
     const members = getEffectiveMembers();
 
-    // Optional: only the staged page (team_details.html) wraps its lookup in #member-add,
+    // Optional: only the staged page (teamView.js) wraps its lookup in #member-add,
     // because only there does the lookup need hiding. In immediate mode `editing` is
     // permanently true, so an immediate-mode page has nothing to toggle and omits it.
     if (elements.addCard) {

@@ -132,11 +132,11 @@ function renderModels(elements, models) {
 
   // A create card rather than "No models yet." — the card is both the statement that there
   // are none and the way to fix it, and it matches what the models list page shows.
-  // if (models.length === 0) {
-  elements.models.replaceChildren();
-  appendCreateCard(elements.models, CREATE_FIRST_MODEL);
-  return;
-  // }
+  if (models.length === 0) {
+    elements.models.replaceChildren();
+    appendCreateCard(elements.models, CREATE_FIRST_MODEL);
+    return;
+   }
 
   elements.models.innerHTML = buildModelCards(models.slice(0, MAX_MODEL_CARDS));
 }

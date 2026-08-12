@@ -197,7 +197,7 @@ async function loadSelectedModel(
 // ─── PRESELECTION ───────────────────────────────────────────────────────────
 
 // `?model=<id>` lets a caller arrive with the model already chosen. The model dashboard's
-// create strip and the post-create card on model_details.html both pass it, so "for this
+// create strip and the models page's post-create card both pass it, so "for this
 // model" is honoured rather than being a promise this form breaks.
 //
 // Validated against the picker's own options first: an id that isn't one of the caller's
@@ -506,7 +506,7 @@ async function handleSubmit(
     );
 
     window.location.href =
-      `/html/submissions/submission_details.html?id=${encodeURIComponent(presigned.submission_id)}`;
+      `/html/submissions/submissions.html?id=${encodeURIComponent(presigned.submission_id)}&view=details`;
   } catch (error) {
     console.error(error);
 

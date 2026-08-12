@@ -72,7 +72,7 @@ function getColumns(showModel) {
     {
       title: "Label",
       field: "label",
-      formatter: linkFormatter("/html/submissions/submission_dashboard.html", "label"),
+      formatter: linkFormatter("/html/submissions/submissions.html", "label"),
       widthGrow: 2,
     },
     ...modelColumns,

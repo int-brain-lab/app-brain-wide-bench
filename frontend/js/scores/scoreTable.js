@@ -94,7 +94,7 @@ function getColumns({ showSubmission = true, showModel = false } = {}) {
     ? [{
         title: "Model",
         field: "model_name",
-        formatter: linkFormatter("/html/models/model_dashboard.html", "model_name", "model_id"),
+        formatter: linkFormatter("/html/models/models.html", "model_name", "model_id"),
         widthGrow: 2,
       }]
     : [];
@@ -103,7 +103,7 @@ function getColumns({ showSubmission = true, showModel = false } = {}) {
     ? [{
         title: "Submission",
         field: "submission_label",
-        formatter: linkFormatter("/html/submissions/submission_dashboard.html", "submission_label", "submission_id"),
+        formatter: linkFormatter("/html/submissions/submissions.html", "submission_label", "submission_id"),
         widthGrow: 2,
       }]
     : [];

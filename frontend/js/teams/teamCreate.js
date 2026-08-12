@@ -6,7 +6,7 @@
 //   1. Details  the team name
 //   2. Members  who else should have access
 //
-// The members block is createMembersSection — the same module team_details.html mounts for
+// The members block is createMembersSection — the same module teams.html mounts for
 // editing. It fits creation because it records changes rather than sending them, and
 // `apply()` reads the team id at call time: the draft below starts with a null id, POST
 // /api/teams fills it in, and only then does apply() have somewhere to send the additions.
@@ -141,12 +141,12 @@ async function handleSubmit(elements, state, draft, members) {
   // rather than throwing, so one unknown address doesn't strand the rest.
   const failed = await members.apply();
 
-  // `&created` is read by teamDetails.js, which then offers the next step — registering a
+  // `&created` is read by teamView.js, which then offers the next step — registering a
   // model for the team just made. It has to travel in the URL: this assignment navigates, so
   // anything rendered here would belong to a document about to be replaced.
   if (failed.length === 0) {
     window.location.href =
-      `/html/teams/team_details.html?id=${encodeURIComponent(team.id)}&created`;
+      `/html/teams/teams.html?id=${encodeURIComponent(team.id)}&view=details&created`;
     return;
   }
 
@@ -195,7 +195,7 @@ async function loadTeamCreatePage() {
       canRemove: member => member.id !== me.id,
     });
 
-    // Staged mode starts read-only, for team_details.html where the block only opens on
+    // Staged mode starts read-only, for teamView.js where the block only opens on
     // Edit. Here the panel's own lock is the gate, so the block is open from the start.
     members.setEditing(true);
 

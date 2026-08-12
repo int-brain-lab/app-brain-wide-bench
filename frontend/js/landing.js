@@ -2,7 +2,7 @@
 // leaderboard preview.
 //
 // The preview goes through renderStaticTable with columns borrowed from
-// leaderboard/leaderboardTable.js, the same arrangement modelDashboard.js uses for its
+// leaderboard/leaderboardTable.js, the same arrangement modelView.js uses for its
 // recent-submissions preview. It used to hand-write its own <tr>/<td> markup against a
 // <table> in index.html, which meant the rank medals, the model cell and the score
 // formatting were all written twice — once here and once on the leaderboard.

@@ -16,7 +16,7 @@ function buildModelCard(model) {
   return `
     <a
       class="card column left gap-sm"
-      href="/html/models/model_dashboard.html?id=${encodeURIComponent(model.id)}"
+      href="/html/models/models.html?id=${encodeURIComponent(model.id)}"
     >
       <div class="column left">
         <p class="title">${escapeHtml(model.name)}</p>
@@ -48,7 +48,7 @@ function buildSubmissionCards(submissions) {
       submission => `
         <a
           class="card column left gap-sm"
-          href="/html/submissions/submission_dashboard.html?id=${encodeURIComponent(submission.id)}"
+          href="/html/submissions/submissions.html?id=${encodeURIComponent(submission.id)}"
         >
           <div class="column left">
             <p class="title">${escapeHtml(submission.label)}</p>
@@ -81,7 +81,7 @@ function buildTeamCards(teams) {
   return teams.map(team => `
     <a 
     class="card column left gap-sm"
-    href="/html/teams/team_dashboard.html?id=${encodeURIComponent(team.id)}"
+    href="/html/teams/teams.html?id=${encodeURIComponent(team.id)}"
     >
       <p class="title">${escapeHtml(team.name)}</p>
       <p class="metadata">${buildCount(team.n_members, "member")}</p>

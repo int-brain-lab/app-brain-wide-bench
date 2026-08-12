@@ -86,7 +86,7 @@ function renderHeader(elements, submission, taskSubmission) {
 function renderBackLink(elements, submission) {
   elements.backLink.textContent = `← Back to ${submission.label}`;
   elements.backLink.href =
-    `/html/submissions/submission_tasks.html?id=${encodeURIComponent(submission.id)}`;
+    `/html/submissions/submissions.html?id=${encodeURIComponent(submission.id)}&view=tasks`;
 }
 
 function renderDetails(elements, taskSubmission, fields) {
