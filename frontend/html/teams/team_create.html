@@ -23,72 +23,7 @@
           </div>
         </div>
 
-          <a class="link un" href="/html/teams/team_list.html">← Back to teams</a>
-
-          <div class="page-header side">
-            <h1 class="page-title">New team</h1>
-            <p class="section-description">
-              Name the team and add anyone who should have access to its models and
-              submissions.
-            </p>
-          </div>
-
-          <!-- Panels, message and submit in one gap-lg column, as on model_create.html and
-               submission_create.html — that wrapper is what spaces the button off the last
-               panel. The message sits directly above the button so a failed submit reports
-               itself next to the control that caused it. -->
-          <div class="column gap-lg">
-
-            <!-- Both panels are on screen at once; js/teams/teamCreate.js locks the second
-                 until the name is filled in, by setting `disabled` on its fieldset. -->
-            <div class="column gap-lg" id="team-panels">
-
-            <!-- Panel 1 — Details. Rendered from TEAM_PANELS; data-panel is what pairs
-                   this fieldset with its schema panel. -->
-              <fieldset class="form-panel" data-panel="1"></fieldset>
-
-              <!-- Panel 2 — Members. Static markup: js/teams/teamMembers.js attaches
-                   listeners to the elements inside, which must outlive a re-render.
-                   The lookup and the table share one card. -->
-              <fieldset class="form-panel" data-panel="2">
-                <div class="card column gap-md">
-                  <p class="title muted">Members</p>
-
-                  <div class="column gap-xs" id="member-add">
-                    <label class="field-label" for="member-search">Add a member</label>
-                    <input class="field-input" id="member-search" type="search"
-                           placeholder="Full name or email address" autocomplete="off">
-                    <p class="info-msg">
-                      Enter the whole name or email — partial matches aren't looked up. They
-                      must have signed in at least once before they can be added.
-                    </p>
-
-                    <!-- The match, with an Add button. Hidden until there is one. -->
-                    <div class="column gap-sm" id="member-results" hidden></div>
-                  </div>
-
-                  <!-- You are listed from the start: creating a team makes you its first
-                       member, so showing yourself reports what will happen. -->
-                  <div id="member-list"></div>
-                </div>
-              </fieldset>
-
-            </div>
-
-            <div id="form-message" hidden></div>
-
-            <div class="row right gap-md">
-              <a class="btn with-icon" href="/html/teams/team_list.html">
-                <i class="btn-icon" data-lucide="x"></i>
-                Cancel
-              </a>
-              <button type="button" class="btn primary with-icon" id="create-team" disabled>
-                <i class="btn-icon" data-lucide="plus"></i>
-                Create team
-              </button>
-            </div>
-
-          </div>
+        <div id="container"></div>
 
       </div>
     </div>

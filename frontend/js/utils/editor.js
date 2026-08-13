@@ -16,6 +16,7 @@ import {
   renderFields,
   renderGroups,
   setFieldValue,
+  withPreservedFocus,
 } from "./form-fields.js";
 
 /**
@@ -73,9 +74,11 @@ function Editor({
   function renderDraft() {
     const state = { ...record, ...draft };
 
-    container.innerHTML = groups
-      ? renderGroups(groups(), state, fields, renderFields)
-      : renderFields(keys(), state, fields);
+    withPreservedFocus(container, () => {
+      container.innerHTML = groups
+        ? renderGroups(groups(), state, fields, renderFields)
+        : renderFields(keys(), state, fields);
+    });
 
     // The form's `editable: false` keys render as display rows, which carry the
     // `icon` placeholders — so the edit view needs createIcons() too, or a

@@ -10,88 +10,23 @@
 
 <body data-view="private">
 
-  <div class="main-private">
+    <div class="main-private">
 
-    <aside class="sidebar" id="side-nav"></aside>
+      <aside class="sidebar" id="side-nav"></aside>
 
-    <div class="content-private">
+      <div class="content-private">
 
-      <a class="link un" id="back-to-submissions" href="/html/submissions/submission_list.html">← Back to submissions</a>
-
-      <div class="page-header">
-        <h1 class="page-title">New submission</h1>
-        <p class="section-description">Upload a zip of predictions to score against the held-out test data.</p>
-      </div>
-
-      <div class="card" id="gate" hidden>
-        <div>
-          <p>Please sign in to submit.</p>
-          <button class="btn primary" id="gate-login">Sign in</button>
-        </div>
-      </div>
-
-      <!-- Every panel is on screen at once; js/submissions/submissionCreate.js locks the
-           ones below the point the user has reached by setting `disabled` on the fieldset.
-           Panels 1 and 2 have their cards rendered from SUBMISSION_PANELS; panel 3 is
-           static because its dropzone listeners have to outlive a re-render. -->
-      <div class="column gap-lg" id="submission-create" hidden>
-
-        <div class="column gap-lg" id="submission-panels">
-
-          <!-- Panels 1 and 2 are filled from SUBMISSION_PANELS; data-panel is what pairs
-               each fieldset with its schema panel. -->
-          <fieldset class="form-panel" data-panel="1"></fieldset>
-
-          <fieldset class="form-panel" data-panel="2"></fieldset>
-
-          <!-- Panel 3 — Predictions -->
-          <fieldset class="form-panel" data-panel="3">
-            <div class="card column gap-md">
-              <p class="title muted">Predictions</p>
-
-              <div class="dropzone" id="dropzone">
-                <input type="file" id="file-input" accept=".zip,application/zip" hidden />
-                <p class="dropzone-label">Drag and drop or select your <code>.zip</code> file here</p>
-              </div>
-
-              <div class="card row" id="file-info" hidden>
-                <div class="column gap-xs">
-                  <span class="text-lg bold" id="file-name"></span>
-                  <span class="text-sm muted" id="file-size"></span>
-                </div>
-                <button type="button" class="btn" id="file-remove">Delete</button>
-              </div>
-
-              <!-- Detected-task pills, or the reason the zip couldn't be read. -->
-              <div id="task-info" hidden></div>
-            </div>
-          </fieldset>
-
-          <!-- Panel 4 — Tasks. Suite-grouped picker on the left, the selected task's
-               methodology form on the right; owned by js/tasks/taskSubmissionsCreate.js. -->
-          <fieldset class="form-panel" data-panel="4">
-            <div id="task-panel"></div>
-          </fieldset>
-
+        <div class="card" id="gate" hidden>
+          <div class="column gap-md">
+            <p>Please sign in to submit.</p>
+            <button class="btn primary" id="gate-login">Sign in</button>
+          </div>
         </div>
 
-        <div id="form-message" hidden></div>
-
-        <div class="row right gap-md">
-          <a class="btn with-icon" href="/html/submissions/submission_list.html">
-            <i class="btn-icon" data-lucide="x"></i>
-            Cancel
-          </a>
-          <button type="button" class="btn primary with-icon" id="create-submission" disabled>
-            <i class="btn-icon" data-lucide="upload"></i>
-            Create submission
-          </button>
-        </div>
+        <div id="container"></div>
 
       </div>
-
     </div>
-  </div>
 
   <script src="https://unpkg.com/lucide@latest"></script>
   <script type="module" src="/js/nav/nav_side.js"></script>

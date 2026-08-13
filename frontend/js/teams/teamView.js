@@ -5,7 +5,7 @@ import { panelGroups } from "../utils/form-fields.js";
 import { Editor } from "../utils/editor.js";
 import { TEAM_FIELDS, TEAM_PANELS } from "./teamSchema.js";
 import { loadTeam, updateTeam } from "./teamApi.js";
-import { createMembersSection } from "./teamMembers.js";
+import { buildMembersCard, createMembersSection } from "./teamMembers.js";
 import { appendCreateCard } from "../utils/create-card.js";
 import { buildStatCards } from "../components/cards.js";
 import { loadRecordPage } from "../pages/record-loader.js";
@@ -123,28 +123,6 @@ function buildMemberTable(members) {
           ${members.map(buildMemberRow).join("")}
         </tbody>
       </table>
-    </div>
-  `;
-}
-
-// The ids here are the contract teamMembers.js queries for, so this has to be in the DOM
-// before createMembersSection runs. #member-add is the part it hides outside edit mode.
-function buildMembersCard() {
-  return `
-    <div class="card column gap-md">
-      <div class="column gap-xs" id="member-add" hidden>
-        <label class="field-label" for="member-search">Add a member</label>
-        <input class="field-input" id="member-search" type="search"
-               placeholder="Full name or email address" autocomplete="off">
-        <p class="info-msg">
-          Enter the whole name or email — partial matches aren't looked up. They must
-          have signed in at least once before they can be added.
-        </p>
-
-        <div class="column gap-sm" id="member-results" hidden></div>
-      </div>
-
-      <div id="member-list"></div>
     </div>
   `;
 }

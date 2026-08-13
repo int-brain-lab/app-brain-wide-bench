@@ -13,6 +13,10 @@ async function loadRecordPage({
   defaultView = "dashboard",
   noun = "record",
   flags = [],
+  params = [],
+  // The user's own dashboard is a record page whose record is "me" — there is no id to put
+  // in the URL, so `load` is called with nothing.
+  requiresId = true,
 }) {
   const elements = { gate: document.getElementById("gate") };
   const container = document.getElementById("container");
@@ -25,21 +29,21 @@ async function loadRecordPage({
 
     showGate(elements, true);
 
-    const id = new URLSearchParams(location.search).get("id");
+    const id = requiresId ? new URLSearchParams(location.search).get("id") : null;
 
-    if (!id) {
+    if (requiresId && !id) {
       showError(container, `No ${noun} id in the URL.`);
       return;
     }
 
-    const context = await load(id);
+    const context = requiresId ? await load(id) : await load();
 
     if (!context) {
-      showError(container, `Could not load ${noun} ${id}.`);
+      showError(container, requiresId ? `Could not load ${noun} ${id}.` : `Could not load your ${noun}.`);
       return;
     }
 
-    createRecordRouter({ views, context, defaultView, container, flags }).start();
+    createRecordRouter({ views, context, defaultView, container, flags, params }).start();
   } catch (error) {
     console.error(`Failed to load the ${noun} page:`, error);
 

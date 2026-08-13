@@ -1,91 +1,19 @@
-// Team list
+// The teams the user belongs to.
 //
-// A page showing the teams that the user has created or has access to.
-
+// No `table`, so no toggle: a team is a name and a member count, which a card says better
+// than a row and which nobody needs to filter.
 
 import { getMyTeams } from "./teamApi.js";
-import { buildTeamCards} from "../components/cards.js";
-import {appendCreateCard} from "../utils/create-card.js";
-import {showError} from "../utils.js";
-import { isAuthenticated } from "../api.js";
-import { showGate } from "../utils/gate.js";
+import { buildTeamCards } from "../components/cards.js";
+import { loadListPage } from "../pages/list-page.js";
 
-// ─── CONFIGURATION ──────────────────────────────────────────────────────────
-
-const CREATE = {
-  href: "/html/teams/team_create.html",
-  label: "New team" };
-
-// ─── DOM ─────────────────────────────────────────────────────────────────────
-
-function getElements() {
-  return {
-    gate: document.getElementById("gate"),
-    list: document.getElementById("teams-list"),
-    create: document.getElementById("teams-create"),
-  };
-}
-
-// ─── RENDERING ──────────────────────────────────────────────────────────────
-
-function renderCards(elements, teams) {
-
-  elements.list.className = 'grid-2'
-  elements.list.innerHTML = buildTeamCards(teams);
-
-  appendCreateCard(elements.list, CREATE);
-}
-
-// ─── EMPTY STATE ────────────────────────────────────────────────────────────
-
-function renderEmptyState(elements) {
-  elements.list.className = "grid-2";
-  elements.list.replaceChildren();
-
-  appendCreateCard(elements.list, CREATE);
-
-}
-
-// ─── INITIALISATION ──────────────────────────────────────────────────────────
-
-async function loadTeamListPage() {
-  const elements = getElements();
-
-  try {
-    if (!(await isAuthenticated())) {
-      showGate(elements, false);
-      return;
-    }
-
-    showGate(elements, true);
-
-
-    const teams = await getMyTeams();
-
-    if (!teams) {
-      showError(
-        elements.message,
-        "Could not load teams."
-      );
-    }
-
-    if (teams.length === 0) {
-      renderEmptyState(elements);
-      return;
-    }
-
-    renderCards(elements, teams);
-  } catch (error) {
-    console.error(
-      "Failed to load team list:",
-      error,
-    );
-
-    showError(
-      elements.message,
-      "Teams list page could not be loaded.",
-    );
-  }
-}
-
-loadTeamListPage();
+loadListPage({
+  title: "My teams",
+  noun: "teams",
+  fetch: getMyTeams,
+  cards: buildTeamCards,
+  create: {
+    href: "/html/teams/team_create.html",
+    label: "New team",
+  },
+});

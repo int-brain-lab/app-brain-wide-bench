@@ -19,6 +19,8 @@ import {
 } from "../scores/scoreTable.js";
 import { suitesFromSubmission } from "../utils/suites.js";
 import { getTasks } from "../tasks/taskSubmissionApi.js";
+import { loadTaskFields } from "../tasks/taskSubmissionSchema.js";
+import { renderTaskView } from "../tasks/taskSubmissionView.js";
 import { buildStatCards } from "../components/cards.js";
 import { loadRecordPage } from "../pages/record-loader.js";
 import {
@@ -311,18 +313,21 @@ const VIEWS = {
   details: renderDetailsView,
   tasks: renderTasksView,
   scores: renderScoresView,
+  task: renderTaskView,
 };
 
 loadRecordPage({
   views: VIEWS,
   noun: "submission",
   flags: ["edit"],
+  params: ["task"],
 
   load: async submissionId => {
-    const [submission, fields, knownTasks] = await Promise.all([
+    const [submission, fields, knownTasks, taskFields] = await Promise.all([
       loadSubmission(submissionId),
       loadSubmissionFields(),
       getTasks(),
+      loadTaskFields(),
     ]);
 
     if (!submission) {
@@ -333,6 +338,7 @@ loadRecordPage({
       submission,
       fields,
       knownTasks,
+      taskFields,
       dashboardData: getDashboardData(submission),
     };
   },

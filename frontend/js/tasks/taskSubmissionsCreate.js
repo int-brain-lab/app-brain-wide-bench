@@ -21,6 +21,7 @@ import {
   renderFields,
   revalidateFields,
   setFieldValue,
+  withPreservedFocus,
 } from "../utils/form-fields.js";
 import {
   TASK_FIELDS,
@@ -379,12 +380,14 @@ function createTaskSection({ container, onChange } = {}) {
       return;
     }
 
-    container.innerHTML = `
-      <div class="task-split">
-        ${buildPicker()}
-        ${buildDetail()}
-      </div>
-    `;
+    withPreservedFocus(container, () => {
+      container.innerHTML = `
+        <div class="task-split">
+          ${buildPicker()}
+          ${buildDetail()}
+        </div>
+      `;
+    });
   }
 
   // ─── EVENTS ─────────────────────────────────────────────────────────────

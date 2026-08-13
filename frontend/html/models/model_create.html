@@ -10,50 +10,23 @@
 
 <body data-view="private">
 
-  <div class="main-private">
+    <div class="main-private">
 
-    <aside class="sidebar" id="side-nav"></aside>
+      <aside class="sidebar" id="side-nav"></aside>
 
-    <div class="content-private">
+      <div class="content-private">
 
-      <a class="link un" id="back-to-models" href="/html/models/model_list.html">← Back to models</a>
-
-      <div class="page-header">
-        <h1 class="page-title">New model</h1>
-        <p class="section-description">Register a model so you can submit predictions for it.</p>
-      </div>
-
-      <div class="card" id="gate" hidden>
-        <div>
-          <p>Please sign in to create a model.</p>
-          <button class="btn primary" id="gate-login">Sign in</button>
-        </div>
-      </div>
-
-      <!-- The three panel cards, and the submit below them. Both are rendered/driven by
-           js/models/modelCreate.js — a panel stays dimmed and read-only until the ones
-           above it are complete. -->
-      <div class="column gap-lg" id="model-create" hidden>
-
-        <div class="column gap-lg" id="model-panels"></div>
-
-        <div id="form-message" hidden></div>
-
-        <div class="row right gap-md">
-          <a class="btn with-icon" href="/html/models/model_list.html">
-            <i class="btn-icon" data-lucide="x"></i>
-            Cancel
-          </a>
-          <button type="button" class="btn primary with-icon" id="create-model" disabled>
-            <i class="btn-icon" data-lucide="plus"></i>
-            Create model
-          </button>
+        <div class="card" id="gate" hidden>
+          <div class="column gap-md">
+            <p>Please sign in to register a model.</p>
+            <button class="btn primary" id="gate-login">Sign in</button>
+          </div>
         </div>
 
-      </div>
+        <div id="container"></div>
 
+      </div>
     </div>
-  </div>
 
   <script src="https://unpkg.com/lucide@latest"></script>
   <script type="module" src="/js/nav/nav_side.js"></script>

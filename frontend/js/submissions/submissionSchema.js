@@ -78,7 +78,6 @@ const SUBMISSION_FIELDS = {
     label: "Public narrative",
     input: "textarea",
     panel: 2,
-    disabledWhen: state => !state.is_public,
   },
 
   narrative_private: {

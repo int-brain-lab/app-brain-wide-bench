@@ -18,45 +18,12 @@
 
         <div class="card" id="gate" hidden>
           <div class="column gap-md">
-            <p>Please sign in to view your teams.</p>
+            <p>Please sign in to view your settings.</p>
             <button class="btn primary" id="gate-login">Sign in</button>
           </div>
         </div>
 
-
-        <div class="row">
-          <div class="page-header side">
-            <h1 class="page-title">Settings</h1>
-            <p class="section-description">
-              Your profile details. Name and affiliation are yours to change; the rest comes
-              from your sign-in provider.
-            </p>
-          </div>
-
-          <!-- Hidden as a group when signed out; within it, createDetailEditor swaps Edit
-               for Save/Cancel. -->
-          <div class="row right gap-md" id="user-actions">
-            <a class="btn with-icon" id="edit-user">
-              <i class="btn-icon" data-lucide="pencil"></i>
-              Edit
-            </a>
-            <a class="btn primary with-icon" id="save-user" hidden>
-              <i class="btn-icon" data-lucide="check"></i>
-              Save
-            </a>
-            <a class="btn with-icon" id="cancel-user" hidden>
-              <i class="btn-icon" data-lucide="x"></i>
-              Cancel
-            </a>
-          </div>
-        </div>
-
-
-        <div id="form-message" hidden></div>
-
-        <!-- One container for both modes: the read-only cards on load, the edit form in
-             their place while editing. Same as the details view on models.html / teams.html. -->
-        <div id="user-details"></div>
+        <div id="container"></div>
 
       </div>
     </div>

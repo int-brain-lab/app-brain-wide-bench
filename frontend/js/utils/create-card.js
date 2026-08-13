@@ -8,8 +8,8 @@
 //               Tabulator owns the list container and its rows come from the data — so it's
 //               a sibling element styled to meet the table's bottom edge.
 //
-// Hence two containers on each page: the grid (#models-list) and a dedicated one
-// (#models-create) that only table view uses.
+// Hence two containers, built by pages/list-page.js: the grid (#list) and a dedicated one
+// (#create-row) that only table view uses.
 //
 // Both call createIcons: the label carries a Lucide `plus` placeholder, and createIcons
 // consumes placeholders, so it has to run after this markup lands rather than once at page

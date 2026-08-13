@@ -5,6 +5,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Brain-Wide Bench - Dashboard</title>
+  <!-- Tabulator's stylesheet first so style.css's `.tabulator` overrides win, same order as
+       the other pages that mount a grid. -->
+  <link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 
@@ -23,20 +26,19 @@
           </div>
         </div>
 
-          <div class="page-header side">
-            <!-- Filled in by dashboard.js once the user loads; the fallback keeps the
-                 heading from being blank while that request is in flight. -->
-            <h1 class="page-title" id="dashboard-title">Welcome</h1>
-            <p class="section-description">Your models, submissions and results.</p>
-          </div>
+        <div id="container"></div>
 
-          <div id="form-message" hidden></div>
+      </div>
+    </div>
 
+    <!-- Cloned into the page by dashboardView.js when the account has no teams, models or
+         submissions — the four sections would otherwise all read "None yet", which says what
+         is missing but not what to do about it.
 
-          <!-- Shown by dashboard.js instead of #dashboard-body when the account has no
-               teams, no models and no submissions — the four sections below would all read
-               "None yet", which says what is missing but not what to do about it. -->
-          <div id="dashboard-empty" hidden>
+         A <template> rather than a hidden div: showGate sets `hidden` on every sibling of
+         #gate, so a plain div here would be un-hidden on sign-in and have to be hidden again
+         by every view. Template content is inert either way. -->
+    <template id="dashboard-empty">
             <div class="card column gap-lg">
 
               <div class="column gap-sm">
@@ -119,92 +121,13 @@
                 it has been through the pipeline, so scores may take a little while to show
                 up after you upload.
               </p>
+    </template>
 
-            </div>
-          </div>
-
-          <div id="dashboard-body">
-            <section class="page-section">
-              <div class="grid-3" id="dashboard-stats"></div>
-            </section>
-
-            <!-- Teams and Models side by side: both are short card lists, and a full-width
-                 row of three cards each would push everything below them off the fold.
-                 `align-start` so the shorter of the two sits at the top of the row rather than
-                 being stretched and spread by .page-section's space-between. -->
-            <div class="grid-2 align-start">
-
-              <section class="page-section">
-                <div class="row">
-                  <h2 class="section-title">Teams</h2>
-                  <div class="row right gap-md">
-                    <a class="btn with-icon" href="/html/teams/team_list.html">
-                      <i class="btn-icon" data-lucide="users"></i>
-                      View all
-                    </a>
-                    <a class="btn primary-inv with-icon" href="/html/teams/team_create.html">
-                      <i class="btn-icon" data-lucide="plus"></i>
-                      Create team
-                    </a>
-                  </div>
-                </div>
-                <div id="dashboard-teams"></div>
-              </section>
-
-              <section class="page-section">
-                <div class="row">
-                  <h2 class="section-title">Models</h2>
-                  <div class="row right gap-md">
-                    <a class="btn with-icon" href="/html/models/model_list.html">
-                      <i class="btn-icon" data-lucide="chart-column"></i>
-                      View all
-                    </a>
-                    <a class="btn primary-inv with-icon" href="/html/models/model_create.html">
-                      <i class="btn-icon" data-lucide="plus"></i>
-                      Create model
-                    </a>
-                  </div>
-                </div>
-                <div id="dashboard-models"></div>
-              </section>
-
-            </div>
-
-            <section class="page-section">
-              <div class="row">
-                <h2 class="section-title">Recent submissions</h2>
-                <div class="row right gap-md">
-                  <a class="btn with-icon" href="/html/submissions/submission_list.html">
-                    <i class="btn-icon" data-lucide="layers"></i>
-                    View all
-                  </a>
-                  <a class="btn primary-inv with-icon" href="/html/submissions/submission_create.html">
-                    <i class="btn-icon" data-lucide="plus"></i>
-                    Create submission
-                  </a>
-                </div>
-              </div>
-              <div id="dashboard-submissions"></div>
-            </section>
-
-            <section class="page-section">
-              <div class="row">
-                <h2 class="section-title">Task scores</h2>
-                <a class="btn with-icon" href="/html/dashboard/dashboard_scores.html">
-                  <i class="btn-icon" data-lucide="book-open"></i>
-                  View all scores
-                </a>
-              </div>
-              <div id="dashboard-scores"></div>
-            </section>
-          </div>
-
-      </div>
-    </div>
-
+  <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module" src="/js/nav/nav_top.js"></script>
   <script type="module" src="/js/nav/nav_side.js"></script>
-  <script type="module" src="/js/dashboard/dashboard.js"></script>
+  <script type="module" src="/js/dashboard/dashboardView.js"></script>
 
 </body>
 </html>

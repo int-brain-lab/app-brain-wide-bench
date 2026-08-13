@@ -4,9 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Brain-Wide Bench - My model</title>
-  <!-- Tabulator's stylesheet first so style.css's `.tabulator` overrides win,
-       same order as dashboard.html and leaderboard.html. -->
+  <title>Brain-Wide Bench - My models</title>
+  <!-- Tabulator's stylesheet first so style.css's `.tabulator` overrides win, same order as
+       the other pages that mount a grid. -->
   <link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css">
   <link rel="stylesheet" href="/css/style.css">
 </head>
@@ -26,33 +26,11 @@
           </div>
         </div>
 
-        <div class="row">
-          <div class="page-header side">
-            <h1 class="page-title">My models</h1>
-          </div>
-          <div class="row right gap-md">
-            <!-- View switch. Callbacks are attached in js/models/modelList.js;
-                 `primary` marks the active one. -->
-            <a class="btn with-icon primary-inv" id="view-cards">
-              <i class="btn-icon" data-lucide="layout-grid"></i>
-              Cards
-            </a>
-            <a class="btn with-icon" id="view-table">
-              <i class="btn-icon" data-lucide="table"></i>
-              Table
-            </a>
-          </div>
-        </div>
-
-        <div id="models-list"></div>
-
-        <!-- "Create new model", rendered by renderCreateCard. Its own container rather than
-             part of #models-list, which Tabulator owns in table view. -->
-        <div id="models-create"></div>
+        <div id="container"></div>
 
       </div>
     </div>
-    
+
   <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script type="module" src="/js/nav/nav_top.js"></script>

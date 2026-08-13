@@ -1,22 +1,44 @@
 // Page chrome shared by every record view: the wrapper, header, actions and sections.
 
-import { panelGroups, renderDisplayFields, renderGroups } from "../utils/form-fields.js";
+import {
+  panelGroups,
+  renderDisplayFields,
+  renderGroups,
+} from "../utils/form-fields.js";
 
 const CONTAINER_ID = "container";
+const TITLE_ID = "title";
+const DESCRIPTION_ID = "description";
+const MESSAGE_ID = "page-message";
+const SUBMIT_ID = "submit-button";
 
-// ─── FRAGMENTS ──────────────────────────────────────────────────────────────
+// ─── BUILDERS ────────────────────────────────────────────────────────────────
 
 function buildTitle() {
   return `
     <div class="page-header side">
-      <h1 class="page-title" id="title"></h1>
-      <p class="section-description" id="description"></p>
+      <h1 class="page-title" id="${TITLE_ID}"></h1>
+      <p class="section-description" id="${DESCRIPTION_ID}"></p>
     </div>
   `;
 }
 
-function buildAction({ id, label, icon, className = "", hidden = false }) {
-  const classes = ["btn", className, "with-icon"].filter(Boolean).join(" ");
+function buildAction(action) {
+  if (action.html) {
+    return action.html;
+  }
+
+  const {
+    id,
+    label,
+    icon,
+    className = "",
+    hidden = false,
+  } = action;
+
+  const classes = ["btn", className, "with-icon"]
+    .filter(Boolean)
+    .join(" ");
 
   return `
     <a class="${classes}" id="${id}"${hidden ? " hidden" : ""}>
@@ -27,12 +49,17 @@ function buildAction({ id, label, icon, className = "", hidden = false }) {
 }
 
 function buildActions(actions) {
-  return `<div class="row right gap-md">${actions.map(buildAction).join("")}</div>`;
+  const markup = actions
+    .map(buildAction)
+    .join("");
+
+  return `<div class="row right gap-md">${markup}</div>`;
 }
 
-// The `.row` wrapper only appears alongside actions, matching the pages this replaces.
 function buildHeader(actions = []) {
-  if (!actions.length) return buildTitle();
+  if (!actions.length) {
+    return buildTitle();
+  }
 
   return `
     <div class="row">
@@ -43,35 +70,97 @@ function buildHeader(actions = []) {
 }
 
 function buildBackLink({ text, view }) {
-  return `<a class="link un" id="back-link" href="#" data-view="${view}">${text}</a>`;
+  return `
+    <a
+      class="link un"
+      id="back-link"
+      href="#"
+      data-view="${view}"
+    >
+      ${text}
+    </a>
+  `;
 }
 
-function buildSectionLink({ view, linkIcon, linkText }) {
+function buildSectionLink({
+  view,
+  linkIcon,
+  linkText,
+}) {
   return `
-    <a class="btn with-icon" href="#" data-view="${view}">
+    <a
+      class="btn with-icon"
+      href="#"
+      data-view="${view}"
+    >
       <i class="btn-icon" data-lucide="${linkIcon}"></i>
       ${linkText}
     </a>
   `;
 }
 
-// No title, no header row; no view, no link. The stats and body slots are the headerless
-// case rather than a shape of their own.
-function buildSection({ id, title = "", view, linkIcon, linkText, className = "", create = false }) {
+function buildLink({
+  href,
+  label,
+  icon,
+  className = "",
+}) {
+  const classes = ["btn", className, "with-icon"]
+    .filter(Boolean)
+    .join(" ");
+
+  return `
+    <a class="${classes}" href="${href}">
+      <i class="btn-icon" data-lucide="${icon}"></i>
+      ${label}
+    </a>
+  `;
+}
+
+function buildSection({
+  id,
+  title = "",
+  view,
+  linkIcon,
+  linkText,
+  links = [],
+  className = "",
+  create = false,
+}) {
+  const actions = [
+    ...(view
+      ? [buildSectionLink({ view, linkIcon, linkText })]
+      : []),
+    ...links.map(buildLink),
+  ];
+
+  const buttons =
+    actions.length > 1
+      ? `<div class="row right gap-md">${actions.join("")}</div>`
+      : actions.join("");
+
   const header = title
     ? `
       <div class="row">
         <h2 class="section-title">${title}</h2>
-        ${view ? buildSectionLink({ view, linkIcon, linkText }) : ""}
+        ${buttons}
       </div>
     `
+    : "";
+
+  const createRow = create
+    ? `<div id="section-${id}-create"></div>`
+    : "";
+
+  const classAttribute = className
+    ? ` class="${className}"`
     : "";
 
   return `
     <section class="page-section">
       ${header}
-      <div${className ? ` class="${className}"` : ""} id="section-${id}"></div>
-      ${create ? `<div id="section-${id}-create"></div>` : ""}
+      <div${classAttribute} id="section-${id}"></div>
+      ${createRow}
     </section>
   `;
 }
@@ -80,25 +169,54 @@ function buildSections(sections) {
   return sections.map(buildSection).join("");
 }
 
-// `className` stays in here rather than being reachable from a domain file — chrome is the
-// engine's job.
 function buildStats(className = "grid-4") {
-  return buildSection({ id: "stats", className });
+  return buildSection({
+    id: "stats",
+    className,
+  });
 }
 
 function buildBody() {
-  return buildSection({ id: "body" });
+  return buildSection({
+    id: "body",
+  });
 }
 
-// Deliberately not a `.page-section` — that carries a 50px bottom margin, which an empty
-// slot would spend on every view that never shows a message.
+// Deliberately not a `.page-section` — an empty message shouldn't introduce
+// the section spacing used by normal content sections.
 function buildMessage() {
-  return `<div id="page-message" hidden></div>`;
+  return `<div id="${MESSAGE_ID}" hidden></div>`;
 }
 
-// ─── PAGE ───────────────────────────────────────────────────────────────────
+// A plain href out of the page, for a link that leaves rather than switching view.
+function buildExitLink({ href, text }) {
+  return `<a class="link un" href="${href}">${text}</a>`;
+}
 
-function buildPage({ back = null, header = "", body = "" }) {
+// Cancel beside the primary button, identical on every create form. The caller wraps this,
+// the panels and the message in one `.column.gap-lg` — that wrapper is what spaces the
+// button off the last panel, and it puts the message directly above the control that
+// produced it.
+function buildFormFooter({ cancelHref, cancelLabel = "Cancel", submitLabel, submitIcon }) {
+  return `
+    <div class="row right gap-md">
+      <a class="btn with-icon" href="${cancelHref}">
+        <i class="btn-icon" data-lucide="x"></i>
+        ${cancelLabel}
+      </a>
+      <button type="button" class="btn primary with-icon" id="${SUBMIT_ID}" disabled>
+        <i class="btn-icon" data-lucide="${submitIcon}"></i>
+        ${submitLabel}
+      </button>
+    </div>
+  `;
+}
+
+function buildPage({
+  back = null,
+  header = "",
+  body = "",
+}) {
   return `
     ${back ? buildBackLink(back) : ""}
     ${header}
@@ -106,7 +224,7 @@ function buildPage({ back = null, header = "", body = "" }) {
   `;
 }
 
-// ─── RENDER ─────────────────────────────────────────────────────────────────
+// ─── RENDERING ───────────────────────────────────────────────────────────────
 
 function renderPage(html) {
   const container = document.getElementById(CONTAINER_ID);
@@ -117,9 +235,15 @@ function renderPage(html) {
   return container;
 }
 
-function renderHeader(title, description) {
-  document.getElementById("title").textContent = title;
-  document.getElementById("description").textContent = description;
+function renderHeader(title, description = "") {
+  const titleElement = document.getElementById(TITLE_ID);
+  const descriptionElement = document.getElementById(
+    DESCRIPTION_ID,
+  );
+
+  titleElement.textContent = title;
+  descriptionElement.textContent = description;
+  descriptionElement.hidden = !description;
 }
 
 function renderDetails(model, fields, recordPanels) {
@@ -131,6 +255,8 @@ function renderDetails(model, fields, recordPanels) {
   );
 }
 
+// ─── DOM ACCESS ──────────────────────────────────────────────────────────────
+
 function sectionBody(id) {
   return document.getElementById(`section-${id}`);
 }
@@ -140,9 +266,14 @@ function sectionCreate(id) {
 }
 
 function pageMessage() {
-  return document.getElementById("page-message");
+  return document.getElementById(MESSAGE_ID);
 }
 
+function submitButton() {
+  return document.getElementById(SUBMIT_ID);
+}
+
+// ─── EXPORTS ─────────────────────────────────────────────────────────────────
 
 export {
   buildHeader,
@@ -151,6 +282,8 @@ export {
   buildSections,
   buildBody,
   buildMessage,
+  buildExitLink,
+  buildFormFooter,
   buildPage,
   renderPage,
   renderDetails,
@@ -158,4 +291,5 @@ export {
   sectionBody,
   sectionCreate,
   pageMessage,
+  submitButton,
 };

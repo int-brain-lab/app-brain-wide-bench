@@ -18,6 +18,32 @@ import { escapeHtml, initials, renderMessage } from "../utils.js";
 
 // ─── DOM ────────────────────────────────────────────────────────────────────
 
+// The block's own markup, so the ids below are declared and queried in one place. Both
+// callers used to write this out themselves — the create page in HTML and the team record
+// page in JS — which meant two copies of a contract only this module enforces.
+function buildMembersCard() {
+  return `
+    <div class="card column gap-md">
+      <!-- Hidden outside edit mode by renderMembers: there is nothing to look someone up
+           *for* until the surrounding form is editable. -->
+      <div class="column gap-xs" id="member-add" hidden>
+        <label class="field-label" for="member-search">Add a member</label>
+        <input class="field-input" id="member-search" type="search"
+               placeholder="Full name or email address" autocomplete="off">
+        <p class="info-msg">
+          Enter the whole name or email — partial matches aren't looked up. They must have
+          signed in at least once before they can be added.
+        </p>
+
+        <!-- The match, with an Add button. Hidden until there is one. -->
+        <div class="column gap-sm" id="member-results" hidden></div>
+      </div>
+
+      <div id="member-list"></div>
+    </div>
+  `;
+}
+
 function getElements() {
   return {
     search: document.getElementById("member-search"),
@@ -330,5 +356,5 @@ function createMembersSection({
   };
 }
 
-export { createMembersSection };
+export { buildMembersCard, createMembersSection };
 

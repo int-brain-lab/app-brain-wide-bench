@@ -1,82 +1,88 @@
-// User details
+// Settings — your own profile.
 //
-// A page showing the details for a single user.
-//
-// The page contains an edit button that allows the user to update editable fields.
-// The fields and title of each panel in the page is defined in USER_PANELS.
-// Editable fields are defined in the USER_FIELDS.
+// A single view, so it keeps its own loader rather than the record engine's; it borrows the
+// page chrome from pages/record-page.js so it looks and behaves like a details view.
 
 import { isAuthenticated } from "../api.js";
 import { fillSidebarUser } from "../nav/nav_side.js";
-import { showMessage, showError } from "../utils.js";
+import { showError, showMessage } from "../utils.js";
 import { Editor } from "../utils/editor.js";
-import {
-  panelGroups,
-  renderDisplayFields,
-  renderGroups,
-} from "../utils/form-fields.js";
+import { panelGroups } from "../utils/form-fields.js";
+import { showGate } from "../utils/gate.js";
 import { loadMe, updateMe } from "./userApi.js";
 import { USER_FIELDS, USER_PANELS } from "./userSchema.js";
-import { showGate } from "../utils/gate.js";
+import {
+  buildBody,
+  buildHeader,
+  buildMessage,
+  buildPage,
+  pageMessage,
+  renderDetails,
+  renderHeader,
+  renderPage,
+  sectionBody,
+} from "../pages/record-page.js";
 
-// ─── DOM ─────────────────────────────────────────────────────────────────────
+const DESCRIPTION =
+  "Your profile details. Name and affiliation are yours to change; the rest comes from "
+  + "your sign-in provider.";
 
-function getElements() {
-  return {
-    gate: document.getElementById("gate"),
-    details: document.getElementById("user-details"),
-    editButton: document.getElementById("edit-user"),
-    saveButton: document.getElementById("save-user"),
-    cancelButton: document.getElementById("cancel-user"),
-    message: document.getElementById("form-message"),
-  };
-}
+const EDIT_ACTION = {
+  id: "edit-button",
+  label: "Edit",
+  icon: "pencil",
+};
 
-// ─── RENDERING ───────────────────────────────────────────────────────────────
+const SAVE_ACTION = {
+  id: "save-button",
+  label: "Save",
+  icon: "check",
+  className: "primary",
+  hidden: true,
+};
 
-function renderDetails(elements, user, fields) {
-  const groups = panelGroups(fields, USER_PANELS);
-  elements.details.innerHTML = renderGroups(
-    groups,
-    user,
-    fields,
-    renderDisplayFields,
-  );
+const CANCEL_ACTION = {
+  id: "cancel-button",
+  label: "Cancel",
+  icon: "x",
+  hidden: true,
+};
 
-  globalThis.lucide?.createIcons?.();
-}
+// ─── EDITOR ──────────────────────────────────────────────────────────────────
 
-// ─── EVENTS ──────────────────────────────────────────────────────────────────
-
-function attachEditor(elements, user, fields) {
+function attachEditor(user) {
   Editor({
-    container: elements.details,
-    editButton: elements.editButton,
-    saveButton: elements.saveButton,
-    cancelButton: elements.cancelButton,
+    container: sectionBody("body"),
+    editButton: document.getElementById("edit-button"),
+    saveButton: document.getElementById("save-button"),
+    cancelButton: document.getElementById("cancel-button"),
     record: user,
-    fields: fields,
-    groups: () => panelGroups(fields, USER_PANELS, { columns: 1 }),
+    fields: USER_FIELDS,
+    groups: () => panelGroups(USER_FIELDS, USER_PANELS, { columns: 1 }),
     save: draft => updateMe(draft),
+
     onSaved: async saved => {
-      renderDetails(elements, saved, fields);
-      showMessage(elements.message, "Your details have been saved.");
+      renderDetails(saved, USER_FIELDS, USER_PANELS);
+      showMessage(pageMessage(), "Your details have been saved.");
+
+      // The sidebar shows the name that was just edited.
       await fillSidebarUser();
     },
-    onCancel: () => renderDetails(elements, user, fields),
 
+    onCancel: () => renderDetails(user, USER_FIELDS, USER_PANELS),
+
+    onError: message => showError(pageMessage(), message),
   }).attach();
 }
 
 // ─── INITIALISATION ──────────────────────────────────────────────────────────
 
 async function loadUserDetailsPage() {
-  const elements = getElements();
+  const elements = { gate: document.getElementById("gate") };
+  const container = document.getElementById("container");
 
   try {
-    const signedIn = await isAuthenticated();
-
-    if (!signedIn) {
+    if (!(await isAuthenticated())) {
       showGate(elements, false);
       return;
     }
@@ -84,23 +90,28 @@ async function loadUserDetailsPage() {
     showGate(elements, true);
 
     const user = await loadMe();
-    const fields = USER_FIELDS;
 
     if (!user) {
-      showError(elements.message, "Could not load your details.");
+      showError(container, "Could not load your details.");
       return;
     }
 
-    renderDetails(elements, user, fields);
-    attachEditor(elements, user, fields);
-  } catch (error) {
-    console.error(
-      "Failed to load user details page ",
-      error);
+    renderPage(
+      buildPage({
+        header: buildHeader([EDIT_ACTION, SAVE_ACTION, CANCEL_ACTION]),
+        body: buildMessage() + buildBody(),
+      }),
+    );
 
-    showError(
-      elements.message,
-      "User details page could not be loaded.")
+    renderHeader("Settings", DESCRIPTION);
+    renderDetails(user, USER_FIELDS, USER_PANELS);
+    attachEditor(user);
+
+    globalThis.lucide?.createIcons?.();
+  } catch (error) {
+    console.error("Failed to load user details page ", error);
+
+    showError(container, "User details page could not be loaded.");
   }
 }
 

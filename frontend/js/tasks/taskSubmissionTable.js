@@ -46,24 +46,23 @@ function toRow(submission, taskSubmission) {
 
 // ─── COLUMNS ────────────────────────────────────────────────────────────────
 
-// Not linkFormatter: that builds `page?id=<one id>`, and editing a task submission
-// needs the submission it belongs to as well as the task itself.
-function taskEditHref(row) {
-  return `/html/tasks/task_details.html`
-    + `?submission=${encodeURIComponent(row.submission_id)}`
-    + `&task=${encodeURIComponent(row.id)}`;
+// Not linkFormatter: that builds an href, and these rows only ever render inside the
+// submission record page — so they route through it. `data-task` is the declared view param
+// the router copies from the link's dataset into the URL.
+function taskLinkAttributes(row) {
+  return `href="#" data-view="task" data-task="${escapeHtml(row.id)}"`;
 }
 
 function taskLinkFormatter(cell) {
   const row = cell.getData();
 
-  return `<a href="${taskEditHref(row)}">${escapeHtml(row.task_id)}</a>`;
+  return `<a ${taskLinkAttributes(row)}>${escapeHtml(row.task_id)}</a>`;
 }
 
 
 function editFormatter(cell) {
   return `
-    <a class="btn with-icon" href="${taskEditHref(cell.getData())}">
+    <a class="btn with-icon" ${taskLinkAttributes(cell.getData())}>
       <i class="btn-icon" data-lucide="pencil"></i>
       Edit
     </a>

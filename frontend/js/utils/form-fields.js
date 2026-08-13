@@ -426,6 +426,33 @@ function panelGroups(fields, panels, { editableOnly = false, columns } = {}) {
 }
 
 
+// Re-rendering a form replaces its inputs, so whichever one had focus is destroyed. Text
+// inputs are safe — `change` fires on blur, so focus has already left — but a select or a
+// checkbox fires `change` while still focused, and that is exactly when a dependent-field
+// re-render happens. Without this, choosing from a dropdown drops the caret to the body.
+//
+// The key is read off `[data-field]`, which is the element the change handlers already
+// match on; for a checkbox-list that is a wrapper rather than a control, so the first
+// focusable descendant stands in for it.
+function withPreservedFocus(container, render) {
+  const active = document.activeElement;
+  const key = container.contains(active) ? active.closest("[data-field]")?.dataset.field : null;
+
+  render();
+
+  if (!key) return;
+
+  const restored = container.querySelector(`[data-field="${key}"]`);
+
+  if (!restored) return;
+
+  const control = restored.matches("input, select, textarea")
+    ? restored
+    : restored.querySelector("input, select, textarea");
+
+  control?.focus();
+}
+
 // ─── EVENTS ─────────────────────────────────────────────────────────────────
 
 // Goes through setFieldValue rather than assigning `state[key]` directly, so a
@@ -487,4 +514,5 @@ export {
   revalidateFields,
   setFieldValue,
   getFieldValue,
+  withPreservedFocus,
 };
