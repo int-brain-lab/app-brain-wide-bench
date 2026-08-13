@@ -188,24 +188,19 @@ function buildMessage() {
   return `<div id="${MESSAGE_ID}" hidden></div>`;
 }
 
-// A plain href out of the page, for a link that leaves rather than switching view.
-function buildExitLink({ href, text }) {
-  return `<a class="link un" href="${href}">${text}</a>`;
-}
-
 // Cancel beside the primary button, identical on every create form. The caller wraps this,
 // the panels and the message in one `.column.gap-lg` — that wrapper is what spaces the
 // button off the last panel, and it puts the message directly above the control that
 // produced it.
-function buildFormFooter({ cancelHref, cancelLabel = "Cancel", submitLabel, submitIcon }) {
+function buildFormFooter({ cancelHref, submitLabel }) {
   return `
     <div class="row right gap-md">
       <a class="btn with-icon" href="${cancelHref}">
         <i class="btn-icon" data-lucide="x"></i>
-        ${cancelLabel}
+        Cancel
       </a>
       <button type="button" class="btn primary with-icon" id="${SUBMIT_ID}" disabled>
-        <i class="btn-icon" data-lucide="${submitIcon}"></i>
+        <i class="btn-icon" data-lucide="plus"></i>
         ${submitLabel}
       </button>
     </div>
@@ -282,7 +277,6 @@ export {
   buildSections,
   buildBody,
   buildMessage,
-  buildExitLink,
   buildFormFooter,
   buildPage,
   renderPage,

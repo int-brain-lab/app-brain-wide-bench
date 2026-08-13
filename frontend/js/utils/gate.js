@@ -21,8 +21,8 @@ import { login } from "../api.js";
  * Sets `hidden` on every sibling of the gate, so anything the page puts inside
  * .content-private is covered without being named here.
  */
-function showGate(elements, signedIn) {
-  const gate = elements.gate;
+function showGate(signedIn) {
+  const gate = document.getElementById("gate");
 
   if (!gate) return;
 

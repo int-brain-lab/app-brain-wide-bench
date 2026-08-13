@@ -1,4 +1,4 @@
-// The task panel of the single-page submission form (js/submissions/submissionCreate.js).
+// The task panel of the single-page submission form.
 //
 // Master–detail: detected tasks are listed on the left, grouped by suite, and the
 // selected task's methodology form is shown on the right.
@@ -6,14 +6,11 @@
 // The task list is determined entirely by the uploaded zip. This section does not
 // add, remove, or rename tasks.
 //
-// Usage:
-//
-//   const tasks = createTaskSection({ container, onChange });
-//   await tasks.initialise(catalogue);
-//   tasks.setModel(model);
-//   tasks.applyDetected(idsFromZip);
 
-import { escapeHtml, renderMessage } from "../utils.js";
+import {
+  escapeHtml,
+  renderMessage,
+} from "../utils.js";
 import {
   createFieldState,
   fieldsForPanel,
@@ -25,38 +22,32 @@ import {
 } from "../utils/form-fields.js";
 import {
   TASK_FIELDS,
-  loadTaskFields,
   trainingFieldKeys,
 } from "./taskSubmissionSchema.js";
 import { SUITES } from "../utils/suites.js";
-import { buildSuiteBadgeList } from "../components/badges.js"
+import { buildSuiteBadgeList } from "../components/badges.js";
 
-/**
- * @param {HTMLElement} container
- * @param {() => void} [onChange]
- * @returns {{
- *   initialise: (catalogue: Map) => Promise<void>,
- *   applyDetected: (taskIds: string[]) => void,
- *   setModel: (model: object) => void,
- *   allValid: () => boolean,
- *   allConfirmed: () => boolean,
- *   ids: () => string[],
- *   payloads: () => object[],
- * }}
- */
-function createTaskSection({ container, onChange } = {}) {
-  // Tasks are kept in upload order. The Map provides O(1) lookup by task ID.
+
+
+// TODO move out build from controller
+const PANEL_ID = "task-panel";
+
+// This component owns its markup: `buildTaskPanel()` goes in the panel, and
+// `createTaskSection()` finds it once that markup is in the DOM. Same shape as
+// submissionUpload.js.
+function buildTaskPanel() {
+  return `<div id="${PANEL_ID}"></div>`;
+}
+
+function createTaskSection({ taskSuites, onChange } = {}) {
+  const container = document.getElementById(PANEL_ID);
+
   let tasks = new Map();
-
-  // task ID → suite name.
-  // An empty map means the catalogue could not be loaded, so task IDs are
-  // treated as valid rather than marking every task as unknown.
-  let taskSuites = new Map();
-
+  let groups = new Map();
   let selectedTaskId = null;
   let model = null;
 
-  // ─── STATE ──────────────────────────────────────────────────────────────
+  // ─── TASK STATE ───────────────────────────────────────────────────────────
 
   function createTask(taskId) {
     const state = createFieldState(TASK_FIELDS);
@@ -77,83 +68,25 @@ function createTaskSection({ container, onChange } = {}) {
     return tasks.get(taskId);
   }
 
-  function isValid(taskId) {
-    return taskSuites.size === 0 || taskSuites.has(taskId);
-  }
-
   function getSuite(taskId) {
     return taskSuites.get(taskId) ?? null;
   }
 
-  // ─── GROUPING ────────────────────────────────────────────────────────────
-
-  function groupTasks() {
-    if (tasks.size === 0) return [];
-
-    // If the catalogue is unavailable, don't pretend we know which tasks
-    // belong to which suite.
-    if (taskSuites.size === 0) {
-      return [
-        {
-          key: "all",
-          badge: "",
-          tasks: [...tasks.values()],
-        },
-      ];
-    }
-
-    const groups = new Map();
-
-    for (const task of tasks.values()) {
-      const suite = getSuite(task.taskId);
-      const key = suite ?? "unknown";
-
-      if (!groups.has(key)) {
-        groups.set(key, []);
-      }
-
-      groups.get(key).push(task);
-    }
-
-    // Unknown tasks deliberately appear first so they cannot be overlooked.
-    const result = [];
-
-    if (groups.has("unknown")) {
-      result.push({
-        key: "unknown",
-        badge: `<span class="badge sm error">Unrecognised</span>`,
-        tasks: groups.get("unknown"),
-      });
-    }
-
-    for (const suite of SUITES) {
-      const suiteTasks = groups.get(suite);
-
-      if (!suiteTasks?.length) continue;
-
-      result.push({
-        key: suite,
-        badge: buildSuiteBadgeList([suite]),
-        tasks: suiteTasks,
-      });
-    }
-
-    return result;
+  function isComplete(task) {
+    return task.confirmed && task.cleared.length === 0;
   }
 
-  // ─── APPLY TO SUITE ─────────────────────────────────────────────────────
+  // ─── SUITE OPERATIONS ─────────────────────────────────────────────────────
 
-  function suiteSiblings(task) {
+  function getSuiteSiblings(task) {
     const suite = getSuite(task.taskId);
 
-    if (suite === null) return [];
+    if (!suite) return [];
 
-    return [...tasks.values()].filter(
-      other => getSuite(other.taskId) === suite,
-    );
+    return [...groups.get(suite) ?? []];
   }
 
-  function sameValue(a, b) {
+  function valuesEqual(a, b) {
     if (Array.isArray(a) && Array.isArray(b)) {
       return (
         a.length === b.length &&
@@ -164,48 +97,47 @@ function createTaskSection({ container, onChange } = {}) {
     return a === b;
   }
 
-  /**
-   * Copy all methodology fields from one task to another.
-   *
-   * The whole state is assigned before revalidation. This matters because
-   * schema predicates can depend on multiple fields.
-   */
-  function copyMethodology(source, target) {
-    for (const key of trainingFieldKeys()) {
+  function copyFields(source, target) {
+    const keys = trainingFieldKeys();
+
+    for (const key of keys) {
       const value = source.state[key];
 
-      target.state[key] = Array.isArray(value) ? [...value] : value;
+      target.state[key] = Array.isArray(value)
+        ? [...value]
+        : value;
     }
 
+    // Revalidate after copying the complete state because field predicates can
+    // depend on more than one value.
     revalidateFields(target.state, TASK_FIELDS);
 
-    target.cleared = trainingFieldKeys().filter(
-      key => !sameValue(source.state[key], target.state[key]),
+    target.cleared = keys.filter(
+      key => !valuesEqual(
+        source.state[key],
+        target.state[key],
+      ),
     );
 
-    // Confirmation belongs to the methodology being copied. However, never
-    // propagate a confirmation if copying caused values to become invalid.
+    // A copied confirmation is only valid if copying did not invalidate anything.
     target.confirmed =
-      source.confirmed && target.cleared.length === 0;
+      source.confirmed &&
+      target.cleared.length === 0;
   }
 
-  function propagate(task) {
+  function applyToSuite(task) {
     if (!task.applyToSuite) return;
 
-    for (const sibling of suiteSiblings(task)) {
-      if (sibling !== task) {
-        copyMethodology(task, sibling);
-      }
+    for (const sibling of getSuiteSiblings(task)) {
+      if (sibling === task) continue;
+
+      copyFields(task, sibling);
     }
   }
 
-  // ─── RENDERING ──────────────────────────────────────────────────────────
+  // ─── RENDERING ────────────────────────────────────────────────────────────
 
-  function buildStatus(task) {
-    if (!isValid(task.taskId)) {
-      return `<span class="task-status bad">✗</span>`;
-    }
-
+  function buildTaskStatus(task) {
     if (task.confirmed) {
       return `<span class="task-status ok">✓</span>`;
     }
@@ -213,14 +145,10 @@ function createTaskSection({ container, onChange } = {}) {
     return `<span class="task-status pending"></span>`;
   }
 
-  function buildItem(task) {
+  function buildTaskItem(task) {
     const id = escapeHtml(task.taskId);
 
-    const classes = [
-      "task-item",
-      task.taskId === selectedTaskId ? "selected" : "",
-      isValid(task.taskId) ? "" : "invalid",
-    ]
+    const classes = ["task-item", task.taskId === selectedTaskId ? "selected" : ""]
       .filter(Boolean)
       .join(" ");
 
@@ -230,19 +158,21 @@ function createTaskSection({ container, onChange } = {}) {
         class="${classes}"
         data-task="${id}"
       >
-        ${buildStatus(task)}
+        ${buildTaskStatus(task)}
         <span class="task-item-label">${id}</span>
       </button>
     `;
   }
 
-  function buildGroup(group) {
-    const count = group.tasks.length;
+  function buildTaskGroup(suite, suiteTasks) {
+    const count = suiteTasks.length;
 
-    const header = group.badge
+    // A null suite is the no-catalogue case — one unlabelled group, because there is no
+    // suite to name.
+    const header = suite
       ? `
         <div class="row left gap-sm">
-          ${group.badge}
+          ${buildSuiteBadgeList([suite])}
           <span class="metadata">
             ${count} task${count === 1 ? "" : "s"}
           </span>
@@ -253,23 +183,35 @@ function createTaskSection({ container, onChange } = {}) {
     return `
       <div class="column gap-xs">
         ${header}
+
         <div class="column gap-xs">
-          ${group.tasks.map(buildItem).join("")}
+          ${suiteTasks.map(buildTaskItem).join("")}
         </div>
       </div>
     `;
   }
 
-  function buildPicker() {
+  // `groups` is keyed by suite and built once per upload; SUITES is what puts it in a
+  // stable order. With no catalogue every task lands under `null`.
+  function buildTaskGroups() {
+    const keys = taskSuites.size ? SUITES : [null];
+
+    return keys
+      .filter(suite => groups.get(suite)?.length)
+      .map(suite => buildTaskGroup(suite, groups.get(suite)))
+      .join("");
+  }
+
+  function buildTaskPicker() {
     return `
       <div class="task-picker column gap-md">
-        ${groupTasks().map(buildGroup).join("")}
+        ${buildTaskGroups()}
       </div>
     `;
   }
 
   function buildClearedNotice(task) {
-    if (task.cleared.length === 0) return "";
+    if (!task.cleared.length) return "";
 
     const labels = task.cleared
       .map(key => TASK_FIELDS[key].label)
@@ -283,13 +225,15 @@ function createTaskSection({ container, onChange } = {}) {
   }
 
   function buildApplyToSuite(task) {
-    const siblings = suiteSiblings(task);
+    const siblings = getSuiteSiblings(task);
 
-    // No point offering "apply to all" when this is the only task in the suite.
+    // Don't show the control when this is the only task in the suite.
     if (siblings.length < 2) return "";
 
-    const id = escapeHtml(task.taskId);
-    const suite = escapeHtml(getSuite(task.taskId).toUpperCase());
+    const taskId = escapeHtml(task.taskId);
+    const suite = escapeHtml(
+      getSuite(task.taskId).toUpperCase(),
+    );
 
     return `
       <div class="card row left gap-sm">
@@ -301,14 +245,14 @@ function createTaskSection({ container, onChange } = {}) {
           class="input-checkbox task-apply-suite"
           id="task-apply-suite"
           type="checkbox"
-          data-task="${id}"
+          data-task="${taskId}"
           ${task.applyToSuite ? "checked" : ""}
         />
       </div>
     `;
   }
 
-  function buildDetail() {
+  function buildTaskDetail() {
     const task = getTask(selectedTaskId);
 
     if (!task) {
@@ -321,25 +265,12 @@ function createTaskSection({ container, onChange } = {}) {
       `;
     }
 
-    const id = escapeHtml(task.taskId);
-
-    if (!isValid(task.taskId)) {
-      return `
-        <div class="card column gap-md">
-          <p class="title muted">${id}</p>
-
-          <p class="error-msg">
-            ✗ "${id}" is not a recognised task.
-            Correct the folder name in your zip and upload it again.
-          </p>
-        </div>
-      `;
-    }
+    const taskId = escapeHtml(task.taskId);
 
     return `
       <div class="column gap-md">
         <div class="card column gap-md">
-          <p class="title muted">${id}</p>
+          <p class="title muted">${taskId}</p>
 
           ${buildClearedNotice(task)}
 
@@ -360,7 +291,7 @@ function createTaskSection({ container, onChange } = {}) {
               class="input-checkbox task-confirm"
               id="task-confirm"
               type="checkbox"
-              data-task="${id}"
+              data-task="${taskId}"
               ${task.confirmed ? "checked" : ""}
             />
           </div>
@@ -372,7 +303,7 @@ function createTaskSection({ container, onChange } = {}) {
   }
 
   function render() {
-    if (tasks.size === 0) {
+    if (!tasks.size) {
       renderMessage(
         container,
         "No tasks yet — upload a zip on the panel above.",
@@ -383,19 +314,18 @@ function createTaskSection({ container, onChange } = {}) {
     withPreservedFocus(container, () => {
       container.innerHTML = `
         <div class="task-split">
-          ${buildPicker()}
-          ${buildDetail()}
+          ${buildTaskPicker()}
+          ${buildTaskDetail()}
         </div>
       `;
     });
   }
 
-  // ─── EVENTS ─────────────────────────────────────────────────────────────
+  // ─── STATE UPDATES ────────────────────────────────────────────────────────
 
   function updateTask(task, update) {
     update(task);
-
-    propagate(task);
+    applyToSuite(task);
     render();
     onChange?.();
   }
@@ -412,23 +342,22 @@ function createTaskSection({ container, onChange } = {}) {
 
     if (!task) return;
 
-    updateTask(task, task => {
-      task.confirmed = confirmed;
+    updateTask(task, currentTask => {
+      currentTask.confirmed = confirmed;
     });
   }
 
-  function setTaskField(taskId, key, value) {
+  function updateField(taskId, key, value) {
     const task = getTask(taskId);
 
     if (!task) return;
 
-    updateTask(task, task => {
-      // Confirmation means "the current values are correct", so any edit
-      // invalidates it.
-      task.confirmed = false;
+    updateTask(task, currentTask => {
+      // Editing methodology invalidates the previous confirmation.
+      currentTask.confirmed = false;
 
-      task.cleared = setFieldValue(
-        task.state,
+      currentTask.cleared = setFieldValue(
+        currentTask.state,
         TASK_FIELDS,
         key,
         value,
@@ -436,78 +365,102 @@ function createTaskSection({ container, onChange } = {}) {
     });
   }
 
-  function setApplyToSuite(taskId, checked) {
+  function toggleApplyToSuite(taskId, checked) {
     const task = getTask(taskId);
 
     if (!task) return;
 
-    updateTask(task, task => {
-      task.applyToSuite = checked;
+    updateTask(task, currentTask => {
+      currentTask.applyToSuite = checked;
     });
   }
 
-  function attachEvents() {
-    container.addEventListener("click", event => {
-      const item = event.target.closest(".task-item");
+  // ─── EVENTS ───────────────────────────────────────────────────────────────
 
-      if (item) {
-        selectTask(item.dataset.task);
-      }
-    });
+  function handleClick(event) {
+    const item = event.target.closest(".task-item");
 
-    container.addEventListener("change", event => {
-      const confirmCheckbox = event.target.closest(".task-confirm");
+    if (item) {
+      selectTask(item.dataset.task);
+    }
+  }
 
-      if (confirmCheckbox) {
-        confirmTask(
-          confirmCheckbox.dataset.task,
-          confirmCheckbox.checked,
-        );
-        return;
-      }
+  function handleChange(event) {
+    const confirmCheckbox = event.target.closest(".task-confirm");
 
-      const applyCheckbox = event.target.closest(".task-apply-suite");
-
-      if (applyCheckbox) {
-        setApplyToSuite(
-          applyCheckbox.dataset.task,
-          applyCheckbox.checked,
-        );
-        return;
-      }
-
-      const input = event.target.closest("[data-field]");
-
-      if (!input || !selectedTaskId) return;
-
-      const key = input.dataset.field;
-      const field = TASK_FIELDS[key];
-
-      if (!field) return;
-
-      setTaskField(
-        selectedTaskId,
-        key,
-        getFieldValue(field, key, input, container),
+    if (confirmCheckbox) {
+      confirmTask(
+        confirmCheckbox.dataset.task,
+        confirmCheckbox.checked,
       );
-    });
+      return;
+    }
+
+    const applyCheckbox = event.target.closest(
+      ".task-apply-suite",
+    );
+
+    if (applyCheckbox) {
+      toggleApplyToSuite(
+        applyCheckbox.dataset.task,
+        applyCheckbox.checked,
+      );
+      return;
+    }
+
+    const input = event.target.closest("[data-field]");
+
+    if (!input || !selectedTaskId) return;
+
+    const key = input.dataset.field;
+    const field = TASK_FIELDS[key];
+
+    if (!field) return;
+
+    updateField(
+      selectedTaskId,
+      key,
+      getFieldValue(
+        field,
+        key,
+        input,
+        container,
+      ),
+    );
   }
 
-  // ─── PAGE INTERFACE ─────────────────────────────────────────────────────
+  function attach() {
+    container.addEventListener("click", handleClick);
+    container.addEventListener("change", handleChange);
 
-  function applyDetected(detectedTaskIds) {
+    // Draws the "no tasks yet" placeholder; without it the panel is blank until a zip
+    // lands, which the old `initialise()` avoided by rendering here.
+    render();
+  }
+
+  // ─── PUBLIC API ───────────────────────────────────────────────────────────
+
+  function setTasks(taskIds) {
     tasks = new Map(
-      detectedTaskIds.map(taskId => [
+      taskIds.map(taskId => [
         taskId,
         createTask(taskId),
       ]),
     );
 
-    // Put the first invalid task first, otherwise select the first task.
-    selectedTaskId =
-      detectedTaskIds.find(id => !isValid(id)) ??
-      detectedTaskIds[0] ??
-      null;
+    // Assign the tasks to groups
+    groups = new Map()
+    for (const task of tasks.values()) {
+      const suite = getSuite(task.taskId);
+
+      if (!groups.has(suite)) {
+        groups.set(suite, []);
+      }
+
+      groups.get(suite).push(task);
+    }
+
+    selectedTaskId = taskIds[0] ?? null;
 
     render();
     onChange?.();
@@ -533,28 +486,20 @@ function createTaskSection({ container, onChange } = {}) {
     onChange?.();
   }
 
-  function allValid() {
-    return [...tasks.values()].every(task =>
-      isValid(task.taskId),
-    );
-  }
-
   function allConfirmed() {
     return (
       tasks.size > 0 &&
-      [...tasks.values()].every(task => task.confirmed)
+      [...tasks.values()].every(isComplete)
     );
   }
 
-  function ids() {
-    return [...tasks.keys()];
-  }
-
   function payloads() {
+    const keys = trainingFieldKeys();
+
     return [...tasks.values()].map(task => ({
       task_id: task.taskId,
       ...Object.fromEntries(
-        trainingFieldKeys().map(key => [
+        keys.map(key => [
           key,
           task.state[key],
         ]),
@@ -562,24 +507,14 @@ function createTaskSection({ container, onChange } = {}) {
     }));
   }
 
-  async function initialise(knownTasks) {
-    taskSuites = knownTasks ?? new Map();
-
-    await loadTaskFields();
-
-    attachEvents();
-    render();
-  }
 
   return {
-    initialise,
-    applyDetected,
+    attach,
+    setTasks,
     setModel,
-    allValid,
     allConfirmed,
-    ids,
     payloads,
   };
 }
 
-export { createTaskSection };
+export { buildTaskPanel, createTaskSection };

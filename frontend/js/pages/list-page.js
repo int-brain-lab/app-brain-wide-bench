@@ -122,7 +122,7 @@ async function loadListPage({
   description = "",
   maxCards = 6,
 }) {
-  const gate = document.getElementById("gate");
+  const container = document.getElementById("container");
 
   // The currently mounted Tabulator instance. It needs to be destroyed before
   // switching views because replacing the list's contents does not destroy it.
@@ -158,11 +158,11 @@ async function loadListPage({
 
   try {
     if (!(await isAuthenticated())) {
-      showGate({ gate }, false);
+      showGate(false);
       return;
     }
 
-    showGate({ gate }, true);
+    showGate(true);
 
     renderPage(
       buildPage({
@@ -204,8 +204,10 @@ async function loadListPage({
   } catch (error) {
     console.error(`Failed to load the ${noun} list:`, error);
 
+    // `pageMessage()` only exists once the page has rendered; a failure before that has
+    // nowhere to go but the container.
     showError(
-      pageMessage() ?? gate,
+      pageMessage() ?? container,
       `The ${noun} list page could not be loaded.`,
     );
   }

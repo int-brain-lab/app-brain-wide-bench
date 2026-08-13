@@ -21,7 +21,7 @@ import { escapeHtml, initials, renderMessage } from "../utils.js";
 // The block's own markup, so the ids below are declared and queried in one place. Both
 // callers used to write this out themselves — the create page in HTML and the team record
 // page in JS — which meant two copies of a contract only this module enforces.
-function buildMembersCard() {
+function buildMembersPanel() {
   return `
     <div class="card column gap-md">
       <!-- Hidden outside edit mode by renderMembers: there is nothing to look someone up
@@ -104,7 +104,7 @@ function createMembersSection({
   // `.row` is `display: flex`, and setting that on a table cell takes it out of the table's
   // layout entirely — the cell stops sizing with its column, so it no longer lines up with
   // its header and the row's other cells shift to fill the space.
-  function renderMemberRow(member) {
+  function buildMemberRow(member) {
     return `
       <tr>
         <td>${escapeHtml(member.name || "—")}</td>
@@ -155,7 +155,7 @@ function createMembersSection({
             </tr>
           </thead>
           <tbody>
-            ${members.map(renderMemberRow).join("")}
+            ${members.map(buildMemberRow).join("")}
           </tbody>
         </table>
       </div>
@@ -352,9 +352,8 @@ function createMembersSection({
     setEditing,
     reset,
     apply,
-    hasChanges,
   };
 }
 
-export { buildMembersCard, createMembersSection };
+export { buildMembersPanel, createMembersSection };
 

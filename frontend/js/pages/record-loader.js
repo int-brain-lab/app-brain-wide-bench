@@ -18,16 +18,15 @@ async function loadRecordPage({
   // in the URL, so `load` is called with nothing.
   requiresId = true,
 }) {
-  const elements = { gate: document.getElementById("gate") };
   const container = document.getElementById("container");
 
   try {
     if (!(await isAuthenticated())) {
-      showGate(elements, false);
+      showGate(false);
       return;
     }
 
-    showGate(elements, true);
+    showGate(true);
 
     const id = requiresId ? new URLSearchParams(location.search).get("id") : null;
 

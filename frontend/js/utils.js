@@ -27,6 +27,10 @@ function initials(name) {
 }
 
 
+function refreshIcons() {
+  globalThis.lucide?.createIcons?.();
+}
+
 // Human-readable file size, e.g. "41.2 MB".
 function formatBytes(bytes) {
   if (bytes == null || Number.isNaN(bytes)) return "";
@@ -106,5 +110,6 @@ export {
   renderMessage,
   showMessage,
   showError,
-  mean
+  mean,
+  refreshIcons
 };

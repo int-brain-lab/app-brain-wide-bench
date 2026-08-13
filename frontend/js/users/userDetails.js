@@ -78,16 +78,15 @@ function attachEditor(user) {
 // ─── INITIALISATION ──────────────────────────────────────────────────────────
 
 async function loadUserDetailsPage() {
-  const elements = { gate: document.getElementById("gate") };
   const container = document.getElementById("container");
 
   try {
     if (!(await isAuthenticated())) {
-      showGate(elements, false);
+      showGate(false);
       return;
     }
 
-    showGate(elements, true);
+    showGate(true);
 
     const user = await loadMe();
 

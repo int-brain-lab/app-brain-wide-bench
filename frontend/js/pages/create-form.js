@@ -1,12 +1,31 @@
-// A create form: locked panels, a submit button that arms itself, and the submit lifecycle.
+// Template for a create form
 //
-// The page's markup needs a `#gate` card and a `#container`, same as every other page;
+// The page markup needs a `#gate` card and a `#container`, same as every other page;
 // everything below is rendered.
 //
-// Two phases, and the split is load-bearing. `mount()` builds every fieldset once — that's
-// when a panel's own content appears and when the components inside it can be constructed.
-// `render()` refills only the schema-driven panels, so a re-render can never destroy
-// listeners a component attached to markup it built.
+// The form contains fields that are grouped into panels. Subsequent panels are locked until
+// all required fields in the previous panel are filled.
+//
+// Panels can be schema-driven or component-driven. Schema-driven panels are built from the
+// field definitions and while component-driven panels are built using the build function
+// supplied in the panel definition.
+//
+// Component-driven panels are never re-rendered after the initial mount, so they can maintain
+// their own state and event listeners.
+
+// Schema-driven panels are re-rendered when hasDependentFields is true. These dependencies
+// are defined in the disabledWhen or disabledOptionsWhen keys of the schema.
+// When a field changes, the form re-renders all schema-driven panels to update the state of dependent fields.
+//
+// The form is created in two phases. `initialise()` builds every fieldset once, including panels
+// owned by components. `render()` only updates schema-driven panels, so component
+// listeners are never destroyed by a form re-render.
+//
+// The page builds its components between the two, so the lifecycle is:
+//
+//   initialise()  → build the fieldsets and fill the schema-driven ones
+//   …             → construct the components that own the remaining panels
+//   attach()      → bind the listeners, then refresh for the first time
 
 import {
   attachFieldEvents,
@@ -15,9 +34,8 @@ import {
   renderFields,
   renderGroups,
 } from "../utils/form-fields.js";
-import { showError, showMessage } from "../utils.js";
+import { showError, showMessage, refreshIcons } from "../utils.js";
 import {
-  buildExitLink,
   buildFormFooter,
   buildHeader,
   buildMessage,
@@ -36,7 +54,8 @@ function hasDependentFields(fields) {
   );
 }
 
-// Empty strings, null and empty arrays are unset. `false` and `0` are valid values.
+// Empty strings, null and empty arrays are unset.
+// `false` and `0` are valid values.
 function isFilled(value) {
   if (value == null) return false;
   if (typeof value === "string") return value.trim() !== "";
@@ -45,62 +64,74 @@ function isFilled(value) {
   return true;
 }
 
+
 /**
- * @param panels        [{ panel, required: [key], build }] — one entry per fieldset, in
- *                      order. `build` returns the panel's markup and marks it as the page's
- *                      own: it is built once and never re-rendered. A panel without it is
- *                      filled from `schemaPanels`.
- * @param schemaPanels  XXX_PANELS, for the layout of the schema-driven panels.
- * @param alsoRequires  optional () => boolean, ANDed with panel completeness to enable
- *                      submit — for a control the schema doesn't know about.
- * @param onChange      optional async (key, value, cleared) => void, run before the form
- *                      re-renders, for a field whose change has to fetch something.
- * @param submit        async (state) => destination URL. Returning a URL navigates;
- *                      returning nothing leaves the page up, for a partial success only the
- *                      page can describe. Errors are caught, reported and the form re-armed.
+ * @param noun          The object being created, e.g "model" or "team". Used to label messages and buttons.
+ *
+ * @param header        { title, description }, for the page header. Optional; if not supplied
+ *                      a default header will be built using the noun.
+ *
+ * @param backTo        { href, text }, for the back link in the header. href is also used for
+ *                      the cancel button in the footer.
+ *
+ * @param panels        [{ panel, required, complete, build, title }] — one entry per panel.
+ *                      The order in the list defines the order on the page.
+ *                      `panel` is a number, `required` is an array of field keys that must
+ *                      be filled for the panel to be considered complete, `title` is an
+ *                      optional string to display above the panel, and `build` is an optional
+ *                      function that returns HTML to insert into the panel.
+ *
+ *                      `complete` is an optional () => boolean, ANDed with the required keys.
+ *                      It is how a component-driven panel reports completeness the schema
+ *                      can't see — and because the panels below it stay locked until it
+ *                      passes, it is also how a panel refuses to let the user move on.
+ *
+ * @param fields        The field definitions, defined in the schema. The form uses these
+ *                      to build schema-driven panels and to determine which fields are required for each panel.
+ *
+ * @param submit        async (state) => destination URL. The function to call to submit the form.
+ *                      It should return a URL to navigate to on success, or null to stay on the page.
+ *
+ * @param onChange      async (key, value, cleared) => void. Called when a field changes. Optional.
+ *                     `key` is the field key, `value` is the new value, and `cleared` is an array of
+ *                     field keys that were cleared as a result of the change. This is useful for re-rendering
+ *                     dependent fields.
  */
 function createPanelForm({
-  title,
-  description = "",
+  noun,
+  header,
   backTo,
   panels,
-  schemaPanels,
   fields,
-  cancelHref,
-  submitLabel,
-  submitIcon = "plus",
-  submitError,
-  alsoRequires,
-  onChange,
   submit,
+  onChange,
 }) {
-  const byNumber = new Map(panels.map(panel => [panel.panel, panel]));
+
   const state = createFieldState(fields);
+  const hasDependencies = hasDependentFields(fields);
 
-  // A property of the schema, not of any one change: with no field depending on another,
-  // nothing can be cleared and no re-render can change what is disabled. Currently false
-  // for all three create schemas, so the re-render below never runs — kept because the next
-  // schema to grow a `disabledWhen` needs it, and a stale disabled state would be silent.
-  const dependent = hasDependentFields(fields);
+  const panelsByNumber = new Map(
+    panels.map(panel => [panel.panel, panel]),
+  );
 
-  // The panels this form fills. A panel with its own `build` is excluded: refilling it would
-  // replace the very elements its components are listening to.
-  const filled = schemaPanels.filter(panel => !byNumber.get(panel.panel)?.build);
+  // Panels with their own build function are owned by components and must not
+  // be re-rendered after mount.
+  const renderedPanels = panels.filter(panel => !panel.build);
 
-  function panelsContainer() {
-    return document.getElementById(PANELS_ID);
-  }
+  let panelElements = new Map();
 
   function getPanel(panelNumber) {
-    return panelsContainer().querySelector(`[data-panel="${panelNumber}"]`);
+    return panelElements.get(panelNumber);
   }
 
   function isPanelComplete(panelNumber) {
-    return (byNumber.get(panelNumber)?.required ?? []).every(key => isFilled(state[key]));
+    const panel = panelsByNumber.get(panelNumber);
+
+    return (panel?.required ?? []).every(key => isFilled(state[key]))
+      && (panel?.complete?.() ?? true);
   }
 
-  // A panel opens only when every preceding panel is complete, so clearing a value in an
-  // earlier panel also closes everything below it.
+  // A panel opens when every preceding panel is complete.
   function isPanelOpen(panelNumber) {
     return panels
       .filter(panel => panel.panel < panelNumber)
@@ -108,73 +139,119 @@ function createPanelForm({
   }
 
   function buildGroups(panel) {
-    return panelGroups(fields, [panel], { editableOnly: true, columns: 1 });
+    return panelGroups(
+      fields,
+      [panel],
+      {
+        editableOnly: true,
+        columns: 1,
+      },
+    );
   }
 
-  function mount() {
+  function initialise() {
     renderPage(
       buildPage({
+        back: backTo,
         header: buildHeader(),
         body: `
-          ${backTo ? buildExitLink(backTo) : ""}
           <div class="column gap-lg">
             <div class="column gap-lg" id="${PANELS_ID}"></div>
             ${buildMessage()}
-            ${buildFormFooter({ cancelHref, submitLabel, submitIcon })}
+            ${buildFormFooter({
+              cancelHref: backTo.href ?? "",
+              submitLabel: `Create ${noun}`
+            })}
           </div>
         `,
       }),
     );
 
-    renderHeader(title, description);
+    renderHeader(header ? header.title : `Create new ${noun}`, header ? header.description : "");
 
-    panelsContainer().innerHTML = panels
-      .map(panel => `
-        <fieldset class="form-panel" data-panel="${panel.panel}">
-          ${panel.build?.() ?? ""}
-        </fieldset>
-      `)
+    const container = document.getElementById(PANELS_ID);
+
+    container.innerHTML = panels
+      .map(
+        ({ panel, build }) => `
+          <fieldset class="form-panel" data-panel="${panel}">
+            ${build?.() ?? ""}
+          </fieldset>
+        `,
+      )
       .join("");
 
-    globalThis.lucide?.createIcons?.();
+    // Store the panels so they can be easily accessed without querying the DOM each time.
+    panelElements = new Map(
+      [...container.querySelectorAll("[data-panel]")].map(element => [
+        Number(element.dataset.panel),
+        element,
+      ]),
+    );
+
+    render();
   }
 
   function render() {
-    for (const panel of filled) {
+    for (const panel of renderedPanels) {
       const element = getPanel(panel.panel);
 
       if (!element) continue;
 
-      element.innerHTML = renderGroups(buildGroups(panel), state, fields, renderFields);
+      element.innerHTML = renderGroups(
+        buildGroups(panel),
+        state,
+        fields,
+        renderFields,
+      );
     }
 
-    globalThis.lucide?.createIcons?.();
+    refreshIcons();
   }
 
   function applyLocks() {
     for (const panel of panels) {
       const element = getPanel(panel.panel);
 
-      if (element) element.disabled = !isPanelOpen(panel.panel);
+      if (element) {
+        element.disabled = !isPanelOpen(panel.panel);
+      }
     }
+  }
+
+  function isComplete() {
+    return panels.every(panel =>
+      isPanelComplete(panel.panel),
+    );
+  }
+
+  function canSubmit() {
+    return isComplete();
   }
 
   function refresh() {
     applyLocks();
-
-    const complete = panels.every(panel => isPanelComplete(panel.panel));
-
-    submitButton().disabled = !(complete && (alsoRequires?.() ?? true));
+    submitButton().disabled = !canSubmit();
   }
 
   function handleFieldChange(cleared) {
     if (cleared.length) {
-      const labels = cleared.map(key => fields[key].label).join(", ");
+      const labels = cleared
+        .map(key => fields[key].label)
+        .join(", ");
 
-      showError(pageMessage(), `Cleared (no longer valid): ${labels}`);
+      showError(
+        pageMessage(),
+        `Cleared (no longer valid): ${labels}`,
+      );
+    } else {
+      // Clear stale messages from a previous change
+      showMessage(pageMessage(), "");
     }
 
-    if (cleared.length || dependent) render();
+    if (cleared.length || hasDependencies) {
+      render();
+    }
 
     refresh();
   }
@@ -191,37 +268,53 @@ function createPanelForm({
         return;
       }
 
-      // No destination: the page reported something it needs to stay put for. Re-arm from
-      // the current state rather than blindly re-enabling.
       refresh();
     } catch (error) {
       console.error(error);
 
-      showError(pageMessage(), submitError ? `${submitError}: ${error.message}` : error.message);
+      const message = `Failed to create new ${noun}: ${error.message}`;
+
+      showError(pageMessage(), message);
       refresh();
     }
   }
 
-  // Bound per filled panel rather than to the container: those fieldsets survive every
-  // render, and binding this narrowly keeps the listener off the panels a component owns.
   function attach() {
-    for (const panel of filled) {
+    for (const panel of renderedPanels) {
       const element = getPanel(panel.panel);
 
       if (!element) continue;
 
-      attachFieldEvents(element, state, fields, async (key, value, cleared) => {
-        await onChange?.(key, value, cleared);
-
-        handleFieldChange(cleared);
-      });
+      attachFieldEvents(
+        element,
+        state,
+        fields,
+        async (key, value, cleared) => {
+          await onChange?.(key, value, cleared);
+          handleFieldChange(cleared);
+        },
+      );
     }
 
-    if (submit) submitButton().addEventListener("click", handleSubmit);
+    if (submit) {
+      submitButton().addEventListener(
+        "click",
+        handleSubmit,
+      );
+    }
+
+    // Last, not in `initialise`: a panel's `complete` may ask a component the page builds
+    // between the two calls, and until this runs nothing has questioned it.
+    refresh();
   }
 
-  return { mount, render, refresh, attach, state };
+  return {
+    initialise,
+    render,
+    refresh,
+    attach,
+    state,
+  };
 }
-
 
 export { createPanelForm };

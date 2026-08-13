@@ -5,7 +5,7 @@ import { panelGroups } from "../utils/form-fields.js";
 import { Editor } from "../utils/editor.js";
 import { TEAM_FIELDS, TEAM_PANELS } from "./teamSchema.js";
 import { loadTeam, updateTeam } from "./teamApi.js";
-import { buildMembersCard, createMembersSection } from "./teamMembers.js";
+import { buildMembersPanel, createMembersSection } from "./teamMembers.js";
 import { appendCreateCard } from "../utils/create-card.js";
 import { buildStatCards } from "../components/cards.js";
 import { loadRecordPage } from "../pages/record-loader.js";
@@ -213,7 +213,7 @@ function renderDetailsView({ team, fields, edit = false, created = false }) {
   // team rather than an unreadable one, and every write it offers would 403.
   if (!member) return;
 
-  sectionBody("members").innerHTML = buildMembersCard();
+  sectionBody("members").innerHTML = buildMembersPanel();
 
   const members = createMembersSection({
     getTeam: () => team,
