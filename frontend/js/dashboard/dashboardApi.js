@@ -10,7 +10,7 @@
 // worth doing if the model count grows past a handful.
 
 import { getMyModels, loadModel } from "../models/modelApi.js";
-import { getTasks } from "../tasks/taskSubmissionApi.js";
+import { getTaskSuites } from "../tasks/taskSubmissionApi.js";
 
 
 // A model detail's submissions are ModelSubmissionOut, which carries no model_name or
@@ -31,7 +31,7 @@ function withModel(model) {
  *          and the task catalogue for the Metric column.
  */
 async function loadAllScores() {
-  const [models, tasks] = await Promise.all([getMyModels(), getTasks()]);
+  const [models, tasks] = await Promise.all([getMyModels(), getTaskSuites()]);
 
   if (!models?.length) {
     return { models: models ?? [], submissions: [], tasks };

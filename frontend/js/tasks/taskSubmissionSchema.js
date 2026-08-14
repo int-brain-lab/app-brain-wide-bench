@@ -1,4 +1,4 @@
-import { loadTrainingFields } from "./taskSubmissionApi.js";
+import {getTaskSubmissionFields } from "./taskSubmissionApi.js";
 import { fieldsForPanel } from "../utils/form-fields.js";
 import { suiteFromTask } from "../utils/suites.js";
 
@@ -130,7 +130,7 @@ async function loadTaskFields() {
     return TASK_FIELDS;
   }
 
-  const trainingFields = await loadTrainingFields();
+  const trainingFields = await getTaskSubmissionFields();
 
   for (const [key, field] of Object.entries(TASK_FIELDS)) {
     if (field.input === "select" || field.input === "checkbox-list") {

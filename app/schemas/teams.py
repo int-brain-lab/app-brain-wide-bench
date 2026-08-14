@@ -6,18 +6,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class TeamResponse(BaseModel):
-    """List item for ``GET /api/teams`` and ``GET /api/users/me/teams``.
-
-    The counts are aggregates rather than columns, so they can't come from
-    ``model_validate`` — the caller computes them (``team_stats`` in
-    app/routers/teams.py) and passes them in. They default to 0 so the team picker on
-    the model-create form, which only needs id and name, still builds one from an ORM
-    row directly.
-
-    No visibility scoping: team names are already published by the leaderboard and
-    every model card, and ``TeamDetail`` has always returned these same counts to
-    anonymous callers. Who is *in* a team stays members-only — see ``TeamDetail``.
-    """
+    """List item for ``GET /api/teams`` and ``GET /api/users/me/teams``."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -25,11 +14,18 @@ class TeamResponse(BaseModel):
     name: str
     n_members: int = 0
     n_models: int = 0
+    n_submissions: int = 0
 
     @classmethod
-    def from_team(cls, team, n_members=0, n_models=0) -> "TeamResponse":
+    def from_team(cls, team, n_members=0, n_models=0, n_submissions=0) -> "TeamResponse":
         """Build from an ORM ``Team`` plus its counts."""
-        return cls(id=team.id, name=team.name, n_members=n_members, n_models=n_models)
+        return cls(
+            id=team.id,
+            name=team.name,
+            n_members=n_members,
+            n_models=n_models,
+            n_submissions=n_submissions,
+        )
 
 
 class TeamCreate(BaseModel):

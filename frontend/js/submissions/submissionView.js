@@ -18,7 +18,7 @@ import {
   toRows as toTaskScoreRows,
 } from "../scores/scoreTable.js";
 import { suitesFromSubmission } from "../utils/suites.js";
-import { getTasks } from "../tasks/taskSubmissionApi.js";
+import { getTaskSuites } from "../tasks/taskSubmissionApi.js";
 import { loadTaskFields } from "../tasks/taskSubmissionSchema.js";
 import { renderTaskView } from "../tasks/taskSubmissionView.js";
 import { buildStatCards } from "../components/cards.js";
@@ -326,7 +326,7 @@ loadRecordPage({
     const [submission, fields, knownTasks, taskFields] = await Promise.all([
       loadSubmission(submissionId),
       loadSubmissionFields(),
-      getTasks(),
+      getTaskSuites(),
       loadTaskFields(),
     ]);
 

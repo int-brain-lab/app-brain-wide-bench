@@ -5,16 +5,32 @@ the ground-truth helpers read from disk instead of S3, so the worker can run end
 end without an S3 bucket during development.
 """
 
+import re
+import uuid
 from pathlib import Path
 
 import boto3
 
 from app.config import settings
 
+_UNSAFE_IN_KEY = re.compile(r"[^A-Za-z0-9._-]+")
+
 
 def _client():
     """Return a boto3 S3 client for the configured region."""
     return boto3.client("s3", region_name=settings.aws_region)
+
+
+def submission_key(submission_id: uuid.UUID | str, label: str) -> str:
+    """Object key for a submission's uploaded zip.
+
+    The label is slugified rather than interpolated straight in. It is user input, and a
+    ``/`` or a ``..`` in it would put the object outside the submission's own prefix —
+    somewhere the uploader chose. Uniqueness comes from ``submission_id``; the label is
+    only there to make a bucket listing readable, so mangling it costs nothing.
+    """
+    slug = _UNSAFE_IN_KEY.sub("-", label).strip("-._")[:80]
+    return f"submissions/{submission_id}/{slug or 'submission'}.zip"
 
 
 def presign_put(key: str, content_type: str = "application/zip") -> str:

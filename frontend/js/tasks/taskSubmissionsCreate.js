@@ -493,6 +493,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     );
   }
 
+  // TODO move this out?
   function payloads() {
     const keys = trainingFieldKeys();
 

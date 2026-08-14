@@ -1,4 +1,4 @@
-import { loadTeams } from "./modelApi.js";
+import { getMyTeams } from "../teams/teamApi.js";
 
 const MODEL_FIELDS = {
   id: {
@@ -134,7 +134,7 @@ async function loadModelFields() {
     return MODEL_FIELDS;
   }
 
-  const teams = await loadTeams();
+  const teams = await getMyTeams()
 
   MODEL_FIELDS.team_id.options = teams.map(team => ({ value: team.id, label: team.name }));
 

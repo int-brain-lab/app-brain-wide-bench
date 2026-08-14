@@ -7,119 +7,109 @@ from sqlalchemy.orm import selectinload
 
 from app.auth import get_current_user, member_team_ids
 from app.database import get_session
-from app.models import Model, Team, User, UserTeam, Submission, SubmissionUser
-from app.schemas import SubmissionResponse
-from app.schemas.models import ModelList
+from app.models import Model, Team, User, UserTeam, Submission, TaskSubmission
 
-# The aggregate queries behind `n_submissions` / `task_suites` live with the router
-# that owns each resource, so the /me/* listings here can't drift from GET /api/models
-# and GET /api/submissions on how they're computed. Safe to import: neither of those
-# modules imports this one back.
-from app.routers.models import model_stats
-from app.routers.submissions import suites_by_submission
-from app.routers.teams import team_stats
+from app.routers.models import submission_count_per_model, suites_per_model
+from app.routers.submissions import suites_per_submission
+from app.routers.teams import member_count_per_team, model_count_per_team, submission_count_per_team
+from app.schemas.models import ModelResponse
+from app.schemas.submissions import SubmissionResponse
 from app.schemas.teams import TeamResponse
-from app.schemas.users import UserResponse, UserSearchResult, UserUpdate
+from app.schemas.users import UserDetails, UserSearchResult, UserUpdate
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 
 @router.get("", response_model=list[UserSearchResult])
 async def search_users(
-    q: str = Query(min_length=2, description="Name or email fragment"),
-    limit: int = Query(default=10, ge=1, le=50),
+    q: str = Query(description="Name or email to look up, exact match only"),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[User]:
-    """Look up users by their *exact* name or email, for picking team members.
-
-    Exact, not prefix or substring: a ``LIKE %q%`` lookup would let any signed-in caller
-    walk the directory two letters at a time, which is the enumeration surface this
-    codebase deliberately avoided before. Requiring the whole string means the caller
-    already knows who they're looking for — the same bar ``POST .../members`` has always
-    set by taking an email — and the search only saves them retyping it.
-
-    Name is matched as well as email because two people can share a name; both come back
-    and the caller picks by email.
-
-    The caller is excluded: they're already a member of any team they create, so
-    offering themselves as someone to add is only ever noise.
-    """
-    needle = q.strip().lower()
+    """Look up users by their *exact* name or email, for picking team members."""
+    lookup = q.strip().lower()
 
     result = await session.execute(
         select(User)
         .where(
             User.id != user.id,
             or_(
-                func.lower(User.email) == needle,
-                func.lower(User.name) == needle,
+                func.lower(User.email) == lookup,
+                func.lower(User.name) == lookup,
             ),
         )
         .order_by(User.name, User.email)
-        .limit(limit)
     )
 
     return list(result.scalars().all())
 
 
-@router.get("/me", response_model=UserResponse)
-async def me(user: User = Depends(get_current_user)) -> User:
-    """Return the authenticated user's profile."""
-    return user
+@router.get("/me", response_model=UserDetails)
+async def me(user: User = Depends(get_current_user)) -> UserDetails:
+    """Return the authenticated user's profile.
+
+    ``UserDetails`` rather than ``UserResponse``: the caller needs its own ``id`` to
+    recognise itself in a team's member list, and ``UserResponse`` is only the fields
+    shared with ``UserUpdate``.
+    """
+    return UserDetails.model_validate(user)
 
 
-@router.get("/me/models", response_model=list[ModelList])
+@router.get("/me/models", response_model=list[ModelResponse])
 async def my_models(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> list[ModelList]:
-    """List models belonging to any team the current user is a member of.
+) -> list[ModelResponse]:
+    """List all models for any team the user is a member of. Newest first.
 
-    Only the caller's own models — contrast ``GET /api/models``, which is the
-    directory: models with a public submission plus these.
+    Adds the submission count and task suites to each model.
 
-    Because every row here is a model the caller is a member of, ``n_submissions``
-    is the full count; there's no public/private split to apply.
+    The submission count contains both private and public submissions.
     """
-    my_team_ids = await member_team_ids(session, user.id)
+    my_team_ids = await member_team_ids(user.id, session)
 
-    result = await session.execute(
-        select(Model)
-        .options(selectinload(Model.team))
-        .join(UserTeam, UserTeam.team_id == Model.team_id)
-        .where(UserTeam.user_id == user.id)
-        .order_by(Model.created_at.desc())
+    models = (
+        (
+            await session.execute(
+                select(Model)
+                .options(selectinload(Model.team))
+                .join(UserTeam, UserTeam.team_id == Model.team_id)
+                .where(UserTeam.user_id == user.id)
+                .order_by(Model.created_at.desc())
+            )
+        )
+    .scalars()
+    .all()
     )
 
-    # Every submission on one of my teams' models, public or private — no split to
-    # apply here, unlike the public directory in ``list_models``.
-    #
-    # Keyed on the *model's* team rather than ``Submission.team_id`` so that a model
-    # reassigned between teams still counts the submissions made under its previous
-    # owner: the field is a count of this model's work, not of this team's.
-    countable = Submission.model_id.in_(
-        select(Model.id).where(Model.team_id.in_(list(my_team_ids)))
+    visible = Submission.model_id.in_(
+        select(Model.id)
+        .where(Model.team_id.in_(list(my_team_ids)))
     )
 
-    counts, suites = await model_stats(session, countable)
+    n_submissions = await submission_count_per_model(visible, session)
+    suites = await suites_per_model(visible, session)
 
     return [
-        ModelList.from_model(
+        ModelResponse.from_model(
             model,
-            n_submissions=counts.get(model.id, 0),
+            n_submissions=n_submissions.get(model.id, 0),
             task_suites=suites.get(model.id, []),
         )
-        for model in result.scalars().all()
+        for model in models
     ]
-
 
 @router.get("/me/submissions", response_model=list[SubmissionResponse])
 async def my_submissions(
         user: User = Depends(get_current_user),
         session: AsyncSession = Depends(get_session),
 ) -> list[SubmissionResponse]:
-    """List the current user's submissions. Newest first."""
+    """List all submissions for teams the current user is a member of. Newest first.
+
+    Add the task suites to each submission.
+    """
+
+    my_team_ids = await member_team_ids(user.id, session)
 
     submissions = (
         (
@@ -128,8 +118,7 @@ async def my_submissions(
                 .options(
                     selectinload(Submission.team),
                     selectinload(Submission.model))
-                .join(SubmissionUser)
-                .where(SubmissionUser.user_id == user.id)
+                .where(Submission.team_id.in_(list(my_team_ids)))
                 .order_by(Submission.created_at.desc())
             )
         )
@@ -137,7 +126,7 @@ async def my_submissions(
         .all()
     )
 
-    suites = await suites_by_submission(session, [s.id for s in submissions])
+    suites = await suites_per_submission([s.id for s in submissions], session)
 
     return [
         SubmissionResponse.from_submission(
@@ -147,42 +136,49 @@ async def my_submissions(
         for submission in submissions
     ]
 
+
 @router.get("/me/teams", response_model=list[TeamResponse])
 async def my_teams(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[TeamResponse]:
-    """List teams the current user is a member of, with their member and model counts."""
+    """List all teams the current user is a member of
+
+    Adds the number of members, models, and submissions to each team.
+    """
     result = await session.execute(
-        select(Team).join(UserTeam, UserTeam.team_id == Team.id).where(UserTeam.user_id == user.id)
+        select(Team).options(selectinload(Team.members),
+                             selectinload(Team.models),
+                             selectinload(Team.submissions))
+        .join(UserTeam, UserTeam.team_id == Team.id)
+        .where(UserTeam.user_id == user.id)
     )
     teams = result.scalars().all()
-
-    # Counts are over the whole team, not scoped to the caller — they're the same
-    # figures GET /api/teams and the team detail page publish.
-    members, models = await team_stats(session)
 
     return [
         TeamResponse.from_team(
             team,
-            n_members=members.get(team.id, 0),
-            n_models=models.get(team.id, 0),
+            n_members=len(team.members),
+            n_models=len(team.models),
+            n_submissions=len(team.submissions),
         )
         for team in teams
     ]
 
 
-@router.patch("/me", response_model=UserResponse)
+@router.patch("/me", response_model=UserDetails)
 async def update_me(
     body: UserUpdate,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> User:
+) -> UserDetails:
     """Update the authenticated user's name and/or affiliation."""
-    if body.name is not None:
-        user.name = body.name
-    if body.affiliation is not None:
-        user.affiliation = body.affiliation
+
+    updates = body.model_dump(exclude_unset=True)
+
+    for field, value in updates.items():
+        setattr(user, field, value)
+
     await session.commit()
     await session.refresh(user)
-    return user
+    return UserDetails.model_validate(user)

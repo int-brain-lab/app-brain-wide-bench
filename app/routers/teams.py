@@ -3,13 +3,19 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from typing import Any, Sequence
 
-from app.auth import get_current_user, get_current_user_optional, is_team_member
+from app.auth import (
+    get_current_user,
+    get_current_user_optional,
+    require_team_member,
+    member_team_ids,
+)
 from app.database import get_session
-from app.models import Model, Team, User, UserTeam
+from app.models import Model, Submission, Team, User, UserTeam
 from app.schemas.teams import (
     TeamCreate,
     TeamDetail,
@@ -19,67 +25,139 @@ from app.schemas.teams import (
     TeamUpdate,
 )
 
+from app.routers.models import visible_models
+from app.routers.submissions import visible_submissions
+
 router = APIRouter(prefix="/api/teams", tags=["teams"])
 
+# ── Per-team aggregates ──────────────────────────────────────────────────────
 
-# ── Per-team aggregates ───────────────────────────────────────────────────────
-#
-# ``TeamResponse`` carries how many members and models a team has. Computed in SQL
-# rather than by loading ``Team.members`` and ``Team.models`` per row, which would pull
-# every membership and model object back to produce two integers each.
-#
-# Shared with ``GET /api/users/me/teams`` (app/routers/users.py), the same way
-# ``model_stats`` is.
-#
-# No visibility predicate, unlike model_stats: both counts are already public on
-# ``TeamDetail``, which serves anonymous callers.
+async def countable_submissions(
+    user: User | None, session: AsyncSession
+) -> ColumnElement[bool]:
+    """Which submissions this caller may have counted: the public ones, plus every
+    submission belonging to a team they're in.
+
+    The same rule ``list_models`` applies to a model's submission count. Without the
+    team clause a member would see their own team under-reported; without the public
+    clause an anonymous caller would see nothing. Counting everything unconditionally
+    would publish how much unreleased work each team has.
+    """
+    my_team_ids = await member_team_ids(user.id if user else None, session)
+
+    if not my_team_ids:
+        return Submission.is_public.is_(True)
+
+    return or_(
+        Submission.is_public.is_(True),
+        Submission.team_id.in_(list(my_team_ids)),
+    )
 
 
-async def team_stats(
-    session: AsyncSession,
-) -> tuple[dict[uuid.UUID, int], dict[uuid.UUID, int]]:
-    """Return ``(members, models)`` keyed by team id.
+async def member_count_per_team(session: AsyncSession = Depends(get_session)) -> dict[uuid.UUID, int]:
+    """Return the number of members per team, keyed by team id.
 
-    Two statements rather than one join: counting members and models together would
-    multiply each count by the other's row count.
-
-    Plain dicts, so a team with no models is simply absent and callers use
-    ``.get(id, 0)``.
+    Returns a dict of {team id: nMembers}
     """
     member_rows = await session.execute(
-        select(UserTeam.team_id, func.count(UserTeam.user_id)).group_by(UserTeam.team_id)
-    )
-    model_rows = await session.execute(
-        select(Model.team_id, func.count(Model.id)).group_by(Model.team_id)
+        select(UserTeam.team_id, func.count(UserTeam.user_id))
+        .group_by(UserTeam.team_id)
     )
 
-    return dict(member_rows.all()), dict(model_rows.all())
+    return dict(member_rows.all())
 
 
-async def _member_team(session: AsyncSession, team_id: uuid.UUID, user: User) -> Team:
-    """Fetch a team, enforcing that ``user`` is a member of it.
+async def model_count_per_team(visible: ColumnElement[bool], session: AsyncSession = Depends(get_session)) -> dict[uuid.UUID, int]:
+    """Return the number of models per team
 
-    404 before 403 deliberately: a team that doesn't exist and one you can't touch
-    are different answers, and team ids aren't secret — they're in the list every
-    caller can read.
+    Returns a dict of {team id: nModels}
     """
-    team = await session.get(Team, team_id)
+    model_rows = await session.execute(
+        select(Model.team_id, func.count(Model.id))
+        .where(visible)
+        .group_by(Model.team_id)
+    )
+    return dict(model_rows.all())
+
+
+async def submission_count_per_team(visible: ColumnElement[bool], session: AsyncSession = Depends(get_session)) -> dict[uuid.UUID, int]:
+    """Return the number of submissions per team
+
+    Returns a dict of {team id: nSubmissions}
+
+    Only submissions that match the ``visible`` criteria are considered.
+    """
+    submission_rows = await session.execute(
+        select(Submission.team_id, func.count(Submission.id))
+        .where(visible)
+        .group_by(Submission.team_id)
+    )
+    return dict(submission_rows.all())
+
+# ── Helpers ──────────────────────────────────────────────────────
+
+async def _get_team(
+    team_id: uuid.UUID,
+    session: AsyncSession,
+    *,
+    options: Sequence[Any] = ()) -> Team:
+    """Fetch a team by ``team_id`,  applying any loader ``options``.
+
+    ``options`` is keyword-only, matching the submission helpers — a list passed
+    positionally into a ``*options`` varargs used to reach SQLAlchemy as ``([Load],)``
+    and fail there rather than here.
+
+    Raises: 404 - Not found if the team doesn't exist
+    """
+
+    team = (
+        await session.execute(
+            select(Team)
+            .options(
+                selectinload(Team.members).selectinload(UserTeam.user),
+                *options
+            )
+            .where(Team.id == team_id)
+        )
+    ).scalar_one_or_none()
+
     if team is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Team not found")
-    if not await is_team_member(session, user.id, team_id):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Not a member of this team")
+
+    return team
+
+async def _get_team_as_member(
+    team_id: uuid.UUID,
+    user_id: uuid.UUID,
+    session: AsyncSession,
+    *,
+    options: Sequence[Any] = ()) -> Team:
+    """Fetch a team by ``team_id`, enforcing that ``user_id`` is a member of it.
+
+    Raises: 404 - Not found if the team doesn't exist
+    Raises: 403 - Forbidden if the user is not a member of the team
+    """
+
+    team = await _get_team(team_id, session, options=options)
+
+    # Check directly rather than using is_team_member as we already have the information loaded.
+    is_member = any(member.user_id == user_id for member in team.members)
+    if not is_member:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "User is not a member of the team")
+
     return team
 
 
-async def _clean_name(session: AsyncSession, name: str, exclude_id: uuid.UUID | None = None) -> str:
-    """Normalise and validate a proposed team name.
+async def _check_valid_team_name(
+        name: str,
+        session: AsyncSession = Depends(get_session),
+        *,
+        exclude_id: uuid.UUID | None = None
+) -> str:
+    """Checks that the team name is unique (case-insensitive) and not blank.
 
-    The uniqueness check is advisory: ``teams.name`` has no unique index, so two
-    concurrent creates could still both land. It's worth doing anyway because
-    team_name is displayed as an identifier on the leaderboard and every model
-    card, where two identically-named teams are indistinguishable. Adding the
-    index would need a migration and a decision about the duplicates already in
-    the data.
+    Raises: 422 - Unprocessable Entity if the name is blank
+    Raises: 409 - Conflict if the name is not unique (case-insensitive)
     """
     name = name.strip()
     if not name:
@@ -91,13 +169,114 @@ async def _clean_name(session: AsyncSession, name: str, exclude_id: uuid.UUID | 
     if exclude_id is not None:
         query = query.where(Team.id != exclude_id)
 
-    if (await session.execute(query)).scalar_one_or_none() is not None:
+    existing = await session.execute(query)
+    if existing.scalar_one_or_none() is not None:
         raise HTTPException(
             status.HTTP_409_CONFLICT, f"A team named '{name}' already exists"
         )
 
     return name
 
+async def _load_team_detail(
+    team_id: uuid.UUID,
+    user: User | None = Depends(get_current_user_optional),
+    session: AsyncSession = Depends(get_session)
+) -> TeamDetail:
+    """Return a team's details including number of members, models and submissions.
+
+    Anonymous viewers and non-team members see only public submissions and models with at least one public submission;
+    a member of the team's sees all of them, public or private.
+
+    Only team members are returned the list of members.
+
+    Raises: 404 - Not found if the team doesn't exist
+    """
+
+    team = await _get_team(
+        team_id,
+        session,
+        options=[selectinload(Team.models).selectinload(Model.submissions)],
+    )
+
+    visible = await visible_submissions(user, session)
+
+    # Scoped to this team as well as to what the caller may see — ``visible`` alone is the
+    # whole-database predicate and would count every other team's submissions too.
+    n_submissions = (
+        await session.execute(
+            select(func.count(Submission.id))
+            .where(visible, Submission.team_id == team_id)
+        )
+    ).scalar_one()
+
+    # A member sees every model; anyone else sees only those with a public submission.
+    is_member = user is not None and any(member.user_id == user.id for member in team.members)
+    if is_member:
+        models = team.models
+    else:
+        models = [
+            model for model in team.models
+            if any(submission.is_public for submission in model.submissions)
+        ]
+
+    return TeamDetail(
+        id=team.id,
+        name=team.name,
+        n_members=len(team.members),
+        n_models=len(models),
+        n_submissions=n_submissions,
+        # None, not [] — see TeamDetail: a non-member is told nothing, which is not the
+        # same as being told the team is empty.
+        members=(
+            [TeamMemberOut.model_validate(member.user) for member in team.members]
+            if is_member
+            else None
+        ),
+    )
+
+
+# ── Endpoints ──────────────────────────────────────────────────────
+@router.get("", response_model=list[TeamResponse])
+async def list_teams(
+        user: User | None = Depends(get_current_user_optional),
+        session: AsyncSession = Depends(get_session)) -> list[TeamResponse]:
+    """List all teams. Alphabetically ordered.
+
+    Add number of members, models and submsissions to each team.
+
+    An authenticated user sees every model and submission on a team they belong to,
+    whether or not it has a public submission. An anonymous user only sees public
+    submissions and models with at least one public submission.
+    """
+    teams = (
+        (
+            await session.execute(
+                select(Team)
+                .order_by(Team.name)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
+    n_members = await member_count_per_team(session)
+
+    visible = await visible_submissions(user, session)
+    n_submissions = await submission_count_per_team(visible, session)
+
+    visible = await visible_models(user, session)
+    n_models = await model_count_per_team(visible, session)
+
+    return [
+        TeamResponse.from_team(
+            team,
+            n_members=n_members.get(team.id, 0),
+            n_models=n_models.get(team.id, 0),
+            n_submissions=n_submissions.get(team.id, 0),
+        )
+        for team in teams
+    ]
 
 @router.post("", response_model=TeamDetail, status_code=status.HTTP_201_CREATED)
 async def create_team(
@@ -105,92 +284,19 @@ async def create_team(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> TeamDetail:
-    """Create a team, with the creator as its first member.
+    """Create a team
 
-    The membership row isn't optional bookkeeping: ``team_id`` is how models and
-    submissions are authorised (see ``is_team_member``), so a team you aren't in is
-    a team you can't create a model on.
+    The creator is automatically added as a member.
     """
-    name = await _clean_name(session, body.name)
+    name = await _check_valid_team_name(body.name, session)
 
-    # `Team.id` comes from a default_factory, so it's populated before any flush —
-    # the membership row can reference it straight away.
     team = Team(name=name)
     session.add(team)
     session.add(UserTeam(user_id=user.id, team_id=team.id))
     await session.commit()
 
-    # The same shape the GET and the rename answer with. The creator is a member by the
-    # row added just above, so `members` comes back populated rather than null.
-    return await _team_detail(session, team.id, user)
 
-
-@router.get("", response_model=list[TeamResponse])
-async def list_teams(session: AsyncSession = Depends(get_session)) -> list[TeamResponse]:
-    """List every team, alphabetically, with its member and model counts.
-
-    No auth: team names are already published by the leaderboard and by every
-    model card, so there's nothing here that isn't exposed elsewhere. Who is *in*
-    a team is not public — see ``get_team``.
-    """
-    teams = (await session.execute(select(Team).order_by(Team.name))).scalars().all()
-
-    members, models = await team_stats(session)
-
-    return [
-        TeamResponse.from_team(
-            team,
-            n_members=members.get(team.id, 0),
-            n_models=models.get(team.id, 0),
-        )
-        for team in teams
-    ]
-
-
-async def _team_detail(
-    session: AsyncSession, team_id: uuid.UUID, user: User | None
-) -> TeamDetail:
-    """Load a team as a full ``TeamDetail``.
-
-    Shared by the GET and the rename so a write answers with exactly what a read
-    would: counts *and* members. A response that dropped `members` would force every
-    caller to merge it onto what it already had, and "field absent" would become
-    indistinguishable from "you may not see this".
-
-    The member *list* is included only for a member of the team: names and email
-    addresses shouldn't be enumerable by anyone who can guess a team id. The counts
-    are safe for everyone.
-    """
-    team = (
-        await session.execute(
-            select(Team)
-            .options(
-                selectinload(Team.members).selectinload(UserTeam.user),
-                selectinload(Team.models),
-            )
-            .where(Team.id == team_id)
-        )
-    ).scalar_one_or_none()
-
-    if team is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Team not found")
-
-    # Derived from the already-loaded membership rows rather than calling
-    # is_team_member, which would be a second round trip for the same answer.
-    is_member = user is not None and any(link.user_id == user.id for link in team.members)
-
-    return TeamDetail(
-        id=team.id,
-        name=team.name,
-        n_members=len(team.members),
-        n_models=len(team.models),
-        members=(
-            [TeamMemberOut.model_validate(link.user) for link in team.members]
-            if is_member
-            else None
-        ),
-    )
-
+    return await _load_team_detail(team.id, user, session)
 
 @router.get("/{team_id}", response_model=TeamDetail)
 async def get_team(
@@ -198,8 +304,8 @@ async def get_team(
     user: User | None = Depends(get_current_user_optional),
     session: AsyncSession = Depends(get_session),
 ) -> TeamDetail:
-    """Return a team with its member and model counts."""
-    return await _team_detail(session, team_id, user)
+    """Get a team by ```team_id```"""
+    return await _load_team_detail(team_id, user, session)
 
 
 @router.patch("/{team_id}", response_model=TeamDetail)
@@ -209,27 +315,27 @@ async def update_team(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> TeamDetail:
-    """Rename a team. Any member may do so.
+    """Update a team by ``team_id``.
 
-    There is no team-role concept to check against — ``UserTeam`` is just
-    ``(user_id, team_id)``, unlike ``SubmissionUser`` which carries a role — so
-    every member has equal authority here. If teams later need owners or admins,
-    this is the check to tighten.
+    Only accessible to members of the team.
     """
-    team = await _member_team(session, team_id, user)
+    team = await _get_team_as_member(team_id, user.id, session)
 
-    changes = body.model_dump(exclude_unset=True)
+    updates = body.model_dump(exclude_unset=True)
 
-    # `name` is non-nullable, so an explicit null means "leave it alone" here
-    # rather than "clear it".
-    if changes.get("name") is not None:
-        team.name = await _clean_name(session, changes["name"], exclude_id=team_id)
+    name = updates.pop("name", None)
+    if name is not None:
+        name = await _check_valid_team_name(name, session, exclude_id=team_id)
+        team.name = name
+
+    for field, value in updates.items():
+        setattr(team, field, value)
+
 
     await session.commit()
+    await session.refresh(team)
 
-    # The full detail, not just the renamed row: the caller is a member by definition
-    # here, so it can have everything a GET would give it and re-render from one object.
-    return await _team_detail(session, team_id, user)
+    return await _load_team_detail(team_id, user, session)
 
 
 @router.post(
@@ -243,46 +349,48 @@ async def add_team_member(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> User:
-    """Add an existing user to a team by email. Any member may do so.
+    """Add an existing user to a team by email.
 
-    Same flat authority as renaming: there's no team role to check, so every
-    member can grant access to the team's private models and submissions. That's
-    the check to tighten if teams ever gain owners.
+    Only accessible to members of the team.
     """
-    await _member_team(session, team_id, user)
+
+    await require_team_member(user.id, team_id, session)
 
     email = body.email.strip()
-    invitee = (
-        await session.execute(select(User).where(func.lower(User.email) == email.lower()))
+
+    new_user = (
+        await session.execute(
+            select(User)
+            .where(func.lower(User.email) == email.lower())
+        )
     ).scalar_one_or_none()
 
-    # Rows are only created when someone first calls /api/users/me, so a person
-    # who has never signed in genuinely has no id to attach. Inviting them would
-    # need a pending-invitation record keyed on email, resolved at first login.
-    if invitee is None:
+    if new_user is None:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
             f"No user with email '{email}'. They must sign in once before being added.",
         )
 
-    # Checked rather than left to the composite primary key, which would surface
-    # as an IntegrityError / 500 instead of a usable message.
+    # Check they are not already and existing memeber
     existing = (
         await session.execute(
-            select(UserTeam).where(
-                UserTeam.user_id == invitee.id, UserTeam.team_id == team_id
+            select(UserTeam)
+            .where(
+                UserTeam.user_id == new_user.id,
+                UserTeam.team_id == team_id
             )
         )
     ).scalar_one_or_none()
+
     if existing is not None:
         raise HTTPException(
             status.HTTP_409_CONFLICT, f"{email} is already a member of this team"
         )
 
-    session.add(UserTeam(user_id=invitee.id, team_id=team_id))
+    session.add(UserTeam(user_id=new_user.id, team_id=team_id))
     await session.commit()
 
-    return invitee
+    return new_user
 
 
 @router.delete("/{team_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -292,13 +400,14 @@ async def remove_team_member(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> None:
-    """Remove a member from a team. Any member may do so, including themselves.
+    """Remove a member from a team.
 
-    Refuses to remove the last one: a team with no members is orphaned — nobody
-    can rename it, add to it, or create models on it, while its existing models and
-    submissions stay visible on the leaderboard with no one able to manage them.
+    Only accessible to members of the team.
+
+    The last remaining member of a team cannot be removed.
     """
-    await _member_team(session, team_id, user)
+
+    await require_team_member(user.id, team_id, session)
 
     link = (
         await session.execute(
@@ -307,6 +416,7 @@ async def remove_team_member(
             )
         )
     ).scalar_one_or_none()
+
     if link is None:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, "That user is not a member of this team"

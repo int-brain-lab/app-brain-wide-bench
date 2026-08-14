@@ -36,11 +36,11 @@ const SUBMISSION_FIELDS = {
     panel: 1,
   },
 
-  team_id: {
-    label: "Team id",
-    input: "text",
-    editable: false,
-  },
+  // team_id: {
+  //   label: "Team id",
+  //   input: "text",
+  //   editable: false,
+  // },
 
   status: {
     label: "Status",

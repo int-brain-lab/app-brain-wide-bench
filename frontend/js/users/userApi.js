@@ -1,26 +1,28 @@
 import { apiFetch } from "../api.js";
 
+// ─── PAYLOADS ────────────────────────────────────────────────────────────────
+function buildUserPayload(state) {
+    return {
+    ...state,
+    label: state.username?.label?.trim(),
+  };
+}
+
 // ─── API ────────────────────────────────────────────────────────────────────
 
 async function loadMe() {
-  try {
     return await apiFetch("/api/users/me");
-  } catch (err) {
-    console.error(err);
-  }
 }
 
-
-// Deliberately not wrapped in try/catch: the settings form shows the server's
-// message, and swallowing the error here would read as a successful save.
 async function updateMe(patch) {
   return apiFetch("/api/users/me", {
     method: "PATCH",
-    body: JSON.stringify(patch),
+    body: JSON.stringify(buildUserPayload(patch)),
   });
 }
 
 
+// TODO look into
 // Find users by name or email, for the team-create member picker. The server requires
 // at least two characters and caps how many it returns, so this is a picker rather than
 // a way to page through the directory.

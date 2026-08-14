@@ -19,7 +19,7 @@ import {
 } from "../scores/scoreData.js";
 import { appendCreateCard, renderCreateRow } from "../utils/create-card.js";
 import { renderTaskScoresTable } from "../scores/scoreTable.js";
-import { getTasks } from "../tasks/taskSubmissionApi.js";
+import { getTaskSuites } from "../tasks/taskSubmissionApi.js";
 import { loadRecordPage } from "../pages/record-loader.js";
 import {
   buildBody,
@@ -346,7 +346,7 @@ loadRecordPage({
     const [model, fields, knownTasks] = await Promise.all([
       loadModel(modelId),
       loadModelFields(),
-      getTasks(),
+      getTaskSuites(),
     ]);
 
     if (!model) {

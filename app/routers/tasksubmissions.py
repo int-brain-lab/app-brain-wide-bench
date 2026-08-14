@@ -15,19 +15,24 @@ from app.schemas.tasksubmission import (
     TaskSubmissionUpdate,
 )
 from app.auth import get_current_user
-from app.routers.submissions import _get_submission_as_team
+from app.routers.submissions import _get_submission_as_member
 
 router = APIRouter(
     prefix="/api/submissions/{submission_id}/tasks")
 
-_TASK_SUBMISSION_NOT_FOUND = "Task submission not found on this submission"
+# ── Helper functions ──────────────────────────────────────────────────────
+async def _get_task_submission_as_member(
+    task_submission_id: uuid.UUID,
+    submission_id: uuid.UUID,
+    user_id: uuid.UUID = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> TaskSubmission | None:
+    """Fetch a task submission by ``task submission_id`` and ``submission_id``,  enforcing that ``user_id`` is part of the submission's team.
 
-
-async def _get_task_submission(
-    session: AsyncSession, submission_id:uuid.UUID, user_id: uuid.UUID, task_submission_id: uuid.UUID
-) -> TaskSubmission:
-    """Fetch a task submission with its score, asserting it belongs to the parent."""
-    submission = await _get_submission_as_team(session, submission_id, user_id)
+    Raises 404: Not found if the task submission is not found or does not belong to the submission
+    Raises: 403 - Forbidden if the user is not part of the submission's team.
+    """
+    submission = await _get_submission_as_member(submission_id, user_id, session)
 
     task_submission = (
         await session.execute(
@@ -39,37 +44,13 @@ async def _get_task_submission(
             )
         )
     ).scalar_one_or_none()
+
     if task_submission is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, _TASK_SUBMISSION_NOT_FOUND)
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task submission not found on this submission")
     return task_submission
 
 
-@router.get("", response_model=list[TaskSubmissionDetail])
-async def list_task_submissions(
-    submission_id: uuid.UUID,
-    user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
-) -> list[TaskSubmissionDetail]:
-    """List one submission's task submissions, with scores attached
-
-    Order by task_id
-    """
-    _ = await _get_submission_as_team(session, submission_id, user.id)
-    task_submissions = (
-        (
-            await session.execute(
-                select(TaskSubmission)
-                .options(selectinload(TaskSubmission.score))
-                .where(TaskSubmission.submission_id == submission_id)
-                .order_by(TaskSubmission.task_id)
-            )
-        )
-        .scalars()
-        .all()
-    )
-    return [TaskSubmissionDetail.model_validate(ts) for ts in task_submissions]
-
-
+# ── Endpoints ──────────────────────────────────────────────────────
 @router.patch("", response_model=list[TaskSubmissionDetail])
 async def update_task_submissions(
     submission_id: uuid.UUID,
@@ -88,7 +69,7 @@ async def update_task_submissions(
     Returns the updated rows in task_id order, so the caller can say which tasks changed
     rather than assuming its request list is what landed.
     """
-    submission = await _get_submission_as_team(session, submission_id, user.id)
+    submission = await _get_submission_as_member(submission_id, user.id, session)
 
     requested = set(body.task_submission_ids)
 
@@ -112,7 +93,7 @@ async def update_task_submissions(
     if missing:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
-            f"{_TASK_SUBMISSION_NOT_FOUND}: {', '.join(str(id_) for id_ in sorted(missing))}",
+            f"Task submission not found on this submission: {', '.join(str(id_) for id_ in sorted(missing))}",
         )
 
     # exclude_unset, so a caller changing one field doesn't null the other four on every
@@ -136,9 +117,15 @@ async def update_task_submission(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> TaskSubmissionDetail:
-    """Update a task submission's training metadata."""
-    task_submission = await _get_task_submission(
-        session, submission_id, user.id, task_submission_id
+    """Update a task submission by ``task_submission_id``
+
+    Only accessible to members of the submission's team.
+
+    Raises: 404 - Not found if the task submission is not found or does not belong to the submission
+    Raises: 403 - Forbidden if the user is not part of the submission's team.
+    """
+    task_submission = await _get_task_submission_as_member(
+        task_submission_id, submission_id, user.id, session
     )
 
     updates = body.model_dump(exclude_unset=True)
@@ -147,9 +134,10 @@ async def update_task_submission(
         setattr(task_submission, field, value)
 
     await session.commit()
+    await session.refresh(task_submission)
 
-    task_submission = await _get_task_submission(
-        session, submission_id, user.id, task_submission_id
+    task_submission = await _get_task_submission_as_member(
+        task_submission_id, submission_id, user.id, session
     )
     return TaskSubmissionDetail.model_validate(task_submission)
 
@@ -161,8 +149,14 @@ async def get_task_submission(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> TaskSubmissionDetail:
-    """Get the details of a task submission. Score is attached if it exists."""
-    task_submission = await _get_task_submission(
-        session, submission_id, user.id, task_submission_id
+    """Get a task submission by ``task_submission_id``.
+
+    Only accessible to members of the submission's team.
+
+    Raises: 404 - Not found if the task submission is not found or does not belong to the submission
+    Raises: 403 - Forbidden if the user is not part of the submission's team.
+    """
+    task_submission = await _get_task_submission_as_member(
+        task_submission_id, submission_id, user.id, session
     )
     return TaskSubmissionDetail.model_validate(task_submission)

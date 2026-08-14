@@ -16,14 +16,14 @@ import { showError, showMessage } from "../utils.js";
 import { buildTaskPanel, createTaskSection } from "../tasks/taskSubmissionsCreate.js";
 import { buildUploadPanel, createUploadSection } from "./submissionUpload.js";
 import {
+  createSubmission,
   presignSubmission,
-  submitSubmission,
   uploadToPresignedUrl,
 } from "./submissionApi.js";
 import { showGate } from "../utils/gate.js";
 import { createPanelForm } from "../pages/create-form.js";
 import { pageMessage } from "../pages/record-page.js";
-import {getTasks} from "../tasks/taskSubmissionApi.js";
+import {getTaskSuites} from "../tasks/taskSubmissionApi.js";
 
 
 // Built inside the loader rather than declared here, because panels 3 and 4 report their
@@ -74,14 +74,14 @@ async function loadSelectedModel(modelId, state, taskSection) {
   try {
     const model = await loadModel(modelId);
 
-    state.team_id = model.team_id;
+    // state.team_id = model.team_id;
     state.model_name = model.name;
 
     taskSection.setModel(model);
   } catch (error) {
     console.error(error);
 
-    state.team_id = null;
+    // state.team_id = null;
     state.model_name = null;
 
     // Clear the task section's model too, or it would keep methodology options from a
@@ -112,7 +112,7 @@ async function preselectModel(state, fields, taskSection) {
 // One request shared by the detected-task pills and the task section.
 async function loadKnownTasks() {
   try {
-    const tasks = await getTasks();
+    const tasks = await getTaskSuites();
 
     return new Map(tasks.map(task => [task.id, task.task_suite]));
   } catch (error) {
@@ -132,7 +132,7 @@ async function loadKnownTasks() {
 // Three server round-trips, each with its own progress line, so the messaging stays here
 // rather than in the form — only this page knows how far along it is. The form catches a
 // throw, reports it and re-arms the button.
-async function submitSubmissionForm(state, taskSection) {
+async function submitSubmission(state, taskSection) {
   showMessage(pageMessage(), "Requesting upload URL…");
 
   const presigned = await presignSubmission(state, taskSection);
@@ -143,7 +143,7 @@ async function submitSubmissionForm(state, taskSection) {
 
   showMessage(pageMessage(), "Finalising submission…");
 
-  await submitSubmission(presigned.submission_id);
+  await createSubmission(presigned.submission_id);
 
   showMessage(pageMessage(), "Submitted. Redirecting to your submission…");
 
@@ -183,7 +183,7 @@ async function loadSubmissionCreatePage() {
         allTasksConfirmed: () => taskPanel?.allConfirmed(),
       }),
       fields: submissionFields,
-      submit: state => submitSubmissionForm(state, taskPanel),
+      submit: state => submitSubmission(state, taskPanel),
       onChange: async key => {
         if (key === "model_id") {
           await loadSelectedModel(

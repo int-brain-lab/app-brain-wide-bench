@@ -1,37 +1,3 @@
-// When true, GET requests are served from the static mock JSON in mock_api/
-// instead of the backend (POST/PUT/PATCH still hit the network). Lets the
-// frontend run with no backend at all. See mock_api/README.md.
-const FAKE_DATA = false;
-// Anchor the mock dir to THIS module's URL (frontend/js/api.js), not the page URL,
-// so it resolves to frontend/mock_api/ no matter which page loads it or how the
-// site is served. mock_api/ is a sibling of js/, hence "../mock_api".
-//
-// `import.meta.url`, not `document.currentScript.src`: currentScript is null
-// inside an ES module, so the old form would have thrown on load here.
-const FAKE_DATA_BASE = new URL("../mock_api", import.meta.url).href;
-
-// Map a GET API path to its mock file. Returns null if there's no mapping.
-function fakeDataFile(path) {
-  const clean = path.split("?")[0].replace(/\/+$/, ""); // drop query + trailing slash
-  const exact = {
-    "/api/leaderboard": "leaderboard.json",
-    "/api/users/me/models": "user_models.json",
-    "/api/users/me": "users_me.json",
-    "/api/tasks": "tasks.json",
-    "/api/meta/enums": "meta_enums.json",
-    "/api/teams": "teams.json",
-    "/api/models": "models.json",
-    "/api/models_details": "models_details.json",
-    "/api/submissions": "submissions_list.json", // list (trailing slash stripped)
-  };
-  if (clean in exact) return exact[clean];
-  if (/^\/api\/submissions\/[^/]+$/.test(clean)) return "submission_detail.json"; // detail
-  if (/^\/api\/models\/[^/]+$/.test(clean)) return "models_details.json"; // model + submissions
-  return null;
-}
-
-
-
 const CONFIG = {
   apiBase: "", // same origin; set to e.g. "http://localhost:8080" for split hosting
   auth0Domain: "dev-dmv00yvt1n0i036m.us.auth0.com",
@@ -105,24 +71,6 @@ async function getToken() {
 // Fetch wrapper that injects the bearer token when available.
 async function apiFetch(path, options = {}) {
 
-
-  const method = (options.method || "GET").toUpperCase();
-
-  // FAKE_DATA: serve GETs from static mock JSON; let writes fall through.
-  if (FAKE_DATA && method === "GET") {
-    const file = fakeDataFile(path);
-    console.log(file)
-    if (file) {
-      const res = await fetch(`${FAKE_DATA_BASE}/${file}`);
-      if (!res.ok) {
-        throw new Error(`${res.status} ${res.statusText}: mock file ${file} missing`);
-      }
-      return res.json();
-    }
-    console.warn(`FAKE_DATA: no mock mapping for GET ${path}; using network`);
-  }
-
-  
   const headers = new Headers(options.headers || {});
   const token = await getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
@@ -142,3 +90,6 @@ async function apiFetch(path, options = {}) {
 // apiFetch. `auth0` is still expected as a CDN global inside initAuth, but that
 // call is wrapped in try/catch and DEV_MODE short-circuits it.
 export { apiFetch, initAuth, isAuthenticated, login, logout, CONFIG };
+
+
+

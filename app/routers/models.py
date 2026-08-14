@@ -1,4 +1,4 @@
-"""Model card endpoint: metadata plus visibility-scoped submissions."""
+"""Model endpoint"""
 
 import uuid
 
@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from typing import Any
+from typing import Any, Sequence
 
 from app.auth import (
     get_current_user,
@@ -28,7 +28,7 @@ from app.models import (
 from app.schemas.models import (
     ModelCreate,
     ModelDetail,
-    ModelList,
+    ModelResponse,
     ModelUpdate,
 )
 
@@ -36,46 +36,83 @@ router = APIRouter(prefix="/api/models", tags=["models"])
 
 
 # ── Per-model aggregates ──────────────────────────────────────────────────────
-#
-# ``ModelList`` advertises how many submissions a model has and which task suites it
-# has results for. Computed in SQL rather than by walking ``Model.submissions``: the
-# suite lookup needs submissions → task_submissions → task → score, and eagerly
-# loading that whole tree per model to produce a count and a few enum values is a lot
-# of rows for two small fields.
-#
-# ``model_stats`` is shared with ``GET /api/users/me/models`` (app/routers/users.py).
+async def visible_model_submissions(
+    user: User | None = Depends(get_current_user_optional),
+    session: AsyncSession = Depends(get_session),
+) -> ColumnElement[bool]:
 
-# Suites are reported in enum declaration order, not the order rows come back in, so
-# the badges line up down a table column.
-_SUITE_ORDER = {suite: index for index, suite in enumerate(TaskSuite)}
+    public_submission = Submission.is_public.is_(True)
+
+    if user is None:
+        return public_submission
+
+    my_team_ids = await member_team_ids(user.id, session)
+
+    visible = (
+        or_(
+            public_submission,
+            Submission.model_id.in_(
+                select(Model.id).where(Model.team_id.in_(list(my_team_ids)))
+            ),
+        )
+    )
+    return visible
 
 
-async def model_stats(
-    session: AsyncSession, visible: ColumnElement[bool]
-) -> tuple[dict[uuid.UUID, int], dict[uuid.UUID, list[TaskSuite]]]:
-    """Return ``(counts, suites)`` keyed by model id, over the submissions matching ``visible``.
+async def visible_models(
+    user: User | None = Depends(get_current_user_optional),
+    session: AsyncSession = Depends(get_session),
+) -> ColumnElement[bool]:
 
-    Two statements rather than one join: combining a COUNT with a many-valued suite
-    join would multiply the count by the number of suite rows.
+    has_public_submission = (
+        select(Submission.id)
+        .where(Submission.model_id == Model.id, Submission.is_public.is_(True))
+        .exists()
+    )
 
-    Plain dicts, so a model with no submissions is simply absent and callers use
-    ``.get(id, default)`` rather than needing a row per model.
+    if user is None:
+        return has_public_submission
+
+
+    my_team_ids = await member_team_ids(user.id, session)
+
+    visible = (
+        or_(has_public_submission, Model.team_id.in_(list(my_team_ids)))
+    )
+
+    return visible
+
+
+async def submission_count_per_model(
+    visible: ColumnElement[bool],
+    session: AsyncSession = Depends(get_session),
+)  -> dict[uuid.UUID, int]:
+    """Return the number of submissions per model.
+
+    Returns a dict of {modelId: nSubmissions}.
+
+    Only submissions that match the ``visible`` criteria are considered.
     """
-    # Every status counts: a `failed` run still happened, and excluding it would make
-    # the number disagree with the submissions list shown beside it.
+
     count_rows = await session.execute(
         select(Submission.model_id, func.count(Submission.id))
         .where(visible)
         .group_by(Submission.model_id)
     )
-    counts = dict(count_rows.all())
+    return dict(count_rows.all())
 
-    # Joined through TaskScore, so a suite only counts once it has a result — a
-    # pending or failed task contributes nothing. A badge for a suite with no score
-    # next to it reads as missing data rather than as work in progress.
-    #
-    # `Task.task_suite` is authoritative, rather than the "ts1-" prefix on `task_id`
-    # that the frontend parses for display.
+
+
+async def suites_per_model(
+    visible: ColumnElement[bool],
+    session: AsyncSession = Depends(get_session),
+) ->  dict[uuid.UUID, list[TaskSuite]]:
+    """Return the task suites per model.
+
+    Returns a dict of {modelId: [TaskSuite]}.
+
+    Only submissions that match the ``visible`` criteria are considered.
+    """
     suite_rows = await session.execute(
         select(Submission.model_id, Task.task_suite)
         .join(TaskSubmission, TaskSubmission.submission_id == Submission.id)
@@ -89,18 +126,21 @@ async def model_stats(
     for model_id, suite in suite_rows.all():
         suites.setdefault(model_id, []).append(suite)
 
-    for model_suites in suites.values():
-        model_suites.sort(key=lambda suite: _SUITE_ORDER[suite])
+    return suites
 
-    return counts, suites
+# ── Helper functions ──────────────────────────────────────────────────────
 
-
-async def _get_model_or_404(
-    session: AsyncSession,
+async def _get_model(
     model_id: uuid.UUID,
-    *options: Any
+    session: AsyncSession,
+    *,
+    options: Sequence[Any] = (),
 ) -> Model:
-    """Fetch a model by id, applying any loader ``options``
+    """Fetch a model by ``model_id``, applying any loader ``options``.
+
+    ``options`` is keyword-only, matching the submission and team helpers — a list
+    passed positionally into a ``*options`` varargs used to reach SQLAlchemy as
+    ``([Load],)`` and fail there rather than here.
 
     Raises: 404 - Not found if the model doesn't exist
     """
@@ -116,26 +156,31 @@ async def _get_model_or_404(
 
 
 
-
 async def _load_model_detail(
-    session: AsyncSession, model_id: uuid.UUID, user: User | None
+    model_id: uuid.UUID,
+    user: User | None = Depends(get_current_user_optional),
+    session: AsyncSession = Depends(get_session),
 ) -> ModelDetail:
-    """Return a model's details: metadata, team name, and visibility-scoped submissions.
+    """Return a model's details, including its submissions.
 
     Anonymous viewers and non-team members see only public submissions; a
     member of the model's team sees all of them, public or private.
+
+    Raises: 404 - Not found if the model doesn't exist
     """
-    model = await _get_model_or_404(
-        session,
+    model = await _get_model(
         model_id,
-        selectinload(Model.team),
-        selectinload(Model.submissions)
-        .selectinload(Submission.task_submissions)
-        .selectinload(TaskSubmission.score)
+        session,
+        options=[
+            selectinload(Model.team),
+            selectinload(Model.submissions)
+            .selectinload(Submission.task_submissions)
+            .selectinload(TaskSubmission.score),
+        ],
     )
 
     submissions: list[Submission]
-    if user is not None and await is_team_member(session, user.id, model.team_id):
+    if user is not None and await is_team_member(user.id, model.team_id, session):
         submissions = model.submissions
     else:
         submissions = [s for s in model.submissions if s.is_public]
@@ -143,49 +188,20 @@ async def _load_model_detail(
     return ModelDetail.from_model(model, submissions=submissions)
 
 
-@router.get("", response_model=list[ModelList])
+# ── Endpoints ──────────────────────────────────────────────────────
+@router.get("", response_model=list[ModelResponse])
 async def list_models(
     user: User | None = Depends(get_current_user_optional),
     session: AsyncSession = Depends(get_session),
-) -> list[ModelList]:
-    """List models with a public result, plus the caller's own models. Newest first.
+) -> list[ModelResponse]:
+    """List all models. Newest first.
 
-    Anonymous callers see only models with at least one public submission — a
-    model whose work is all private, or which has no submissions yet, is not
-    listed at all.
+    Anonymous callers see only models with at least one public submission
 
-    An authenticated caller additionally sees every model on a team they belong
+    An authenticated user additionally sees every model on a team they belong
     to, whether or not it has a public submission.
     """
-    has_public_submission = (
-        select(Submission.id)
-        .where(Submission.model_id == Model.id, Submission.is_public.is_(True))
-        .exists()
-    )
-    my_team_ids = await member_team_ids(session, user.id if user else None)
-
-    # Which models to list.
-    visible = (
-        or_(has_public_submission, Model.team_id.in_(list(my_team_ids)))
-        if my_team_ids
-        else has_public_submission
-    )
-
-    # Which of their submissions may be counted — a separate question from `visible`
-    # above, though built from the same team ids. `visible` admits a model on the
-    # strength of one public result; that must not license reporting the private ones
-    # behind it, or the count and the badges leak unpublished work.
-    countable = (
-        or_(
-            Submission.is_public.is_(True),
-            Submission.model_id.in_(
-                select(Model.id).where(Model.team_id.in_(list(my_team_ids)))
-            ),
-        )
-        if my_team_ids
-        else Submission.is_public.is_(True)
-    )
-
+    visible = await visible_models(user, session)
     models = (
         (
             await session.execute(
@@ -199,12 +215,14 @@ async def list_models(
         .all()
     )
 
-    counts, suites = await model_stats(session, countable)
+    visible = await visible_model_submissions(user, session)
+    n_submissions = await submission_count_per_model(visible, session)
+    suites = await suites_per_model(visible, session)
 
     return [
-        ModelList.from_model(
+        ModelResponse.from_model(
             model,
-            n_submissions=counts.get(model.id, 0),
+            n_submissions=n_submissions.get(model.id, 0),
             task_suites=suites.get(model.id, []),
         )
         for model in models
@@ -217,17 +235,19 @@ async def create_model(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> ModelDetail:
-    """Create a new model. Requires membership of the team it is assigned to."""
-    await require_team_member(session, user.id, body.team_id)
+    """Create a model.
 
-    # `Model.id` comes from a default_factory, so it's populated at construction —
-    # no flush needed to read it, and the session is created with
-    # expire_on_commit=False so it survives the commit.
+    Only members of the model's team are allowed to create it.
+
+    Raises: 403 - Forbidden if the user is not part of the model's team.
+    """
+    await require_team_member(user.id, body.team_id, session)
+
     model = Model(**body.model_dump())
     session.add(model)
     await session.commit()
 
-    return await _load_model_detail(session, model.id, user)
+    return await _load_model_detail(model.id, user, session)
 
 
 @router.get("/{model_id}", response_model=ModelDetail)
@@ -236,8 +256,11 @@ async def get_model(
     user: User | None = Depends(get_current_user_optional),
     session: AsyncSession = Depends(get_session),
 ) -> ModelDetail:
-    """Return a model's details: metadata, team name, and its submissions."""
-    return await _load_model_detail(session, model_id, user)
+    """Get a model by ``model_id``.
+
+    Raises: 404 - Not found if the model doesn't exist
+    """
+    return await _load_model_detail(model_id, user, session)
 
 
 @router.patch("/{model_id}", response_model=ModelDetail)
@@ -247,14 +270,19 @@ async def update_model(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> ModelDetail:
-    """Update a model's metadata, or reassign it to a different team.
+    """Update a model by ``model_id``.
 
-    Requires membership of the model's current team; reassignment additionally
-    requires membership of the target team.
+    Only accessible to members of the model's team.
+
+    Checks membership of the target team.
+
+    Raises: 404 - Not found if the model doesn't exist
+    Raises: 403 - Forbidden if the user is not part of the model's team or
+    the team of the new model.
     """
-    model = await _get_model_or_404(session, model_id)
+    model = await _get_model(model_id, session)
     await require_team_member(
-        session, user.id, model.team_id, detail="Not a member of this model's team"
+        user.id, model.team_id, session, detail="Not a member of this model's team"
     )
 
     updates = body.model_dump(exclude_unset=True)
@@ -263,7 +291,7 @@ async def update_model(
     new_team_id = updates.pop("team_id", None)
     if new_team_id is not None and new_team_id != model.team_id:
         await require_team_member(
-            session, user.id, new_team_id, detail="Not a member of the target team"
+            user.id, new_team_id, session, detail="Not a member of the target team"
         )
         model.team_id = new_team_id
 
@@ -271,4 +299,5 @@ async def update_model(
         setattr(model, field, value)
 
     await session.commit()
-    return await _load_model_detail(session, model_id, user)
+
+    return await _load_model_detail(model.id, user, session)

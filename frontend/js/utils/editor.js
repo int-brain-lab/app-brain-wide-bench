@@ -148,6 +148,11 @@ function Editor({
     if (!draft) return;
 
     try {
+
+      // TODO only pass in the fields that have changed!
+      // iterate through the draft and compare to the record, only send the changed fields to save
+
+
       const updated = await save(draft);
 
       // A save helper that swallowed its error returns undefined — treat that as

@@ -7,7 +7,7 @@ import { panelGroups } from "../utils/form-fields.js";
 import { Editor } from "../utils/editor.js";
 import { suiteFromTask } from "../utils/suites.js";
 import { TASK_PANELS, trainingFieldKeys } from "./taskSubmissionSchema.js";
-import { updateTaskSubmissions } from "../submissions/submissionApi.js";
+import { updateTaskSubmissions } from "./taskSubmissionApi.js";
 import {
   buildBody,
   buildHeader,
@@ -173,7 +173,7 @@ function renderTaskView({ submission, taskFields, task, edit = false }) {
       updated = await updateTaskSubmissions(
         submission.id,
         targets.map(target => target.id),
-        buildPatch(draft),
+        draft,
       );
 
       return updated.find(row => row.id === taskSubmission.id) ?? updated[0];
