@@ -52,8 +52,10 @@ class SubmissionBase(BaseModel):
             }
         )
 
+
 class SubmissionResponse(SubmissionBase):
     """List item for GET /api/submissions and GET /api/users/me/submissions."""
+
     task_suites: list[TaskSuite] = []
 
 

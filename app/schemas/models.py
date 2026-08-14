@@ -74,7 +74,6 @@ class ModelSubmissionOut(BaseModel):
     task_submissions: list[TaskSubmissionResponse] = Field(default_factory=list)
 
 
-
 class ModelResponse(ModelBase):
     """List item for GET /api/models and GET /api/users/me/models."""
 
@@ -86,6 +85,7 @@ class ModelDetail(ModelBase):
     """Detailed model information for GET /api/models/{id}."""
 
     submissions: list[ModelSubmissionOut] = Field(default_factory=list)
+
 
 class ModelCreate(ModelMetadata):
     """Request body for POST /api/models."""

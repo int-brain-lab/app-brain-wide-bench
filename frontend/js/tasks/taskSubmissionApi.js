@@ -30,6 +30,10 @@ async function updateTaskSubmissions(submissionId, taskSubmissionIds, state) {
   });
 }
 
+async function getMyTaskSubmissions() {
+  return await apiFetch("/api/users/me/task-submissions");
+}
+
 
 
 
@@ -37,4 +41,6 @@ async function updateTaskSubmissions(submissionId, taskSubmissionIds, state) {
 export {
   getTaskSubmissionFields,
   getTaskSuites,
-  updateTaskSubmissions };
+  updateTaskSubmissions,
+  getMyTaskSubmissions
+};

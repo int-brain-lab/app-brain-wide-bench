@@ -30,6 +30,7 @@ class TeamResponse(BaseModel):
 
 class TeamCreate(BaseModel):
     """Request body for ``POST /api/teams``."""
+
     name: str
 
 

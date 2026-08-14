@@ -40,6 +40,7 @@ async def visible_model_submissions(
     user: User | None = Depends(get_current_user_optional),
     session: AsyncSession = Depends(get_session),
 ) -> ColumnElement[bool]:
+    """Return a SQLAlchemy expression that evaluates to True for submissions visible to the user."""
 
     public_submission = Submission.is_public.is_(True)
 
@@ -48,13 +49,9 @@ async def visible_model_submissions(
 
     my_team_ids = await member_team_ids(user.id, session)
 
-    visible = (
-        or_(
-            public_submission,
-            Submission.model_id.in_(
-                select(Model.id).where(Model.team_id.in_(list(my_team_ids)))
-            ),
-        )
+    visible = or_(
+        public_submission,
+        Submission.model_id.in_(select(Model.id).where(Model.team_id.in_(list(my_team_ids)))),
     )
     return visible
 
@@ -63,6 +60,7 @@ async def visible_models(
     user: User | None = Depends(get_current_user_optional),
     session: AsyncSession = Depends(get_session),
 ) -> ColumnElement[bool]:
+    """Return a SQLAlchemy expression that evaluates to True for models visible to the user."""
 
     has_public_submission = (
         select(Submission.id)
@@ -73,12 +71,9 @@ async def visible_models(
     if user is None:
         return has_public_submission
 
-
     my_team_ids = await member_team_ids(user.id, session)
 
-    visible = (
-        or_(has_public_submission, Model.team_id.in_(list(my_team_ids)))
-    )
+    visible = or_(has_public_submission, Model.team_id.in_(list(my_team_ids)))
 
     return visible
 
@@ -86,7 +81,7 @@ async def visible_models(
 async def submission_count_per_model(
     visible: ColumnElement[bool],
     session: AsyncSession = Depends(get_session),
-)  -> dict[uuid.UUID, int]:
+) -> dict[uuid.UUID, int]:
     """Return the number of submissions per model.
 
     Returns a dict of {modelId: nSubmissions}.
@@ -102,11 +97,10 @@ async def submission_count_per_model(
     return dict(count_rows.all())
 
 
-
 async def suites_per_model(
     visible: ColumnElement[bool],
     session: AsyncSession = Depends(get_session),
-) ->  dict[uuid.UUID, list[TaskSuite]]:
+) -> dict[uuid.UUID, list[TaskSuite]]:
     """Return the task suites per model.
 
     Returns a dict of {modelId: [TaskSuite]}.
@@ -128,7 +122,9 @@ async def suites_per_model(
 
     return suites
 
+
 # ── Helper functions ──────────────────────────────────────────────────────
+
 
 async def _get_model(
     model_id: uuid.UUID,
@@ -138,22 +134,19 @@ async def _get_model(
 ) -> Model:
     """Fetch a model by ``model_id``, applying any loader ``options``.
 
-    ``options`` is keyword-only, matching the submission and team helpers — a list
-    passed positionally into a ``*options`` varargs used to reach SQLAlchemy as
-    ``([Load],)`` and fail there rather than here.
-
     Raises: 404 - Not found if the model doesn't exist
     """
     model = (
         await session.execute(
-            select(Model).options(*options)
+            select(Model)
+            .options(*options)
             .where(Model.id == model_id)
+            .execution_options(populate_existing=True)
         )
     ).scalar_one_or_none()
     if model is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Model not found")
     return model
-
 
 
 async def _load_model_detail(

@@ -17,8 +17,8 @@ from app.schemas.tasksubmission import (
 from app.auth import get_current_user
 from app.routers.submissions import _get_submission_as_member
 
-router = APIRouter(
-    prefix="/api/submissions/{submission_id}/tasks")
+router = APIRouter(prefix="/api/submissions/{submission_id}/tasks")
+
 
 # ── Helper functions ──────────────────────────────────────────────────────
 async def _get_task_submission_as_member(
@@ -46,7 +46,9 @@ async def _get_task_submission_as_member(
     ).scalar_one_or_none()
 
     if task_submission is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task submission not found on this submission")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "Task submission not found on this submission"
+        )
     return task_submission
 
 

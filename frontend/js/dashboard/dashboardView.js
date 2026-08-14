@@ -4,7 +4,9 @@
 
 import { getMyTeams } from "../teams/teamApi.js";
 import { loadMe } from "../users/userApi.js";
-import { getSubmissions } from "../submissions/submissionApi.js";
+import { getMySubmissions } from "../submissions/submissionApi.js";
+import { getMyModels } from "../models/modelApi.js";
+import { getMyTaskSubmissions} from "../tasks/taskSubmissionApi.js";
 import { showMessage } from "../utils.js";
 import { renderStaticTable } from "../utils/tables.js";
 import { submissionColumns, toRow as toSubmissionRow } from "../submissions/submissionTable.js";
@@ -12,9 +14,8 @@ import {
   renderTaskScoresTable,
   scoreSorter,
   taskScoreColumns,
-  toRows as toTaskScoreRows,
+  toResultRows,
 } from "../scores/scoreTable.js";
-import { loadAllScores } from "./dashboardApi.js";
 import { buildCount, buildModelCards, buildStatCards, buildTeamCards } from "../components/cards.js";
 import { appendCreateCard, renderCreateRow } from "../utils/create-card.js";
 import { loadRecordPage } from "../pages/record-loader.js";
@@ -126,8 +127,8 @@ function getRecentSubmissions(submissions) {
     .slice(0, MAX_SUBMISSIONS);
 }
 
-function getTopScores(scoreSubmissions, knownTasks) {
-  return toTaskScoreRows(scoreSubmissions, knownTasks)
+function getTopScores(scoreRows) {
+  return [...scoreRows]
     .sort((a, b) => scoreSorter(b.mean_score, a.mean_score))
     .slice(0, MAX_SCORES);
 }
@@ -136,11 +137,8 @@ function countSubmissions(models) {
   return models.reduce((total, model) => total + (model.n_submissions ?? 0), 0);
 }
 
-function countTaskSubmissions(scoreSubmissions) {
-  return scoreSubmissions.reduce(
-    (total, submission) => total + (submission.task_submissions?.length ?? 0),
-    0,
-  );
+function countTaskSubmissions(scoreRows) {
+  return scoreRows.length;
 }
 
 // All three empty means the account has been signed into but nothing set up. All three
@@ -205,8 +203,8 @@ function renderSubmissionsSection(submissions) {
   });
 }
 
-function renderScoresSection(scoreSubmissions, knownTasks) {
-  const scores = getTopScores(scoreSubmissions, knownTasks);
+function renderScoresSection(scoreRows) {
+  const scores = getTopScores(scoreRows);
   const container = sectionBody("scores");
 
   if (!scores.length) {
@@ -232,7 +230,7 @@ function renderGettingStarted(user) {
   );
 }
 
-function renderDashboardView({ user, models, teams, submissions, scoreSubmissions, knownTasks }) {
+function renderDashboardView({ user, models, teams, submissions, scoreRows }) {
   if (isNewAccount(models, teams, submissions)) {
     renderGettingStarted(user);
     return;
@@ -260,10 +258,10 @@ function renderDashboardView({ user, models, teams, submissions, scoreSubmission
   renderTeamsSection(teams);
   renderModelsSection(models);
   renderSubmissionsSection(submissions);
-  renderScoresSection(scoreSubmissions, knownTasks);
+  renderScoresSection(scoreRows);
 }
 
-function renderScoresView({ models, scoreSubmissions, knownTasks }) {
+function renderScoresView({ models, scoreRows }) {
   renderPage(
     buildPage({
       back: BACK,
@@ -272,7 +270,7 @@ function renderScoresView({ models, scoreSubmissions, knownTasks }) {
     }),
   );
 
-  const taskCount = countTaskSubmissions(scoreSubmissions);
+  const taskCount = countTaskSubmissions(scoreRows);
 
   renderHeader(
     "Task scores",
@@ -289,8 +287,7 @@ function renderScoresView({ models, scoreSubmissions, knownTasks }) {
 
   return renderTaskScoresTable({
     container: sectionBody("body"),
-    submissions: scoreSubmissions,
-    tasks: knownTasks,
+    rows: scoreRows,
     showModel: true,
     showSubmission: true,
   });
@@ -308,19 +305,18 @@ loadRecordPage({
   noun: "dashboard",
   requiresId: false,
 
-  // loadAllScores is the expensive one — a request per model — so the other three run
-  // alongside it rather than after.
+  // Score rows are built once here, not per view — both views render the same rows, and
+  // the scores view is reached without a reload.
   load: async () => {
-    const [{ models, submissions: scoreSubmissions, tasks }, submissions, teams, user] =
-      await Promise.all([loadAllScores(), getSubmissions(), getMyTeams(), loadMe()]);
+    const [ models, taskSubmissions, submissions, teams, user] =
+      await Promise.all([getMyModels(), getMyTaskSubmissions(), getMySubmissions(), getMyTeams(), loadMe()]);
 
     return {
       user,
       models,
       teams: teams ?? [],
       submissions: submissions ?? [],
-      scoreSubmissions,
-      knownTasks: tasks,
+      scoreRows: toResultRows(taskSubmissions),
     };
   },
 });

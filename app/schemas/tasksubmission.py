@@ -10,6 +10,7 @@ from app.models import (
     TrainingParadigm,
 )
 
+
 class TaskScoreOut(BaseModel):
     """Score for one task."""
 
@@ -20,6 +21,8 @@ class TaskScoreOut(BaseModel):
     primary_metric_sem: float | None = None
     metrics: dict | None = None
 
+    primary_metric: str
+
 
 class TaskSubmissionResponse(BaseModel):
     """Task entry within a submission, with optional score."""
@@ -29,6 +32,46 @@ class TaskSubmissionResponse(BaseModel):
     id: uuid.UUID
     task_id: str
     score: TaskScoreOut | None = None
+
+
+class TaskSubmissionResult(TaskSubmissionResponse):
+    """Row for ``GET /api/users/me/task-submissions``.
+
+    A task submission and its score, plus the names of what it belongs to. The other
+    task-submission responses are always read *through* a submission, so the context is
+    already on the page around them; this one ranges across every submission a user can
+    see, and a bare task id and score wouldn't say whose result it is.
+
+    Ids as well as names, because the dashboard's score table links each row back to its
+    submission and its model.
+    """
+
+    # ``submission_id`` is a column on TaskSubmission, so ``model_validate`` finds it.
+    submission_id: uuid.UUID
+
+    # Optional here only because they live on relationships rather than on the ORM object,
+    # so ``model_validate`` can't populate them — ``from_task_submission`` fills them in.
+    # Same arrangement as ``SubmissionBase.team_name``.
+    model_id: uuid.UUID | None = None
+    team_id: uuid.UUID | None = None
+    submission_name: str | None = None
+    model_name: str | None = None
+    team_name: str | None = None
+
+    @classmethod
+    def from_task_submission(cls, task_submission) -> "TaskSubmissionResult":
+        """Build from an ORM ``TaskSubmission`` with ``submission`` → team/model loaded."""
+        submission = task_submission.submission
+        return cls.model_validate(task_submission).model_copy(
+            update={
+                "model_id": submission.model_id,
+                "team_id": submission.team_id,
+                # A submission's human-readable name is its ``label``.
+                "submission_name": submission.label,
+                "model_name": submission.model.name,
+                "team_name": submission.team.name,
+            }
+        )
 
 
 class TaskMetadata(BaseModel):
@@ -44,17 +87,19 @@ class TaskMetadata(BaseModel):
 
 
 class TaskSubmissionDetail(TaskSubmissionResponse, TaskMetadata):
-     """Detailed task submission information for GET /api/submissions/{id}/tasks/{task_submission_id}``"""
+    """Detailed task submission information for GET /api/submissions/{id}/tasks/{task_submission_id}``"""
 
 
 class TaskSubmissionCreate(TaskMetadata):
     """Request body for creating a task submission. Applied with ``POST /api/submissions/presign``."""
+
     model_config = ConfigDict(extra="forbid")
     task_id: str  # flat task ID, e.g. "ts1-reward"
 
 
 class TaskSubmissionUpdate(TaskMetadata):
     """Request body for ``PATCH /api/submissions/{id}/tasks/{task_submission_id}``"""
+
     model_config = ConfigDict(extra="forbid")
 
 
@@ -75,5 +120,3 @@ class TaskSubmissionBulkUpdate(BaseModel):
 
     task_submission_ids: list[uuid.UUID] = Field(min_length=1)
     updates: TaskSubmissionUpdate
-
-

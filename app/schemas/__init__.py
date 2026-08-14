@@ -9,7 +9,12 @@ from app.schemas.submissions import (
     SubmissionDetail,
     SubmissionResponse,
 )
-from app.schemas.tasksubmission import TaskSubmissionCreate, TaskSubmissionDetail, TaskSubmissionResponse, TaskScoreOut
+from app.schemas.tasksubmission import (
+    TaskSubmissionCreate,
+    TaskSubmissionDetail,
+    TaskSubmissionResponse,
+    TaskScoreOut,
+)
 from app.schemas.tasks import TaskResponse
 from app.schemas.teams import (
     TeamCreate,

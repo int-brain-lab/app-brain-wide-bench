@@ -11,9 +11,9 @@ from app.models import Model, Team, User, UserTeam, Submission, TaskSubmission
 
 from app.routers.models import submission_count_per_model, suites_per_model
 from app.routers.submissions import suites_per_submission
-from app.routers.teams import member_count_per_team, model_count_per_team, submission_count_per_team
 from app.schemas.models import ModelResponse
 from app.schemas.submissions import SubmissionResponse
+from app.schemas.tasksubmission import TaskSubmissionResult
 from app.schemas.teams import TeamResponse
 from app.schemas.users import UserDetails, UserSearchResult, UserUpdate
 
@@ -78,14 +78,11 @@ async def my_models(
                 .order_by(Model.created_at.desc())
             )
         )
-    .scalars()
-    .all()
+        .scalars()
+        .all()
     )
 
-    visible = Submission.model_id.in_(
-        select(Model.id)
-        .where(Model.team_id.in_(list(my_team_ids)))
-    )
+    visible = Submission.model_id.in_(select(Model.id).where(Model.team_id.in_(list(my_team_ids))))
 
     n_submissions = await submission_count_per_model(visible, session)
     suites = await suites_per_model(visible, session)
@@ -99,10 +96,11 @@ async def my_models(
         for model in models
     ]
 
+
 @router.get("/me/submissions", response_model=list[SubmissionResponse])
 async def my_submissions(
-        user: User = Depends(get_current_user),
-        session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ) -> list[SubmissionResponse]:
     """List all submissions for teams the current user is a member of. Newest first.
 
@@ -115,9 +113,7 @@ async def my_submissions(
         (
             await session.execute(
                 select(Submission)
-                .options(
-                    selectinload(Submission.team),
-                    selectinload(Submission.model))
+                .options(selectinload(Submission.team), selectinload(Submission.model))
                 .where(Submission.team_id.in_(list(my_team_ids)))
                 .order_by(Submission.created_at.desc())
             )
@@ -137,6 +133,38 @@ async def my_submissions(
     ]
 
 
+@router.get("/me/task-submissions", response_model=list[TaskSubmissionResult])
+async def my_task_submissions(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[TaskSubmissionResult]:
+    """List every task submission across the teams the current user is a member of.
+
+    Newest submission first, then by task, so tasks of one submission stay together.
+    """
+    my_team_ids = await member_team_ids(user.id, session)
+
+    task_submissions = (
+        (
+            await session.execute(
+                select(TaskSubmission)
+                .options(
+                    selectinload(TaskSubmission.score),
+                    selectinload(TaskSubmission.submission).selectinload(Submission.model),
+                    selectinload(TaskSubmission.submission).selectinload(Submission.team),
+                )
+                .join(Submission, Submission.id == TaskSubmission.submission_id)
+                .where(Submission.team_id.in_(list(my_team_ids)))
+                .order_by(Submission.created_at.desc(), TaskSubmission.task_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    return [TaskSubmissionResult.from_task_submission(ts) for ts in task_submissions]
+
+
 @router.get("/me/teams", response_model=list[TeamResponse])
 async def my_teams(
     user: User = Depends(get_current_user),
@@ -147,9 +175,10 @@ async def my_teams(
     Adds the number of members, models, and submissions to each team.
     """
     result = await session.execute(
-        select(Team).options(selectinload(Team.members),
-                             selectinload(Team.models),
-                             selectinload(Team.submissions))
+        select(Team)
+        .options(
+            selectinload(Team.members), selectinload(Team.models), selectinload(Team.submissions)
+        )
         .join(UserTeam, UserTeam.team_id == Team.id)
         .where(UserTeam.user_id == user.id)
     )
