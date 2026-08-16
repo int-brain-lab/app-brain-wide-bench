@@ -17,8 +17,8 @@
 // score maths. What is shared — SUITES, suiteOf, mean — comes from scores/scoreMaths.js.
 
 import { escapeHtml, mean} from "../utils.js";
-import { SUITES, suiteFromTask } from "../utils/suites.js";
-import { createFilterableTable, matchIncludes, numericSorter, score } from "../utils/tables.js";
+import { SUITES, suiteFromTask } from "../tasks/suites.js";
+import { createFilterableTable, matchIncludes, numericSorter, score } from "../components/table.js";
 
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────

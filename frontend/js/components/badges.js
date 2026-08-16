@@ -1,5 +1,5 @@
 import {escapeHtml} from "../utils.js";
-import {SUITES} from "../utils/suites.js";
+import {SUITES} from "../tasks/suites.js";
 
 function statusBadgeClass(status) {
   return { done: "success", scoring: "pending", failed: "error", pending: "pending" }[status] ?? "";

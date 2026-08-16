@@ -1,5 +1,5 @@
 import {escapeHtml} from "../utils.js";
-import {SUITES} from "../utils/suites.js";
+import {SUITES} from "../tasks/suites.js";
 
 function buildSuiteScoreBar(suite, score, rank) {
   const hasScore = score != null;

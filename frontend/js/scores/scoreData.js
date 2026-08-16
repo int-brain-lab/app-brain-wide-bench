@@ -15,7 +15,7 @@
 // need the same collapse; it was duplicated between two model modules before this.
 
 import { mean } from "../utils.js";
-import { suiteFromTask } from "../utils/suites.js";
+import { suiteFromTask } from "../tasks/suites.js";
 
 // ─── LATEST ─────────────────────────────────────────────────────────────────
 

@@ -4,7 +4,7 @@
 //
 // This code just defines the columns, rows and controls. Table infrastructure lives in utils/tables.js
 
-import { suitesFromSubmission } from "../utils/suites.js";
+import { suitesFromSubmission } from "../tasks/suites.js";
 import { buildStatusBadge} from "../components/badges.js";
 import {
   SUITE_OPTIONS,
@@ -17,7 +17,7 @@ import {
   matchIncludes,
   metadataFormatter,
   suiteBadgesFormatter,
-} from "../utils/tables.js";
+} from "../components/table.js";
 
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────

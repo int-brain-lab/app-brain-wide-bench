@@ -11,7 +11,7 @@ import { loadModelFields } from "./modelSchema.js";
 import { createModel } from "./modelApi.js";
 import { isAuthenticated } from "../api.js";
 import { showError } from "../utils.js";
-import { showGate } from "../utils/gate.js";
+import { showGate } from "../pages/gate.js";
 import { createPanelForm } from "../pages/create-form.js";
 
 

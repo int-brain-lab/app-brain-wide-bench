@@ -5,13 +5,13 @@
 // toggle — that's the teams list.
 
 import { isAuthenticated } from "../api.js";
-import { showGate } from "../utils/gate.js";
+import { showGate } from "./gate.js";
 import { showError } from "../utils.js";
 import {
   appendCreateCard,
   clearCreateRow,
   renderCreateRow,
-} from "../utils/create-card.js";
+} from "../components/create-card.js";
 import {
   buildHeader,
   buildMessage,

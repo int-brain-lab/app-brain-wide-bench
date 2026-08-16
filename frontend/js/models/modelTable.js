@@ -16,7 +16,7 @@ import {
   metadataFormatter,
   optionsFromRows,
   suiteBadgesFormatter,
-} from "../utils/tables.js";
+} from "../components/table.js";
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────
 

@@ -33,7 +33,7 @@ import {
   panelGroups,
   renderFields,
   renderGroups,
-} from "../utils/form-fields.js";
+} from "../components/form-fields.js";
 import { showError, showMessage, refreshIcons } from "../utils.js";
 import {
   buildFormFooter,

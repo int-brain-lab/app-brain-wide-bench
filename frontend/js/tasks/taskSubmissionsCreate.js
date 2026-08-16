@@ -19,12 +19,12 @@ import {
   revalidateFields,
   setFieldValue,
   withPreservedFocus,
-} from "../utils/form-fields.js";
+} from "../components/form-fields.js";
 import {
   TASK_FIELDS,
   trainingFieldKeys,
 } from "./taskSubmissionSchema.js";
-import { SUITES } from "../utils/suites.js";
+import { SUITES } from "./suites.js";
 import { buildSuiteBadgeList } from "../components/badges.js";
 
 

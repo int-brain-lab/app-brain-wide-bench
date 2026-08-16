@@ -1,6 +1,6 @@
 import {escapeHtml, formatDate} from "../utils.js";
 import {buildRoleBadge, buildStatusBadge, buildSuiteCoverageBadges} from "./badges.js"
-import { suitesFromSubmission } from "../utils/suites.js";
+import { suitesFromSubmission } from "../tasks/suites.js";
 
 
 function buildCount(count, noun) {

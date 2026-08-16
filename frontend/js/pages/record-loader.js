@@ -3,7 +3,7 @@
 // The page's markup needs a `#gate` card and a `#container`; everything else is rendered.
 
 import { isAuthenticated } from "../api.js";
-import { showGate } from "../utils/gate.js";
+import { showGate } from "./gate.js";
 import { showError } from "../utils.js";
 import { createRecordRouter } from "./record-router.js";
 

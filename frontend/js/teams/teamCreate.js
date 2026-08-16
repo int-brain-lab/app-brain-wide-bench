@@ -13,7 +13,7 @@ import { buildMembersCard, createMembersSection } from "./teamMembers.js";
 import { TEAM_FIELDS } from "./teamSchema.js";
 import { showError, showMessage } from "../utils.js";
 import { isAuthenticated } from "../api.js";
-import { showGate } from "../utils/gate.js";
+import { showGate } from "../pages/gate.js";
 import { createPanelForm } from "../pages/create-form.js";
 import { pageMessage } from "../pages/record-page.js";
 

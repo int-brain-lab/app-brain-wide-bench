@@ -1,12 +1,12 @@
 // Team record page — dashboard and details for one team.
 
 import { escapeHtml, showError, showMessage } from "../utils.js";
-import { panelGroups } from "../utils/form-fields.js";
-import { Editor } from "../utils/editor.js";
+import { panelGroups } from "../components/form-fields.js";
+import { Editor } from "../pages/editor.js";
 import { TEAM_FIELDS, TEAM_PANELS } from "./teamSchema.js";
 import { loadTeam, updateTeam } from "./teamApi.js";
 import { buildMembersPanel, createMembersSection } from "./teamMembers.js";
-import { appendCreateCard } from "../utils/create-card.js";
+import { appendCreateCard } from "../components/create-card.js";
 import { buildStatCards } from "../components/cards.js";
 import { buildRoleBadge } from "../components/badges.js";
 import { loadRecordPage } from "../pages/record-loader.js";

@@ -14,7 +14,7 @@
 
 import { getLeaderboard } from "./leaderboard/leaderboardApi.js";
 import { leaderboardPreviewColumns, toRows } from "./leaderboard/leaderboardTable.js";
-import { renderStaticTable } from "./utils/tables.js";
+import { renderStaticTable } from "./components/table.js";
 
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────

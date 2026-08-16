@@ -1,12 +1,12 @@
 // Model record page — dashboard, details, submissions and scores for one model.
 
 import { formatDate, showError, showMessage } from "../utils.js";
-import { panelGroups, renderDisplayFields } from "../utils/form-fields.js";
-import { Editor } from "../utils/editor.js";
+import { panelGroups, renderDisplayFields } from "../components/form-fields.js";
+import { Editor } from "../pages/editor.js";
 import { loadModelFields, MODEL_PANELS } from "./modelSchema.js";
 import { loadModel, updateModel } from "./modelApi.js";
 import { buildSuiteScoreBars } from "../components/bars.js";
-import { renderStaticTable } from "../utils/tables.js";
+import { renderStaticTable } from "../components/table.js";
 import {
   renderSubmissionsTable,
   submissionColumns,
@@ -17,7 +17,7 @@ import {
   getMeanScores,
   scoresBySuite,
 } from "../scores/scoreData.js";
-import { appendCreateCard, renderCreateRow } from "../utils/create-card.js";
+import { appendCreateCard, renderCreateRow } from "../components/create-card.js";
 import { renderTaskScoresTable } from "../scores/scoreTable.js";
 import { getTaskSuites } from "../tasks/taskSubmissionApi.js";
 import { loadRecordPage } from "../pages/record-loader.js";

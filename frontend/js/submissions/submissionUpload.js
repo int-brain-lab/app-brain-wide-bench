@@ -16,7 +16,7 @@ import {
 import {
   inferTasks,
   listZipEntries,
-} from "../zip_list.js";
+} from "./zip_list.js";
 
 
 // ─── BUILDERS ────────────────────────────────────────────────────────────────

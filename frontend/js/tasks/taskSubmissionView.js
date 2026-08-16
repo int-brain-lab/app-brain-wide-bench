@@ -3,9 +3,9 @@
 // Apply-to-suite propagates the change to every sibling task in the same suite.
 
 import { showError, showMessage } from "../utils.js";
-import { panelGroups } from "../utils/form-fields.js";
-import { Editor } from "../utils/editor.js";
-import { suiteFromTask } from "../utils/suites.js";
+import { panelGroups } from "../components/form-fields.js";
+import { Editor } from "../pages/editor.js";
+import { suiteFromTask } from "./suites.js";
 import { TASK_PANELS, trainingFieldKeys } from "./taskSubmissionSchema.js";
 import { updateTaskSubmissions } from "./taskSubmissionApi.js";
 import {

@@ -20,7 +20,7 @@ import {
   presignSubmission,
   uploadToPresignedUrl,
 } from "./submissionApi.js";
-import { showGate } from "../utils/gate.js";
+import { showGate } from "../pages/gate.js";
 import { createPanelForm } from "../pages/create-form.js";
 import { pageMessage } from "../pages/record-page.js";
 import {getTaskSuites} from "../tasks/taskSubmissionApi.js";

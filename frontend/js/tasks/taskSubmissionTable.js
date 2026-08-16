@@ -4,7 +4,7 @@
 
 
 import { escapeHtml } from "../utils.js";
-import { suiteFromTask } from "../utils/suites.js";
+import { suiteFromTask } from "./suites.js";
 import { TASK_FIELDS, trainingFieldKeys } from "./taskSubmissionSchema.js";
 import {
   SUITE_OPTIONS,
@@ -12,7 +12,7 @@ import {
   matchEquals,
   matchIncludes,
   suiteBadgeFormatter,
-} from "../utils/tables.js";
+} from "../components/table.js";
 
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────

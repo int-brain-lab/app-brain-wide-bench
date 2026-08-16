@@ -8,7 +8,7 @@ import { getMySubmissions } from "../submissions/submissionApi.js";
 import { getMyModels } from "../models/modelApi.js";
 import { getMyTaskSubmissions} from "../tasks/taskSubmissionApi.js";
 import { showMessage } from "../utils.js";
-import { renderStaticTable } from "../utils/tables.js";
+import { renderStaticTable } from "../components/table.js";
 import { submissionColumns, toRow as toSubmissionRow } from "../submissions/submissionTable.js";
 import {
   renderTaskScoresTable,
@@ -17,7 +17,7 @@ import {
   toResultRows,
 } from "../scores/scoreTable.js";
 import { buildCount, buildModelCards, buildStatCards, buildTeamCards } from "../components/cards.js";
-import { appendCreateCard, renderCreateRow } from "../utils/create-card.js";
+import { appendCreateCard, renderCreateRow } from "../components/create-card.js";
 import { loadRecordPage } from "../pages/record-loader.js";
 import {
   buildBody,

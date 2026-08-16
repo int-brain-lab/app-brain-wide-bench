@@ -7,7 +7,7 @@
 // best on ts1-reward" answerable, which the per-submission tables can't show.
 
 import { escapeHtml } from "../utils.js";
-import { suiteFromTask } from "../utils/suites.js";
+import { suiteFromTask } from "../tasks/suites.js";
 import {
   SUITE_OPTIONS,
   createFilterableTable,
@@ -19,7 +19,7 @@ import {
   optionsFromRows,
   suiteBadgeFormatter,
   score
-} from "../utils/tables.js";
+} from "../components/table.js";
 
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────

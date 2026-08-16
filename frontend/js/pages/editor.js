@@ -17,7 +17,7 @@ import {
   renderGroups,
   setFieldValue,
   withPreservedFocus,
-} from "./form-fields.js";
+} from "../components/form-fields.js";
 
 /**
  * @param container    Element — where the edit form is rendered.

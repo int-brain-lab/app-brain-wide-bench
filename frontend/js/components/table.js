@@ -10,8 +10,8 @@
 // both the tabulator JS and CSS tags — copy them from dashboard.html.
 
 import { escapeHtml, formatDate } from "../utils.js";
-import { SUITES } from "../utils/suites.js";
-import { buildSuiteBadgeList } from "../components/badges.js"
+import { SUITES } from "../tasks/suites.js";
+import { buildSuiteBadgeList } from "./badges.js"
 
 
 // ─── SUITES ─────────────────────────────────────────────────────────────────

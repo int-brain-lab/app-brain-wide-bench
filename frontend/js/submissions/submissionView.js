@@ -1,11 +1,11 @@
 // Submission record page — dashboard, details, tasks and scores for one submission.
 
 import { formatDate, showError, showMessage } from "../utils.js";
-import { panelGroups, renderDisplayFields } from "../utils/form-fields.js";
-import { Editor } from "../utils/editor.js";
+import { panelGroups, renderDisplayFields } from "../components/form-fields.js";
+import { Editor } from "../pages/editor.js";
 import { loadSubmissionFields, SUBMISSION_PANELS } from "./submissionSchema.js";
 import { loadSubmission, updateSubmission } from "./submissionApi.js";
-import { renderStaticTable } from "../utils/tables.js";
+import { renderStaticTable } from "../components/table.js";
 import {
   renderTaskSubmissionsTable,
   taskSubmissionColumns,
@@ -17,7 +17,7 @@ import {
   taskScoreColumns,
   toRows as toTaskScoreRows,
 } from "../scores/scoreTable.js";
-import { suitesFromSubmission } from "../utils/suites.js";
+import { suitesFromSubmission } from "../tasks/suites.js";
 import { getTaskSuites } from "../tasks/taskSubmissionApi.js";
 import { loadTaskFields } from "../tasks/taskSubmissionSchema.js";
 import { renderTaskView } from "../tasks/taskSubmissionView.js";

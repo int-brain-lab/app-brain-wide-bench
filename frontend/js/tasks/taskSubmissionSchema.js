@@ -1,6 +1,6 @@
 import {getTaskSubmissionFields } from "./taskSubmissionApi.js";
-import { fieldsForPanel } from "../utils/form-fields.js";
-import { suiteFromTask } from "../utils/suites.js";
+import { fieldsForPanel } from "../components/form-fields.js";
+import { suiteFromTask } from "./suites.js";
 
 const SUITE_OUTPUT_MODALITY = { ts1: "behavior", ts2: "spikes", ts3: "anatomy" };
 

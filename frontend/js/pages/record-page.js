@@ -4,7 +4,7 @@ import {
   panelGroups,
   renderDisplayFields,
   renderGroups,
-} from "../utils/form-fields.js";
+} from "../components/form-fields.js";
 
 const CONTAINER_ID = "container";
 const TITLE_ID = "title";
