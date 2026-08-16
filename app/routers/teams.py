@@ -11,7 +11,8 @@ from typing import Any, Sequence
 from app.auth import (
     get_current_user,
     get_current_user_optional,
-    require_team_member,
+    member_team_roles,
+    require_team_owner,
 )
 from app.database import get_session
 from app.models import Model, Submission, Team, TeamRole, User, UserTeam
@@ -30,26 +31,6 @@ from app.routers.submissions import visible_submissions
 router = APIRouter(prefix="/api/teams", tags=["teams"])
 
 # ── Per-team aggregates ──────────────────────────────────────────────────────
-
-
-async def role_per_team(
-    user_id: uuid.UUID | None,
-    session: AsyncSession,
-) -> dict[uuid.UUID, TeamRole]:
-    """Return the caller's role in each team they belong to
-
-    Returns a dict of {team id: TeamRole}.
-
-    Teams the caller isn't in are not included. If ``user_id`` is None, returns an empty dict.
-    """
-    if user_id is None:
-        return {}
-
-    role_rows = await session.execute(
-        select(UserTeam.team_id, UserTeam.role).where(UserTeam.user_id == user_id)
-    )
-
-    return dict(role_rows.all())
 
 
 async def member_count_per_team(
@@ -253,7 +234,7 @@ async def list_teams(
     visible = await visible_models(user, session)
     n_models = await model_count_per_team(visible, session)
 
-    my_roles = await role_per_team(user.id if user else None, session)
+    my_roles = await member_team_roles(user.id if user else None, session)
 
     return [
         TeamResponse.from_team(
@@ -281,7 +262,8 @@ async def create_team(
 
     team = Team(name=name)
     session.add(team)
-    session.add(UserTeam(user_id=user.id, team_id=team.id))
+    # The creator owns it: someone has to be able to admit the second member.
+    session.add(UserTeam(user_id=user.id, team_id=team.id, role=TeamRole.owner))
     await session.commit()
 
     return await _load_team_detail(team.id, user, session)
@@ -339,10 +321,15 @@ async def add_team_member(
 ) -> TeamMemberOut:
     """Add an existing user to a team by email.
 
-    Only accessible to members of the team.
+    Owners only. Membership grants access to a team's work; deciding who else gets that
+    access is a further step, or anyone admitted could admit anyone else.
+
+    Raises: 403 - Forbidden if the caller does not own the team
+    Raises: 404 - Not found if no user has that email
+    Raises: 409 - Conflict if they are already a member
     """
 
-    await require_team_member(user.id, team_id, session)
+    await require_team_owner(user.id, team_id, session)
 
     email = body.email.strip()
 
@@ -367,7 +354,7 @@ async def add_team_member(
         raise HTTPException(status.HTTP_409_CONFLICT, f"{email} is already a member of this team")
 
     # Add user to link to avoid another query
-    link = UserTeam(user_id=new_user.id, team_id=team_id)
+    link = UserTeam(user_id=new_user.id, team_id=team_id, role=body.role)
     link.user = new_user
     session.add(link)
     await session.commit()
@@ -384,12 +371,19 @@ async def remove_team_member(
 ) -> None:
     """Remove a member from a team.
 
-    Only accessible to members of the team.
+    Owners only, for the same reason as adding one — otherwise a member could remove the
+    owner who admitted them.
 
-    The last remaining member of a team cannot be removed.
+    The last remaining member of a team cannot be removed, and whoever is left alone on a
+    team becomes its owner — otherwise removing the last owner would leave a team nobody
+    could administer, since only an owner may add or remove anyone.
+
+    Raises: 403 - Forbidden if the caller does not own the team
+    Raises: 404 - Not found if that user is not a member
+    Raises: 409 - Conflict if they are the last member
     """
 
-    await require_team_member(user.id, team_id, session)
+    await require_team_owner(user.id, team_id, session)
 
     link = (
         await session.execute(
@@ -412,4 +406,16 @@ async def remove_team_member(
         )
 
     await session.delete(link)
+    await session.flush()
+
+    # Sole survivor: promote them. The check runs after the delete so it sees who is
+    # actually left, and it is a no-op when they already own the team.
+    remaining = (
+        (await session.execute(select(UserTeam).where(UserTeam.team_id == team_id)))
+        .scalars()
+        .all()
+    )
+    if len(remaining) == 1:
+        remaining[0].role = TeamRole.owner
+
     await session.commit()

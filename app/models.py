@@ -178,7 +178,9 @@ class UserTeam(SQLModel, table=True):
 
     user_id: uuid.UUID = Field(foreign_key="users.id", primary_key=True)
     team_id: uuid.UUID = Field(foreign_key="teams.id", primary_key=True)
-    role: TeamRole = Field(default=TeamRole.owner)
+    # Least privilege by default. The two places that create a membership both say
+    # which role they mean, so this only governs a row built without one.
+    role: TeamRole = Field(default=TeamRole.collaborator)
 
     user: User | None = Relationship(back_populates="teams")
     team: Team | None = Relationship(back_populates="members")

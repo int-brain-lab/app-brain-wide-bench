@@ -11,6 +11,8 @@ The main visibility rules are:
 
 import uuid
 
+from sqlalchemy import select
+
 from app.models import TeamRole, UserTeam
 from tests.conftest import TEAMS, USERS
 
@@ -260,10 +262,7 @@ async def test_update_as_non_member(seeded_client):
 async def test_update_as_member(seeded_client, add, me):
     """A member can rename their team."""
     await add(
-        UserTeam(
-            user_id=me,
-            team_id=MY_TEAM,
-        )
+        UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner)
     )
 
     response = await seeded_client.patch(
@@ -278,10 +277,7 @@ async def test_update_as_member(seeded_client, add, me):
 async def test_update_rejects_duplicate_name(seeded_client, add, me):
     """A team cannot be renamed to another team's name."""
     await add(
-        UserTeam(
-            user_id=me,
-            team_id=MY_TEAM,
-        )
+        UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner)
     )
 
     response = await seeded_client.patch(
@@ -295,10 +291,7 @@ async def test_update_rejects_duplicate_name(seeded_client, add, me):
 async def test_update_allows_existing_name(seeded_client, add, me):
     """A team can be patched with its existing name."""
     await add(
-        UserTeam(
-            user_id=me,
-            team_id=MY_TEAM,
-        )
+        UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner)
     )
 
     response = await seeded_client.patch(
@@ -312,10 +305,7 @@ async def test_update_allows_existing_name(seeded_client, add, me):
 async def test_update_rejects_unknown_fields(seeded_client, add, me):
     """Unknown fields are rejected."""
     await add(
-        UserTeam(
-            user_id=me,
-            team_id=MY_TEAM,
-        )
+        UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner)
     )
 
     response = await seeded_client.patch(
@@ -339,13 +329,10 @@ async def test_add_member_as_non_member(seeded_client):
     assert response.status_code == 403
 
 
-async def test_add_member_as_member(seeded_client, add, me):
+async def test_add_member_as_owner(seeded_client, add, me):
     """A member can add another user to the team."""
     await add(
-        UserTeam(
-            user_id=me,
-            team_id=MY_TEAM,
-        )
+        UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner)
     )
 
     response = await seeded_client.post(
@@ -370,13 +357,19 @@ async def test_add_member_as_member(seeded_client, add, me):
     assert team["n_members"] == 4
 
 
+async def test_add_member_as_collaborator(seeded_client, add, me):
+    """Membership is not enough: deciding who else gets in is the owner's."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.collaborator))
+
+    response = await seeded_client.post(members_url(MY_TEAM), json={"email": OUTSIDER})
+
+    assert response.status_code == 403
+
+
 async def test_add_member_unknown_email(seeded_client, add, me):
     """An unregistered user cannot be added to a team."""
     await add(
-        UserTeam(
-            user_id=me,
-            team_id=MY_TEAM,
-        )
+        UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner)
     )
 
     response = await seeded_client.post(
@@ -390,10 +383,7 @@ async def test_add_member_unknown_email(seeded_client, add, me):
 async def test_add_member_already_in_team(seeded_client, add, me):
     """A user cannot be added to a team they already belong to."""
     await add(
-        UserTeam(
-            user_id=me,
-            team_id=MY_TEAM,
-        )
+        UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner)
     )
 
     response = await seeded_client.post(
@@ -402,6 +392,37 @@ async def test_add_member_already_in_team(seeded_client, add, me):
     )
 
     assert response.status_code == 409
+
+
+async def test_add_member_defaults_to_collaborator(seeded_client, add, me):
+    """Adding someone should not hand them the power to add others."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner))
+
+    response = await seeded_client.post(members_url(MY_TEAM), json={"email": OUTSIDER})
+
+    assert response.status_code == 201, response.text
+    assert response.json()["role"] == "collaborator"
+
+
+async def test_add_member_with_an_explicit_role(seeded_client, add, me):
+    await add(UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner))
+
+    response = await seeded_client.post(
+        members_url(MY_TEAM), json={"email": OUTSIDER, "role": "owner"}
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["role"] == "owner"
+
+
+async def test_add_member_rejects_an_unknown_role(seeded_client, add, me):
+    await add(UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner))
+
+    response = await seeded_client.post(
+        members_url(MY_TEAM), json={"email": OUTSIDER, "role": "admin"}
+    )
+
+    assert response.status_code == 422
 
 
 # ── DELETE /api/teams/{id}/members/{user_id} ──────────────────────────────────
@@ -417,10 +438,7 @@ async def test_remove_member_as_non_member(seeded_client):
 async def test_remove_member(seeded_client, add, me):
     """A member can remove another member from the team."""
     await add(
-        UserTeam(
-            user_id=me,
-            team_id=MY_TEAM,
-        )
+        UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner)
     )
 
     response = await seeded_client.delete(
@@ -438,13 +456,19 @@ async def test_remove_member(seeded_client, add, me):
     assert COLLABORATOR not in member_emails(team)
 
 
+async def test_remove_member_as_collaborator(seeded_client, add, me):
+    """Otherwise a member could remove the owner who admitted them."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.collaborator))
+
+    response = await seeded_client.delete(members_url(MY_TEAM, USERS[BENCHMARK]))
+
+    assert response.status_code == 403
+
+
 async def test_remove_member_not_in_team(seeded_client, add, me):
     """Removing a user who is not a team member returns 404."""
     await add(
-        UserTeam(
-            user_id=me,
-            team_id=MY_TEAM,
-        )
+        UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner)
     )
 
     response = await seeded_client.delete(
@@ -452,6 +476,32 @@ async def test_remove_member_not_in_team(seeded_client, add, me):
     )
 
     assert response.status_code == 404
+
+
+async def test_the_last_member_left_is_made_owner(seeded_client, add, me, session_factory):
+    """Removing the last owner must not strand the team.
+
+    Only an owner may add or remove anyone, so a team whose remaining member is a
+    collaborator could never be administered again. Whoever is left alone gets it.
+
+    Checked against the database rather than the API: once the caller has removed
+    themselves they are no longer a member, and the member list is withheld from them.
+    """
+    await add(UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner))
+
+    # Brain Wide Bench holds benchmark@ (owner) and collaborator@ (collaborator); with the
+    # caller that is three. Remove the two owners and the collaborator is left alone.
+    for victim in (USERS[BENCHMARK], me):
+        assert (await seeded_client.delete(members_url(MY_TEAM, victim))).status_code == 204
+
+    async with session_factory() as session:
+        rows = (
+            (await session.execute(select(UserTeam).where(UserTeam.team_id == MY_TEAM)))
+            .scalars()
+            .all()
+        )
+
+    assert [(row.user_id, row.role) for row in rows] == [(USERS[COLLABORATOR], TeamRole.owner)]
 
 
 async def test_remove_last_member_is_refused(seeded_client, me):

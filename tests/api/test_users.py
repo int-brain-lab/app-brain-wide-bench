@@ -12,7 +12,7 @@ The main rules are:
   team, including private and pending data.
 """
 
-from app.models import UserTeam
+from app.models import TeamRole, UserTeam
 from tests.conftest import TEAMS
 
 BENCHMARK = "benchmark@internationalbrainlab.org"
@@ -277,10 +277,7 @@ async def test_my_teams_as_member(seeded_client, add, me):
     """A team member sees their team, role, and unscoped team counts."""
 
     await add(
-        UserTeam(
-            user_id=me,
-            team_id=MY_TEAM,
-        )
+        UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner)
     )
 
     response = await seeded_client.get(me_url("teams"))

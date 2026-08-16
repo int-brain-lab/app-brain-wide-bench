@@ -142,24 +142,34 @@ async def get_current_user_optional(
         return None
 
 
-async def member_team_ids(user_id: uuid.UUID | None, session: AsyncSession) -> set[uuid.UUID]:
-    """Team IDs ``user_id`` belongs to, fetched in one query.
+async def member_team_roles(
+    user_id: uuid.UUID | None, session: AsyncSession
+) -> dict[uuid.UUID, TeamRole]:
+    """``user_id``'s role in each team they belong to, fetched in one query.
 
-    The single definition of what team membership means. The two helpers below are
-    thin wrappers over it, so a future ``accepted_at``/``is_active`` filter or a
-    superuser bypass has exactly one place to be added rather than three.
+    The single definition of what team membership means, and now of what it grants:
+    everything below is a thin wrapper over it, so a future ``accepted_at`` filter or a
+    superuser bypass has exactly one place to be added rather than five.
 
-    Also the right call directly when scoping a whole listing — ``list_models``
-    uses it both in SQL (``Model.team_id.in_(...)``) and to classify each row,
-    where a per-row membership check would be one round trip per model.
+    A team the user isn't in is simply absent, so callers use ``.get(team_id)``.
     """
     if user_id is None:
-        return set()
+        return {}
 
-    result = await session.execute(
-        select(UserTeam.team_id).where(UserTeam.user_id == user_id)
+    rows = await session.execute(
+        select(UserTeam.team_id, UserTeam.role).where(UserTeam.user_id == user_id)
     )
-    return set(result.scalars().all())
+    return dict(rows.all())
+
+
+async def member_team_ids(user_id: uuid.UUID | None, session: AsyncSession) -> set[uuid.UUID]:
+    """Team IDs ``user_id`` belongs to.
+
+    The right call when scoping a whole listing — ``list_models`` uses it both in SQL
+    (``Model.team_id.in_(...)``) and to classify each row, where a per-row membership
+    check would be one round trip per model.
+    """
+    return set(await member_team_roles(user_id, session))
 
 
 async def is_team_member(
@@ -175,7 +185,35 @@ async def is_team_member(
     will refuse a missing team rather than 404 it — look the resource up first if
     that distinction matters.
     """
-    return team_id in await member_team_ids(user_id, session)
+    return team_id in await member_team_roles(user_id, session)
+
+
+async def is_team_owner(
+    user_id: uuid.UUID | None, team_id: uuid.UUID, session: AsyncSession
+) -> bool:
+    """Whether ``user_id`` owns ``team_id``.
+
+    For deciding what to *show* — whether to offer the controls that manage a team's
+    membership — as ``is_team_member`` is for deciding what to show a member.
+    """
+    return (await member_team_roles(user_id, session)).get(team_id) == TeamRole.owner
+
+
+async def require_team_owner(
+    user_id: uuid.UUID,
+    team_id: uuid.UUID,
+    session: AsyncSession,
+    *,
+    detail: str = "Only an owner of this team can do that",
+) -> None:
+    """Raise 403 unless ``user_id`` owns ``team_id``.
+
+    The stricter sibling of ``require_team_member``. Membership decides what you may see
+    and submit; ownership decides who else gets in — otherwise anyone admitted to a team
+    could admit anyone else, or remove the person who admitted them.
+    """
+    if not await is_team_owner(user_id, team_id, session):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail)
 
 
 async def require_team_member(

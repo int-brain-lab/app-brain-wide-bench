@@ -85,8 +85,10 @@ class TeamMemberCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     email: str
-    # TODO
-    # role: str
+
+    # Defaults to the lesser role: adding someone should not hand them the power to add
+    # others unless that is what the caller chose.
+    role: TeamRole = TeamRole.collaborator
 
 
 class TeamDetail(TeamResponse):
