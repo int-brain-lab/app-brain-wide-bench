@@ -21,6 +21,7 @@ from app.schemas.teams import (
     TeamDetail,
     TeamMemberCreate,
     TeamMemberOut,
+    TeamMemberUpdate,
     TeamResponse,
     TeamUpdate,
 )
@@ -357,6 +358,64 @@ async def add_team_member(
     link = UserTeam(user_id=new_user.id, team_id=team_id, role=body.role)
     link.user = new_user
     session.add(link)
+    await session.commit()
+
+    return TeamMemberOut.from_member(link)
+
+
+@router.patch("/{team_id}/members/{user_id}", response_model=TeamMemberOut)
+async def update_team_member(
+    team_id: uuid.UUID,
+    user_id: uuid.UUID,
+    body: TeamMemberUpdate,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> TeamMemberOut:
+    """Change a member's role.
+
+    Owners only, like adding and removing one — a collaborator who could promote himself
+    would make the distinction meaningless.
+
+    The last owner cannot be demoted, for the same reason the last member cannot be
+    removed: only an owner may manage membership, so a team of collaborators could never
+    be administered again. Removal has the gentler counterpart — whoever is left alone is
+    promoted — but there is no such rescue here, since demoting the last owner leaves
+    other members who simply all lack the role.
+
+    Raises: 403 - Forbidden if the caller does not own the team
+    Raises: 404 - Not found if that user is not a member
+    Raises: 409 - Conflict if they are the last owner and would stop being one
+    """
+
+    await require_team_owner(user.id, team_id, session)
+
+    link = (
+        await session.execute(
+            select(UserTeam)
+            .options(selectinload(UserTeam.user))
+            .where(UserTeam.user_id == user_id, UserTeam.team_id == team_id)
+        )
+    ).scalar_one_or_none()
+
+    if link is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "That user is not a member of this team")
+
+    if link.role == TeamRole.owner and body.role != TeamRole.owner:
+        n_owners = (
+            await session.execute(
+                select(func.count())
+                .select_from(UserTeam)
+                .where(UserTeam.team_id == team_id, UserTeam.role == TeamRole.owner)
+            )
+        ).scalar_one()
+
+        if n_owners <= 1:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Cannot demote the last owner — nobody would be left to manage the team",
+            )
+
+    link.role = body.role
     await session.commit()
 
     return TeamMemberOut.from_member(link)

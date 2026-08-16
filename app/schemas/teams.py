@@ -91,6 +91,14 @@ class TeamMemberCreate(BaseModel):
     role: TeamRole = TeamRole.collaborator
 
 
+class TeamMemberUpdate(BaseModel):
+    """Request body for ``PATCH /api/teams/{id}/members/{user_id}``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    role: TeamRole
+
+
 class TeamDetail(TeamResponse):
     """Detail view for ``GET /api/teams/{id}``.
 

@@ -12,9 +12,12 @@
 // The page provides #member-search, #member-results and #member-list; #member-add is
 // optional and wraps the lookup where a page needs to hide it outside edit mode.
 
-import { addTeamMember, removeTeamMember } from "./teamApi.js";
+import { addTeamMember, removeTeamMember, updateTeamMember } from "./teamApi.js";
 import { searchUsers } from "../users/userApi.js";
 import { escapeHtml, initials, renderMessage } from "../utils.js";
+
+// The server's TeamRole. Ordered as the select shows them, most privileged first.
+const ROLES = ["owner", "collaborator"];
 
 // ─── DOM ────────────────────────────────────────────────────────────────────
 
@@ -29,10 +32,10 @@ function buildMembersPanel() {
       <div class="column gap-xs" id="member-add" hidden>
         <label class="field-label" for="member-search">Add a member</label>
         <input class="field-input" id="member-search" type="search"
-               placeholder="Full name or email address" autocomplete="off">
+               placeholder="Email address" autocomplete="off">
         <p class="info-msg">
-          Enter the whole name or email — partial matches aren't looked up. They must have
-          signed in at least once before they can be added.
+          Enter the whole email address — partial matches aren't looked up. They must
+          have signed in at least once before they can be added.
         </p>
 
         <!-- The match, with an Add button. Hidden until there is one. -->
@@ -78,7 +81,15 @@ function createMembersSection({
   const elements = getElements();
 
   const pendingAdds = new Map();
+
+  // What a newly added member starts as, before the row's select is touched. The lesser
+  // role: adding someone shouldn't hand them the power to add others by default.
+  const DEFAULT_ROLE = "collaborator";
   const pendingRemoves = new Set();
+
+  // Role changes to members who are already saved, keyed by user id. Staged like the rest
+  // rather than sent on change, so one Save applies everything and Cancel discards it.
+  const pendingRoles = new Map();
 
   // Starts read-only. teamView.js opens it from the editor's onEdit; team_create.html
   // opens it once at construction, because there the panel's own lock is the gate.
@@ -95,10 +106,42 @@ function createMembersSection({
   }
 
   function hasChanges() {
-    return pendingAdds.size > 0 || pendingRemoves.size > 0;
+    return pendingAdds.size > 0 || pendingRemoves.size > 0 || pendingRoles.size > 0;
   }
 
   // ─── RENDERING ────────────────────────────────────────────────────────────
+
+  // A select rather than a badge, so the role is chosen where the member is. Only a
+  // staged addition can have its role set: changing a saved member's role would need an
+  // endpoint that doesn't exist yet, so those render as the same control, disabled, which
+  // shows the role without implying it can be changed here.
+  function buildRoleCell(member) {
+    const selected = pendingRoles.get(member.id) ?? member.role ?? DEFAULT_ROLE;
+
+    // A staged addition carries its role in the POST that creates it; a saved member is
+    // changed with its own PATCH, which needs a team that exists — on the create page
+    // there isn't one yet, and `canRemove` protects the creator there as it does for
+    // removal.
+    const settable =
+      editing &&
+      (pendingAdds.has(member.email) || (getTeam().id != null && canRemove(member)));
+
+    const options = ROLES.map(
+      role =>
+        `<option value="${role}"${role === selected ? " selected" : ""}>${role}</option>`,
+    ).join("");
+
+    return `
+      <select
+        class="input-select member-role"
+        data-email="${escapeHtml(member.email)}"
+        data-user-id="${escapeHtml(member.id ?? "")}"
+        ${settable ? "" : "disabled"}
+      >
+        ${options}
+      </select>
+    `;
+  }
 
   // The action cell's flex layout goes on a div inside the <td>, not on the <td> itself.
   // `.row` is `display: flex`, and setting that on a table cell takes it out of the table's
@@ -109,6 +152,7 @@ function createMembersSection({
       <tr>
         <td>${escapeHtml(member.name || "—")}</td>
         <td>${escapeHtml(member.email)}</td>
+        <td>${buildRoleCell(member)}</td>
         <td>
           <div class="row right">
             ${
@@ -151,6 +195,7 @@ function createMembersSection({
             <tr>
               <th>Name</th>
               <th>Email</th>
+              <th>Role</th>
               <th></th>
             </tr>
           </thead>
@@ -224,10 +269,24 @@ function createMembersSection({
     if (pendingRemoves.has(user.id)) {
       pendingRemoves.delete(user.id);
     } else {
-      pendingAdds.set(user.email, user);
+      pendingAdds.set(user.email, { ...user, role: DEFAULT_ROLE });
     }
 
     render();
+  }
+
+  // Recorded against the staged entry, so apply() sends whatever the row now shows. No
+  // re-render: the select already displays the new value, and redrawing it here would
+  // take the focus off the control the user just used.
+  function setMemberRole(email, userId, role) {
+    const staged = pendingAdds.get(email);
+
+    if (staged) {
+      staged.role = role;
+      return;
+    }
+
+    pendingRoles.set(userId, role);
   }
 
   // Removing something only staged for addition drops it outright — it was never on the
@@ -255,17 +314,34 @@ function createMembersSection({
       }
     }
 
-    for (const email of pendingAdds.keys()) {
+    for (const [email, user] of pendingAdds) {
       try {
-        await addTeamMember(teamId, email);
+        await addTeamMember(teamId, email, user.role);
       } catch (err) {
         console.error(err);
         failed.push(`${email}: ${err.message}`);
       }
     }
 
+    // Role changes last, and skipping anyone just removed — the PATCH would 404 on a
+    // membership that no longer exists. Demoting yourself is left to the server to refuse:
+    // it knows whether another owner remains.
+    for (const [userId, role] of pendingRoles) {
+      if (pendingRemoves.has(userId)) {
+        continue;
+      }
+
+      try {
+        await updateTeamMember(teamId, userId, role);
+      } catch (err) {
+        console.error(err);
+        failed.push(`Role change failed: ${err.message}`);
+      }
+    }
+
     pendingAdds.clear();
     pendingRemoves.clear();
+    pendingRoles.clear();
 
     return failed;
   }
@@ -273,6 +349,7 @@ function createMembersSection({
   function reset() {
     pendingAdds.clear();
     pendingRemoves.clear();
+    pendingRoles.clear();
 
     elements.search.value = "";
     clearSearchResults();
@@ -305,7 +382,7 @@ function createMembersSection({
     if (users.length === 0) {
       clearSearchResults();
       onMessage(
-        `No user with that exact name or email: ${query}`,
+        `No user with that email: ${query}`,
         "error-msg",
       );
       return;
@@ -332,6 +409,16 @@ function createMembersSection({
       email: button.dataset.email,
       name: button.dataset.name || null,
     });
+  });
+
+  elements.list.addEventListener("change", event => {
+    const select = event.target.closest(".member-role");
+
+    if (!select) {
+      return;
+    }
+
+    setMemberRole(select.dataset.email, select.dataset.userId, select.value);
   });
 
   elements.list.addEventListener("click", event => {

@@ -31,8 +31,24 @@ function buildStatusBadge(status) {
   return `<span class="badge sm ${statusBadgeClass(status)}">${escapeHtml(status)}</span>`;
 }
 
+
+// Owner is the role that grants something — renaming the team, and being the member who
+// can't be removed while they're the last one — so it carries the emphasis and every
+// other role reads neutral. A team with no role at all (a non-member viewing a team, or
+// a listing that didn't ask) renders nothing rather than an empty badge.
+function roleBadgeClass(role) {
+  return role === "owner" ? "success" : "neutral";
+}
+
+function buildRoleBadge(role) {
+  if (!role) return "";
+
+  return `<span class="badge sm ${roleBadgeClass(role)}">${escapeHtml(role)}</span>`;
+}
+
 export {
   buildSuiteBadgeList,
   buildStatusBadge,
-  buildSuiteCoverageBadges
+  buildSuiteCoverageBadges,
+  buildRoleBadge
 }

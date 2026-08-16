@@ -425,6 +425,71 @@ async def test_add_member_rejects_an_unknown_role(seeded_client, add, me):
     assert response.status_code == 422
 
 
+# ── PATCH /api/teams/{id}/members/{user_id} ──────────────────────────────────
+
+
+async def test_update_member_role(seeded_client, add, me):
+    await add(UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner))
+
+    response = await seeded_client.patch(
+        members_url(MY_TEAM, USERS[COLLABORATOR]), json={"role": "owner"}
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["role"] == "owner"
+    assert response.json()["email"] == COLLABORATOR
+
+
+async def test_update_member_role_as_collaborator(seeded_client, add, me):
+    """Otherwise a collaborator could simply promote themselves."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.collaborator))
+
+    response = await seeded_client.patch(
+        members_url(MY_TEAM, USERS[COLLABORATOR]), json={"role": "owner"}
+    )
+
+    assert response.status_code == 403
+
+
+async def test_update_member_role_not_in_team(seeded_client, add, me):
+    await add(UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner))
+
+    response = await seeded_client.patch(
+        members_url(MY_TEAM, USERS[OUTSIDER]), json={"role": "owner"}
+    )
+
+    assert response.status_code == 404
+
+
+async def test_update_member_role_refuses_demoting_the_last_owner(seeded_client, add, me):
+    """Brain Wide Bench has one owner in the fixture; demoting them strands the team."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner))
+
+    # Two owners now, so demoting one is fine.
+    assert (
+        await seeded_client.patch(
+            members_url(MY_TEAM, USERS[BENCHMARK]), json={"role": "collaborator"}
+        )
+    ).status_code == 200
+
+    # The caller is the only owner left, so demoting themselves is refused.
+    response = await seeded_client.patch(
+        members_url(MY_TEAM, me), json={"role": "collaborator"}
+    )
+
+    assert response.status_code == 409
+
+
+async def test_update_member_role_rejects_an_unknown_role(seeded_client, add, me):
+    await add(UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner))
+
+    response = await seeded_client.patch(
+        members_url(MY_TEAM, USERS[COLLABORATOR]), json={"role": "admin"}
+    )
+
+    assert response.status_code == 422
+
+
 # ── DELETE /api/teams/{id}/members/{user_id} ──────────────────────────────────
 
 async def test_remove_member_as_non_member(seeded_client):

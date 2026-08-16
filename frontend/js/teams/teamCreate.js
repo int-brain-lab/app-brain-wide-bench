@@ -40,7 +40,10 @@ const TEAM_PANELS = [
 async function submitTeam(state, draft, members) {
   showMessage(pageMessage(), "Creating team…");
 
-  const team = await createTeam(state.name.trim());
+  // The whole state: createTeam builds the payload from it and trims the name itself.
+  // Passing `state.name` here sent a *string* to be object-spread, so the body went out
+  // as {"0":"M","1":"y",…} with no name at all.
+  const team = await createTeam(state);
 
   draft.id = team.id;
 
@@ -86,7 +89,9 @@ async function loadTeamCreatePage() {
     // Stands in for the team that doesn't exist yet. The creator is listed from the start
     // because POST /api/teams adds them as the first member — showing them is reporting
     // what will happen, not pre-empting it.
-    const draft = { id: null, members: [me] };
+    // The creator is the team's owner — POST /api/teams makes them one, and the row
+    // has to say so rather than defaulting to "collaborator" like a staged addition.
+    const draft = { id: null, members: [{ ...me, role: "owner" }] };
 
     let members = null;
 

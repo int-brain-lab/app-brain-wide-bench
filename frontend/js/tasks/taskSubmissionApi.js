@@ -18,7 +18,7 @@ async function getTaskSubmissionFields() {
 
 // Get the available tasks
 async function getTaskSuites() {
-    return await apiFetch("/api/tasks/");
+    return await apiFetch("/api/tasks");
 }
 
 // Update multiple taskSubmissions at once

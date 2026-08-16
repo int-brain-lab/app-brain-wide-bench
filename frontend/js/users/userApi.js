@@ -22,10 +22,10 @@ async function updateMe(patch) {
 }
 
 
-// TODO look into
-// Find users by name or email, for the team-create member picker. The server requires
-// at least two characters and caps how many it returns, so this is a picker rather than
-// a way to page through the directory.
+// Find a user by their exact email, for the member picker. Exact and email-only by
+// design: a substring lookup would let any signed-in user walk the directory, and
+// matching on display names would let someone take a colleague's name and surface in
+// searches meant for them. So this is a picker, not a way to browse.
 //
 // Returns [] on failure rather than throwing: the search runs on every keystroke, and a
 // transient error shouldn't put an error banner under a field the user is still typing

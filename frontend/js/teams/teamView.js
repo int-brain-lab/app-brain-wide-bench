@@ -8,6 +8,7 @@ import { loadTeam, updateTeam } from "./teamApi.js";
 import { buildMembersPanel, createMembersSection } from "./teamMembers.js";
 import { appendCreateCard } from "../utils/create-card.js";
 import { buildStatCards } from "../components/cards.js";
+import { buildRoleBadge } from "../components/badges.js";
 import { loadRecordPage } from "../pages/record-loader.js";
 import {
   buildBody,
@@ -85,6 +86,13 @@ function isMember(team) {
   return Array.isArray(team.members);
 }
 
+// A separate question from isMember: renaming the team is any member's, but deciding who
+// is *in* it is the owner's, and the server refuses the rest with a 403. Offering the
+// controls to a collaborator would only produce that error on save.
+function isOwner(team) {
+  return team.role === "owner";
+}
+
 // ─── UTILS ───────────────────────────────────────────────────────────────────
 
 function pluralise(count, noun) {
@@ -105,6 +113,7 @@ function buildMemberRow(member) {
     <tr>
       <td>${escapeHtml(member.name || "—")}</td>
       <td>${escapeHtml(member.email)}</td>
+      <td>${buildRoleBadge(member.role)}</td>
     </tr>
   `;
 }
@@ -117,6 +126,7 @@ function buildMemberTable(members) {
           <tr>
             <th>Name</th>
             <th>Email</th>
+            <th>Role</th>
           </tr>
         </thead>
         <tbody>
@@ -235,7 +245,7 @@ function renderDetailsView({ team, fields, edit = false, created = false }) {
     fields,
     groups: () => panelGroups(fields, TEAM_PANELS, { columns: 1 }),
 
-    onEdit: () => members.setEditing(true),
+    onEdit: () => members.setEditing(isOwner(team)),
 
     // Members first, then the rename: PATCH answers with the full TeamDetail, so doing it
     // last means the response already reflects the membership changes.

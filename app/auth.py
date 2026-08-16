@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_session
-from app.models import User, UserTeam
+from app.models import TeamRole, UserTeam, User
 
 _DEV_SUB = "dev|local-user"
 _jwks_cache: dict | None = None
