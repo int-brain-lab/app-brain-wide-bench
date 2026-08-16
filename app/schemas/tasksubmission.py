@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models import (
     Calibration,
     FinetuningStrategy,
+    Metric,
     Modality,
     SupervisionRegime,
     TrainingParadigm,
@@ -21,11 +22,11 @@ class TaskScoreOut(BaseModel):
     primary_metric_sem: float | None = None
     metrics: dict | None = None
 
-    primary_metric: str
+    primary_metric: Metric
 
 
-class TaskSubmissionResponse(BaseModel):
-    """Task entry within a submission, with optional score."""
+class TaskSubmissionOut(BaseModel):
+    """A task entry embedded in the submission or model that owns it, with its score."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -34,8 +35,8 @@ class TaskSubmissionResponse(BaseModel):
     score: TaskScoreOut | None = None
 
 
-class TaskSubmissionResult(TaskSubmissionResponse):
-    """Row for ``GET /api/users/me/task-submissions``.
+class TaskSubmissionResponse(TaskSubmissionOut):
+    """List item for ``GET /api/users/me/task-submissions``.
 
     A task submission and its score, plus the names of what it belongs to. The other
     task-submission responses are always read *through* a submission, so the context is
@@ -59,7 +60,7 @@ class TaskSubmissionResult(TaskSubmissionResponse):
     team_name: str | None = None
 
     @classmethod
-    def from_task_submission(cls, task_submission) -> "TaskSubmissionResult":
+    def from_task_submission(cls, task_submission) -> "TaskSubmissionResponse":
         """Build from an ORM ``TaskSubmission`` with ``submission`` → team/model loaded."""
         submission = task_submission.submission
         return cls.model_validate(task_submission).model_copy(
@@ -75,9 +76,12 @@ class TaskSubmissionResult(TaskSubmissionResponse):
 
 
 class TaskMetadata(BaseModel):
-    """Training metadata for the task"""
+    """Training metadata for a task, shared by its requests and its responses.
 
-    model_config = ConfigDict(from_attributes=True)
+    No ``model_config``: the response classes bring ``from_attributes`` themselves and the
+    request classes bring ``extra="forbid"``, so neither inherits a setting meant for the
+    other. Same arrangement as ``ModelMetadata``.
+    """
 
     extra_input_modality: list[Modality] | None = None
     training_paradigm: TrainingParadigm | None = None
@@ -86,7 +90,7 @@ class TaskMetadata(BaseModel):
     finetuning_strategy: list[FinetuningStrategy] | None = None
 
 
-class TaskSubmissionDetail(TaskSubmissionResponse, TaskMetadata):
+class TaskSubmissionDetail(TaskSubmissionOut, TaskMetadata):
     """Detailed task submission information for GET /api/submissions/{id}/tasks/{task_submission_id}``"""
 
 

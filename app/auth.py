@@ -86,9 +86,17 @@ async def _upsert_user(session: AsyncSession, claims: dict) -> User:
     ).scalar_one_or_none()
     if user is None:
         user = User(auth0_sub=sub, provider=provider, orcid_id=orcid_id)
+        # Seeded once, from the provider, and never overwritten again: ``name`` is a
+        # display name the user owns and can change via PATCH /api/users/me. Re-syncing
+        # it on every request — as this used to — silently undid their edit on the very
+        # next call. Nothing depends on it matching the provider; identity is
+        # ``auth0_sub`` and the lookup key is ``email``.
+        user.name = claims.get("name")
         session.add(user)
+
+    # ``email`` does keep syncing. It is how a person is found and added to a team, so it
+    # has to track the identity provider rather than drift from it.
     user.email = claims.get("email", user.email or "")
-    user.name = claims.get("name", user.name)
     await session.commit()
     await session.refresh(user)
     return user
@@ -134,7 +142,7 @@ async def get_current_user_optional(
         return None
 
 
-async def member_team_ids(session: AsyncSession, user_id: uuid.UUID | None) -> set[uuid.UUID]:
+async def member_team_ids(user_id: uuid.UUID | None, session: AsyncSession) -> set[uuid.UUID]:
     """Team IDs ``user_id`` belongs to, fetched in one query.
 
     The single definition of what team membership means. The two helpers below are
@@ -155,7 +163,7 @@ async def member_team_ids(session: AsyncSession, user_id: uuid.UUID | None) -> s
 
 
 async def is_team_member(
-    session: AsyncSession, user_id: uuid.UUID | None, team_id: uuid.UUID
+    user_id: uuid.UUID | None, team_id: uuid.UUID, session: AsyncSession
 ) -> bool:
     """Whether ``user_id`` belongs to ``team_id``.
 
@@ -167,13 +175,14 @@ async def is_team_member(
     will refuse a missing team rather than 404 it — look the resource up first if
     that distinction matters.
     """
-    return team_id in await member_team_ids(session, user_id)
+    return team_id in await member_team_ids(user_id, session)
 
 
 async def require_team_member(
-    session: AsyncSession,
     user_id: uuid.UUID,
     team_id: uuid.UUID,
+    session: AsyncSession,
+    *,
     detail: str = "Not a member of this team",
 ) -> None:
     """Raise 403 unless ``user_id`` belongs to ``team_id``.
@@ -185,5 +194,5 @@ async def require_team_member(
     Pass ``detail`` where the generic message would be ambiguous — an endpoint
     touching two teams should say which one the caller was refused on.
     """
-    if not await is_team_member(session, user_id, team_id):
+    if not await is_team_member(user_id, team_id, session):
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail)

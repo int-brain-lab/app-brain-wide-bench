@@ -24,12 +24,14 @@ from app.models import (
     TaskType,
     Team,
     User,
+    UserTeam,
 )
 
 # Insertion order respects FK dependencies.
 _TABLE_MAP = [
     ("teams",            Team),
     ("users",            User),
+    ("user_teams",       UserTeam),
     ("models",           Model),
     ("submissions",      Submission),
     ("submission_users", SubmissionUser),

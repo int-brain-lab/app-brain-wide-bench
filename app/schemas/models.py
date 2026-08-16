@@ -3,10 +3,10 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
-from app.models import Modality, TaskSuite
-from app.schemas.tasksubmission import TaskSubmissionResponse
+from app.models import Modality, SubmissionStatus, TaskSuite
+from app.schemas.tasksubmission import TaskSubmissionOut
 
 
 class ModelMetadata(BaseModel):
@@ -67,24 +67,24 @@ class ModelSubmissionOut(BaseModel):
 
     id: uuid.UUID
     label: str
-    status: str
+    status: SubmissionStatus
     is_public: bool
     created_at: datetime | None = None
     updated_at: datetime | None = None
-    task_submissions: list[TaskSubmissionResponse] = Field(default_factory=list)
+    task_submissions: list[TaskSubmissionOut] = []
 
 
 class ModelResponse(ModelBase):
     """List item for GET /api/models and GET /api/users/me/models."""
 
     n_submissions: int = 0
-    task_suites: list[TaskSuite] = Field(default_factory=list)
+    task_suites: list[TaskSuite] = []
 
 
 class ModelDetail(ModelBase):
     """Detailed model information for GET /api/models/{id}."""
 
-    submissions: list[ModelSubmissionOut] = Field(default_factory=list)
+    submissions: list[ModelSubmissionOut] = []
 
 
 class ModelCreate(ModelMetadata):

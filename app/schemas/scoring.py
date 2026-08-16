@@ -6,8 +6,15 @@ a list of per-recording rows plus a per-task ``summary`` of the primary metric u
 to populate the public leaderboard.
 """
 
-from app.schemas.base import ScoreResultBase
 from pydantic import BaseModel
+
+
+class ScoreResultBase(BaseModel):
+    """Base class for a scorer's result.
+
+    Lives here rather than in a shared module: nothing in the HTTP API uses it. A scorer
+    returns one of these; the API only ever sees the ``TaskScore`` rows written from it.
+    """
 
 
 class MetricSummary(BaseModel):

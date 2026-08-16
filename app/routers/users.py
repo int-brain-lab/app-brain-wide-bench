@@ -1,7 +1,7 @@
 """User profile endpoints."""
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -13,46 +13,59 @@ from app.routers.models import submission_count_per_model, suites_per_model
 from app.routers.submissions import suites_per_submission
 from app.schemas.models import ModelResponse
 from app.schemas.submissions import SubmissionResponse
-from app.schemas.tasksubmission import TaskSubmissionResult
+from app.schemas.tasksubmission import TaskSubmissionResponse
 from app.schemas.teams import TeamResponse
-from app.schemas.users import UserDetails, UserSearchResult, UserUpdate
+from app.schemas.users import UserDetail, UserResponse, UserUpdate
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 
-@router.get("", response_model=list[UserSearchResult])
+# ── Endpoints ──────────────────────────────────────────────────────
+@router.get("", response_model=list[UserResponse])
 async def search_users(
-    q: str = Query(description="Name or email to look up, exact match only"),
+    q: str = Query(description="Email to look up, exact match only"),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> list[User]:
-    """Look up users by their *exact* name or email, for picking team members."""
+) -> list[UserResponse]:
+    """Look up a user by their *exact* email, for picking team members.
+
+    Raises: 422 - Unprocessable Entity if ``q`` is missing
+
+    Email rather than email-or-name, because ``name`` is a display name its owner may
+    change to anything. Matching on it would let someone put a colleague's name on their
+    own account and surface in searches meant for them.
+    """
     lookup = q.strip().lower()
 
     result = await session.execute(
         select(User)
-        .where(
-            User.id != user.id,
-            or_(
-                func.lower(User.email) == lookup,
-                func.lower(User.name) == lookup,
-            ),
-        )
-        .order_by(User.name, User.email)
+        .where(User.id != user.id, func.lower(User.email) == lookup)
+        .order_by(User.email)
     )
 
-    return list(result.scalars().all())
+    # Built here rather than returned as ORM rows for ``response_model`` to coerce: a
+    # response that never states its own shape is how ``/me`` silently shipped without
+    # its ``id``.
+    return [UserResponse.model_validate(row) for row in result.scalars().all()]
 
 
-@router.get("/me", response_model=UserDetails)
-async def me(user: User = Depends(get_current_user)) -> UserDetails:
+@router.get("/me", response_model=UserDetail)
+async def me(user: User = Depends(get_current_user)) -> UserDetail:
     """Return the authenticated user's profile.
 
-    ``UserDetails`` rather than ``UserResponse``: the caller needs its own ``id`` to
+    ``UserDetail`` rather than ``UserResponse``: the caller needs its own ``id`` to
     recognise itself in a team's member list, and ``UserResponse`` is only the fields
     shared with ``UserUpdate``.
     """
-    return UserDetails.model_validate(user)
+    return UserDetail.model_validate(user)
+
+
+# ── The caller's own records ──────────────────────────────────────────────
+#
+# Scoped by team membership rather than by visibility: everything on a team the caller
+# belongs to is theirs to see, private and pending included. That is what separates these
+# from the public listings — ``GET /api/models`` answers "what may I see", these answer
+# "what is mine".
 
 
 @router.get("/me/models", response_model=list[ModelResponse])
@@ -82,10 +95,13 @@ async def my_models(
         .all()
     )
 
-    visible = Submission.model_id.in_(select(Model.id).where(Model.team_id.in_(list(my_team_ids))))
+    # Not ``visible_submissions``: that one answers "may the caller see this", and here
+    # every row already belongs to the caller's own team. The count is of everything on
+    # their models, private included — which is what the docstring above promises.
+    mine = Submission.model_id.in_(select(Model.id).where(Model.team_id.in_(list(my_team_ids))))
 
-    n_submissions = await submission_count_per_model(visible, session)
-    suites = await suites_per_model(visible, session)
+    n_submissions = await submission_count_per_model(mine, session)
+    suites = await suites_per_model(mine, session)
 
     return [
         ModelResponse.from_model(
@@ -133,11 +149,11 @@ async def my_submissions(
     ]
 
 
-@router.get("/me/task-submissions", response_model=list[TaskSubmissionResult])
+@router.get("/me/task-submissions", response_model=list[TaskSubmissionResponse])
 async def my_task_submissions(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> list[TaskSubmissionResult]:
+) -> list[TaskSubmissionResponse]:
     """List every task submission across the teams the current user is a member of.
 
     Newest submission first, then by task, so tasks of one submission stay together.
@@ -162,7 +178,7 @@ async def my_task_submissions(
         .all()
     )
 
-    return [TaskSubmissionResult.from_task_submission(ts) for ts in task_submissions]
+    return [TaskSubmissionResponse.from_task_submission(ts) for ts in task_submissions]
 
 
 @router.get("/me/teams", response_model=list[TeamResponse])
@@ -190,18 +206,28 @@ async def my_teams(
             n_members=len(team.members),
             n_models=len(team.models),
             n_submissions=len(team.submissions),
+            # Every team here is one the caller is in, and its members are already
+            # loaded for the count — so their role is in hand, no second query.
+            role=next(
+                (member.role for member in team.members if member.user_id == user.id),
+                None,
+            ),
         )
         for team in teams
     ]
 
 
-@router.patch("/me", response_model=UserDetails)
+@router.patch("/me", response_model=UserDetail)
 async def update_me(
     body: UserUpdate,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> UserDetails:
-    """Update the authenticated user's name and/or affiliation."""
+) -> UserDetail:
+    """Update the authenticated user's name and/or affiliation.
+
+    Raises: 422 - Unprocessable Entity if the body carries a field that is not the
+    caller's to set — ``email`` and ``provider`` come from the identity provider.
+    """
 
     updates = body.model_dump(exclude_unset=True)
 
@@ -210,4 +236,4 @@ async def update_me(
 
     await session.commit()
     await session.refresh(user)
-    return UserDetails.model_validate(user)
+    return UserDetail.model_validate(user)

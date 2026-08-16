@@ -8,31 +8,33 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_session
-from app.models import TaskSubmission, User
+from app.models import Submission, TaskSubmission, User
 from app.schemas.tasksubmission import (
     TaskSubmissionBulkUpdate,
     TaskSubmissionDetail,
     TaskSubmissionUpdate,
 )
-from app.auth import get_current_user
-from app.routers.submissions import _get_submission_as_member
+from app.auth import get_current_user, get_current_user_optional
+from app.routers.submissions import _get_submission_as_member, _get_submission_as_viewer
 
-router = APIRouter(prefix="/api/submissions/{submission_id}/tasks")
+# Tagged as its own group rather than under "submissions": these routes are about one
+# submission's tasks, and /docs otherwise files them under "default".
+router = APIRouter(
+    prefix="/api/submissions/{submission_id}/tasks",
+    tags=["task submissions"],
+)
 
 
 # ── Helper functions ──────────────────────────────────────────────────────
-async def _get_task_submission_as_member(
+async def _get_task_submission(
     task_submission_id: uuid.UUID,
-    submission_id: uuid.UUID,
-    user_id: uuid.UUID = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
-) -> TaskSubmission | None:
-    """Fetch a task submission by ``task submission_id`` and ``submission_id``,  enforcing that ``user_id`` is part of the submission's team.
+    submission: Submission,
+    session: AsyncSession,
+) -> TaskSubmission:
+    """Fetch one of ``submission``'s task submissions by id.
 
     Raises 404: Not found if the task submission is not found or does not belong to the submission
-    Raises: 403 - Forbidden if the user is not part of the submission's team.
     """
-    submission = await _get_submission_as_member(submission_id, user_id, session)
 
     task_submission = (
         await session.execute(
@@ -64,12 +66,9 @@ async def update_task_submissions(
 
     All or nothing. Every id is checked against this submission *before* anything is
     written, so an id belonging to someone else's submission — or to no submission —
-    rejects the whole request rather than leaving some rows updated and some not. That
-    is the point of doing this in one call instead of N: the client can't produce a
-    half-applied state by failing partway through.
+    rejects the whole request rather than leaving some rows updated and some not.
 
-    Returns the updated rows in task_id order, so the caller can say which tasks changed
-    rather than assuming its request list is what landed.
+    Returns the updated rows in task_id order.
     """
     submission = await _get_submission_as_member(submission_id, user.id, session)
 
@@ -126,9 +125,8 @@ async def update_task_submission(
     Raises: 404 - Not found if the task submission is not found or does not belong to the submission
     Raises: 403 - Forbidden if the user is not part of the submission's team.
     """
-    task_submission = await _get_task_submission_as_member(
-        task_submission_id, submission_id, user.id, session
-    )
+    submission = await _get_submission_as_member(submission_id, user.id, session)
+    task_submission = await _get_task_submission(task_submission_id, submission, session)
 
     updates = body.model_dump(exclude_unset=True)
 
@@ -138,9 +136,6 @@ async def update_task_submission(
     await session.commit()
     await session.refresh(task_submission)
 
-    task_submission = await _get_task_submission_as_member(
-        task_submission_id, submission_id, user.id, session
-    )
     return TaskSubmissionDetail.model_validate(task_submission)
 
 
@@ -148,17 +143,21 @@ async def update_task_submission(
 async def get_task_submission(
     submission_id: uuid.UUID,
     task_submission_id: uuid.UUID,
-    user: User = Depends(get_current_user),
+    user: User | None = Depends(get_current_user_optional),
     session: AsyncSession = Depends(get_session),
 ) -> TaskSubmissionDetail:
     """Get a task submission by ``task_submission_id``.
 
-    Only accessible to members of the submission's team.
+    Readable by anyone who may read the submission it belongs to: its tasks and scores
+    are what a public submission publishes, so a viewer who can see the submission can
+    see them. A private submission's tasks stay with its team.
 
     Raises: 404 - Not found if the task submission is not found or does not belong to the submission
-    Raises: 403 - Forbidden if the user is not part of the submission's team.
+    Raises: 403 - Forbidden if the submission is private and the caller is not in its team
     """
-    task_submission = await _get_task_submission_as_member(
-        task_submission_id, submission_id, user.id, session
+    submission = await _get_submission_as_viewer(
+        submission_id, user.id if user else None, session
     )
+    task_submission = await _get_task_submission(task_submission_id, submission, session)
+
     return TaskSubmissionDetail.model_validate(task_submission)

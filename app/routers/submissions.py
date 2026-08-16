@@ -9,7 +9,13 @@ from sqlalchemy.orm import selectinload
 from typing import Any, Sequence
 from collections import Counter
 
-from app.auth import get_current_user, require_team_member
+from app.auth import (
+    get_current_user,
+    get_current_user_optional,
+    is_team_member,
+    member_team_ids,
+    require_team_member,
+)
 from app.database import get_session
 from app.models import (
     Submission,
@@ -31,10 +37,6 @@ from app.schemas.submissions import (
     SubmissionUpdate,
 )
 
-from app.auth import (
-    get_current_user_optional,
-    member_team_ids,
-)
 from app.storage import presign_put, submission_key
 from app.tasks.score import score_submission
 
@@ -45,8 +47,8 @@ router = APIRouter(prefix="/api/submissions", tags=["submissions"])
 
 
 async def visible_submissions(
-    user: User | None = Depends(get_current_user_optional),
-    session: AsyncSession = Depends(get_session),
+    user: User | None,
+    session: AsyncSession,
 ) -> ColumnElement[bool]:
     """Return a SQLAlchemy expression that evaluates to True for submissions visible to the user."""
 
@@ -65,7 +67,7 @@ async def visible_submissions(
 
 async def suites_per_submission(
     submission_ids: Sequence[uuid.UUID],
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession,
 ) -> dict[uuid.UUID, list[TaskSuite]]:
     """Return the task suites per submission in ``submission_ids``.
 
@@ -158,9 +160,37 @@ async def _get_submission_as_user(
     return submission
 
 
-async def get_team_from_model(
+async def _get_submission_as_viewer(
+    submission_id: uuid.UUID,
+    user_id: uuid.UUID | None,
+    session: AsyncSession,
+    *,
+    options: Sequence[Any] = (),
+) -> Submission:
+    """Fetch a submission by ``submission_id``, enforcing only that the caller may *read* it.
+
+    Public submissions are readable by anyone, signed in or not; a private one only by
+    its team. The read counterpart of ``_get_submission_as_member``, which stays the rule
+    for changing anything — publishing a submission opens it to being seen, not edited.
+
+    The same rule ``visible_submissions`` applies to the listings, for one submission
+    rather than as a WHERE clause.
+
+    Raises: 404 - Not found if the submission doesn't exist
+    Raises: 403 - Forbidden if it is private and the caller is not a member of its team
+    """
+
+    submission = await _get_submission(submission_id, session, options=options)
+
+    if not submission.is_public:
+        await require_team_member(user_id, submission.team_id, session)
+
+    return submission
+
+
+async def _get_team_from_model(
     model_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession,
 ) -> uuid.UUID:
     """Fetch the team ID associated with a model.
 
@@ -178,7 +208,7 @@ async def get_team_from_model(
 
 
 async def _validate_task_ids(
-    task_ids: list[str], session: AsyncSession = Depends(get_session)
+    task_ids: list[str], session: AsyncSession
 ) -> None:
     """Check that all task IDS are valid and that there are no duplicates.
 
@@ -195,6 +225,32 @@ async def _validate_task_ids(
     duplicates = sorted(t for t, count in Counter(task_ids).items() if count > 1)
     if duplicates:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Duplicate task IDs: {duplicates}")
+
+
+async def _load_submission_detail(
+    submission_id: uuid.UUID,
+    user_id: uuid.UUID | None,
+    session: AsyncSession,
+) -> SubmissionDetail:
+    """Return a submission's details, with its tasks and their scores.
+
+    Raises: 404 - Not found if the submission doesn't exist
+    Raises: 403 - Forbidden if it is private and the caller is not a member of its team
+    """
+
+    submission = await _get_submission_as_viewer(
+        submission_id,
+        user_id,
+        session,
+        options=[selectinload(Submission.task_submissions).selectinload(TaskSubmission.score)],
+    )
+
+    detail = SubmissionDetail.from_submission(submission)
+
+    if await is_team_member(user_id, submission.team_id, session):
+        return detail
+
+    return detail.withhold_private()
 
 
 # ── Endpoints ──────────────────────────────────────────────────────
@@ -215,7 +271,7 @@ async def presign(
     """
 
     # Get the team id from the model.
-    team_id = await get_team_from_model(body.model_id, session)
+    team_id = await _get_team_from_model(body.model_id, session)
 
     await require_team_member(user.id, team_id, session)
     await _validate_task_ids([task.task_id for task in body.tasks], session)
@@ -320,25 +376,21 @@ async def list_submissions(
 @router.get("/{submission_id}", response_model=SubmissionDetail)
 async def get_submission(
     submission_id: uuid.UUID,
-    user: User = Depends(get_current_user),
+    user: User | None = Depends(get_current_user_optional),
     session: AsyncSession = Depends(get_session),
 ) -> SubmissionDetail:
     """Get a submission by ``submission_id``.
 
-    Only accessible to members of the submission's team.
+    A public submission is readable by anyone. A private one can only be read by a team member.
+
+    A reader outside the team gets the submission without its team-only fields; see
+    ``SubmissionDetail.withhold_private``.
 
     Raises: 404 - Not found if the submission doesn't exist
-    Raises: 403 - Forbidden if the user is not linked to the submission
+    Raises: 403 - Forbidden if it is private and the caller is not a member of its team
     """
 
-    submission = await _get_submission_as_member(
-        submission_id,
-        user.id,
-        session,
-        options=[selectinload(Submission.task_submissions).selectinload(TaskSubmission.score)],
-    )
-
-    return SubmissionDetail.from_submission(submission)
+    return await _load_submission_detail(submission_id, user.id if user else None, session)
 
 
 @router.patch("/{submission_id}", response_model=SubmissionDetail)
@@ -371,7 +423,7 @@ async def update_submission(
     new_model_id = updates.pop("model_id", None)
 
     if new_model_id is not None and new_model_id != submission.model_id:
-        team_id = await get_team_from_model(new_model_id, session)
+        team_id = await _get_team_from_model(new_model_id, session)
 
         await require_team_member(user.id, team_id, session)
         submission.model_id = new_model_id
@@ -382,11 +434,5 @@ async def update_submission(
 
     await session.commit()
 
-    submission = await _get_submission_as_member(
-        submission_id,
-        user.id,
-        session,
-        options=[selectinload(Submission.task_submissions).selectinload(TaskSubmission.score)],
-    )
-
-    return SubmissionDetail.from_submission(submission)
+    # A member by this point, so nothing is withheld.
+    return await _load_submission_detail(submission_id, user.id, session)

@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models import TaskSuite, TaskType
+from app.models import Metric, TaskSuite, TaskType
 
 
 class TaskResponse(BaseModel):
@@ -13,4 +13,4 @@ class TaskResponse(BaseModel):
     id: str
     task_suite: TaskSuite
     task_type: TaskType
-    primary_metric: str
+    primary_metric: Metric

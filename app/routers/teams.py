@@ -14,11 +14,11 @@ from app.auth import (
     require_team_member,
 )
 from app.database import get_session
-from app.models import Model, Submission, Team, User, UserTeam
+from app.models import Model, Submission, Team, TeamRole, User, UserTeam
 from app.schemas.teams import (
     TeamCreate,
     TeamDetail,
-    TeamMemberAdd,
+    TeamMemberCreate,
     TeamMemberOut,
     TeamResponse,
     TeamUpdate,
@@ -32,10 +32,30 @@ router = APIRouter(prefix="/api/teams", tags=["teams"])
 # ── Per-team aggregates ──────────────────────────────────────────────────────
 
 
+async def role_per_team(
+    user_id: uuid.UUID | None,
+    session: AsyncSession,
+) -> dict[uuid.UUID, TeamRole]:
+    """Return the caller's role in each team they belong to
+
+    Returns a dict of {team id: TeamRole}.
+
+    Teams the caller isn't in are not included. If ``user_id`` is None, returns an empty dict.
+    """
+    if user_id is None:
+        return {}
+
+    role_rows = await session.execute(
+        select(UserTeam.team_id, UserTeam.role).where(UserTeam.user_id == user_id)
+    )
+
+    return dict(role_rows.all())
+
+
 async def member_count_per_team(
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession,
 ) -> dict[uuid.UUID, int]:
-    """Return the number of members per team, keyed by team id.
+    """Return the number of members per team
 
     Returns a dict of {team id: nMembers}
     """
@@ -47,7 +67,7 @@ async def member_count_per_team(
 
 
 async def model_count_per_team(
-    visible: ColumnElement[bool], session: AsyncSession = Depends(get_session)
+    visible: ColumnElement[bool], session: AsyncSession
 ) -> dict[uuid.UUID, int]:
     """Return the number of models per team
 
@@ -60,7 +80,7 @@ async def model_count_per_team(
 
 
 async def submission_count_per_team(
-    visible: ColumnElement[bool], session: AsyncSession = Depends(get_session)
+    visible: ColumnElement[bool], session: AsyncSession
 ) -> dict[uuid.UUID, int]:
     """Return the number of submissions per team
 
@@ -83,10 +103,6 @@ async def _get_team(
     team_id: uuid.UUID, session: AsyncSession, *, options: Sequence[Any] = ()
 ) -> Team:
     """Fetch a team by ``team_id`,  applying any loader ``options``.
-
-    ``options`` is keyword-only, matching the submission helpers — a list passed
-    positionally into a ``*options`` varargs used to reach SQLAlchemy as ``([Load],)``
-    and fail there rather than here.
 
     Raises: 404 - Not found if the team doesn't exist
     """
@@ -125,7 +141,7 @@ async def _get_team_as_member(
 
 
 async def _check_valid_team_name(
-    name: str, session: AsyncSession = Depends(get_session), *, exclude_id: uuid.UUID | None = None
+    name: str, session: AsyncSession, *, exclude_id: uuid.UUID | None = None
 ) -> str:
     """Checks that the team name is unique (case-insensitive) and not blank.
 
@@ -149,8 +165,8 @@ async def _check_valid_team_name(
 
 async def _load_team_detail(
     team_id: uuid.UUID,
-    user: User | None = Depends(get_current_user_optional),
-    session: AsyncSession = Depends(get_session),
+    user: User | None,
+    session: AsyncSession,
 ) -> TeamDetail:
     """Return a team's details including number of members, models and submissions.
 
@@ -178,8 +194,15 @@ async def _load_team_detail(
         )
     ).scalar_one()
 
+    # The caller's own membership, captured rather than just tested: it answers both
+    # "may they see everything" and "what is their role".
+    my_link = next(
+        (member for member in team.members if user is not None and member.user_id == user.id),
+        None,
+    )
+    is_member = my_link is not None
+
     # A member sees every model; anyone else sees only those with a public submission.
-    is_member = user is not None and any(member.user_id == user.id for member in team.members)
     if is_member:
         models = team.models
     else:
@@ -189,18 +212,21 @@ async def _load_team_detail(
             if any(submission.is_public for submission in model.submissions)
         ]
 
-    return TeamDetail(
-        id=team.id,
-        name=team.name,
+    detail = TeamDetail.from_team(
+        team,
         n_members=len(team.members),
         n_models=len(models),
         n_submissions=n_submissions,
-        members=(
-            [TeamMemberOut.model_validate(member.user) for member in team.members]
-            if is_member
-            else None
-        ),
+        # The caller's own role, so it is simply absent for a non-member rather than
+        # something to withhold.
+        role=my_link.role if my_link else None,
+        members=[TeamMemberOut.from_member(member) for member in team.members],
     )
+
+    if is_member:
+        return detail
+
+    return detail.withhold_private()
 
 
 # ── Endpoints ──────────────────────────────────────────────────────
@@ -227,12 +253,15 @@ async def list_teams(
     visible = await visible_models(user, session)
     n_models = await model_count_per_team(visible, session)
 
+    my_roles = await role_per_team(user.id if user else None, session)
+
     return [
         TeamResponse.from_team(
             team,
             n_members=n_members.get(team.id, 0),
             n_models=n_models.get(team.id, 0),
             n_submissions=n_submissions.get(team.id, 0),
+            role=my_roles.get(team.id),
         )
         for team in teams
     ]
@@ -304,10 +333,10 @@ async def update_team(
 )
 async def add_team_member(
     team_id: uuid.UUID,
-    body: TeamMemberAdd,
+    body: TeamMemberCreate,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> User:
+) -> TeamMemberOut:
     """Add an existing user to a team by email.
 
     Only accessible to members of the team.
@@ -327,7 +356,7 @@ async def add_team_member(
             f"No user with email '{email}'. They must sign in once before being added.",
         )
 
-    # Check they are not already and existing memeber
+    # Check they are not already an existing member
     existing = (
         await session.execute(
             select(UserTeam).where(UserTeam.user_id == new_user.id, UserTeam.team_id == team_id)
@@ -337,10 +366,13 @@ async def add_team_member(
     if existing is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, f"{email} is already a member of this team")
 
-    session.add(UserTeam(user_id=new_user.id, team_id=team_id))
+    # Add user to link to avoid another query
+    link = UserTeam(user_id=new_user.id, team_id=team_id)
+    link.user = new_user
+    session.add(link)
     await session.commit()
 
-    return new_user
+    return TeamMemberOut.from_member(link)
 
 
 @router.delete("/{team_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

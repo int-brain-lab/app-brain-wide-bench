@@ -5,7 +5,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models import Modality, TaskSuite
+from app.models import Modality, SubmissionStatus, TaskSuite
 from app.schemas.tasksubmission import TaskSubmissionCreate, TaskSubmissionDetail
 
 
@@ -24,7 +24,7 @@ class SubmissionBase(BaseModel):
 
     id: uuid.UUID
     label: str
-    status: str
+    status: SubmissionStatus
     team_id: uuid.UUID
     model_id: uuid.UUID
     created_at: datetime
@@ -81,16 +81,33 @@ class SubmissionModelOut(BaseModel):
 
 
 class SubmissionDetail(SubmissionBase):
-    """Detailed submission information for GET /api/submissions/{id}"""
+    """Detailed submission information for GET /api/submissions/{id}.
 
-    s3_key: str
-    narrative_public: str | None = None
+    A public submission is readable by anyone, but two of these fields are the team's
+    and stay that way — see ``withhold_private``.
+    """
+
+    # Nullable not because a submission can lack one, but because they are withheld from
+    # a viewer outside the team.
+    s3_key: str | None = None
     narrative_private: str | None = None
+
+    narrative_public: str | None = None
     task_submissions: list[TaskSubmissionDetail] = []
 
     # Populated by ``from_submission`` via ``model_validate``, which reads the eager-loaded
     # ``Submission.model`` relationship straight off the ORM object.
     model: SubmissionModelOut | None = None
+
+    def withhold_private(self) -> "SubmissionDetail":
+        """Return a copy with the team-only fields blanked, for a reader outside the team.
+
+        "Public" describes the result, not the working notes. ``narrative_private`` is by
+        its own name not for publication, and ``s3_key`` is an internal path a reader has
+        no use for. Everything else — the scores, the methodology, the public narrative —
+        is what publishing a submission is *for*.
+        """
+        return self.model_copy(update={"s3_key": None, "narrative_private": None})
 
 
 class SubmissionCreate(BaseModel):

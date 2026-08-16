@@ -4,6 +4,8 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict
 
+from app.models import TeamRole
+
 
 class TeamResponse(BaseModel):
     """List item for ``GET /api/teams`` and ``GET /api/users/me/teams``."""
@@ -16,20 +18,27 @@ class TeamResponse(BaseModel):
     n_models: int = 0
     n_submissions: int = 0
 
+    # The *caller's* role in this team, not a property of the team — the only role that
+    # can be stated without naming whose it is. None when the caller isn't a member, which
+    # ``GET /api/teams`` can return and ``/me/teams`` never does.
+    role: TeamRole | None = None
+
     @classmethod
-    def from_team(cls, team, n_members=0, n_models=0, n_submissions=0) -> "TeamResponse":
-        """Build from an ORM ``Team`` plus its counts."""
-        return cls(
-            id=team.id,
-            name=team.name,
-            n_members=n_members,
-            n_models=n_models,
-            n_submissions=n_submissions,
-        )
+    def from_team(cls, team, **extra) -> "TeamResponse":
+        """Build from an ORM ``Team`` plus whatever the caller computed about it.
+
+        ``**extra`` rather than a keyword per count, so ``TeamDetail`` builds through here
+        too — it adds ``members``, and enumerating every subclass's fields in the base's
+        signature is what stopped it doing so before. A field added to either class is
+        then passed at the call site, not threaded through this signature as well.
+        """
+        return cls(id=team.id, name=team.name, **extra)
 
 
 class TeamCreate(BaseModel):
     """Request body for ``POST /api/teams``."""
+
+    model_config = ConfigDict(extra="forbid")
 
     name: str
 
@@ -43,37 +52,58 @@ class TeamUpdate(BaseModel):
 
 
 class TeamMemberOut(BaseModel):
-    """A team's member. Shown only to other members — see ``TeamDetail``."""
+    """A team's member. Shown only to other members — see ``TeamDetail``.
+
+    ``Out`` because it is embedded in ``TeamDetail.members``, like ``TaskScoreOut`` and
+    ``SubmissionModelOut``. It is also what ``POST /api/teams/{id}/members`` returns,
+    which is the same row seen on its own rather than a second shape.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     name: str | None = None
     email: str
+    role: TeamRole
+
+    @classmethod
+    def from_member(cls, member) -> "TeamMemberOut":
+        """Build from a ``UserTeam`` link with its ``user`` loaded.
+
+        Not ``model_validate(user)``: a membership is the link *and* the user, because
+        ``role`` belongs to the link — the same person can own one team and collaborate
+        on another, so it isn't a property of them.
+        """
+        user = member.user
+
+        return cls(id=user.id, name=user.name, email=user.email, role=member.role)
 
 
-class TeamMemberAdd(BaseModel):
-    """Request body for ``POST /api/teams/{id}/members``.
-
-    Still by email rather than user id, now that ``GET /api/users?q=`` exists to find
-    people: email is the stable identifier a caller can also type from memory, and it
-    keeps this endpoint usable without the search. The enumeration concern that
-    originally motivated email-only is now carried by that endpoint's own limits —
-    authenticated, minimum query length, capped results.
-    """
+class TeamMemberCreate(BaseModel):
+    """Request body for ``POST /api/teams/{id}/members``."""
 
     model_config = ConfigDict(extra="forbid")
 
     email: str
+    # TODO
+    # role: str
 
 
 class TeamDetail(TeamResponse):
     """Detail view for ``GET /api/teams/{id}``.
 
-    ``members`` is ``None`` rather than ``[]`` for a viewer who isn't in the team,
-    so "not shown to you" stays distinguishable from "this team has no members".
-    The counts are inherited from ``TeamResponse`` and always present: they're what a
-    public team page needs, and they reveal nothing the leaderboard doesn't already.
+    Everything but ``members`` is public: the counts are what a team page shows the world,
+    and they reveal nothing the leaderboard doesn't. Who is *in* the team is the team's —
+    see ``withhold_private``.
     """
 
     members: list[TeamMemberOut] | None = None
+
+    def withhold_private(self) -> "TeamDetail":
+        """Return a copy without the member list, for a reader outside the team.
+
+        ``None``, not ``[]``: "not shown to you" has to stay distinguishable from "this
+        team has nobody in it", and the frontend gates on exactly that — a list means
+        render the table, null means say who may see it.
+        """
+        return self.model_copy(update={"members": None})

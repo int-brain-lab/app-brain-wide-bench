@@ -6,8 +6,24 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 
-class UserSearchResult(BaseModel):
-    """Response for ``GET /api/users?q=``."""
+class UserBase(BaseModel):
+    """Fields common to user requests and responses.
+
+    A base, not a response: nothing returns it directly. ``UserUpdate`` is the subset a
+    caller may change and ``UserDetail`` the whole record.
+    """
+
+    email: str
+    name: str | None = None
+    affiliation: str | None = None
+
+
+class UserResponse(BaseModel):
+    """List item for ``GET /api/users?q=``.
+
+    Only what a member picker needs. Deliberately not built on ``UserBase``: a search hit
+    is somebody else's record, and ``affiliation`` is not part of finding them.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -16,16 +32,8 @@ class UserSearchResult(BaseModel):
     email: str
 
 
-class UserResponse(BaseModel):
-    """Fields common to user requests and responses."""
-
-    email: str
-    name: str | None = None
-    affiliation: str | None = None
-
-
-class UserDetails(UserResponse):
-    """Response for ``GET /api/users/me``."""
+class UserDetail(UserBase):
+    """The caller's own record, for ``GET /api/users/me``."""
 
     model_config = ConfigDict(from_attributes=True)
 
