@@ -3,7 +3,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import ColumnElement, or_, select
+from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from typing import Any, Sequence
@@ -207,6 +207,47 @@ async def _get_team_from_model(
     return team_id
 
 
+async def _check_valid_submission_label(
+    label: str,
+    model_id: uuid.UUID,
+    session: AsyncSession,
+    *,
+    exclude_id: uuid.UUID | None = None,
+) -> str:
+    """Check a label is not blank and is unused on ``model_id``. Returns it trimmed.
+
+    Unique per model, not per team or globally: a label names a *run* of one model, so
+    "seed-sweep" against two different models is two different things, while the same
+    label twice on one model is ambiguous — it is what a results table shows as the row.
+    Compared case-insensitively.
+
+    ``exclude_id`` is the submission being updated, so keeping its own label is not a
+    conflict with itself. Pass the *destination* model when a PATCH repoints it.
+
+    Raises: 422 - Unprocessable Entity if the label is blank
+    Raises: 409 - Conflict if the model already has a submission with that label
+    """
+    label = label.strip()
+    if not label:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "Submission label cannot be blank"
+        )
+
+    query = select(Submission.id).where(
+        Submission.model_id == model_id, func.lower(Submission.label) == label.lower()
+    )
+    if exclude_id is not None:
+        query = query.where(Submission.id != exclude_id)
+
+    if (await session.execute(query)).scalar_one_or_none() is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"This model already has a submission labelled '{label}'",
+        )
+
+    return label
+
+
 async def _validate_task_ids(
     task_ids: list[str], session: AsyncSession
 ) -> None:
@@ -276,15 +317,17 @@ async def presign(
     await require_team_member(user.id, team_id, session)
     await _validate_task_ids([task.task_id for task in body.tasks], session)
 
+    label = await _check_valid_submission_label(body.label, body.model_id, session)
+
     # Pre-assign id so the S3 key is stable before the first flush.
     submission_id = uuid.uuid4()
     submission = Submission(
         id=submission_id,
         team_id=team_id,
         model_id=body.model_id,
-        label=body.label,
+        label=label,
         is_public=body.is_public,
-        s3_key=submission_key(submission_id, body.label),
+        s3_key=submission_key(submission_id, label),
         narrative_public=body.narrative_public,
         narrative_private=body.narrative_private,
     )
@@ -421,13 +464,34 @@ async def update_submission(
     # Reassignment is handled separately because the team follows the model and needs
     # its own permission check on the destination team.
     new_model_id = updates.pop("model_id", None)
+    new_label = updates.pop("label", None)
+
+    # Checked before anything is assigned: assigning first would let the unique index fire
+    # during the autoflush that the label query triggers, turning a clean 409 into an
+    # IntegrityError raised from inside a SELECT.
+    model_id = new_model_id if new_model_id is not None else submission.model_id
+    team_id = None
 
     if new_model_id is not None and new_model_id != submission.model_id:
         team_id = await _get_team_from_model(new_model_id, session)
-
         await require_team_member(user.id, team_id, session)
+
+    # A move alone can collide, without any relabelling: the destination model may already
+    # have a submission by this label. So the check runs whenever either half changes.
+    label = None
+    if new_model_id is not None or new_label is not None:
+        label = await _check_valid_submission_label(
+            new_label if new_label is not None else submission.label,
+            model_id,
+            session,
+            exclude_id=submission.id,
+        )
+
+    if team_id is not None:
         submission.model_id = new_model_id
         submission.team_id = team_id
+    if label is not None:
+        submission.label = label
 
     for field, value in updates.items():
         setattr(submission, field, value)

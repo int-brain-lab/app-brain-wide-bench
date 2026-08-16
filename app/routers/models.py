@@ -130,6 +130,44 @@ async def _get_model(
     return model
 
 
+async def _check_valid_model_name(
+    name: str,
+    team_id: uuid.UUID,
+    session: AsyncSession,
+    *,
+    exclude_id: uuid.UUID | None = None,
+) -> str:
+    """Check a model name is not blank and is unused within ``team_id``. Returns it trimmed.
+
+    Unique per team, not globally: two labs may each have an "mlp-baseline", and a model
+    is only ever named in the context of whose it is. Compared case-insensitively, so
+    "MLP-Baseline" doesn't read as a second model.
+
+    ``exclude_id`` is the model being updated, so keeping its own name is not a conflict
+    with itself. Pass the *destination* team when a PATCH moves it: the name has to be
+    free where it is going, not where it has been.
+
+    Raises: 422 - Unprocessable Entity if the name is blank
+    Raises: 409 - Conflict if the team already has a model with that name
+    """
+    name = name.strip()
+    if not name:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Model name cannot be blank")
+
+    query = select(Model.id).where(
+        Model.team_id == team_id, func.lower(Model.name) == name.lower()
+    )
+    if exclude_id is not None:
+        query = query.where(Model.id != exclude_id)
+
+    if (await session.execute(query)).scalar_one_or_none() is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, f"This team already has a model named '{name}'"
+        )
+
+    return name
+
+
 async def _get_model_as_member(
     model_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -243,7 +281,9 @@ async def create_model(
     """
     await require_team_member(user.id, body.team_id, session)
 
-    model = Model(**body.model_dump())
+    name = await _check_valid_model_name(body.name, body.team_id, session)
+
+    model = Model(**{**body.model_dump(), "name": name})
     session.add(model)
     await session.commit()
 
@@ -289,13 +329,35 @@ async def update_model(
 
     updates = body.model_dump(exclude_unset=True)
 
-    # Reassignment is handled separately because it needs its own permission check.
+    # Both handled separately: reassignment needs its own permission check, and the name
+    # has to be checked against whichever team the model ends up in.
     new_team_id = updates.pop("team_id", None)
+    new_name = updates.pop("name", None)
+
+    # Everything is checked before anything is assigned. Assigning first would let the
+    # unique index fire during the autoflush that the name query triggers, turning a
+    # clean 409 into an IntegrityError from inside a SELECT.
+    team_id = new_team_id if new_team_id is not None else model.team_id
+
     if new_team_id is not None and new_team_id != model.team_id:
         await require_team_member(
             user.id, new_team_id, session, detail="Not a member of the target team"
         )
-        model.team_id = new_team_id
+
+    # A move alone can collide, without any rename: the destination team may already have
+    # a model by this name. So the check runs whenever either half changes.
+    name = None
+    if new_team_id is not None or new_name is not None:
+        name = await _check_valid_model_name(
+            new_name if new_name is not None else model.name,
+            team_id,
+            session,
+            exclude_id=model.id,
+        )
+
+    model.team_id = team_id
+    if name is not None:
+        model.name = name
 
     for field, value in updates.items():
         setattr(model, field, value)

@@ -5,7 +5,7 @@ no custom mapping needed because SQLModel classes are Pydantic models.
 
 Usage::
 
-    await load_fixture(session, Path("tests/fixtures/ts1_baseline.json"))
+    await load_fixture(session, Path("tests/fixtures/api_tests.json"))
 """
 
 import json

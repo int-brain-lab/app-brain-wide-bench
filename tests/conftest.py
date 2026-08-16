@@ -21,7 +21,7 @@ from app.database import get_session
 from app.main import app
 from tests.fixtures.load import load_fixture, seed_tasks
 
-FIXTURE_PATH = Path(__file__).parent.joinpath("fixtures", "ts1_baseline.json")
+FIXTURE_PATH = Path(__file__).parent.joinpath("fixtures", "api_tests.json")
 
 
 @pytest_asyncio.fixture
@@ -76,7 +76,7 @@ async def client(engine, session_factory, monkeypatch):
 
 @pytest_asyncio.fixture
 async def seeded_client(client, session_factory):
-    """HTTP client with the full ts1_baseline fixture pre-loaded."""
+    """HTTP client with the full api_tests fixture pre-loaded."""
     async with session_factory() as s:
         await load_fixture(s, FIXTURE_PATH)
     return client
@@ -84,7 +84,7 @@ async def seeded_client(client, session_factory):
 
 # ── Fixture data ──────────────────────────────────────────────────────────────
 #
-# What tests/fixtures/ts1_baseline.json contains. Three teams, chosen so that the answer
+# What tests/fixtures/api_tests.json contains. Three teams, chosen so that the answer
 # to "may the caller see this" differs between them:
 #
 #   Brain Wide Bench — 2 members, 2 models, 5 submissions, 12 ts1 / 2 ts2 / 1 ts3 tasks

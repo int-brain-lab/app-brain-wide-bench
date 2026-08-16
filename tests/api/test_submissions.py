@@ -12,7 +12,7 @@ The main rules are:
 
 import uuid
 
-from app.models import UserTeam
+from app.models import Submission, SubmissionStatus, UserTeam
 from tests.conftest import MODELS, SUBMISSIONS, TEAMS
 
 PUBLIC = SUBMISSIONS["mlp-ts1-baseline"]
@@ -166,6 +166,46 @@ async def test_presign_rejects_unknown_fields(seeded_client, add, me):
         presign_url(),
         json=presign_body(team_id=str(MY_TEAM)),
     )
+
+    assert response.status_code == 422
+
+
+async def test_presign_rejects_a_label_the_model_already_uses(seeded_client, add, me):
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.post(
+        presign_url(), json=presign_body(label="mlp-ts1-baseline")
+    )
+
+    assert response.status_code == 409
+
+
+async def test_presign_compares_labels_case_insensitively(seeded_client, add, me):
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.post(
+        presign_url(), json=presign_body(label="MLP-TS1-Baseline")
+    )
+
+    assert response.status_code == 409
+
+
+async def test_presign_allows_another_model_the_same_label(seeded_client, add, me):
+    """Labels name a run of one model, so the same label against another model is fine."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.post(
+        presign_url(),
+        json=presign_body(model_id=str(MODELS["ssl-transformer"]), label="mlp-ts1-baseline"),
+    )
+
+    assert response.status_code == 200, response.text
+
+
+async def test_presign_rejects_a_blank_label(seeded_client, add, me):
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.post(presign_url(), json=presign_body(label="   "))
 
     assert response.status_code == 422
 
@@ -380,6 +420,48 @@ async def test_update_unknown_model(seeded_client, add, me):
     )
 
     assert response.status_code == 404
+
+
+async def test_update_rejects_a_label_the_model_already_uses(seeded_client, add, me):
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.patch(
+        submissions_url(PUBLIC), json={"label": "mlp-ts1-rerun"}
+    )
+
+    assert response.status_code == 409
+
+
+async def test_update_allows_a_submission_to_keep_its_own_label(seeded_client, add, me):
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.patch(
+        submissions_url(PUBLIC), json={"label": "mlp-ts1-baseline"}
+    )
+
+    assert response.status_code == 200, response.text
+
+
+async def test_update_refuses_a_move_that_collides(seeded_client, add, me):
+    """Repointing at a model that already has a submission by this label is a conflict."""
+    await add(
+        UserTeam(user_id=me, team_id=MY_TEAM),
+        Submission(
+            id=uuid.uuid4(),
+            team_id=MY_TEAM,
+            model_id=MODELS["ssl-transformer"],
+            label="mlp-ts1-baseline",
+            s3_key="k",
+            status=SubmissionStatus.done,
+            is_public=False,
+        ),
+    )
+
+    response = await seeded_client.patch(
+        submissions_url(PUBLIC), json={"model_id": str(MODELS["ssl-transformer"])}
+    )
+
+    assert response.status_code == 409
 
 
 async def test_update_not_found(seeded_client, add, me):

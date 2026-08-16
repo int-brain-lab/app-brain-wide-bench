@@ -7,7 +7,7 @@ than on the model itself. The caller is a member of nothing until a test says ot
 
 import uuid
 
-from app.models import UserTeam
+from app.models import Model, UserTeam
 from tests.conftest import MODEL_ROWS, MODELS, TEAMS
 
 BASELINE = MODELS["mlp-baseline"]
@@ -248,7 +248,80 @@ async def test_create_rejects_unknown_fields(seeded_client, add, me):
     assert response.status_code == 422
 
 
+async def test_create_rejects_a_name_the_team_already_uses(seeded_client, add, me):
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.post(
+        models_url(), json={"team_id": str(MY_TEAM), "name": "mlp-baseline"}
+    )
+
+    assert response.status_code == 409
+
+
+async def test_create_compares_names_case_insensitively(seeded_client, add, me):
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.post(
+        models_url(), json={"team_id": str(MY_TEAM), "name": "MLP-Baseline"}
+    )
+
+    assert response.status_code == 409
+
+
+async def test_create_allows_another_team_the_same_name(seeded_client, add, me):
+    """Names are unique within a team — two labs may each have an "mlp-baseline"."""
+    await add(UserTeam(user_id=me, team_id=OTHER_TEAM))
+
+    response = await seeded_client.post(
+        models_url(), json={"team_id": str(OTHER_TEAM), "name": "mlp-baseline"}
+    )
+
+    assert response.status_code == 201, response.text
+
+
+async def test_create_rejects_a_blank_name(seeded_client, add, me):
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.post(models_url(), json={"team_id": str(MY_TEAM), "name": "  "})
+
+    assert response.status_code == 422
+
+
 # ── PATCH /api/models/{id} ────────────────────────────────────────────────────
+
+
+async def test_update_rejects_a_name_the_team_already_uses(seeded_client, add, me):
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.patch(
+        models_url(BASELINE), json={"name": "ssl-transformer"}
+    )
+
+    assert response.status_code == 409
+
+
+async def test_update_allows_a_model_to_keep_its_own_name(seeded_client, add, me):
+    """The check excludes the model being updated, or a no-op PATCH would conflict."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.patch(models_url(BASELINE), json={"name": "mlp-baseline"})
+
+    assert response.status_code == 200, response.text
+
+
+async def test_update_refuses_a_move_that_collides(seeded_client, add, me):
+    """A move alone can conflict: the destination team may already use this name."""
+    await add(
+        UserTeam(user_id=me, team_id=MY_TEAM),
+        UserTeam(user_id=me, team_id=OTHER_TEAM),
+        Model(id=uuid.uuid4(), team_id=OTHER_TEAM, name="mlp-baseline"),
+    )
+
+    response = await seeded_client.patch(
+        models_url(BASELINE), json={"team_id": str(OTHER_TEAM)}
+    )
+
+    assert response.status_code == 409
 
 
 async def test_update_not_found(seeded_client):
