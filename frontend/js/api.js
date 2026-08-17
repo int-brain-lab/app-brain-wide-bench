@@ -6,6 +6,11 @@ const CONFIG = {
   auth0Audience: "https://brainwidebench.iblcore.org",
 };
 
+// Every sign-in returns here, whichever page it started from, so Auth0 needs one entry
+// in Allowed Callback URLs rather than one per page. Where the user was is carried in
+// `appState` and restored below. index.html because it is public and cheap to render.
+const CALLBACK_PATH = "/index.html";
+
 const DEV_MODE = CONFIG.auth0ClientId === "YOUR_AUTH0_CLIENT_ID";
 const FAKE_SESSION_KEY = "signed_in"; // localStorage flag used in fake mode
 
@@ -35,14 +40,23 @@ async function initAuth() {
       clientId: CONFIG.auth0ClientId,
       authorizationParams: {
         audience: CONFIG.auth0Audience,
-        redirect_uri: window.location.origin + window.location.pathname,
+        redirect_uri: window.location.origin + CALLBACK_PATH,
       },
+      cacheLocation: localStorage,
     });
+
     // Handle the redirect callback.
     const q = window.location.search;
     if (q.includes("code=") && q.includes("state=")) {
-      await auth0Client.handleRedirectCallback();
+      const { appState } = await auth0Client.handleRedirectCallback();
       window.history.replaceState({}, document.title, window.location.pathname);
+
+      // Back to the page they were on when they clicked Sign in. Skipped when that is
+      // already here, which would otherwise be a reload loop.
+      const returnTo = appState?.returnTo;
+      if (returnTo && returnTo !== window.location.pathname + window.location.search) {
+        window.location.replace(returnTo);
+      }
     }
   } catch (e) {
     // Auth0 unavailable or misconfigured — degrade gracefully (public pages still load).
@@ -66,7 +80,13 @@ async function login() {
     window.location.reload();
     return;
   }
-  await auth0Client.loginWithRedirect();
+  await ensureAuth();
+
+  // `returnTo` rather than a per-page redirect_uri: the callback always lands on
+  // CALLBACK_PATH, and initAuth sends them on from there.
+  await auth0Client.loginWithRedirect({
+    appState: { returnTo: window.location.pathname + window.location.search },
+  });
 }
 
 async function logout() {
@@ -75,6 +95,8 @@ async function logout() {
     window.location.href = "index.html";
     return;
   }
+  await ensureAuth();
+
   await auth0Client.logout({ logoutParams: { returnTo: window.location.origin } });
 }
 
