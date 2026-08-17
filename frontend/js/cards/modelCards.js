@@ -1,0 +1,40 @@
+// One card per model, for the model list and the team dashboard.
+
+import { escapeHtml, formatDate } from "../core/utils.js";
+import { buildSuiteCoverageBadges } from "../components/badges.js";
+import { buildCount } from "../components/count.js";
+
+
+function buildModelCard(model) {
+  const submissionCount = model.n_submissions ?? 0;
+
+  return `
+    <a
+      class="card column left gap-sm"
+      href="/html/models/models.html?id=${encodeURIComponent(model.id)}"
+    >
+      <div class="column left">
+        <p class="title">${escapeHtml(model.name)}</p>
+        <p class="metadata">${escapeHtml(model.team_name || "—")}</p>
+      </div>
+
+      <div class="row left gap-md">
+        ${buildSuiteCoverageBadges(model.task_suites ?? [])}
+      </div>
+
+      <p class="metadata">
+        ${buildCount(submissionCount, "submission")}
+        · Created ${escapeHtml(formatDate(model.created_at))}
+      </p>
+    </a>
+  `;
+}
+
+function buildModelCards(models) {
+  return models
+    .map(buildModelCard)
+    .join("");
+}
+
+
+export { buildModelCards };

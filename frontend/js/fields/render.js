@@ -10,7 +10,7 @@
 // `options` (team names, model names — straight off the API) are not. Escaping
 // uniformly means no future reader has to work out which slot is which.
 
-import { escapeHtml, formatDate } from "../utils.js";
+import { escapeHtml, formatDate } from "../core/utils.js";
 import { disabledOptionValues, isDisabled } from "./state.js";
 
 
