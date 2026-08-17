@@ -9,7 +9,7 @@
    properties are inherited by the elements inside it. */
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: var(--text-primary);
+  color: var(--text-color);
   background: #fff;
   font-size: 16px;
   line-height: 1.6;
@@ -22,27 +22,141 @@ a {
   color: inherit;
 }
 
+/* The `hidden` attribute must always win, even over components that set their own
+   `display` (e.g. .btn, .file-card, .banner). Without this, the browser's default
+   `[hidden] { display: none }` loses to those author rules and "hidden" elements
+   stay visible. JS toggles visibility via the `hidden` attribute throughout. */
+[hidden] {
+  display: none !important;
+}
+
 /* Design tokens: reusable values (colours, sizes) defined once here and
    referenced everywhere with var(). Change a value here, and it updates
    across the whole site. */
 :root {
-  --theme: #1D9E75;
-  --theme-dark: #0F6E56;
-  --theme-light: #E1F5EE;
-  --border: #e5e5e5;
-  --bg-secondary: #f8f8f7;
-  --text-primary: #1a1a1a;
-  --text-secondary: #666;
+
+  /* Primary */
+  --primary: #1D9E75;
+  --primary-dark: #0F6E56;
+  --primary-light: #E1F5EE;
+
+  /* Neutral */
+  --text-color: #1a1a1a;
+  --text-muted: #666;
+
+  --surface: #fff;
+  /*--surface-secondary: #f1f1f1;*/
+  /*--surface-secondary: #f1f1f1;*/
+  --surface-secondary: #fbfbfb;
+
+  --border-color: #e5e5e5;
+
+  /* Task suites */
+  /*--ts1: #085041;*/
+  --ts1: #1D9E75;
+  --ts1-light: #E1F5EE;
+
+  /*--ts2: #0C447C;*/
+  --ts2: #378ADD;
+  --ts2-light: #E6F1FB;
+
+  /*--ts3: #3C3489;*/
+  --ts3: #7F77DD;
+  --ts3-light: #EEEDFE;
+
+  /* Danger */
+  --danger: #d33333;
+  --danger-dark: #b30000;
+  --danger-light: #fdecec;
+
+  /* Success */
+  --success: #2f9e44;
+  --success-dark: #1b6e2f;
+  --success-light: #eaf7ed;
+
+  /* Pending */
+  --pending: #2f7fd3;
+  --pending-dark: #185fa5;
+  --pending-light: #e6f1fb;
+
+  /* Border radius */
+  --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
-  --ts1: #085041;
-  --bg-ts1: #E1F5EE;
-  --ts2: #0C447C;
-  --bg-ts2: #E6F1FB;
-  --ts3: #3C3489;
-  --bg-ts3: #EEEDFE;
+  --radius-xl: 18px;
+
+  /* Font sizes */
+  /*--font-xs: 10px;*/
+  /*--font-sm: 11px;*/
+  /*--font-md: 13px;*/
+  /*--font-lg: 15px;*/
+  /*--font-xl: 17px;*/
+  /*--font-hd: 22px;*/
+
+
+  /*--font-xs: 12px;*/
+  /*--font-sm: 14px;*/
+  /*--font-md: 16px;*/
+  /*--font-lg: 20px;*/
+  /*--font-xl: 24px;*/
+  /*--font-hd: 32px;*/
+
+  font-size: 16px;
+
+  --font-xs: 0.75rem;
+  --font-sm: 0.875rem;
+  --font-md: 1rem;
+  --font-lg: 1.125rem;
+  --font-xl: 1.25rem;
+  --font-hd: 1.75rem;
+
+
+  /* Font weight */
+  --bold: 500;
+  --xbold: 650;
+
+  /* Spacing */
+  --gap-xs: 2px;
+  --gap-sm: 4px;
+  --gap-md: 1em;
+  --gap-lg: 32px;
+  --gap-xl: 64px;
 }
 
+
+.gap-xs { gap: var(--gap-xs); }
+.gap-sm { gap: var(--gap-sm); }
+.gap-md { gap: var(--gap-md); }
+.gap-lg { gap: var(--gap-lg); }
+.gap-xl { gap: var(--gap-xl); }
+
+/* Stops grid/flex children stretching to the tallest in their row. The dashboard needs it:
+   two .page-section columns of unequal length would both stretch, and .page-section's
+   `justify-content: space-between` then pushes the shorter one's content to the bottom of
+   the row instead of leaving it at the top. Same reason .wizard and .task-split set it. */
+.align-start { align-items: start; }
+
+/* Numbered steps, for the dashboard's getting-started panel. `align-items: flex-start` so
+   the number sits level with the step's heading rather than centred against a tall
+   paragraph, and `flex: none` on the circle so a long paragraph can't squash it. */
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gap-md);
+}
+
+.step-number {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--primary);
+  color: #fff;
+  font-size: var(--font-sm);
+  font-weight: var(--bold);
+}
 
 /*----------------------------------------------------------------------------------------
 MAIN SHELLS ETC
@@ -51,8 +165,6 @@ MAIN SHELLS ETC
     height: auto;
     overflow: visible;
 }
-
-
 
 .content {
   display: flex;
@@ -66,32 +178,25 @@ MAIN SHELLS ETC
   max-width: 800px;
 }
 
-.content-wide {
-  max-width: 1000px;
-}
 
-
-/* App shell: a single grid pins the top nav across the top, a fixed-width
-   sidebar on the left, and lets the content area scroll on its own. The
-   minmax(0, 1fr) row is what allows the content to scroll instead of
-   stretching the page taller than the viewport. */
 .main-private {
   display: grid;
-  grid-template-columns: 210px 1fr;        /* sidebar | content */
+  grid-template-columns: 220px 1fr;        /* sidebar | content */
   grid-template-rows: auto minmax(0, 1fr); /* nav | body */
   grid-template-areas:
     "nav  nav"
-    "sidebar content";
+    "sidebar content-private";
   height: 100dvh;
+  background: var(--surface-secondary);
+
 }
 
-.nav             { grid-area: nav; }
-.sidebar         { grid-area: sidebar; }
 .content-private {
-  grid-area: content;
+  grid-area: content-private;
   overflow-y: auto;
-  background: #fff;
-  padding: 24px 28px;
+  padding: 24px;
+  max-width: 1440px;
+  /*background: var(--surface-secondary);*/
 }
 
 
@@ -99,27 +204,27 @@ MAIN SHELLS ETC
 TOP NAVIGATION BAR
 --------------------------------------------------------------------------------------*/
 .nav {
+  grid-area: nav;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   padding: 14px 40px;
-  border-bottom: 1px solid var(--border);
-  background: #fff;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--surface);
 }
-
 
 .nav-logo {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 15px;
+  font-size: var(--font-md);
   font-weight: 500;
 }
 
 .nav-logo-mark {
   width: 28px;
   height: 28px;
-  background: var(--theme);
+  background: var(--primary);
   border-radius: 6px;
   display: flex;
   align-items: center;
@@ -130,13 +235,13 @@ TOP NAVIGATION BAR
 .nav-links {
   display: flex;
   gap: 28px;
-  font-size: 14px;
-  color: var(--text-secondary);
+  font-size: var(--font-lg);
+  color: var(--text-muted);
 }
 
 .nav-links .active {
-  color: var(--text-primary);
-  font-weight: 500;
+  color: var(--primary);
+  font-weight: var(--bold);
 }
 
 .nav-auth {
@@ -151,743 +256,1152 @@ SIDE NAVIGATION BAR
 --------------------------------------------------------------------------------------*/
 
 .sidebar {
-  /* width comes from the .main-private grid column track */
-  border-right: 1px solid var(--border);
-  background: var(--bg-secondary);
+  grid-area: sidebar;
+  border-right: 1px solid var(--border-color);
+  background: var(--surface-secondary);
   display: flex;
   flex-direction: column;
 }
+
+/* Brand mark at the top of the sidebar. 12px of horizontal padding lines the logo
+   up with the nav labels below it: .sidebar-section contributes 8px and
+   .sidebar-item another 10px, but the logo's 28px mark is wider than an icon, so it
+   starts a little further left by design rather than matching that 18px exactly.
+   Matches .sidebar-bottom's padding and border so the rail is bookended. */
 .sidebar-logo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 18px 16px 14px;
-  border-bottom: 1px solid var(--border);
+  display: block;
+  padding: 12px;
+  border-bottom: 1px solid var(--border-color);
 }
-.sidebar-logo span {
-  font-size: 14px;
-  font-weight: 500;
+
+.sidebar-section {
+  padding: 4px 8px 0;
 }
-.nav-section {
-  padding: 16px 8px 0;
+
+.sidebar-icon {
+  width: 15px;
+  height: 15px;
 }
-.nav-label {
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 0 8px 6px;
+
+.stat-icon {
+  width: 25px;
+  height: 25px;
+  color: var(--text-muted);
 }
-.nav-item {
+
+/* Sized to the label it sits beside (--font-xs), and flex-shrink: 0 so a long
+   label wrapping in a narrow multi-column cell can't squash the icon. */
+.field-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+.sidebar-item {
   display: flex;
   align-items: center;
   gap: 9px;
   padding: 8px 10px;
   border-radius: var(--radius-md);
-  margin-bottom: 1px;
-  font-size: 13px;
-  color: var(--text-secondary);
+  margin-bottom: 2px;
+  font-size: var(--font-md);
+  color: var(--text-muted);
   cursor: pointer;
 }
-.nav-item:hover {
-  background: #fff;
-  color: var(--text-primary);
+
+.sidebar-item:hover {
+  background: var(--surface);
+  color: var(--text-color);
 }
-.nav-item.active {
-  background: #fff;
-  color: var(--theme);
-  font-weight: 500;
+.sidebar-item.active {
+  background:var(--surface);
+  color: var(--primary);
+  font-weight: var(--bold);
 }
-.nav-divider {
+
+.sidebar-divider {
   border: none;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-color);
   margin: 12px;
 }
+
 .sidebar-bottom {
   margin-top: auto;
   padding: 12px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-color);
 }
 
 
-.avatar-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 4px;
-}
-.avatar {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--theme-light);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--theme-dark);
-  flex-shrink: 0;
-}
-.avatar-name {
-  font-size: 12px;
-  font-weight: 500;
-}
-.avatar-role {
-  font-size: 11px;
-  color: var(--text-secondary);
+.divider {
+  border: none;
+  border-top: 3px solid var(--border-color);
+
 }
 
 /*----------------------------------------------------------------------------------------
-User logo
+USER LOGO
 ----------------------------------------------------------------------------------------*/
 
 .user-logo {
-  width: 30px;
-  height: 30px;
+  width: 35px;
+  height: 35px;
   border-radius: 50%;
-  background: var(--theme-light);
+  background: var(--primary-light);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--theme-dark);
+  font-size: var(--font-sm);
+  font-weight: var(--bold);
+  color: var(--primary-dark);
   flex-shrink: 0;
 }
 
-.user-logo-lg {
-  width: 35px;
-  height: 35px;
-  font-size: 12px
+.user-logo.large {
+  width: 40px;
+  height: 40px;
+  font-size: var(--font-md)
 }
 
 
 /*----------------------------------------------------------------------------------------
 BUTTONS
 --------------------------------------------------------------------------------------*/
-
-/* Base button: a small pill with a light outline and transparent fill.
-   Used on both <a> and <button> elements. .btn-primary builds on top of it. */
 .btn {
-  font-size: 13px;
   padding: 8px 18px;
   border-radius: var(--radius-md);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-color);
   background: transparent;
   cursor: pointer;
-  color: var(--text-primary);
+  color: var(--text-color);
   display: inline-block;
-  font-weight: 500;
+  font-size: var(--font-sm);
+  font-weight: var(--bold);
 }
 
-.btn--lg {
-  font-size: 14px;
+.btn.large {
+  font-size: var(--font-md);
   padding: 11px 24px;
 }
 
-.btn--theme {
-  background: var(--theme);
-  color: #fff;
-  border-color: var(--theme);
+.btn.primary-inv {
+  background: var(--surface);
+  color: var(--primary);
+  border-color: var(--primary);
 }
 
+.btn.primary {
+  background: var(--primary);
+  color: var(--surface);
+  border-color: var(--primary);
+}
 
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* A button with a leading icon. Sets its own flex rather than borrowing `.row`,
+   which would only beat .btn's `display: inline-block` by being further down this
+   file — a source-order dependency that breaks the moment either rule moves. */
+.btn.with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Sized to the button's --font-sm text; flex-shrink: 0 so a narrow header can't
+   squash the glyph before it wraps the label. */
+.btn-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
 /*----------------------------------------------------------------------------------------
-HERO SECTION
+SECTIONS
 --------------------------------------------------------------------------------------*/
 
-.hero {
+.page-hero {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 64px 40px 48px;
-  margin: 0 50px;
+  gap: var(--gap-lg);
+  justify-content: space-between;
+  padding: 64px 40px 100px;
+  margin: 0 40px;
   text-align: center;
 }
 
-.hero h1{
-  font-size: 38px;
-  font-weight: 500;
-  line-height: 1.2;
-  margin-bottom: 16px;
-}
 
-.hero p {
-  font-size: 15px;
-  color: var(--text-secondary);
-  margin: 0 auto 28px;
-}
-
-.hero-btns {
+.page-section {
   display: flex;
-  gap: 12px;
-  justify-content: center;
+  flex-direction: column;
+  gap: var(--gap-md);
+  justify-content: space-between;
+  margin-bottom: 50px;
 }
 
 
 /*----------------------------------------------------------------------------------------
-TABLES
+MODEL OVERVIEW
 --------------------------------------------------------------------------------------*/
+.model-overview {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: 3fr 1fr;
+    grid-template-areas:
+        "scores details"
+        "stats details";
+    gap: 2rem;
+    padding: 10px 30px;
+}
+
+.model-stats  {grid-area: stats; display: flex}
+.model-scores { grid-area: scores; display: grid}
+.model-details { grid-area: details; display: flex}
+
+
+.model-card {
+
+}
+
+.model-stats {
+
+}
+
+
+/*----------------------------------------------------------------------------------------
+GRIDS, COLUMNS AND ROWS
+--------------------------------------------------------------------------------------*/
+
+
+.column {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.column.centre {
+  align-items: center;
+}
+
+.column.left {
+  align-items: flex-start;
+}
+
+.column.right {
+  align-items: flex-end;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.row.centre {
+  justify-content: center;
+}
+
+.row.left {
+  justify-content: flex-start;
+}
+
+.row.right {
+  justify-content: flex-end;
+}
+
+.push-end {
+  margin-top: auto;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gap-md);
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gap-md);
+}
+
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--gap-lg);
+}
+
+.grid-row-4 {
+  display: grid;
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: var(--gap-lg);
+}
+
+/* A grid child that takes the whole row whatever the column count — used by the
+   field renderers for textareas, which need the full width of a multi-column
+   card. Ignored outside a grid, so it costs nothing on a single-column card. */
+.span-all {
+  grid-column: 1 / -1;
+}
+
+/*----------------------------------------------------------------------------------------
+CREATE CARD
+--------------------------------------------------------------------------------------*/
+
+/* The "new X" control on the list pages — js/utils/create-card.js.
+   Dashed rather than solid, so it reads as a slot for something that doesn't exist yet
+   next to cards that are real records. No explicit height: as a grid cell it stretches to
+   its row, and min-height only matters when it's alone on an empty list. */
+.create-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap-sm);
+  padding: 16px;
+  min-height: 90px;
+  border: 1.5px dashed var(--primary);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--primary);
+  font-size: var(--font-md);
+  font-weight: var(--bold);
+  cursor: pointer;
+}
+
+.create-card:hover {
+  background: var(--primary-light);
+  border-color: var(--primary-dark);
+  color: var(--primary-dark);
+}
+
+/* Table view: a strip the width of the table rather than a card — shorter than the grid
+   variant, and rounded on all four corners.
+
+   It used to be square-topped and pulled up a pixel, to meet the table's bottom edge. That
+   was wrong about the layout: createFilterableTable renders the row count *below* its grid,
+   and the strip is a sibling of that whole block, so the edge it was butting against was
+   the count paragraph rather than the table. Rounded and spaced off it instead. */
+.create-card.as-row {
+  min-height: 0;
+  padding: 10px 16px;
+  margin-top: var(--gap-md);
+}
 
 
 /*----------------------------------------------------------------------------------------
 CARDS
 --------------------------------------------------------------------------------------*/
-/* Statistic cards */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 24px;
+.card {
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  overflow: hidden;
 }
 
-.stats-grid--cnt {
-  margin: 0 90px 52px;
-  text-align: center;
+.card.primary {
+  border-color: transparent;
+  background: var(--surface);
+}
+
+.card.secondary {
+  border-color: transparent;
+  background: var(--surface-secondary);
 }
 
 .stat-card {
-  background: var(--bg-secondary);
-  border-radius: var(--radius-md);
-  padding: 14px 20px;
-}
-
-.stat-card__lbl {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-bottom: 5px;
-  margin-top: 2px;
-}
-
-.stat-card__val {
-  font-size: 24px;
-  font-weight: 500;
-}
-
-.stat-card__sub {
-  font-size: 11px;
-  color: var(--text-secondary);
-  margin-top: 3px;
-}
-
-/* Task suite cards */
-.task-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-}
-
-.task-card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 18px;
-  text-align: left;
-}
-
-.task-card h3 {
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 5px;
-}
-
-.task-card p {
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-
-/* Generic cards with header */
-
-.card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: #fff;
-}
-
-.card-header {
-  padding: 11px 16px;
-  /*border-bottom: 1px solid var(--border);*/
-  /*background: var(--bg-secondary);*/
   display: flex;
+  flex-direction: column;
+  padding: 32px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  /*border-color: transparent;*/
+  background: var(--surface);
+  overflow: hidden;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
 }
 
-.card-header__title {
-  font-size: 13px;
-  font-weight: 500;
-}
+/*.card.ts1 {*/
+/*  border-color: transparent;*/
+/*  background: var(--ts1-light);*/
+/*}*/
 
-.card-header__sub {
-  font-size: 11px;
-  color: var(--text-secondary);
-}
+/*.card.ts2 {*/
+/*  border-color: transparent;*/
+/*  background: var(--ts2-light);*/
+/*}*/
 
-.card-body {
-  padding: 16px;
-}
+/*.card.ts3 {*/
+/*  border-color: transparent;*/
+/*  background: var(--ts3-light);*/
+/*}*/
 
+/*----------------------------------------------------------------------------------------
+TEXT UTILS
+--------------------------------------------------------------------------------------*/
 
-/* Rows in card with key: value info */
-
-.info-row {
+.details-row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   padding: 8px 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
+  border-bottom: 1px solid var(--border-color);
 }
 
-.info-row:last-child {
+.details-row:last-child {
   border-bottom: none;
 }
 
-.info-key {
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 500;
+.details-label {
+  /*color: var(--text-muted);*/
+  font-size: var(--font-sm);
+  font-weight: var(--bold);
 }
 
-.info-val {
-  font-size: 12px;
+.details-value {
+  font-size: var(--font-sm);
   text-align: right;
 }
 
-.info-val.mono {
-  font-family: monospace;
-  font-size: 11px;
-  color: var(--text-secondary);
-}
 
-
-/* Two-column card rows */
-.two-col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-
-
-
-
-.section {
-  margin: 0 20px 48px;
-}
-
-.header {
+/*----------------------------------------------------------------------------------------
+HEADERS
+--------------------------------------------------------------------------------------*/
+.page-header {
   display: flex;
-  align-items: baseline;
+  flex-direction: column;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: var(--gap-sm);
+  margin-bottom: 24px;
+  margin-top: 40px;
+}
+
+.page-header.side {
+  margin-top: 10px;
+}
+
+.section-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--gap-sm);
   margin-bottom: 20px;
 }
 
-.header h2 {
-  font-size: 16px;
-  font-weight: 500;
+
+/*----------------------------------------------------------------------------------------
+GENERIC TEXT
+--------------------------------------------------------------------------------------*/
+.hero-title {
+  font-size: 40px;
+  font-weight: 400;
 }
-.header a {
-  font-size: 12px;
-  color: var(--theme);
+
+.hero-description {
+  font-size: var(--font-lg);
+  color: var(--text-muted)
+}
+
+.page-title {
+  font-size: var(--font-hd);
+  font-weight: var(--xbold);
+}
+
+.page-description {
+  font-size: var(--font-lg);
+  color: var(--text-muted);
+}
+
+.section-title {
+  font-size: var(--font-xl);
+  font-weight: var(--xbold);
+}
+
+.section-description {
+  font-size: var(--font-md);
+  color: var(--text-muted)
+}
+
+.card-title {
+  font-size: var(--font-lg);
+  font-weight: var(--bold);
+}
+
+.card-description {
+  font-size: var(--font-md);
+  color: var(--text-muted);
+}
+
+.link {
+  font-size: var(--font-sm);
+  color: var(--primary);
+}
+
+.link.un {
+  border-bottom: 1px solid var(--primary);
+}
+
+.message {
+  font-size: var(--font-lg);
+  color: var(--text-muted);
+  font-weight: var(--bold);
+}
+
+.label {
+  font-size: var(--font-sm);
+  font-weight: var(--bold);
+}
+
+.title {
+  font-size: var(--font-md);
+  font-weight: var(--bold);
+}
+
+.field-value,
+.value {
+  font-size: var(--font-sm);
+  /* UUIDs, URLs and DOIs carry no spaces to break at, so in a multi-column card
+     (see `columns` in the panel layouts) a value would overflow its cell rather
+     than wrap. `anywhere` rather than `break-word` because only `anywhere` shrinks
+     the min-content width, which is what lets an inline row's flex item give way. */
+  overflow-wrap: anywhere;
+}
+
+.field-label,
+.metadata {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+.statistic {
+  font-size: 28px;
+  font-weight: var(--bold);
+}
+
+
+
+
+/*.text {*/
+/*  font-size: var(--font-md);*/
+/*}*/
+
+/*.text-sm {*/
+/*  font-size: var(--font-sm);*/
+/*}*/
+
+/*.text-xs {*/
+/*  font-size: var(--font-xs);*/
+/*}*/
+
+
+.muted {
+  color: var(--text-muted);
+}
+
+.ts1 { color: var(--ts1); }
+.ts2 { color: var(--ts2); }
+.ts3 { color: var(--ts3); }
+
+.bold {
+  font-weight: var(--bold);
+}
+
+
+/*.ts1-bg { background: var(--ts1-light); border-color: transparent;}*/
+/*.ts2-bg { background: var(--ts2-light);  border-color: transparent; }*/
+/*.ts3-bg { background: var(--ts3-light);  border-color: transparent; }*/
+
+
+.ts1-bg { border-color: var(--ts1-light); border-width: 6px;}
+.ts2-bg { border-color: var(--ts2-light); border-width: 6px}
+.ts3-bg { border-color: var(--ts3-light); border-width: 6px}
+
+/* OLD */
+
+/*.link {*/
+/*  font-size: var(--font-md);*/
+/*  color: var(--primary);*/
+/*}*/
+
+/*.message {*/
+/*  font-size: var(--font-lg);*/
+/*  color: var(--text-muted);*/
+/*  font-weight: var(--bold);*/
+/*}*/
+
+
+/*.title {*/
+/*  font-size: var(--font-hd);*/
+/*  font-weight: var(--bold);*/
+/*}*/
+
+/*.subtitle {*/
+/*  font-size: var(--font-xl);*/
+/*  color: var(--text-muted)*/
+/*}*/
+
+/*.heading {*/
+/*  font-size: var(--font-xl);*/
+/*  font-weight: var(--xbold);*/
+/*}*/
+
+/*.subheading {*/
+/*  font-size: var(--font-lg);*/
+/*  color: var(--text-muted)*/
+/*}*/
+
+/*.text-md {*/
+/*  font-size: var(--font-md);*/
+/*}*/
+
+/*.text-sm {*/
+/*  font-size: var(--font-sm);*/
+/*}*/
+
+/*.text-lg {*/
+/*  font-size: var(--font-lg);*/
+/*}*/
+
+/*.muted {*/
+/*  color: var(--text-muted);*/
+/*}*/
+
+/*.bold {*/
+/*  font-weight: var(--bold);*/
+/*}*/
+
+/*.link {*/
+/*  font-size: var(--font-md);*/
+/*  color: var(--primary);*/
+/*}*/
+
+.info-msg {
+  color: var(--text-muted);
+  font-size: var(--font-md);
+  margin: 0;
+}
+
+.error-msg {
+  color: #B42318;
+  font-size: var(--font-md);
+  font-weight: var(--bold);
+  margin: 0;
+}
+
+/*----------------------------------------------------------------------------------------
+RANKS
+--------------------------------------------------------------------------------------*/
+
+.rank-gold {
+  color: #BA7517;
+  font-weight: 600;
+}
+
+.rank-silver {
+  color: #888;
+  font-weight: 600;
+}
+
+.rank-bronze {
+  color: #854F0B;
+  font-weight: 600;
 }
 
 
 /*----------------------------------------------------------------------------------------
 BADGES
 --------------------------------------------------------------------------------------*/
-/* Task suite badges */
-.task-badge-row {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
+.badge {
+  /*display: inline-block;*/
 
-.task-badge {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 500;
   padding: 3px 8px;
-  border-radius: 4px;
-  margin-bottom: 10px;
+  /*margin-block-end: 10px;*/
+
+  border: 1px solid transparent;
+  border-radius: var(--radius-xl);
+
+  font-size: var(--font-sm);
+  font-weight: var(--bold);
 }
 
-.task-badge.ts1 { background: var(--bg-ts1); color: var(--ts1); }
-.task-badge.ts2 { background: var(--bg-ts2); color: var(--ts2); }
-.task-badge.ts3 { background: var(--bg-ts3); color: var(--ts3); }
-.task-badge.ts-na { background: var(--bg-secondary); color: var(--text-secondary); }
-
-/* Metric badges */
-
-.metric-badge-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 10px;
+.badge.sm {
+  padding: 2px 6px;
+  font-size: var(--font-xs);
 }
 
-.metric-badge-row span {
-  font-size: 11px;
-  background: var(--bg-secondary);
-  border-radius: 20px;
-  padding: 2px 8px;
-  color: var(--text-secondary);
+/* Task badges */
+.badge.ts1 {
+  background: var(--ts1-light);
+  color: var(--ts1);
+  border-radius: var(--radius-sm);
+}
+
+.badge.ts2 {
+  background: var(--ts2-light);
+  color: var(--ts2);
+  border-radius: var(--radius-sm);
+}
+
+.badge.ts3 {
+  background: var(--ts3-light);
+  color: var(--ts3);
+  border-radius: var(--radius-sm);
 }
 
 /* Status badges */
-.status-badge {
-  font-size: 10px;
-  font-weight: 500;
-  padding: 3px 8px;
-  border-radius: 20px;
-  display: inline-block;
+.badge.neutral {
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+  border-color: var(--border-color);
 }
 
-.status-badge.done { background: #E1F5EE; color: #085041; }
-.status-badge.fail { background: #FCEBEB; color: #A32D2D; }
-.status-badge.scoring { background: #E6F1FB; color: #185FA5; }
+.badge.success {
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
 
+.badge.error {
+  background: var(--danger-light);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.badge.pending {
+  background: var(--pending-light);
+  border-color: var(--pending);
+  color: var(--pending);
+}
+
+.badge.metric {
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+  border-color: var(--border-color);
+  font-size: var(--font-xs);
+}
 
 /*----------------------------------------------------------------------------------------
 TABLES
 --------------------------------------------------------------------------------------*/
-
-
-/* Wrapper card (.tabulator is its own wrapper; .lb-preview wraps the native <table>). */
-.lb-preview,
-.tabulator {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: #fff;
-  font-size: 13px;
-  text-align: left;
-}
-
-/* Header bar: grey background + bottom border (the container element). */
-.lb-table th,
-.tabulator .tabulator-header {
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  color: var(--text-secondary);
-  padding: 8px 16px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-/* Row separators: on the cell natively, on the row in Tabulator; none on the last row. */
-.lb-table td,
-.tabulator .tabulator-row {
-  border-bottom: 1px solid var(--border);
-  background: #fff;
-}
-
-.lb-table tbody tr:last-child td,
-.tabulator .tabulator-row:last-child {
-  border-bottom: none;
-}
-
-/* Cells: padding + font. */
-.lb-table td,
-.tabulator .tabulator-cell {
-  padding: 11px 16px;
-  font-size: 13px;
-  border-right: none;
-}
-
-
-.lb-table .rank-gold,
-.tabulator .tabulator-row .tabulator-cell.rank-gold {
-  color: #BA7517;
-  font-weight: 600;
-}
-
-.lb-table .rank-silver,
-.tabulator .tabulator-row .tabulator-cell.rank-silver {
-  color: #888;
-  font-weight: 600;
-}
-
-.lb-table .rank-bronze,
-.tabulator .tabulator-row .tabulator-cell.rank-bronze {
-  color: #854F0B;
-  font-weight: 600;
-}
-
-.tabulator .tabulator-row .tabulator-cell.overall-cell {
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-/* --- Native preview table (.lb-table) only --- */
-.lb-table {
+table {
   width: 100%;
   border-collapse: collapse; /* merge cell borders into single 1px lines */
   table-layout: fixed;       /* honour the column widths below; Model takes the rest */
 }
 
-.tabulator .tabulator-row .tabulator-cell.rank-cell,
-.lb-table th:first-child {
-  width: 50px;
+
+/* Table outline */
+.table,
+.tabulator {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface);
+  text-align: left;
 }
 
-/* # */
-.lb-table th.num { width: 80px; } /* score columns */
 
-
-.lb-footer a {
-  color: var(--theme);
+/* Table header */
+.table th,
+.tabulator .tabulator-header {
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-muted);
+  padding: 10px 16px;
+  font-size: var(--font-sm);
+  font-weight: var(--bold);
 }
 
-/* --- Tabulator only --- */
 .tabulator .tabulator-header .tabulator-col {
   background: transparent;
   border-right: none;
 }
 
-.tabulator .tabulator-row:hover {
-  background: var(--bg-secondary);
-}
-
-
-/* Footer / pagination, recolored to our palette */
-.lb-footer,
-.tabulator .tabulator-footer {
-  background: var(--bg-secondary);
-  border-top: 1px solid var(--border);
-  font-size: 12px;
-  color: var(--text-secondary);
+/* Table cells */
+.table td,
+.tabulator .tabulator-cell {
   padding: 10px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  font-size: var(--font-sm);
+  border-right: none;
+  border-bottom: 1px solid var(--border-color);
+  border-top: none;
+  background: var(--surface);
 }
 
-/* Tabulator footer: the footerElement note on the left, pagination on the right.
-   Making .tabulator-footer flex (above) turned Tabulator's .tabulator-footer-contents
-   into a flex item that shrank; let it grow back to full width so its right-aligned
-   paginator reaches the right edge. */
-.tabulator .tabulator-footer .tabulator-footer-contents {
-  flex: 1;
-  margin: 0;
-  padding: 0; /* the footer already supplies padding */
+
+/* Table columns */
+.table th.rank {width: 50px; }
+.table th.num { width: 80px; }
+
+
+/* Table rows */
+.table tr:hover,
+.tabulator .tabulator-row:hover {
+  background: var(--surface-secondary);
 }
 
-.tbl-footer-note {
-  color: var(--text-secondary);
-  font-size: 12px;
+/* Cells all carry a border-bottom (above), which on the final row doubles up with
+   .tabulator's own 1px border: the two lines sit flush with nothing between them.
+   With pagination on, the footer separated them and the row border read as the
+   footer's top edge — turn pagination off and they collapse into one thick line.
+   So drop it on the last row and let the container's border be the bottom edge.
+   Both selectors because the row border may come from our .tabulator-cell rule or
+   from Tabulator's own stylesheet, depending on its theme. */
+.tabulator .tabulator-row:last-child,
+.tabulator .tabulator-row:last-child .tabulator-cell {
+  border-bottom: none;
+}
+
+/* The same doubling in the hand-written tables: `.table` carries the container border
+   (above) and every `td` a border-bottom, so the final row's line sits flush inside it.
+   `tbody` is explicit so a `tfoot`, if one is ever added, doesn't make the last body
+   row stop being last. */
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+
+/* Table footer */
+.table-footer,
+.tabulator .tabulator-footer {
+  background: var(--surface-secondary);
+  border-top: none;
+  padding: 10px 16px;
+  font-size: var(--font-sm);
+  font-weight: var(--bold);
+}
+
+
+/* With the last row's border-bottom gone, a footer needs its own top edge or it butts
+   straight onto the final row. Both kinds, now that the hand-written tables have lost
+   that line too — .table-footer sits inside the same .table container (index.html). */
+.table-footer,
+.tabulator .tabulator-footer {
+  border-top: 1px solid var(--border-color);
 }
 
 .tabulator .tabulator-footer .tabulator-page {
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
-  background: #fff;
-  color: var(--text-secondary);
+  background: var(--surface);
+  color: var(--text-muted);
   padding: 3px 9px;
   margin: 0 2px;
 }
 
 .tabulator .tabulator-footer .tabulator-page.active {
-  background: var(--theme-light);
-  border-color: #5DCAA5;
-  color: #085041;
-  font-weight: 500;
+  background: var(--primary-light);
+  border-color: var(--primary-dark);
+  color: var(--primary);
+  font-weight: var(--bold);
 }
 
 
-.model-name {
-  font-weight: 500;
-  font-size: 13px;
-}
-.model-org {
-  font-size: 11px;
-  color: var(--text-secondary);
-}
 
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 24px;
-  margin-top: 40px;
-}
-
-/* The page title (the <h1> inside the header). */
-.page-header h1 {
-  font-size: 22px;
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-
-/* The sub-text under the title (the <p> inside the header). */
-.page-header p {
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
-
+/*----------------------------------------------------------------------------------------
+TABS
+--------------------------------------------------------------------------------------*/
 .tab-row {
   display: flex;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-color);
   margin-bottom: 20px;
 }
+
 .tab {
   padding: 8px 20px;
-  font-size: 13px;
+  font-size: var(--font-md);
   cursor: pointer;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px; /* pull the tab's 2px underline over the row's 1px border */
 }
+
 .tab.active {
-  color: var(--text-primary);
-  font-weight: 500;
-  border-bottom-color: var(--theme);
+  color: var(--text-color);
+  font-weight: var(--bold);
+  border-bottom-color: var(--primary);
 }
 
 
-/* Mini score-bars column: one thin bar per suite, width = score x 100%. */
-.mini-bars {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.mini-bar-row {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-.mini-lbl {
-  font-size: 10px;
-  color: var(--text-secondary);
-  width: 24px;
-  flex-shrink: 0;
-}
-.bar-bg {
-  flex: 1;
-  height: 4px;
-  background: #eee;
-  border-radius: 10px;
-  overflow: hidden;
-}
-.bar-fill {
-  height: 4px;
-  border-radius: 10px;
-}
-.ts1-bar { background: var(--theme); }
-.ts2-bar { background: #378ADD; }
-.ts3-bar { background: #7F77DD; }
-
-
-/* Rows in card with bar */
-
-.bar-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 0;
-}
-.bar-label {
-  font-size: 12px;
-  color: var(--text-secondary);
-  width: 90px;
-  flex-shrink: 0;
-  text-align: right;
-}
+/*----------------------------------------------------------------------------------------
+BARS
+--------------------------------------------------------------------------------------*/
 
 .bar-track {
   flex: 1;
-  height: 6px;
-  background: #eee;
+  height: 4px;
+  background: #e1e1e1;
   border-radius: 10px;
   overflow: hidden;
 }
 
-.bar-fill {
-  height: 6px;
+.bar {
+  height: 4px;
   border-radius: 10px;
 }
 
-.bar-val {
-  font-size: 12px;
-  font-weight: 500;
-  width: 44px;
-  text-align: right;
-  flex-shrink: 0;
+.wide-bar {
+  height: 6px;
+}
+
+.bar.ts1 { background: var(--ts1); }
+.bar.ts2 { background: var(--ts2); }
+.bar.ts3 { background: var(--ts3); }
+
+
+
+
+/* ── DROPZONE ───────────────────────────────────────────────────── */
+
+.dropzone {
+  border: 1.5px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 28px 16px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: border-color .15s, background .15s;
+}
+.dropzone:hover, .dropzone:focus { outline: none; border-color: var(--primary); }
+.dropzone.active { border-color: var(--primary); background: var(--primary-light); }
+.dropzone-label { font-size: var(--font-md); margin: 0; }
+
+
+/* ── Selected-file card ───────────────────────────────────────────────────── */
+
+.field-input,
+.input-select,
+.input-text {
+  font-size: var(--font-sm);
+  padding: 9px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: #fff;
+  color: var(--text-color);
+  width: 100%;
+}
+
+/* Textareas inherit the shared input styling above; these are the bits a
+   textarea needs on top — browsers default them to a monospace font and
+   free two-axis resizing, neither of which matches the rest of the form. */
+.field-textarea {
+  font-family: inherit;
+  min-height: 96px;
+  resize: vertical;
+}
+
+.field-checkbox,
+.input-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
 }
 
 
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary) }
 
 
+/*----------------------------------------------------------------------------------------
+WIZARD
+--------------------------------------------------------------------------------------*/
+
+/* Layout: stepper (left) + step panel (right). */
+.wizard {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
 
 
-/* Model details
- */
-
-.model-header {
+.wizard-panel {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #fff;
+  padding: 18px;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 24px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid var(--border);
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--gap-lg);
 }
-.model-title-row {
+
+
+/* A panel on the single-page create form (js/models/modelCreate.js), which shows every
+   panel at once and locks the ones below the point the user has reached.
+
+   It's a <fieldset> because that is the one element `disabled` cascades from: setting it
+   disables every control inside without touching their own `disabled` attributes, so a
+   field the schema disables via disabledWhen stays disabled when its panel reopens.
+
+   The reset is what a fieldset needs to lay out like a plain wrapper. `min-inline-size`
+   is the load-bearing part: a fieldset defaults to `min-content`, which overrides the
+   grid and flex children inside it and blows the card's width out. */
+.form-panel {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+/* Locked. Driven off :disabled rather than a class of its own so the dimming can't get
+   out of step with whether the controls are actually locked — one property does both. */
+.form-panel:disabled {
+  opacity: 50%;
+}
+
+
+.wizard-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: var(--font-md);
+  color: var(--text-muted);
+}
+
+.wizard-step-icon {
+  position: relative;
+
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+
+  display: grid;
+  place-items: center;
+
+  border: 1.5px solid var(--border-color);
+  border-radius: 50%;
+
+  background: #fff;
+  color: var(--text-muted);
+
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.wizard-step:not(:last-child) .wizard-step-icon::after {
+  content: "";
+  position: absolute;
+
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+
+  width: 2px;
+  height: 22px;
+
+  background: var(--border-color);
+}
+
+/* ─── Current step ───────────────────────────────────────────── */
+
+.wizard-step.current {
+  color: var(--text-color);
+  font-weight: var(--bold);
+}
+
+.wizard-step.current .wizard-step-icon {
+  border-color: var(--primary);
+  color: var(--primary-dark);
+}
+
+/* ─── Completed step ─────────────────────────────────────────── */
+
+.wizard-step.done {
+  cursor: pointer;
+  color: var(--text-color);
+}
+
+.wizard-step.done .wizard-step-icon {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+
+
+
+
+
+
+/* This is the round icon which can be reused */
+.task-status {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: var(--font-md);
+  line-height: 1;
+}
+.task-status.ok { background: var(--primary); color: #fff; }
+.task-status.bad { background: #d33; color: #fff; }
+.task-status.pending { border: 1.5px solid var(--border-color); }
+
+
+/* The task panel of the single-page submission form — js/tasks/taskSubmissionsCreate.js.
+   Master–detail: the suite-grouped picker on the left, the selected task's methodology
+   form on the right. `minmax(0, 1fr)` so a long field can't push the detail column wider
+   than the card; `align-items: start` so a short picker doesn't stretch to the form's
+   height. The .task-row/.task-head rules above belong to the wizard's accordion and are
+   unrelated; only .task-status is shared between the two. */
+.task-split {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: var(--gap-lg);
+  align-items: start;
+}
+
+/* Sticky so the picker stays put while a long methodology form scrolls beside it. */
+.task-picker {
+  position: sticky;
+  top: var(--gap-md);
+}
+
+.task-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 6px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
-.model-title {
-  font-size: 20px;
-  font-weight: 500;
+
+.task-item:hover { background: var(--surface-secondary); }
+
+.task-item.selected {
+  border-color: var(--primary);
+  background: var(--surface);
 }
-.model-desc {
-  font-size: 13px;
-  color: var(--text-secondary);
-  max-width: 520px;
-  line-height: 1.6;
-  margin-bottom: 10px;
-}
-.detail-meta {
-  display: flex;
-  gap: 18px;
-  flex-wrap: wrap;
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-bottom: 12px;
+
+.task-item.invalid { color: #d33; }
+
+/* Ids can be longer than the column; truncate rather than wrap, so every row is one
+   line high and the list stays scannable. The full id is in the detail pane's title. */
+.task-item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 
-.rank-block {
-  text-align: right;
-  flex-shrink: 0;
-}
-.rank-label {
-  font-size: 11px;
-  color: var(--text-secondary);
-  margin-bottom: 2px;
-}
-.rank-num {
-  font-size: 34px;
-  font-weight: 500;
-  color: #BA7517;
+/* The modal backdrop (`.task-popup`/`.popup`), its `.popup-card`, and the `.match-list`
+   pair went with the submit wizard's add-task dialog — team creation is its own page
+   (html/teams/team_create.html), so nothing renders a modal any more.
+   `.modal-close` stays: teamCreate.js borrows it for the remove-member buttons on its
+   member chips, which is the only thing left using it. */
+.modal-close {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 22px;
   line-height: 1;
-}
-.rank-sub {
-  font-size: 11px;
-  color: var(--text-secondary);
-  margin-top: 4px;
-}
-.rank-link {
-  font-size: 12px;
-  color: var(--theme);
-  display: block;
-  margin-top: 6px;
+  color: var(--text-muted);
 }

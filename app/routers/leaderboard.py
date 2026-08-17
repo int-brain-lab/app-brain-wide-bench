@@ -7,16 +7,20 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_session
 from app.models import Submission, SubmissionStatus, TaskSubmission
+from app.schemas.leaderboard import LeaderboardRow, LeaderboardScore
 
-router = APIRouter(prefix="/api", tags=["leaderboard"])
+router = APIRouter(prefix="/api/leaderboard", tags=["leaderboard"])
 
 
-@router.get("/leaderboard")
-async def leaderboard(session: AsyncSession = Depends(get_session)) -> list[dict]:
+@router.get("", response_model=list[LeaderboardRow])
+async def leaderboard(session: AsyncSession = Depends(get_session)) -> list[LeaderboardRow]:
     """Return all public, completed submissions for the leaderboard.
 
-    Each row includes per-task primary-metric means (as ``mean``/``sem``) so the
-    frontend can build one sortable column per task suite.
+    The one endpoint with no notion of a caller: it publishes finished, public work and
+    nothing else, so it takes no user and withholds nothing.
+
+    Each row carries per-task primary-metric means so the frontend can build one sortable
+    column per task suite.
     """
     result = await session.execute(
         select(Submission)
@@ -28,27 +32,22 @@ async def leaderboard(session: AsyncSession = Depends(get_session)) -> list[dict
         )
         .order_by(Submission.created_at.desc())
     )
-    rows = []
-    for sub in result.scalars().all():
-        scores = {
-            ts.task_id: {
-                "mean": ts.score.primary_metric_mean,
-                "sem": ts.score.primary_metric_sem,
-                "n_seeds": ts.score.n_seeds,
-            }
-            for ts in sub.task_submissions
-            if ts.score is not None
-        }
-        rows.append(
-            {
-                "id": str(sub.id),
-                "label": sub.label,
-                "team_id": str(sub.team_id),
-                "team_name": sub.team.name,
-                "model_id": str(sub.model_id),
-                "model_name": sub.model.name,
-                "created_at": sub.created_at.isoformat(),
-                "scores": scores,
-            }
+
+    return [
+        LeaderboardRow(
+            id=submission.id,
+            label=submission.label,
+            team_id=submission.team_id,
+            team_name=submission.team.name,
+            model_id=submission.model_id,
+            model_name=submission.model.name,
+            created_at=submission.created_at,
+            # A task with no score yet contributes no column.
+            scores={
+                task.task_id: LeaderboardScore.from_score(task.score)
+                for task in submission.task_submissions
+                if task.score is not None
+            },
         )
-    return rows
+        for submission in result.scalars().all()
+    ]

@@ -9,13 +9,22 @@ Tables grouped by domain:
 import enum
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
-from sqlalchemy import Column, DateTime, JSON, func
+from sqlalchemy import Column, DateTime, Index, JSON, func, select, text
+from sqlalchemy.orm import column_property
 from sqlmodel import Field, Relationship, SQLModel
 
 
 # ── Enums ──────────────────────────────────────────────────────────────────────
+#
+# Grouped by what they describe: who someone is to a record, what state a submission is
+# in, what a task measures, and how a model was trained for it.
+
+
+class TeamRole(str, enum.Enum):
+    owner = "owner"
+    collaborator = "collaborator"
 
 
 class SubmissionStatus(str, enum.Enum):
@@ -26,6 +35,12 @@ class SubmissionStatus(str, enum.Enum):
 
 
 class SubmissionUserRole(str, enum.Enum):
+    """A user's relationship to one submission.
+
+    Same members as ``TeamRole`` but a separate axis: team membership decides what you may
+    do, this records who made a particular submission.
+    """
+
     owner = "owner"
     collaborator = "collaborator"
 
@@ -51,7 +66,7 @@ class Modality(str, enum.Enum):
     spikes = "spikes"
     behavior = "behavior"
     lfp = "lfp"
-    waveforms =  "waveforms"
+    waveforms = "waveforms"
 
 
 class TrainingParadigm(str, enum.Enum):
@@ -77,26 +92,58 @@ class FinetuningStrategy(str, enum.Enum):
     mlp_probe = "mlp_probe"
     gradual_unfreezing = "gradual_unfreezing"
     full_finetuning = "full_finetuning"
+    single_unit = "single_unit"
+    multi_unit = "multi_unit"
     other = "other"
+
+
+class Metric(str, enum.Enum):
+    bacc = "bacc"
+    poisson_d2 = "poisson_d2"
+    d2 = "d2"
+    f1_macro = "macro/f1-score"
+    r2 = "r2"
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 
-def _uuid() -> uuid.UUID:
+# These return a ``Field``, not a value — the annotation is ``Any`` rather than the column
+# type they configure, which is what they used to claim.
+
+
+def _uuid() -> Any:
+    """Client-generated primary key, so an id exists before the first flush."""
     return Field(default_factory=uuid.uuid4, primary_key=True)
 
 
-def _ts() -> datetime:
+def _ts() -> Any:
     """Server-side ``now()`` timestamp, nullable until first flush."""
     return Field(default=None, sa_column=Column(DateTime(timezone=True), server_default=func.now()))
+
+
+def _updated_ts() -> Any:
+    """Server-side timestamp that also follows every UPDATE."""
+    return Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now()),
+    )
 
 
 # ── Identity ───────────────────────────────────────────────────────────────────
 
 
 class Team(SQLModel, table=True):
+    """A lab or group. Owns models and submissions, and decides who may see them."""
+
     __tablename__ = "teams"
+
+    # Globally unique, unlike a model's name or a submission's label — a team isn't
+    # scoped by anything, and its name is how people refer to it. On ``lower(name)`` so
+    # the database enforces the same case-insensitive rule ``_check_valid_team_name``
+    # does; a plain unique index would let "Brain Wide Bench" and "brain wide bench"
+    # coexist in the table while the API refused the second.
+    __table_args__ = (Index("uq_teams_lower_name", text("lower(name)"), unique=True),)
 
     id: uuid.UUID = _uuid()
     name: str
@@ -131,6 +178,9 @@ class UserTeam(SQLModel, table=True):
 
     user_id: uuid.UUID = Field(foreign_key="users.id", primary_key=True)
     team_id: uuid.UUID = Field(foreign_key="teams.id", primary_key=True)
+    # Least privilege by default. The two places that create a membership both say
+    # which role they mean, so this only governs a row built without one.
+    role: TeamRole = Field(default=TeamRole.collaborator)
 
     user: User | None = Relationship(back_populates="teams")
     team: Team | None = Relationship(back_populates="members")
@@ -138,9 +188,18 @@ class UserTeam(SQLModel, table=True):
 
 # ── Core ───────────────────────────────────────────────────────────────────────
 
-# todo: the modalities fields need to be a list of modalities
 class Model(SQLModel, table=True):
+    """A model a team submits results for — its description, not its weights."""
+
     __tablename__ = "models"
+
+    # Unique per team, not globally: two labs may each have an "mlp-baseline". Indexed on
+    # ``lower(name)`` so the database enforces the same case-insensitive rule
+    # ``_check_valid_model_name`` applies — a plain unique index would let "MLP-Baseline"
+    # through here while the API refused it, which is the worse of the two failures.
+    __table_args__ = (
+        Index("uq_models_team_id_lower_name", "team_id", text("lower(name)"), unique=True),
+    )
 
     id: uuid.UUID = _uuid()
     team_id: uuid.UUID = Field(foreign_key="teams.id")
@@ -155,8 +214,8 @@ class Model(SQLModel, table=True):
     temporal_context_s: float = 1.0
     # Pretraining — all nullable for single-session baselines
     is_pretrained: bool | None = None
-    pretrained_in_modalities: Modality | None = None
-    pretrained_out_modalities: Modality | None = None
+    pretrained_in_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON))
+    pretrained_out_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON))
     pretraining_data: str | None = None
     created_at: datetime | None = _ts()
 
@@ -169,20 +228,28 @@ class Submission(SQLModel, table=True):
 
     __tablename__ = "submissions"
 
+    # A label names a *run* of one model, so it is unique per model rather than per team.
+    # Case-insensitive, matching ``_check_valid_submission_label``.
+    __table_args__ = (
+        Index(
+            "uq_submissions_model_id_lower_label",
+            "model_id",
+            text("lower(label)"),
+            unique=True,
+        ),
+    )
+
     id: uuid.UUID = _uuid()
     team_id: uuid.UUID = Field(foreign_key="teams.id")
     model_id: uuid.UUID = Field(foreign_key="models.id")
     label: str  # human-readable run name, e.g. "mlp-ts1-baseline"
     s3_key: str
-    status: SubmissionStatus = SubmissionStatus.pending
+    status: SubmissionStatus = Field(default=SubmissionStatus.pending)
     narrative_public: str | None = None
     narrative_private: str | None = None
-    is_public: bool = False
+    is_public: bool = Field(default=False)
     created_at: datetime | None = _ts()
-    updated_at: datetime | None = Field(
-        default=None,
-        sa_column=Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now()),
-    )
+    updated_at: datetime | None = _updated_ts()
 
     team: Team | None = Relationship(back_populates="submissions")
     model: Model | None = Relationship(back_populates="submissions")
@@ -203,7 +270,7 @@ class SubmissionUser(SQLModel, table=True):
 
     submission_id: uuid.UUID = Field(foreign_key="submissions.id", primary_key=True)
     user_id: uuid.UUID = Field(foreign_key="users.id", primary_key=True)
-    role: SubmissionUserRole = SubmissionUserRole.owner
+    role: SubmissionUserRole = Field(default=SubmissionUserRole.owner)
 
     submission: Submission | None = Relationship(back_populates="user_links")
     user: User | None = Relationship(back_populates="submission_links")
@@ -223,7 +290,9 @@ class Task(SQLModel, table=True):
     id: str = Field(primary_key=True)  # e.g. "ts1-reward"
     task_suite: TaskSuite
     task_type: TaskType
-    primary_metric: str  # metric name used to rank on the leaderboard
+
+    # An enum rather than free text, so a metric name is spelled one way everywhere.
+    primary_metric: Metric
 
     task_submissions: list["TaskSubmission"] = Relationship(back_populates="task")
 
@@ -236,11 +305,11 @@ class TaskSubmission(SQLModel, table=True):
     id: uuid.UUID = _uuid()
     submission_id: uuid.UUID = Field(foreign_key="submissions.id")
     task_id: str = Field(foreign_key="tasks.id")
-    extra_input_modality: str | None = None
+    extra_input_modality: list[Modality] | None = Field(default=None, sa_column=Column(JSON))
     training_paradigm: TrainingParadigm | None = None
     supervision_regime: SupervisionRegime | None = None
     calibration: Calibration | None = None
-    finetuning_strategy: FinetuningStrategy | None = None
+    finetuning_strategy: list[FinetuningStrategy] | None = Field(default=None, sa_column=Column(JSON))
 
     submission: Submission | None = Relationship(back_populates="task_submissions")
     task: Task | None = Relationship(back_populates="task_submissions")
@@ -264,6 +333,23 @@ class TaskScore(SQLModel, table=True):
     n_seeds: int
     primary_metric_mean: float
     primary_metric_sem: float | None = None
+
     metrics: dict | None = Field(default=None, sa_column=Column(JSON, nullable=True))
 
     task_submission: TaskSubmission | None = Relationship(back_populates="score")
+
+
+# The metric a score is measured in belongs to the task, two relationships away
+# (score -> task_submission -> task). As a column_property it is selected alongside the
+# score's own columns, so a score is self-describing wherever it is read and no endpoint
+# has to eager-load a path it has no other use for.
+#
+# Out here because it refers to TaskScore itself. Read-only, and not a real column — there
+# is nothing to migrate and writing scores is unaffected.
+TaskScore.primary_metric = column_property(
+    select(Task.primary_metric)
+    .join(TaskSubmission, TaskSubmission.task_id == Task.id)
+    .where(TaskSubmission.id == TaskScore.task_submission_id)
+    .correlate_except(Task, TaskSubmission)
+    .scalar_subquery()
+)

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brain-Wide Bench - Dashboard</title>
+  <!-- Tabulator's stylesheet first so style.css's `.tabulator` overrides win, same order as
+       the other pages that mount a grid. -->
+  <link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body data-view="private">
+
+    <div class="main-private">
+
+      <aside class="sidebar" id="side-nav"></aside>
+
+      <div class="content-private">
+
+        <div class="card" id="gate" hidden>
+          <div class="column gap-md">
+            <p>Please sign in to view your dashboard.</p>
+            <button class="btn primary" id="gate-login">Sign in</button>
+          </div>
+        </div>
+
+        <div id="container"></div>
+
+      </div>
+    </div>
+
+    <!-- Cloned into the page by dashboardView.js when the account has no teams, models or
+         submissions — the four sections would otherwise all read "None yet", which says what
+         is missing but not what to do about it.
+
+         A <template> rather than a hidden div: showGate sets `hidden` on every sibling of
+         #gate, so a plain div here would be un-hidden on sign-in and have to be hidden again
+         by every view. Template content is inert either way. -->
+    <template id="dashboard-empty">
+            <div class="card column gap-lg">
+
+              <div class="column gap-sm">
+                <p class="title">Getting started</p>
+                <p class="section-description">
+                  Nothing has been set up on this account yet. Benchmarking a model takes
+                  three steps, and each one builds on the last — a submission belongs to a
+                  model, and a model belongs to a team. Work through them in order and your
+                  results will start appearing on this page.
+                </p>
+              </div>
+
+              <div class="column gap-lg">
+
+                <div class="step">
+                  <span class="step-number">1</span>
+                  <div class="column left gap-sm">
+                    <p class="title">Create a team</p>
+                    <p class="metadata">
+                      A team owns the models and submissions made under it, and team
+                      membership is how access is shared. Everything else you create will
+                      belong to a team, so this comes first. You will be its first member,
+                      and you can add colleagues now or any time later — they need to have
+                      signed in at least once before they can be added. If you are working
+                      on your own, a team of one is perfectly normal.
+                    </p>
+                    <a class="btn primary with-icon" href="/html/teams/team_create.html">
+                      <i class="btn-icon" data-lucide="plus"></i>
+                      Create a team
+                    </a>
+                  </div>
+                </div>
+
+                <div class="step">
+                  <span class="step-number">2</span>
+                  <div class="column left gap-sm">
+                    <p class="title">Register a model</p>
+                    <p class="metadata">
+                      A model is the thing being evaluated. You register it once, describing
+                      what it is — which team owns it, how much temporal context it uses,
+                      whether it was pretrained and on which modalities, plus optional links
+                      to your code, weights and paper. That description is what makes results
+                      comparable between groups, so it is worth filling in properly. You can
+                      edit any of it afterwards, and you will submit against the same model
+                      many times as your work progresses.
+                    </p>
+                    <a class="btn primary with-icon" href="/html/models/model_create.html">
+                      <i class="btn-icon" data-lucide="plus"></i>
+                      Register a model
+                    </a>
+                  </div>
+                </div>
+
+                <div class="step">
+                  <span class="step-number">3</span>
+                  <div class="column left gap-sm">
+                    <p class="title">Make a submission</p>
+                    <p class="metadata">
+                      A submission is a zip of your model's predictions. The folder names
+                      inside it tell us which benchmark tasks you are entering — one folder
+                      per task — and you then describe how each was run: the training
+                      paradigm, the supervision regime, the calibration. Once uploaded, your
+                      predictions are scored against held-out test data. Choose whether to
+                      publish it, and if you do, it appears on the public leaderboard
+                      alongside everyone else's.
+                    </p>
+                    <a class="btn primary with-icon" href="/html/submissions/submission_create.html">
+                      <i class="btn-icon" data-lucide="plus"></i>
+                      Make a submission
+                    </a>
+                  </div>
+                </div>
+
+              </div>
+
+              <p class="info-msg">
+                After that, this page fills in on its own: your teams and models appear as
+                cards, your most recent submissions as a table, and your best task scores
+                beside them. Scoring is not instant — a submission sits at "pending" until
+                it has been through the pipeline, so scores may take a little while to show
+                up after you upload.
+              </p>
+    </template>
+
+  <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module" src="/js/nav/nav_top.js"></script>
+  <script type="module" src="/js/nav/nav_side.js"></script>
+  <script type="module" src="/js/dashboard/dashboardView.js"></script>
+
+</body>
+</html>

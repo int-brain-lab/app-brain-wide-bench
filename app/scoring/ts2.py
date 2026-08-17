@@ -7,14 +7,14 @@ import numpy as np
 
 from app.scoring.base import BaseScorer
 
-PRIMARY_METRIC = "cohens_r2"  # Poisson deviance R² (D²), the headline TS2 metric
+PRIMARY_METRIC = "poisson_d2"  # Poisson deviance R² (D²), the headline TS2 metric
 
 
 class TS2Scorer(BaseScorer):
     """Score TS2 submissions against the ground-truth oracle.
 
     Same (label, task, recording_id) row/summary shape as :class:`~app.scoring.ts1.TS1Scorer`,
-    but TS2's metrics (``cohens_r2``, ``bps``) are fixed rather than per-task.
+    but TS2's metrics (``poisson_d2``, ``bps``) are fixed rather than per-task.
     """
 
     def score(self, pred_dir: Path, gt_dir: Path) -> dict:

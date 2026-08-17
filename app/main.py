@@ -9,7 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 from app.config import settings
-from app.routers import leaderboard, models, submissions, users
+from app.routers import leaderboard, meta, models, submissions, tasks, teams, users, tasksubmissions
 
 app = FastAPI(title="brain-wide-bench", version="0.1.0")
 
@@ -35,9 +35,13 @@ class NoCacheStaticMiddleware(BaseHTTPMiddleware):
 app.add_middleware(NoCacheStaticMiddleware)
 
 app.include_router(submissions.router)
+app.include_router(tasksubmissions.router)
 app.include_router(leaderboard.router)
 app.include_router(users.router)
 app.include_router(models.router)
+app.include_router(tasks.router)
+app.include_router(teams.router)
+app.include_router(meta.router)
 
 
 @app.get("/health", tags=["health"])
