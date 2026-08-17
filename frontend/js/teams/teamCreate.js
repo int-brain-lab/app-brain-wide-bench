@@ -12,9 +12,7 @@ import { loadMe } from "../users/userApi.js";
 import { buildMembersPanel, createMembersSection } from "./teamMembers.js";
 import { TEAM_FIELDS } from "./teamSchema.js";
 import { showError, showMessage } from "../utils.js";
-import { isAuthenticated } from "../api.js";
-import { showGate } from "../pages/gate.js";
-import { createPanelForm } from "../pages/create-form.js";
+import { loadCreatePage } from "../pages/create-page.js";
 import { pageMessage } from "../pages/record-page.js";
 
 
@@ -32,6 +30,22 @@ const TEAM_PANELS = [
     build: buildMembersPanel
   },
 ];
+
+// Stands in for the team that doesn't exist yet. The creator is listed from the start
+// because POST /api/teams adds them as the first member — showing them is reporting
+// what will happen, not pre-empting it.
+// The creator is the team's owner — POST /api/teams makes them one, and the row
+// has to say so rather than defaulting to "collaborator" like a staged addition.
+async function loadCreator() {
+  const me = await loadMe();
+
+  if (!me) {
+    showError(document.getElementById("container"), "Could not load your account.");
+    return null;
+  }
+
+  return { me, draft: { id: null, members: [{ ...me, role: "owner" }] }, members: null };
+}
 
 // A thrown error is the form's to report; returning without a destination is this page
 // saying "created, but not entirely" — the one outcome that must stay on screen.
@@ -69,58 +83,25 @@ async function submitTeam(state, draft, members) {
   return null;
 }
 
-async function loadTeamCreatePage() {
 
-  try {
-    if (!(await isAuthenticated())) {
-      showGate(false);
-      return;
-    }
+loadCreatePage({
+  noun: "team",
+  backTo: { href: "/html/teams/team_list.html", text: "← Back to teams" },
+  panels: TEAM_PANELS,
+  fields: TEAM_FIELDS,
+  load: loadCreator,
 
-    showGate(true);
-
-    const me = await loadMe();
-
-    if (!me) {
-      showError(document.getElementById("container"), "Could not load your account.");
-      return;
-    }
-
-    // Stands in for the team that doesn't exist yet. The creator is listed from the start
-    // because POST /api/teams adds them as the first member — showing them is reporting
-    // what will happen, not pre-empting it.
-    // The creator is the team's owner — POST /api/teams makes them one, and the row
-    // has to say so rather than defaulting to "collaborator" like a staged addition.
-    const draft = { id: null, members: [{ ...me, role: "owner" }] };
-
-    let members = null;
-
-    const teamForm = createPanelForm({
-      noun: "team",
-      backTo: { href: "/html/teams/team_list.html", text: "← Back to teams" },
-      panels: TEAM_PANELS,
-      fields: TEAM_FIELDS,
-      submit: state => submitTeam(state, draft, members),
-    });
-
-    teamForm.initialise();
-
-    members = createMembersSection({
-      getTeam: () => draft,
+  setup: (form, context) => {
+    context.members = createMembersSection({
+      getTeam: () => context.draft,
       onMessage: message => showMessage(pageMessage(), message),
-      canRemove: member => member.id !== me.id,
+      canRemove: member => member.id !== context.me.id,
     });
 
     // Staged mode starts read-only, for teamView.js where the block only opens on Edit.
     // Here the panel's own lock is the gate, so it is open from the start.
-    members.setEditing(true);
+    context.members.setEditing(true);
+  },
 
-    teamForm.attach();
-  } catch (error) {
-    console.error("Failed to initialise the team create page:", error);
-
-    showError(document.getElementById("container"), "Team create page could not be loaded.");
-  }
-}
-
-loadTeamCreatePage();
+  submit: (state, context) => submitTeam(state, context.draft, context.members),
+});

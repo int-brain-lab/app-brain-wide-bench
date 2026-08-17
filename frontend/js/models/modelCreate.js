@@ -9,10 +9,7 @@
 
 import { loadModelFields } from "./modelSchema.js";
 import { createModel } from "./modelApi.js";
-import { isAuthenticated } from "../api.js";
-import { showError } from "../utils.js";
-import { showGate } from "../pages/gate.js";
-import { createPanelForm } from "../pages/create-form.js";
+import { loadCreatePage } from "../pages/create-page.js";
 
 
 
@@ -42,35 +39,10 @@ async function submitModel(state) {
 }
 
 
-async function loadModelCreatePage() {
-  try {
-    if (!(await isAuthenticated())) {
-      showGate(false);
-      return;
-    }
-
-    showGate(true);
-
-    const modelFields = await loadModelFields();
-
-    const modelForm = createPanelForm({
-      noun: "model",
-      backTo: { href: "/html/models/model_list.html", text: "← Back to models" },
-      panels: MODEL_PANELS,
-      fields: modelFields,
-
-      submit: async state => {
-        return submitModel(state);
-      },
-    });
-
-    modelForm.initialise();
-    modelForm.attach();
-  } catch (error) {
-    console.error("Failed to initialise the model create page:", error);
-    // TODO add generic message page on each html
-    showError(document.getElementById("container"), "Could not load this page.");
-  }
-}
-
-loadModelCreatePage();
+loadCreatePage({
+  noun: "model",
+  backTo: { href: "/html/models/model_list.html", text: "← Back to models" },
+  panels: MODEL_PANELS,
+  fields: () => loadModelFields(),
+  submit: state => submitModel(state),
+});

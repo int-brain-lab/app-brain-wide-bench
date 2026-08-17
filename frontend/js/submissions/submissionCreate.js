@@ -11,7 +11,6 @@
 
 import { loadSubmissionFields } from "./submissionSchema.js";
 import { loadModel } from "../models/modelApi.js";
-import { isAuthenticated } from "../api.js";
 import { showError, showMessage } from "../utils.js";
 import { buildTaskPanel, createTaskSection } from "../tasks/taskSubmissionsCreate.js";
 import { buildUploadPanel, createUploadSection } from "./submissionUpload.js";
@@ -20,18 +19,17 @@ import {
   presignSubmission,
   uploadToPresignedUrl,
 } from "./submissionApi.js";
-import { showGate } from "../pages/gate.js";
-import { createPanelForm } from "../pages/create-form.js";
+import { loadCreatePage } from "../pages/create-page.js";
 import { pageMessage } from "../pages/record-page.js";
 import {getTaskSuites} from "../tasks/taskSubmissionApi.js";
 import {loadTaskFields} from "../tasks/taskSubmissionSchema.js";
 
 
-// Built inside the loader rather than declared here, because panels 3 and 4 report their
-// completeness by asking objects that don't exist until the page has loaded.
+// Built from the context rather than declared as a constant, because panels 3 and 4 report
+// their completeness by asking objects that don't exist until `setup` has run.
 //
 // Panel 3 refuses requires a file and that all detected tasks are valid.
-function buildPanels({ allTasksValid, allTasksConfirmed }) {
+function buildPanels(context) {
   return [
     {
       panel: 1,
@@ -46,14 +44,14 @@ function buildPanels({ allTasksValid, allTasksConfirmed }) {
     {
       panel: 3,
       required: ["file"],
-      complete: () => allTasksValid(),
+      complete: () => context.unknownTaskIds.length === 0,
       build: buildUploadPanel,
       title: "3. Upload a zip file and detect tasks"
     },
     {
       panel: 4,
       required: [],
-      complete: () => allTasksConfirmed(),
+      complete: () => context.taskPanel?.allConfirmed(),
       build: buildTaskPanel,
       title: "4. Configure task parameters"
     },
@@ -160,86 +158,71 @@ async function submitSubmission(state, taskSection) {
 
 // ─── INITIALISATION ─────────────────────────────────────────────────────────
 
-async function loadSubmissionCreatePage() {
+// `unknownTaskIds` and `taskPanel` start empty here and are filled in by `setup` and by the
+// upload panel's `onFile`; the panels close over the context so they read them as they are
+// at the moment a lock is applied, not as they were at page load.
+async function loadSubmissionContext() {
+  const fields = await loadSubmissionFields();
 
-  try {
-    if (!(await isAuthenticated())) {
-      showGate(false);
-      return;
-    }
-
-    showGate(true);
-
-    const submissionFields = await loadSubmissionFields();
-
-    if (!submissionFields.model_id.options.length) {
-      showError(document.getElementById("container"), "You have no models yet — a model is required to submit.");
-      return;
-    }
-
-    const knownTasks = await loadKnownTasks();
-    await loadTaskFields();
-
-    let unknownTaskIds = [];
-    let taskPanel = null;
-
-    const submissionForm = createPanelForm({
-      noun: "submission",
-      backTo: { href: "/html/submissions/submissions.html", text: "← Back to submissions" },
-      panels: buildPanels({
-        allTasksValid: () => unknownTaskIds.length === 0,
-        allTasksConfirmed: () => taskPanel?.allConfirmed(),
-      }),
-      fields: submissionFields,
-      submit: state => submitSubmission(state, taskPanel),
-      onChange: async key => {
-        if (key === "model_id") {
-          await loadSelectedModel(
-            submissionForm.state.model_id,
-            submissionForm.state,
-            taskPanel);
-        }
-      },
-    });
-
-    submissionForm.initialise();
-
-    taskPanel = createTaskSection({
-      taskSuites: knownTasks,
-      onChange: () => submissionForm.refresh(),
-    });
-
-    taskPanel.attach();
-
-
-    const uploadPanel = createUploadSection({
-      message: pageMessage(),
-      knownTasks,
-      // When a file is uploaded update both the submission form state and the task panel with the detected tasks.
-      onFile: (file, taskIds) => {
-        // A catalogue that failed to load can't judge anything, so nothing is unknown.
-        unknownTaskIds = knownTasks.size
-          ? taskIds.filter(id => !knownTasks.has(id))
-          : [];
-
-        submissionForm.state.file = file;
-
-        // Only ids the catalogue recognises reach the task panel — which is why it has no
-        // handling for one that it doesn't. Panel 3 stays incomplete until they all are.
-        taskPanel.setTasks(unknownTaskIds.length ? [] : taskIds);
-      },
-    });
-
-    uploadPanel.attach();
-
-    await preselectModel(submissionForm.state, submissionFields, taskPanel);
-
-    submissionForm.attach();
-  } catch (error) {
-    console.error("Failed to initialise the submission create page:", error);
-
-    showError(document.getElementById("container"), "Could not load the submission form.");
+  if (!fields.model_id.options.length) {
+    showError(document.getElementById("container"), "You have no models yet — a model is required to submit.");
+    return null;
   }
+
+  const knownTasks = await loadKnownTasks();
+  await loadTaskFields();
+
+  return { fields, knownTasks, unknownTaskIds: [], taskPanel: null };
 }
 
-loadSubmissionCreatePage();
+// The task section owns panel 4, the upload section panel 3; both are built here, between
+// the form's `initialise()` and `attach()`, so a form re-render can't destroy their
+// listeners.
+async function setupPanels(form, context) {
+  const { knownTasks } = context;
+
+  context.taskPanel = createTaskSection({
+    taskSuites: knownTasks,
+    onChange: () => form.refresh(),
+  });
+
+  context.taskPanel.attach();
+
+  const uploadPanel = createUploadSection({
+    message: pageMessage(),
+    knownTasks,
+    // When a file is uploaded update both the submission form state and the task panel with the detected tasks.
+    onFile: (file, taskIds) => {
+      // A catalogue that failed to load can't judge anything, so nothing is unknown.
+      context.unknownTaskIds = knownTasks.size
+        ? taskIds.filter(id => !knownTasks.has(id))
+        : [];
+
+      form.state.file = file;
+
+      // Only ids the catalogue recognises reach the task panel — which is why it has no
+      // handling for one that it doesn't. Panel 3 stays incomplete until they all are.
+      context.taskPanel.setTasks(context.unknownTaskIds.length ? [] : taskIds);
+    },
+  });
+
+  uploadPanel.attach();
+
+  await preselectModel(form.state, context.fields, context.taskPanel);
+}
+
+
+loadCreatePage({
+  noun: "submission",
+  backTo: { href: "/html/submissions/submissions.html", text: "← Back to submissions" },
+  load: loadSubmissionContext,
+  fields: context => context.fields,
+  panels: buildPanels,
+  setup: setupPanels,
+  submit: (state, context) => submitSubmission(state, context.taskPanel),
+  onChange: async (key, value, cleared, { form, context }) => {
+    if (key === "model_id") {
+      await loadSelectedModel(form.state.model_id, form.state, context.taskPanel);
+    }
+  },
+});
