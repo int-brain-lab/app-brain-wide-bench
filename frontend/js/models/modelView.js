@@ -269,7 +269,7 @@ function renderDetailsView({ model, fields, edit = false, created = false })  {
     record: model,
     fields,
     groups: () => panelGroups(fields, MODEL_PANELS, { columns: 1 }),
-    save: draft => updateModel({ id: model.id, ...draft }),
+    save: draft => updateModel( model.id, draft ),
 
     onSaved: saved => {
       showMessage(pageMessage(), "");

@@ -5,7 +5,7 @@ import { apiFetch } from "../api.js";
 function buildModelPayload(state) {
   return {
     ...state,
-    name: state.name.trim(),
+    name: state.name?.trim(),
   };
 }
 

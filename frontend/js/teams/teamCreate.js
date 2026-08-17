@@ -9,7 +9,7 @@
 
 import { createTeam } from "./teamApi.js";
 import { loadMe } from "../users/userApi.js";
-import { buildMembersCard, createMembersSection } from "./teamMembers.js";
+import { buildMembersPanel, createMembersSection } from "./teamMembers.js";
 import { TEAM_FIELDS } from "./teamSchema.js";
 import { showError, showMessage } from "../utils.js";
 import { isAuthenticated } from "../api.js";
@@ -97,7 +97,7 @@ async function loadTeamCreatePage() {
 
     const teamForm = createPanelForm({
       noun: "team",
-      back: { href: "/html/teams/team_list.html", text: "← Back to teams" },
+      backTo: { href: "/html/teams/team_list.html", text: "← Back to teams" },
       panels: TEAM_PANELS,
       fields: TEAM_FIELDS,
       submit: state => submitTeam(state, draft, members),

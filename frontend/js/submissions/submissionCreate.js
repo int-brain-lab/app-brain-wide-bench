@@ -24,6 +24,7 @@ import { showGate } from "../pages/gate.js";
 import { createPanelForm } from "../pages/create-form.js";
 import { pageMessage } from "../pages/record-page.js";
 import {getTaskSuites} from "../tasks/taskSubmissionApi.js";
+import {loadTaskFields} from "../tasks/taskSubmissionSchema.js";
 
 
 // Built inside the loader rather than declared here, because panels 3 and 4 report their
@@ -65,8 +66,8 @@ function buildPanels({ allTasksValid, allTasksConfirmed }) {
 // model-dependent rules used by the task methodology fields.
 async function loadSelectedModel(modelId, state, taskSection) {
   if (!modelId) {
-    state.team_id = null;
-    state.model_name = null;
+    // state.team_id = null;
+    // state.model_name = null;
     taskSection.setModel(null);
     return;
   }
@@ -75,14 +76,14 @@ async function loadSelectedModel(modelId, state, taskSection) {
     const model = await loadModel(modelId);
 
     // state.team_id = model.team_id;
-    state.model_name = model.name;
+    // state.model_name = model.name;
 
     taskSection.setModel(model);
   } catch (error) {
     console.error(error);
 
     // state.team_id = null;
-    state.model_name = null;
+    // state.model_name = null;
 
     // Clear the task section's model too, or it would keep methodology options from a
     // previously selected model.
@@ -133,13 +134,19 @@ async function loadKnownTasks() {
 // rather than in the form — only this page knows how far along it is. The form catches a
 // throw, reports it and re-arms the button.
 async function submitSubmission(state, taskSection) {
+
+  // TODO better way to handle this
+  // Pass in uploadPanel and store the file in this.
+  const file = state.file;
+  delete state.file;
+
   showMessage(pageMessage(), "Requesting upload URL…");
 
   const presigned = await presignSubmission(state, taskSection);
 
   showMessage(pageMessage(), "Uploading file…");
 
-  await uploadToPresignedUrl(presigned.upload_url, state.file);
+  await uploadToPresignedUrl(presigned.upload_url, file);
 
   showMessage(pageMessage(), "Finalising submission…");
 
@@ -171,6 +178,7 @@ async function loadSubmissionCreatePage() {
     }
 
     const knownTasks = await loadKnownTasks();
+    await loadTaskFields();
 
     let unknownTaskIds = [];
     let taskPanel = null;

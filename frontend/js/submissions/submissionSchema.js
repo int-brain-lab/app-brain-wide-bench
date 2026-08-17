@@ -51,7 +51,8 @@ const SUBMISSION_FIELDS = {
 
   is_public: {
     label: "Public",
-    input: "checkbox",
+    input: "select",
+    options: [true, false],
     panel: 2,
   },
 
