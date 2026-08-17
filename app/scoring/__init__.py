@@ -6,8 +6,10 @@ The Celery task never changes.
 
 from app.scoring.base import BaseScorer
 from app.scoring.ts1 import TS1Scorer
+from app.scoring.ts2 import TS2Scorer
+from app.scoring.ts3 import TS3Scorer
 
-_SCORERS: dict[str, type[BaseScorer]] = {"ts1": TS1Scorer}
+_SCORERS: dict[str, type[BaseScorer]] = {"ts1": TS1Scorer, "ts2": TS2Scorer, "ts3": TS3Scorer}
 
 
 def get_scorer(task: str) -> BaseScorer:
@@ -22,4 +24,4 @@ def get_scorer(task: str) -> BaseScorer:
     return _SCORERS[task]()
 
 
-__all__ = ["BaseScorer", "TS1Scorer", "get_scorer"]
+__all__ = ["BaseScorer", "TS1Scorer", "TS2Scorer", "TS3Scorer", "get_scorer"]
