@@ -42,7 +42,12 @@ async function initAuth() {
         audience: CONFIG.auth0Audience,
         redirect_uri: window.location.origin + CALLBACK_PATH,
       },
-      cacheLocation: localStorage,
+      // Needed because this is a multi-page app: every link is a full navigation, which
+      // discards the default in-memory token cache. Without this, each page load would
+      // need a silent re-auth through a hidden iframe — which browsers that block
+      // third-party cookies refuse, so sign-in would appear to work and then every page
+      // after the first would 401.
+      cacheLocation: "localstorage",
     });
 
     // Handle the redirect callback.
