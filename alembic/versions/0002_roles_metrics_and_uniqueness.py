@@ -36,7 +36,7 @@ def _enum(name: str) -> postgresql.ENUM:
 def upgrade() -> None:
     # ── New enum types ────────────────────────────────────────────────────────
     op.execute("CREATE TYPE teamrole AS ENUM ('owner', 'collaborator')")
-    op.execute("CREATE TYPE metric AS ENUM ('bacc', 'cohens_r2', 'd2', 'f1_macro', 'r2')")
+    op.execute("CREATE TYPE metric AS ENUM ('bacc', 'poisson_d2', 'd2', 'f1_macro', 'r2')")
 
     # ── New members on existing enums ─────────────────────────────────────────
     #
