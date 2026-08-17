@@ -147,12 +147,12 @@ async def _check_valid_model_name(
     with itself. Pass the *destination* team when a PATCH moves it: the name has to be
     free where it is going, not where it has been.
 
-    Raises: 422 - Unprocessable Entity if the name is blank
+    Raises: 422 - Unprocessable Content if the name is blank
     Raises: 409 - Conflict if the team already has a model with that name
     """
     name = name.strip()
     if not name:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Model name cannot be blank")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Model name cannot be blank")
 
     query = select(Model.id).where(
         Model.team_id == team_id, func.lower(Model.name) == name.lower()

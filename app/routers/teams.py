@@ -127,12 +127,12 @@ async def _check_valid_team_name(
 ) -> str:
     """Checks that the team name is unique (case-insensitive) and not blank.
 
-    Raises: 422 - Unprocessable Entity if the name is blank
+    Raises: 422 - Unprocessable Content if the name is blank
     Raises: 409 - Conflict if the name is not unique (case-insensitive)
     """
     name = name.strip()
     if not name:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Team name cannot be blank")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Team name cannot be blank")
 
     query = select(Team).where(func.lower(Team.name) == name.lower())
     if exclude_id is not None:

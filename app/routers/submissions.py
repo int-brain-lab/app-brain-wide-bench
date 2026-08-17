@@ -224,13 +224,13 @@ async def _check_valid_submission_label(
     ``exclude_id`` is the submission being updated, so keeping its own label is not a
     conflict with itself. Pass the *destination* model when a PATCH repoints it.
 
-    Raises: 422 - Unprocessable Entity if the label is blank
+    Raises: 422 - Unprocessable Content if the label is blank
     Raises: 409 - Conflict if the model already has a submission with that label
     """
     label = label.strip()
     if not label:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "Submission label cannot be blank"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "Submission label cannot be blank"
         )
 
     query = select(Submission.id).where(

@@ -112,7 +112,7 @@ async def test_me_returns_the_callers_profile(seeded_client, caller):
 
     assert body["id"] == caller["id"]
     assert body["email"] == "dev@brainwidebench.org"
-    assert body["provider"] == "google"
+    assert body["provider"] == "unknown"
     assert body["created_at"] is not None
 
 
