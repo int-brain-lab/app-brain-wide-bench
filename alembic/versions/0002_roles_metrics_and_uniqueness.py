@@ -34,9 +34,14 @@ def _enum(name: str) -> postgresql.ENUM:
 
 
 def upgrade() -> None:
+    # Alembic's default `alembic_version.version_num` is VARCHAR(32); this revision's
+    # id is 33 chars, so the bookkeeping UPDATE at the end of this migration would
+    # truncate-fail otherwise. Widen once, for this and future longer revision ids.
+    op.execute("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(64)")
+
     # ── New enum types ────────────────────────────────────────────────────────
     op.execute("CREATE TYPE teamrole AS ENUM ('owner', 'collaborator')")
-    op.execute("CREATE TYPE metric AS ENUM ('bacc', 'poisson_d2', 'd2', 'f1_macro', 'r2')")
+    op.execute("CREATE TYPE metric AS ENUM ('bacc', 'poisson_d2', 'd2', 'macro/f1-score', 'r2')")
 
     # ── New members on existing enums ─────────────────────────────────────────
     #
