@@ -13,7 +13,7 @@
 // behaviour, so a view adds to it rather than restating it.
 
 import { showError, showMessage } from "../core/utils.js";
-import { panelGroups } from "../fields/groups.js";
+import { panelGroups } from "../schemas/schema.js";
 import { Editor } from "../forms/edit-form.js";
 import {
   editButtons,

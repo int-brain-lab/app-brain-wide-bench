@@ -11,14 +11,14 @@ import {
   escapeHtml,
   renderMessage,
 } from "../core/utils.js";
+import { createFieldState, fieldsForPanel } from "../schemas/schema.js";
+import { buildFields } from "../forms/fields.js";
 import {
-  createFieldState,
+  attachFieldEvents,
   revalidateFields,
   setFieldValue,
-} from "../fields/state.js";
-import { renderFields } from "../fields/render.js";
-import { fieldsForPanel } from "../fields/groups.js";
-import { attachFieldEvents, withPreservedFocus } from "../fields/form.js";
+  withPreservedFocus,
+} from "../forms/form.js";
 import {
   TASK_FIELDS,
   trainingFieldKeys,
@@ -274,7 +274,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
           ${buildClearedNotice(task)}
 
           <div class="column gap-md">
-            ${renderFields(
+            ${buildFields(
               fieldsForPanel(TASK_FIELDS, 1),
               task.state,
               TASK_FIELDS,

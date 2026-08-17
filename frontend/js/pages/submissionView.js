@@ -1,7 +1,7 @@
 // Submission record page — dashboard, details, tasks and scores for one submission.
 
 import { formatDate, showMessage } from "../core/utils.js";
-import { renderDisplayFields } from "../fields/render.js";
+import { buildDisplayFields } from "../forms/fields.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
 import { loadSubmissionFields, SUBMISSION_PANELS } from "../schemas/submissionSchema.js";
 import { loadSubmission, updateSubmission } from "../api/submissionApi.js";
@@ -145,7 +145,7 @@ function renderDetailsSection(submission, fields) {
     .map(
       fieldNames => `
         <span class="column gap-md">
-          ${renderDisplayFields(fieldNames, submission, fields)}
+          ${buildDisplayFields(fieldNames, submission, fields)}
         </span>
       `,
     )

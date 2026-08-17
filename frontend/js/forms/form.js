@@ -1,9 +1,15 @@
-// A live form: a state object on one side, the `[data-field]` controls on the other, and
-// the wiring that keeps them in step.
+// A live form: the working copy of its values, the schema rules that keep that copy valid,
+// and the `[data-field]` controls the two are wired to.
 //
-// The only part of a field that touches the document. render.js writes markup and
-// state.js holds values; this is where a real `change` event on a real element becomes
-// a state write, and where a state write becomes new markup.
+// The values start as a projection of the schema (schemas/schema.js builds them) and from
+// there they are this file's business: what a change writes, what that write invalidates,
+// and what the user sees as a result. fields.js turns the pair into markup; this is where a
+// real `change` event on a real element becomes a state write, and where a state write
+// becomes new markup.
+//
+// The `disabledWhen`/`disabledOptionsWhen` readers live here rather than beside the markup
+// because revalidation and rendering must answer the same question the same way — a field
+// drawn as disabled and a value cleared as invalid are two views of one rule.
 //
 // State arrives as `getState`, a thunk, not the object — the two forms in this codebase
 // need that for different reasons. A create form's state lives as long as the page, so a
@@ -14,11 +20,96 @@
 // while nothing is being edited.
 
 import { refreshIcons } from "../core/utils.js";
-import {
-  hasDependentFields,
-  parseFieldValue,
-  setFieldValue,
-} from "./state.js";
+
+
+// ─── SCHEMA RULES ───────────────────────────────────────────────────────────
+
+function isDisabled(field, state) {
+  return typeof field.disabledWhen === "function" && field.disabledWhen(state);
+}
+
+// Options disabled by `disabledOptionsWhen` stay in the list (visible, but
+// unselectable) rather than being removed — so users can see what exists and
+// why a choice isn't available, instead of it silently disappearing.
+function disabledOptionValues(field, state) {
+  return typeof field.disabledOptionsWhen === "function"
+    ? field.disabledOptionsWhen(state)
+    : [];
+}
+
+// Whether anything in this schema can make one field's markup depend on another's value.
+// A schema with no such rule draws the same fields for every state it can hold, which is
+// what lets `handleChange` below know a redraw would change nothing.
+function hasDependentFields(fields) {
+  return Object.values(fields).some(
+    field => field.disabledWhen || field.disabledOptionsWhen,
+  );
+}
+
+
+// ─── VALUES ─────────────────────────────────────────────────────────────────
+
+function parseFieldValue(field, value) {
+  if (value === "") {
+    return null;
+  }
+
+  switch (field.input) {
+    case "number":
+      return Number(value);
+
+    default:
+      return value;
+  }
+}
+
+// `disabledWhen`/`disabledOptionsWhen` only stop *new* invalid selections —
+// they don't retroactively clear a value that's already set when whatever it
+// depends on (another field, or external context like the selected model)
+// changes later. Call this after any change that could invalidate other
+// fields' current values, so stale selections don't silently persist.
+// Returns the keys it actually cleared, so callers can tell the user what
+// just happened instead of a value silently vanishing.
+function revalidateFields(state, fields) {
+  const cleared = [];
+
+  for (const [key, field] of Object.entries(fields)) {
+    if (state[key] == null) continue;
+
+    if (isDisabled(field, state)) {
+      state[key] = null;
+      cleared.push(key);
+      continue;
+    }
+
+    if (typeof field.disabledOptionsWhen !== "function") continue;
+    const disabledOptions = field.disabledOptionsWhen(state);
+
+    // Multi-value (checkbox-list) fields: drop just the now-invalid values
+    // rather than nulling the whole selection.
+    if (Array.isArray(state[key])) {
+      const filtered = state[key].filter(value => !disabledOptions.includes(value));
+      if (filtered.length !== state[key].length) {
+        cleared.push(key);
+      }
+      state[key] = filtered;
+    } else if (disabledOptions.includes(state[key])) {
+      state[key] = null;
+      cleared.push(key);
+    }
+  }
+
+  return cleared;
+}
+
+// Sets one field then revalidates the rest of the schema against it in one
+// step, so a call site can't mutate state and forget to revalidate — returns
+// the cleared keys, excluding `key` itself (that one was deliberately set,
+// not "silently cleared").
+function setFieldValue(state, fields, key, value) {
+  state[key] = value;
+  return revalidateFields(state, fields).filter(clearedKey => clearedKey !== key);
+}
 
 
 // ─── READING CONTROLS ───────────────────────────────────────────────────────
@@ -191,11 +282,17 @@ function createFieldForm({
 }
 
 
-// `getFieldValue` stays private: reading a control is only correct as part of writing the
-// state through setFieldValue, which is what attachFieldEvents does. Every caller that used
-// to do the two by hand now goes through that.
+// `getFieldValue` and `parseFieldValue` stay private: reading a control is only correct as
+// part of writing the state through setFieldValue, which is what attachFieldEvents does.
+// Every caller that used to do the two by hand now goes through that.
+//
+// So does `hasDependentFields` — the one thing that asks it is `handleChange`.
 export {
   attachFieldEvents,
   createFieldForm,
+  disabledOptionValues,
+  isDisabled,
+  revalidateFields,
+  setFieldValue,
   withPreservedFocus,
 };

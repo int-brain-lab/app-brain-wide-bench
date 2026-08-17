@@ -1,6 +1,6 @@
 // Only `name` and `affiliation` are editable — they're the two fields
 // PATCH /api/users/me accepts (see UserUpdate). Everything else comes from Auth0
-// and is marked `editable: false`, which makes renderFields emit it as a
+// and is marked `editable: false`, which makes buildFields emit it as a
 // read-only row rather than an input; createFieldState also drops those keys, so
 // the draft is exactly what's safe to send back.
 const USER_FIELDS = {

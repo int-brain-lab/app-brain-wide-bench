@@ -1,5 +1,5 @@
 import {getTaskSubmissionFields } from "../api/taskSubmissionApi.js";
-import { fieldsForPanel } from "../fields/groups.js";
+import { fieldsForPanel } from "./schema.js";
 import { suiteFromTask } from "../core/suites.js";
 
 const SUITE_OUTPUT_MODALITY = { ts1: "behavior", ts2: "spikes", ts3: "anatomy" };
@@ -149,10 +149,20 @@ function trainingFieldKeys() {
   return fieldsForPanel(TASK_FIELDS, 1);
 }
 
+// The body of a task-submission PATCH: the methodology keys, and only those, read off a
+// form's state. It lives here rather than in the API module because knowing which keys the
+// server takes is knowing the schema — and having it there made api/ import this file,
+// which was a circular import between the two.
+function taskPayload(state) {
+  return Object.fromEntries(
+    trainingFieldKeys().map(key => [key, state[key]]),
+  );
+}
+
 // One card, since every editable task field is methodology. Declared anyway so the
 // task editor builds its layout the same way the model and submission ones do.
 const TASK_PANELS = [
   { panel: 1, title: "Methodology", columns: 2 },
 ];
 
-export { TASK_FIELDS, TASK_PANELS, loadTaskFields, trainingFieldKeys };
+export { TASK_FIELDS, TASK_PANELS, loadTaskFields, taskPayload, trainingFieldKeys };

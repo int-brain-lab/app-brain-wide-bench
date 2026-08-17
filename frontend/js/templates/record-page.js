@@ -1,7 +1,7 @@
 // Page chrome shared by every record view: the wrapper, header, actions and sections.
 
-import { panelGroups, renderGroups } from "../fields/groups.js";
-import { renderDisplayFields } from "../fields/render.js";
+import { panelGroups } from "../schemas/schema.js";
+import { buildDisplayFields, buildGroupCards } from "../forms/fields.js";
 
 const CONTAINER_ID = "container";
 const TITLE_ID = "title";
@@ -276,11 +276,11 @@ function renderHeader(title, description = "") {
 }
 
 function renderDetails(model, fields, recordPanels) {
-  sectionBody("body").innerHTML = renderGroups(
+  sectionBody("body").innerHTML = buildGroupCards(
     panelGroups(fields, recordPanels),
     model,
     fields,
-    renderDisplayFields,
+    buildDisplayFields,
   );
 }
 

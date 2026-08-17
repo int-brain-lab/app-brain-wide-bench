@@ -1,7 +1,7 @@
 // Model record page — dashboard, details, submissions and scores for one model.
 
 import { formatDate, showMessage } from "../core/utils.js";
-import { renderDisplayFields } from "../fields/render.js";
+import { buildDisplayFields } from "../forms/fields.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
 import { loadModelFields, MODEL_PANELS } from "../schemas/modelSchema.js";
 import { loadModel, updateModel } from "../api/modelApi.js";
@@ -157,7 +157,7 @@ function renderDetailsSection(model, fields) {
     .map(
       fieldNames => `
         <span class="column gap-md">
-          ${renderDisplayFields(fieldNames, model, fields)}
+          ${buildDisplayFields(fieldNames, model, fields)}
         </span>
       `,
     )

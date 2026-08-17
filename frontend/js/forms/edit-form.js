@@ -10,10 +10,9 @@
 // was never called, so a page still built that way had its form rendered into a section
 // nothing ever unhid.
 
-import { createFieldState } from "../fields/state.js";
-import { renderFields } from "../fields/render.js";
-import { renderGroups } from "../fields/groups.js";
-import { createFieldForm } from "../fields/form.js";
+import { createFieldState } from "../schemas/schema.js";
+import { buildFields, buildGroupCards } from "./fields.js";
+import { createFieldForm } from "./form.js";
 
 /**
  * @param container    Element — where the edit form is rendered.
@@ -83,8 +82,8 @@ function Editor({
         const values = { ...record, ...state };
 
         return groups
-          ? renderGroups(groups(), values, fields, renderFields)
-          : renderFields(keys(), values, fields);
+          ? buildGroupCards(groups(), values, fields, buildFields)
+          : buildFields(keys(), values, fields);
       },
     }],
 

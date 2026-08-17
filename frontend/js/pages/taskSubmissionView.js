@@ -5,7 +5,7 @@
 import { showError, showMessage } from "../core/utils.js";
 import { attachRecordEditor } from "../templates/record-editor.js";
 import { suiteFromTask } from "../core/suites.js";
-import { TASK_PANELS, trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
+import { TASK_PANELS, taskPayload } from "../schemas/taskSubmissionSchema.js";
 import { updateTaskSubmissions } from "../api/taskSubmissionApi.js";
 import {
   CANCEL_ACTION,
@@ -38,10 +38,6 @@ function suiteSiblings(submission, taskSubmission) {
   return (submission.task_submissions ?? []).filter(
     sibling => suiteFromTask(sibling.task_id) === suite,
   );
-}
-
-function buildPatch(draft) {
-  return Object.fromEntries(trainingFieldKeys().map(key => [key, draft[key]]));
 }
 
 // A suite-wide save writes rows the page still holds at their old values, and the tasks and
@@ -148,7 +144,7 @@ function renderTaskView({ submission, taskFields, task, edit = false }) {
       updated = await updateTaskSubmissions(
         submission.id,
         targets.map(target => target.id),
-        draft,
+        taskPayload(draft),
       );
 
       return updated.find(row => row.id === taskSubmission.id) ?? updated[0];

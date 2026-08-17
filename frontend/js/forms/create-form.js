@@ -30,10 +30,9 @@
 //   …             → construct the components that own the remaining panels
 //   attach()      → bind the listeners, then refresh for the first time
 
-import { createFieldState } from "../fields/state.js";
-import { renderFields } from "../fields/render.js";
-import { panelGroups, renderGroups } from "../fields/groups.js";
-import { createFieldForm } from "../fields/form.js";
+import { createFieldState, panelGroups } from "../schemas/schema.js";
+import { buildFields, buildGroupCards } from "./fields.js";
+import { createFieldForm } from "./form.js";
 
 // Empty strings, null and empty arrays are unset.
 // `false` and `0` are valid values.
@@ -120,7 +119,9 @@ function createPanelForm({
       .every(panel => isPanelComplete(panel.panel));
   }
 
-  function buildGroups(panel) {
+  // Returns group descriptors, not markup — hence `groupsFor` rather than a `build*` name,
+  // which in this codebase means a function that hands back HTML.
+  function groupsFor(panel) {
     return panelGroups(
       fields,
       [panel],
@@ -158,11 +159,11 @@ function createPanelForm({
         .filter(panel => getPanel(panel.panel))
         .map(panel => ({
           container: getPanel(panel.panel),
-          draw: values => renderGroups(
-            buildGroups(panel),
+          draw: values => buildGroupCards(
+            groupsFor(panel),
             values,
             fields,
-            renderFields,
+            buildFields,
           ),
         })),
 
