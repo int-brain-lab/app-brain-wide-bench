@@ -28,10 +28,10 @@
 //   …             → construct the components that own the remaining panels
 //   attach()      → bind the listeners, then refresh for the first time
 
-import { createFieldState } from "../components/fields/state.js";
-import { renderFields } from "../components/fields/render.js";
-import { panelGroups, renderGroups } from "../components/fields/groups.js";
-import { createFieldForm } from "../components/fields/form.js";
+import { createFieldState } from "../fields/state.js";
+import { renderFields } from "../fields/render.js";
+import { panelGroups, renderGroups } from "../fields/groups.js";
+import { createFieldForm } from "../fields/form.js";
 import { showError, showMessage } from "../utils.js";
 import {
   buildFormFooter,

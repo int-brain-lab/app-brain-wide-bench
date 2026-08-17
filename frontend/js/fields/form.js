@@ -13,7 +13,7 @@
 // returning null also says "not live", which is how an editor ignores changes arriving
 // while nothing is being edited.
 
-import { refreshIcons } from "../../utils.js";
+import { refreshIcons } from "../utils.js";
 import {
   hasDependentFields,
   parseFieldValue,

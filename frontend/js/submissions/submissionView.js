@@ -1,8 +1,8 @@
 // Submission record page — dashboard, details, tasks and scores for one submission.
 
 import { formatDate, showError, showMessage } from "../utils.js";
-import { panelGroups } from "../components/fields/groups.js";
-import { renderDisplayFields } from "../components/fields/render.js";
+import { panelGroups } from "../fields/groups.js";
+import { renderDisplayFields } from "../fields/render.js";
 import { Editor } from "../pages/editor.js";
 import { loadSubmissionFields, SUBMISSION_PANELS } from "./submissionSchema.js";
 import { loadSubmission, updateSubmission } from "./submissionApi.js";

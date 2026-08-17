@@ -4,7 +4,7 @@
 // renderer it is handed, which is what lets a read-only view and its edit form share one
 // layout definition.
 
-import { escapeHtml } from "../../utils.js";
+import { escapeHtml } from "../utils.js";
 
 
 function fieldsForPanel(fields, panel, editableOnly=true) {

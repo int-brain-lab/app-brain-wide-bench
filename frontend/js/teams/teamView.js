@@ -1,7 +1,7 @@
 // Team record page — dashboard and details for one team.
 
 import { escapeHtml, showError, showMessage } from "../utils.js";
-import { panelGroups } from "../components/fields/groups.js";
+import { panelGroups } from "../fields/groups.js";
 import { Editor } from "../pages/editor.js";
 import { TEAM_FIELDS, TEAM_PANELS } from "./teamSchema.js";
 import { loadTeam, updateTeam } from "./teamApi.js";

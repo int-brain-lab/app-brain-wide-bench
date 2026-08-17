@@ -15,10 +15,10 @@ import {
   createFieldState,
   revalidateFields,
   setFieldValue,
-} from "../components/fields/state.js";
-import { renderFields } from "../components/fields/render.js";
-import { fieldsForPanel } from "../components/fields/groups.js";
-import { attachFieldEvents, withPreservedFocus } from "../components/fields/form.js";
+} from "../fields/state.js";
+import { renderFields } from "../fields/render.js";
+import { fieldsForPanel } from "../fields/groups.js";
+import { attachFieldEvents, withPreservedFocus } from "../fields/form.js";
 import {
   TASK_FIELDS,
   trainingFieldKeys,
