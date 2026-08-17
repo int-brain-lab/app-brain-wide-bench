@@ -168,15 +168,15 @@ def upgrade() -> None:
         {"id": "ts1-reward",                "task_suite": "ts1", "task_type": "categorical",  "primary_metric": "bacc"},
         {"id": "ts1-stimulus_contrast",     "task_suite": "ts1", "task_type": "categorical",  "primary_metric": "bacc"},
         # ts1 — point process (Cohen's D²)
-        {"id": "ts1-licking_rate",          "task_suite": "ts1", "task_type": "point_process","primary_metric": "cohens_r2"},
+        {"id": "ts1-licking_rate",          "task_suite": "ts1", "task_type": "point_process","primary_metric": "poisson_d2"},
         # ts1 — continuous regression (R²)
         {"id": "ts1-whisker_motion_energy", "task_suite": "ts1", "task_type": "continuous",   "primary_metric": "r2"},
         {"id": "ts1-wheel_speed",           "task_suite": "ts1", "task_type": "continuous",   "primary_metric": "r2"},
         {"id": "ts1-right_paw_speed",       "task_suite": "ts1", "task_type": "continuous",   "primary_metric": "r2"},
         {"id": "ts1-left_paw_speed",        "task_suite": "ts1", "task_type": "continuous",   "primary_metric": "r2"},
         # ts2 — population firing-rate (Poisson deviance R², a.k.a. D²)
-        {"id": "ts2-co_smoothing",          "task_suite": "ts2", "task_type": "firing_rate",  "primary_metric": "cohens_r2"},
-        {"id": "ts2-forecasting",           "task_suite": "ts2", "task_type": "firing_rate",  "primary_metric": "cohens_r2"},
+        {"id": "ts2-co_smoothing",          "task_suite": "ts2", "task_type": "firing_rate",  "primary_metric": "poisson_d2"},
+        {"id": "ts2-forecasting",           "task_suite": "ts2", "task_type": "firing_rate",  "primary_metric": "poisson_d2"},
         # ts3 — brain region (macro F1)
         {"id": "ts3-cosmos",                "task_suite": "ts3", "task_type": "brain_region", "primary_metric": "macro/f1-score"},
     ])

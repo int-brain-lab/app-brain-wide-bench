@@ -100,10 +100,14 @@ def test_ts1_wrapper_shape(monkeypatch):
 
 
 def test_ts2_wrapper_shape(monkeypatch):
-    """TS2Scorer keys rows by (label, task, recording_id); headline is cohens_r2."""
+    """TS2Scorer keys rows by (label, task, recording_id); headline is the primary metric."""
+    # Derive the key from the scorer's own constant so the mock can't drift from it;
+    # scorer-vs-core name agreement is covered by the real-data test below.
+    from app.scoring.ts2 import PRIMARY_METRIC as TS2_PRIMARY
+
     raw = {
-        ("m", "ts2-co_smoothing", "recA", 42): {"cohens_r2": 0.10, "bps": 0.5},
-        ("m", "ts2-co_smoothing", "recA", 43): {"cohens_r2": 0.30, "bps": 0.7},
+        ("m", "ts2-co_smoothing", "recA", 42): {TS2_PRIMARY: 0.10, "bps": 0.5},
+        ("m", "ts2-co_smoothing", "recA", 43): {TS2_PRIMARY: 0.30, "bps": 0.7},
     }
     monkeypatch.setattr("core.scoring.ts2_scoring.score_dir", lambda p, g: raw)
 
@@ -111,11 +115,11 @@ def test_ts2_wrapper_shape(monkeypatch):
 
     (row,) = result["rows"]
     assert row["recording_id"] == "recA"
-    assert set(row["metrics"]) == {"cohens_r2", "bps"}
+    assert set(row["metrics"]) == {TS2_PRIMARY, "bps"}
     # both seeds aggregated → n == 2 with a defined SEM
-    assert row["metrics"]["cohens_r2"]["n"] == 2
-    assert row["metrics"]["cohens_r2"]["sem"] is not None
-    # headline is cohens_r2 (not bps) → mean of 0.10 and 0.30
+    assert row["metrics"][TS2_PRIMARY]["n"] == 2
+    assert row["metrics"][TS2_PRIMARY]["sem"] is not None
+    # headline is the primary metric (not bps) → mean of 0.10 and 0.30
     assert result["summary"]["ts2-co_smoothing"]["mean"] == pytest.approx(0.20)
 
 

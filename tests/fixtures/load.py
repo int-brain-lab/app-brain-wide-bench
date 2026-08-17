@@ -47,13 +47,13 @@ _TASK_ROWS = [
     dict(id="ts1-choice",                task_suite=TaskSuite.ts1, task_type=TaskType.categorical,   primary_metric="bacc"),
     dict(id="ts1-reward",                task_suite=TaskSuite.ts1, task_type=TaskType.categorical,   primary_metric="bacc"),
     dict(id="ts1-stimulus_contrast",     task_suite=TaskSuite.ts1, task_type=TaskType.categorical,   primary_metric="bacc"),
-    dict(id="ts1-licking_rate",          task_suite=TaskSuite.ts1, task_type=TaskType.point_process, primary_metric="cohens_r2"),
+    dict(id="ts1-licking_rate",          task_suite=TaskSuite.ts1, task_type=TaskType.point_process, primary_metric="poisson_d2"),
     dict(id="ts1-whisker_motion_energy", task_suite=TaskSuite.ts1, task_type=TaskType.continuous,    primary_metric="r2"),
     dict(id="ts1-wheel_speed",           task_suite=TaskSuite.ts1, task_type=TaskType.continuous,    primary_metric="r2"),
     dict(id="ts1-right_paw_speed",       task_suite=TaskSuite.ts1, task_type=TaskType.continuous,    primary_metric="r2"),
     dict(id="ts1-left_paw_speed",        task_suite=TaskSuite.ts1, task_type=TaskType.continuous,    primary_metric="r2"),
-    dict(id="ts2-co_smoothing",          task_suite=TaskSuite.ts2, task_type=TaskType.firing_rate,   primary_metric="cohens_r2"),
-    dict(id="ts2-forecasting",           task_suite=TaskSuite.ts2, task_type=TaskType.firing_rate,   primary_metric="cohens_r2"),
+    dict(id="ts2-co_smoothing",          task_suite=TaskSuite.ts2, task_type=TaskType.firing_rate,   primary_metric="poisson_d2"),
+    dict(id="ts2-forecasting",           task_suite=TaskSuite.ts2, task_type=TaskType.firing_rate,   primary_metric="poisson_d2"),
     dict(id="ts3-cosmos",                task_suite=TaskSuite.ts3, task_type=TaskType.brain_region,  primary_metric="macro/f1-score"),
 ]
 
