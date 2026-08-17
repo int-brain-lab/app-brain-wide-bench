@@ -48,10 +48,10 @@ def parse_sub(auth0_sub: str) -> tuple[str, str | None]:
     return "unknown", None
 
 
-async def _fetch_jwks() -> dict:
+async def _fetch_jwks(*, force_refresh: bool = False) -> dict:
     """Fetch (and cache) the Auth0 tenant JWKS."""
     global _jwks_cache
-    if _jwks_cache is None:
+    if _jwks_cache is None or force_refresh:
         url = f"https://{settings.auth0_domain}/.well-known/jwks.json"
         async with httpx.AsyncClient() as client:
             _jwks_cache = (await client.get(url)).json()
@@ -60,9 +60,15 @@ async def _fetch_jwks() -> dict:
 
 async def _decode_token(token: str) -> dict:
     """Verify an Auth0 RS256 access token and return its claims."""
+    kid = jwt.get_unverified_header(token).get("kid")
+
     jwks = await _fetch_jwks()
-    header = jwt.get_unverified_header(token)
-    key = next((k for k in jwks["keys"] if k["kid"] == header.get("kid")), None)
+    key = next((k for k in jwks["keys"] if k["kid"] == kid), None)
+    if key is None:
+        # Unrecognised kid may just mean Auth0 rotated its signing keys since we last
+        # cached them — refetch once before rejecting a token that could be legitimate.
+        jwks = await _fetch_jwks(force_refresh=True)
+        key = next((k for k in jwks["keys"] if k["kid"] == kid), None)
     if key is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unknown signing key")
     try:
