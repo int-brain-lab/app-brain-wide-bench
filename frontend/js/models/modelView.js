@@ -1,9 +1,8 @@
 // Model record page — dashboard, details, submissions and scores for one model.
 
-import { formatDate, showError, showMessage } from "../utils.js";
-import { panelGroups } from "../fields/groups.js";
+import { formatDate, showMessage } from "../utils.js";
 import { renderDisplayFields } from "../fields/render.js";
-import { Editor } from "../pages/editor.js";
+import { attachEditLink, attachRecordEditor } from "../pages/record-editor.js";
 import { loadModelFields, MODEL_PANELS } from "./modelSchema.js";
 import { loadModel, updateModel } from "./modelApi.js";
 import { buildSuiteScoreBars } from "../components/bars.js";
@@ -23,6 +22,8 @@ import { renderTaskScoresTable } from "../scores/scoreTable.js";
 import { getTaskSuites } from "../tasks/taskSubmissionApi.js";
 import { loadRecordPage } from "../pages/record-loader.js";
 import {
+  EDIT_ACTION,
+  EDIT_ACTIONS,
   buildBody,
   buildHeader,
   buildMessage,
@@ -30,7 +31,6 @@ import {
   buildSection,
   buildSections,
   buildStats,
-  pageMessage,
   renderHeader,
   renderPage,
   sectionBody,
@@ -79,27 +79,6 @@ const DASHBOARD_SECTIONS = [
 const BACK = {
   text: "← Back to dashboard",
   view: "dashboard",
-};
-
-const EDIT_ACTION = {
-  id: "edit-button",
-  label: "Edit",
-  icon: "pencil",
-};
-
-const SAVE_ACTION = {
-  id: "save-button",
-  label: "Save",
-  icon: "check",
-  className: "primary",
-  hidden: true,
-};
-
-const CANCEL_ACTION = {
-  id: "cancel-button",
-  label: "Cancel",
-  icon: "x",
-  hidden: true,
 };
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
@@ -236,16 +215,14 @@ function renderDashboardView(context, router) {
   renderSubmissionsSection(model, submissions);
 
   // Edit button that goes directly to full model editing view
-  document.getElementById("edit-button").addEventListener("click", () => {
-    router.goTo("details", { edit: true });
-  });
+  attachEditLink(router);
 }
 
 function renderDetailsView({ model, fields, edit = false, created = false })  {
   renderPage(
     buildPage({
       back: BACK,
-      header: buildHeader([EDIT_ACTION, SAVE_ACTION, CANCEL_ACTION]),
+      header: buildHeader(EDIT_ACTIONS),
       body: buildMessage() + buildBody() + (created ? buildSection({ id: "post-create" }) : ""),
     }),
   );
@@ -262,34 +239,14 @@ function renderDetailsView({ model, fields, edit = false, created = false })  {
     });
   }
 
-  Editor({
-    container: sectionBody("body"),
-    editButton: document.getElementById("edit-button"),
-    saveButton: document.getElementById("save-button"),
-    cancelButton: document.getElementById("cancel-button"),
+  attachRecordEditor({
     record: model,
     fields,
-    groups: () => panelGroups(fields, MODEL_PANELS, { columns: 1 }),
-    save: draft => updateModel( model.id, draft ),
-
-    onSaved: saved => {
-      showMessage(pageMessage(), "");
-      renderHeader(saved.name, getSubtitle(saved));
-      renderDetails(saved, fields, MODEL_PANELS);
-    },
-
-    onCancel: () => {
-      renderDetails(model, fields, MODEL_PANELS);
-    },
-
-    onError: message => {
-      showError(pageMessage(), message);
-    },
-  }).attach();
-
-  if (edit) {
-    document.getElementById("edit-button").click();
-  }
+    panels: MODEL_PANELS,
+    save: draft => updateModel(model.id, draft),
+    renderTitle: saved => renderHeader(saved.name, getSubtitle(saved)),
+    edit,
+  });
 }
 
 function renderSubmissionsView({ model }) {

@@ -1,8 +1,7 @@
 // Team record page — dashboard and details for one team.
 
 import { escapeHtml, showError, showMessage } from "../utils.js";
-import { panelGroups } from "../fields/groups.js";
-import { Editor } from "../pages/editor.js";
+import { attachEditLink, attachRecordEditor } from "../pages/record-editor.js";
 import { TEAM_FIELDS, TEAM_PANELS } from "./teamSchema.js";
 import { loadTeam, updateTeam } from "./teamApi.js";
 import { buildMembersPanel, createMembersSection } from "./teamMembers.js";
@@ -11,6 +10,8 @@ import { buildStatCards } from "../components/cards.js";
 import { buildRoleBadge } from "../components/badges.js";
 import { loadRecordPage } from "../pages/record-loader.js";
 import {
+  EDIT_ACTION,
+  EDIT_ACTIONS,
   buildBody,
   buildHeader,
   buildMessage,
@@ -47,27 +48,6 @@ const DETAILS_SECTIONS = [
 const BACK = {
   text: "← Back to dashboard",
   view: "dashboard",
-};
-
-const EDIT_ACTION = {
-  id: "edit-button",
-  label: "Edit",
-  icon: "pencil",
-};
-
-const SAVE_ACTION = {
-  id: "save-button",
-  label: "Save",
-  icon: "check",
-  className: "primary",
-  hidden: true,
-};
-
-const CANCEL_ACTION = {
-  id: "cancel-button",
-  label: "Cancel",
-  icon: "x",
-  hidden: true,
 };
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
@@ -179,9 +159,7 @@ function renderDashboardView(context, router) {
 
   if (!member) return;
 
-  document.getElementById("edit-button").addEventListener("click", () => {
-    router.goTo("details", { edit: true });
-  });
+  attachEditLink(router);
 
   // Manage members means the same thing as Edit, so it opens the editor too. Without
   // stopPropagation the router's own delegated handler would also see this click and
@@ -199,7 +177,7 @@ function renderDetailsView({ team, fields, edit = false, created = false }) {
   renderPage(
     buildPage({
       back: BACK,
-      header: buildHeader(member ? [EDIT_ACTION, SAVE_ACTION, CANCEL_ACTION] : []),
+      header: buildHeader(member ? EDIT_ACTIONS : []),
       body:
         buildMessage() +
         buildBody() +
@@ -236,14 +214,12 @@ function renderDetailsView({ team, fields, edit = false, created = false }) {
   // merges, so per-member failures have no way through except a variable scoped to here.
   let failedMembers = [];
 
-  Editor({
-    container: sectionBody("body"),
-    editButton: document.getElementById("edit-button"),
-    saveButton: document.getElementById("save-button"),
-    cancelButton: document.getElementById("cancel-button"),
+  attachRecordEditor({
     record: team,
     fields,
-    groups: () => panelGroups(fields, TEAM_PANELS, { columns: 1 }),
+    panels: TEAM_PANELS,
+    edit,
+    renderTitle: saved => renderHeader(saved.name, getSubtitle(saved)),
 
     onEdit: () => members.setEditing(isOwner(team)),
 
@@ -255,11 +231,8 @@ function renderDetailsView({ team, fields, edit = false, created = false }) {
       return updateTeam(team.id, draft);
     },
 
-    onSaved: saved => {
+    onSaved: () => {
       members.setEditing(false);
-
-      renderHeader(saved.name, getSubtitle(saved));
-      renderDetails(saved, fields, TEAM_PANELS);
       members.render();
 
       // A member that couldn't be added doesn't undo the rename, so both outcomes are
@@ -279,17 +252,8 @@ function renderDetailsView({ team, fields, edit = false, created = false }) {
     onCancel: () => {
       members.reset();
       members.setEditing(false);
-      renderDetails(team, fields, TEAM_PANELS);
     },
-
-    onError: message => {
-      showError(pageMessage(), message);
-    },
-  }).attach();
-
-  if (edit) {
-    document.getElementById("edit-button").click();
-  }
+  });
 }
 
 // ─── LOAD ────────────────────────────────────────────────────────────────────

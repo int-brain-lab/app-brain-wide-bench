@@ -8,6 +8,43 @@ const TITLE_ID = "title";
 const DESCRIPTION_ID = "description";
 const MESSAGE_ID = "page-message";
 const SUBMIT_ID = "submit-button";
+const EDIT_ID = "edit-button";
+const SAVE_ID = "save-button";
+const CANCEL_ID = "cancel-button";
+
+// The Edit / Save / Cancel trio, in the order they sit in the header. Save and Cancel start
+// hidden because a record view opens read-only; the editor swaps which of the three show.
+//
+// Declared once here rather than per view: they were five identical copies, and the ids are
+// a contract with record-editor.js, which finds the buttons by them. A view that offers no
+// editing passes `[]` to buildHeader instead — see teamView, where a non-member gets none.
+//
+// All three are exported individually as well as as the trio, because two views need less
+// or more than exactly this list: a dashboard offers Edit alone as a way *into* the details
+// view (nothing there to save), and the task view slots its apply-to-suite control between
+// Edit and Save. What was worth sharing is the definitions, not the composition.
+const EDIT_ACTION = {
+  id: EDIT_ID,
+  label: "Edit",
+  icon: "pencil",
+};
+
+const SAVE_ACTION = {
+  id: SAVE_ID,
+  label: "Save",
+  icon: "check",
+  className: "primary",
+  hidden: true,
+};
+
+const CANCEL_ACTION = {
+  id: CANCEL_ID,
+  label: "Cancel",
+  icon: "x",
+  hidden: true,
+};
+
+const EDIT_ACTIONS = [EDIT_ACTION, SAVE_ACTION, CANCEL_ACTION];
 
 // ─── BUILDERS ────────────────────────────────────────────────────────────────
 
@@ -265,10 +302,25 @@ function submitButton() {
   return document.getElementById(SUBMIT_ID);
 }
 
+// Resolved on demand, not held: a view re-renders its whole header, so the elements from the
+// last render are detached by the time the next editor is attached.
+function editButtons() {
+  return {
+    editButton: document.getElementById(EDIT_ID),
+    saveButton: document.getElementById(SAVE_ID),
+    cancelButton: document.getElementById(CANCEL_ID),
+  };
+}
+
 // ─── EXPORTS ─────────────────────────────────────────────────────────────────
 
 export {
+  CANCEL_ACTION,
+  EDIT_ACTION,
+  EDIT_ACTIONS,
+  SAVE_ACTION,
   buildHeader,
+  editButtons,
   buildStats,
   buildSection,
   buildSections,

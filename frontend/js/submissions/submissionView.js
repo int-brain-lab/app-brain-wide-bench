@@ -1,9 +1,8 @@
 // Submission record page — dashboard, details, tasks and scores for one submission.
 
-import { formatDate, showError, showMessage } from "../utils.js";
-import { panelGroups } from "../fields/groups.js";
+import { formatDate, showMessage } from "../utils.js";
 import { renderDisplayFields } from "../fields/render.js";
-import { Editor } from "../pages/editor.js";
+import { attachEditLink, attachRecordEditor } from "../pages/record-editor.js";
 import { loadSubmissionFields, SUBMISSION_PANELS } from "./submissionSchema.js";
 import { loadSubmission, updateSubmission } from "./submissionApi.js";
 import { renderStaticTable } from "../components/table.js";
@@ -25,6 +24,8 @@ import { renderTaskView } from "../tasks/taskSubmissionView.js";
 import { buildStatCards } from "../components/cards.js";
 import { loadRecordPage } from "../pages/record-loader.js";
 import {
+  EDIT_ACTION,
+  EDIT_ACTIONS,
   buildBody,
   buildHeader,
   buildMessage,
@@ -79,26 +80,6 @@ const BACK = {
   view: "dashboard",
 };
 
-const EDIT_ACTION = {
-  id: "edit-button",
-  label: "Edit",
-  icon: "pencil",
-};
-
-const SAVE_ACTION = {
-  id: "save-button",
-  label: "Save",
-  icon: "check",
-  className: "primary",
-  hidden: true,
-};
-
-const CANCEL_ACTION = {
-  id: "cancel-button",
-  label: "Cancel",
-  icon: "x",
-  hidden: true,
-};
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
 
@@ -212,16 +193,14 @@ function renderDashboardView(context, router) {
   renderTasksSection(submission, taskSubmissions);
 
   // Edit button that goes directly to full submission editing view
-  document.getElementById("edit-button").addEventListener("click", () => {
-    router.goTo("details", { edit: true });
-  });
+  attachEditLink(router);
 }
 
 function renderDetailsView({ submission, fields, edit = false }) {
   renderPage(
     buildPage({
       back: BACK,
-      header: buildHeader([EDIT_ACTION, SAVE_ACTION, CANCEL_ACTION]),
+      header: buildHeader(EDIT_ACTIONS),
       body: buildMessage() + buildBody(),
     }),
   );
@@ -229,34 +208,14 @@ function renderDetailsView({ submission, fields, edit = false }) {
   renderHeader(submission.label, getSubtitle(submission));
   renderDetails(submission, fields, SUBMISSION_PANELS);
 
-  Editor({
-    container: sectionBody("body"),
-    editButton: document.getElementById("edit-button"),
-    saveButton: document.getElementById("save-button"),
-    cancelButton: document.getElementById("cancel-button"),
+  attachRecordEditor({
     record: submission,
     fields,
-    groups: () => panelGroups(fields, SUBMISSION_PANELS, { columns: 1 }),
+    panels: SUBMISSION_PANELS,
     save: draft => updateSubmission(submission.id, draft),
-
-    onSaved: saved => {
-      showMessage(pageMessage(), "");
-      renderHeader(saved.label, getSubtitle(saved));
-      renderDetails(saved, fields, SUBMISSION_PANELS);
-    },
-
-    onCancel: () => {
-      renderDetails(submission, fields, SUBMISSION_PANELS);
-    },
-
-    onError: message => {
-      showError(pageMessage(), message);
-    },
-  }).attach();
-
-  if (edit) {
-    document.getElementById("edit-button").click();
-  }
+    renderTitle: saved => renderHeader(saved.label, getSubtitle(saved)),
+    edit,
+  });
 }
 
 function renderTasksView({ submission }) {

@@ -3,12 +3,14 @@
 // Apply-to-suite propagates the change to every sibling task in the same suite.
 
 import { showError, showMessage } from "../utils.js";
-import { panelGroups } from "../fields/groups.js";
-import { Editor } from "../pages/editor.js";
+import { attachRecordEditor } from "../pages/record-editor.js";
 import { suiteFromTask } from "./suites.js";
 import { TASK_PANELS, trainingFieldKeys } from "./taskSubmissionSchema.js";
 import { updateTaskSubmissions } from "./taskSubmissionApi.js";
 import {
+  CANCEL_ACTION,
+  EDIT_ACTION,
+  SAVE_ACTION,
   buildBody,
   buildHeader,
   buildMessage,
@@ -17,33 +19,11 @@ import {
   renderDetails,
   renderHeader,
   renderPage,
-  sectionBody,
 } from "../pages/record-page.js";
 
 const BACK = {
   text: "← Back to tasks",
   view: "tasks",
-};
-
-const EDIT_ACTION = {
-  id: "edit-button",
-  label: "Edit",
-  icon: "pencil",
-};
-
-const SAVE_ACTION = {
-  id: "save-button",
-  label: "Save",
-  icon: "check",
-  className: "primary",
-  hidden: true,
-};
-
-const CANCEL_ACTION = {
-  id: "cancel-button",
-  label: "Cancel",
-  icon: "x",
-  hidden: true,
 };
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
@@ -142,14 +122,14 @@ function renderTaskView({ submission, taskFields, task, edit = false }) {
   // merges, so the full list of updated rows has no way through except a variable here.
   let updated = [];
 
-  Editor({
-    container: sectionBody("body"),
-    editButton: document.getElementById("edit-button"),
-    saveButton: document.getElementById("save-button"),
-    cancelButton: document.getElementById("cancel-button"),
+  // TASK_FIELDS is the one schema whose fields invalidate each other — changing the
+  // paradigm can rule out the supervision regime already chosen. Reporting that is
+  // attachRecordEditor's default, which is why no onCleared appears here.
+  attachRecordEditor({
     record: taskSubmission,
     fields: taskFields,
-    groups: () => panelGroups(taskFields, TASK_PANELS, { columns: 1 }),
+    panels: TASK_PANELS,
+    edit,
 
     // `task_id` and the model aren't editable fields, but TASK_FIELDS reads both when
     // deciding which methodology options are legal.
@@ -159,11 +139,6 @@ function renderTaskView({ submission, taskFields, task, edit = false }) {
     }),
 
     onEdit: () => showApplyToSuite(true),
-
-    // TASK_FIELDS is the one schema whose fields invalidate each other — changing the
-    // paradigm can rule out the supervision regime already chosen. The create form shows
-    // this per task; without it here the value would just vanish from the form.
-    onCleared: labels => showError(pageMessage(), `Cleared (no longer valid): ${labels}`),
 
     // One bulk request for both the single-task and suite-wide cases, so the server stays
     // responsible for applying it atomically.
@@ -179,10 +154,9 @@ function renderTaskView({ submission, taskFields, task, edit = false }) {
       return updated.find(row => row.id === taskSubmission.id) ?? updated[0];
     },
 
-    onSaved: saved => {
+    onSaved: () => {
       mergeUpdated(submission, updated);
       showApplyToSuite(false);
-      renderDetails(saved, taskFields, TASK_PANELS);
 
       // Names what the server reported it changed, not what the page asked for.
       const names = updated.map(row => row.task_id).sort();
@@ -197,17 +171,8 @@ function renderTaskView({ submission, taskFields, task, edit = false }) {
       updated = [];
     },
 
-    onCancel: () => {
-      showApplyToSuite(false);
-      renderDetails(taskSubmission, taskFields, TASK_PANELS);
-    },
-
-    onError: message => showError(pageMessage(), message),
-  }).attach();
-
-  if (edit) {
-    document.getElementById("edit-button").click();
-  }
+    onCancel: () => showApplyToSuite(false),
+  });
 }
 
 

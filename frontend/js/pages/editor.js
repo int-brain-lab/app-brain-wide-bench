@@ -164,7 +164,10 @@ function Editor({
     form.attach();
   }
 
-  return { attach };
+  // `startEditing` is exposed for the `&edit` flag: arriving from a list page's Edit link
+  // has to open the editor without a button press, and calling this beats synthesising a
+  // click on an element found by id.
+  return { attach, startEditing };
 }
 
 export { Editor };

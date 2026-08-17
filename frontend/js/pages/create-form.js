@@ -1,18 +1,20 @@
-// Template for a create form
+// A form whose fields are grouped into panels, where each panel is locked until the one
+// above it is complete.
 //
-// The page markup needs a `#gate` card and a `#container`, same as every other page;
-// everything below is rendered.
-//
-// The form contains fields that are grouped into panels. Subsequent panels are locked until
-// all required fields in the previous panel are filled.
+// Knows one element: the container it is given. It renders no page, owns no buttons and
+// writes no messages — a change worth reporting is handed back through `onCleared`, and
+// completeness through `onRefresh`, for the owner to show however its page is built. The
+// submit button, the message region and the navigation on success all belong to whatever
+// put this on a page (see create-page.js). Same arrangement as editor.js, which is handed
+// its container and its buttons for the same reason.
 //
 // Panels can be schema-driven or component-driven. Schema-driven panels are built from the
-// field definitions and while component-driven panels are built using the build function
+// field definitions, while component-driven panels are built using the build function
 // supplied in the panel definition.
 //
 // Component-driven panels are never re-rendered after the initial mount, so they can maintain
 // their own state and event listeners.
-
+//
 // The schema-driven panels are handed to one createFieldForm as its sections, so a change
 // in any of them re-renders all of them: a field's disabledWhen or disabledOptionsWhen can
 // name a value set in an earlier panel, and a dependent field only picks that up on a
@@ -32,19 +34,6 @@ import { createFieldState } from "../fields/state.js";
 import { renderFields } from "../fields/render.js";
 import { panelGroups, renderGroups } from "../fields/groups.js";
 import { createFieldForm } from "../fields/form.js";
-import { showError, showMessage } from "../utils.js";
-import {
-  buildFormFooter,
-  buildHeader,
-  buildMessage,
-  buildPage,
-  pageMessage,
-  renderHeader,
-  renderPage,
-  submitButton,
-} from "./record-page.js";
-
-const PANELS_ID = "panels";
 
 // Empty strings, null and empty arrays are unset.
 // `false` and `0` are valid values.
@@ -58,13 +47,8 @@ function isFilled(value) {
 
 
 /**
- * @param noun          The object being created, e.g "model" or "team". Used to label messages and buttons.
- *
- * @param header        { title, description }, for the page header. Optional; if not supplied
- *                      a default header will be built using the noun.
- *
- * @param backTo        { href, text }, for the back link in the header. href is also used for
- *                      the cancel button in the footer.
+ * @param container     Element — the fieldsets are rendered into it. The only part of the
+ *                      document this form knows about.
  *
  * @param panels        [{ panel, required, complete, build, title }] — one entry per panel.
  *                      The order in the list defines the order on the page.
@@ -81,22 +65,26 @@ function isFilled(value) {
  * @param fields        The field definitions, defined in the schema. The form uses these
  *                      to build schema-driven panels and to determine which fields are required for each panel.
  *
- * @param submit        async (state) => destination URL. The function to call to submit the form.
- *                      It should return a URL to navigate to on success, or null to stay on the page.
- *
  * @param onChange      async (key, value, cleared) => void. Called when a field changes. Optional.
  *                     `key` is the field key, `value` is the new value, and `cleared` is an array of
  *                     field keys that were cleared as a result of the change. This is useful for re-rendering
  *                     dependent fields.
+ *
+ * @param onCleared     optional (labels: string) => void, when a change invalidated other
+ *                      fields. The labels are joined ready to show; where they are shown is
+ *                      the owner's business.
+ *
+ * @param onRefresh     optional (complete: boolean) => void, after every re-evaluation of
+ *                      the panel locks — on a field change, on `refresh()`, and once when
+ *                      `attach()` runs. How the owner keeps its submit button in step.
  */
 function createPanelForm({
-  noun,
-  header,
-  backTo,
+  container,
   panels,
   fields,
-  submit,
   onChange,
+  onCleared,
+  onRefresh,
 }) {
 
   const state = createFieldState(fields);
@@ -144,27 +132,6 @@ function createPanelForm({
   }
 
   function initialise() {
-    renderPage(
-      buildPage({
-        back: backTo,
-        header: buildHeader(),
-        body: `
-          <div class="column gap-lg">
-            <div class="column gap-lg" id="${PANELS_ID}"></div>
-            ${buildMessage()}
-            ${buildFormFooter({
-              cancelHref: backTo.href ?? "",
-              submitLabel: `Create ${noun}`
-            })}
-          </div>
-        `,
-      }),
-    );
-
-    renderHeader(header ? header.title : `Create new ${noun}`, header ? header.description : "");
-
-    const container = document.getElementById(PANELS_ID);
-
     container.innerHTML = panels
       .map(
         ({ panel, build }) => `
@@ -228,68 +195,29 @@ function createPanelForm({
     );
   }
 
-  function canSubmit() {
-    return isComplete();
-  }
-
   function refresh() {
     applyLocks();
-    submitButton().disabled = !canSubmit();
+
+    onRefresh?.(isComplete());
   }
 
   // The panels have already been redrawn by the time this runs, if the schema needed it —
-  // all this owes the change is the message and the locks, which the form knows nothing
-  // about. The locks are unconditional: `required` decides those, not the schema's rules.
+  // all this owes the change is the locks, and the labels of anything the change
+  // invalidated. The locks are unconditional: `required` decides those, not the schema's
+  // rules. `onCleared` is called with nothing to say when nothing was cleared, which is how
+  // the owner knows it can drop a message left over from an earlier change.
   function handleFieldChange(cleared) {
-    if (cleared.length) {
-      const labels = cleared
+    onCleared?.(
+      cleared
         .map(key => fields[key].label)
-        .join(", ");
-
-      showError(
-        pageMessage(),
-        `Cleared (no longer valid): ${labels}`,
-      );
-    } else {
-      // Clear stale messages from a previous change
-      showMessage(pageMessage(), "");
-    }
+        .join(", "),
+    );
 
     refresh();
   }
 
-  async function handleSubmit() {
-    submitButton().disabled = true;
-    showMessage(pageMessage(), "");
-
-    try {
-      const destination = await submit(state);
-
-      if (destination) {
-        window.location.href = destination;
-        return;
-      }
-
-      refresh();
-    } catch (error) {
-      console.error(error);
-
-      const message = `Failed to create new ${noun}: ${error.message}`;
-
-      showError(pageMessage(), message);
-      refresh();
-    }
-  }
-
   function attach() {
     panelForm.attach();
-
-    if (submit) {
-      submitButton().addEventListener(
-        "click",
-        handleSubmit,
-      );
-    }
 
     // Last, not in `initialise`: a panel's `complete` may ask a component the page builds
     // between the two calls, and until this runs nothing has questioned it.
