@@ -21,6 +21,15 @@ function disabledOptionValues(field, state) {
     : [];
 }
 
+// Whether anything in this schema can make one field's markup depend on another's value.
+// A schema with no such rule draws the same fields for every state it can hold, which is
+// what lets a form know a redraw would change nothing — see form.js.
+function hasDependentFields(fields) {
+  return Object.values(fields).some(
+    field => field.disabledWhen || field.disabledOptionsWhen,
+  );
+}
+
 
 // ─── VALUES ─────────────────────────────────────────────────────────────────
 
@@ -106,6 +115,7 @@ function setFieldValue(state, fields, key, value) {
 export {
   createFieldState,
   disabledOptionValues,
+  hasDependentFields,
   isDisabled,
   parseFieldValue,
   revalidateFields,

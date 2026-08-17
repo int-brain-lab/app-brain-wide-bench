@@ -10,10 +10,10 @@
 // was never called, so a page still built that way had its form rendered into a section
 // nothing ever unhid.
 
-import { createFieldState, setFieldValue } from "../components/fields/state.js";
+import { createFieldState } from "../components/fields/state.js";
 import { renderFields } from "../components/fields/render.js";
 import { renderGroups } from "../components/fields/groups.js";
-import { getFieldValue, withPreservedFocus } from "../components/fields/events.js";
+import { createFieldForm } from "../components/fields/form.js";
 
 /**
  * @param container    Element — where the edit form is rendered.
@@ -57,58 +57,43 @@ function Editor({
 }) {
   // Edits accumulate on a draft, never on `record` — so Cancel is free and a
   // failed save can't leave the page showing values the server never took.
+  //
+  // Null outside editing, which is also how the form below knows to ignore a change:
+  // its listener is attached once for the page's lifetime, but the draft it writes to
+  // only exists between Edit and Save.
   let draft = null;
 
-  // Rendered from the record merged with the draft, not the draft alone:
-  // createFieldState drops every `editable: false` key, so a form that also shows
-  // read-only rows for context (an email, a created-at) would render them as "—".
-  // The draft is still what gets saved — this merge is display-only.
-  //
-  // `groups` and `keys` are both thunks so the layout is recomputed per render:
-  // a schema whose options arrive late (or a group that becomes empty) is picked
-  // up without re-creating the editor.
-  function renderDraft() {
-    const state = { ...record, ...draft };
+  // One section: an editor's fields all live in the container the read-only view was in.
+  const form = createFieldForm({
+    fields,
+    getState: () => draft,
 
-    withPreservedFocus(container, () => {
-      container.innerHTML = groups
-        ? renderGroups(groups(), state, fields, renderFields)
-        : renderFields(keys(), state, fields);
-    });
+    sections: [{
+      container,
 
-    // The form's `editable: false` keys render as display rows, which carry the
-    // `icon` placeholders — so the edit view needs createIcons() too, or a
-    // read-only field with an icon would show an empty <i> here while looking
-    // right on the read-only view.
-    globalThis.lucide?.createIcons?.();
-  }
+      // Drawn from the record merged with the draft, not the draft alone:
+      // createFieldState drops every `editable: false` key, so a form that also shows
+      // read-only rows for context (an email, a created-at) would render them as "—".
+      // The draft is still what gets saved — this merge is display-only.
+      //
+      // `groups` and `keys` are both thunks so the layout is recomputed per render:
+      // a schema whose options arrive late (or a group that becomes empty) is picked
+      // up without re-creating the editor.
+      draw: state => {
+        const values = { ...record, ...state };
 
-  // Read live from `draft` rather than going through attachFieldEvents, which
-  // binds one fixed state object: the draft is replaced on every Edit, and the
-  // listener here is attached once for the page's lifetime.
-  function handleFieldChange(event) {
-    if (!draft) return;
+        return groups
+          ? renderGroups(groups(), values, fields, renderFields)
+          : renderFields(keys(), values, fields);
+      },
+    }],
 
-    const input = event.target.closest("[data-field]");
-    if (!input) return;
-
-    const key = input.dataset.field;
-    const field = fields[key];
-    if (!field) return;
-
-    const value = getFieldValue(field, key, input, container);
-    const cleared = setFieldValue(draft, fields, key, value);
-
-    // Re-rendered on every change, not only when something was cleared: a change
-    // can also *re-enable* a field (ticking is_public un-disables the public
-    // narrative), and that only shows up on a re-render. `change` fires on blur
-    // for text inputs, so this never interrupts typing.
-    renderDraft();
-
-    if (cleared.length) {
-      onCleared?.(cleared.map(clearedKey => fields[clearedKey].label).join(", "));
-    }
-  }
+    onChange: (key, value, cleared) => {
+      if (cleared.length) {
+        onCleared?.(cleared.map(clearedKey => fields[clearedKey].label).join(", "));
+      }
+    },
+  });
 
   // The buttons arrive as thunks, not elements — a page can re-render its header
   // and hand back a different node — so they have to be resolved on every call.
@@ -131,7 +116,7 @@ function Editor({
     //
     // It never reaches the server: `save` decides the payload, not the draft.
     draft = { ...createFieldState(fields, record), ...(context?.() ?? {}) };
-    renderDraft();
+    form.render();
   }
 
   function cancelEditing() {
@@ -169,14 +154,14 @@ function Editor({
     }
   }
 
-  // Listeners attach once. The change handler is delegated to the container,
-  // which survives every renderDraft(), so re-attaching per Edit click would
-  // stack duplicate handlers — each firing against a stale draft.
+  // Listeners attach once. The form's change handler is delegated to the container,
+  // which survives every re-render, so re-attaching per Edit click would stack
+  // duplicate handlers — each firing against a stale draft.
   function attach() {
     editButton.addEventListener("click", startEditing);
     saveButton.addEventListener("click", saveEdits);
     cancelButton.addEventListener("click", cancelEditing);
-    container.addEventListener("change", handleFieldChange);
+    form.attach();
   }
 
   return { attach };

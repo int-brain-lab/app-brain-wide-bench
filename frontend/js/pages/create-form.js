@@ -13,9 +13,10 @@
 // Component-driven panels are never re-rendered after the initial mount, so they can maintain
 // their own state and event listeners.
 
-// Schema-driven panels are re-rendered when hasDependentFields is true. These dependencies
-// are defined in the disabledWhen or disabledOptionsWhen keys of the schema.
-// When a field changes, the form re-renders all schema-driven panels to update the state of dependent fields.
+// The schema-driven panels are handed to one createFieldForm as its sections, so a change
+// in any of them re-renders all of them: a field's disabledWhen or disabledOptionsWhen can
+// name a value set in an earlier panel, and a dependent field only picks that up on a
+// redraw. A schema with no such rules is never redrawn at all — see form.js.
 //
 // The form is created in two phases. `initialise()` builds every fieldset once, including panels
 // owned by components. `render()` only updates schema-driven panels, so component
@@ -30,8 +31,8 @@
 import { createFieldState } from "../components/fields/state.js";
 import { renderFields } from "../components/fields/render.js";
 import { panelGroups, renderGroups } from "../components/fields/groups.js";
-import { attachFieldEvents } from "../components/fields/events.js";
-import { showError, showMessage, refreshIcons } from "../utils.js";
+import { createFieldForm } from "../components/fields/form.js";
+import { showError, showMessage } from "../utils.js";
 import {
   buildFormFooter,
   buildHeader,
@@ -44,12 +45,6 @@ import {
 } from "./record-page.js";
 
 const PANELS_ID = "panels";
-
-function hasDependentFields(fields) {
-  return Object.values(fields).some(
-    field => field.disabledWhen || field.disabledOptionsWhen,
-  );
-}
 
 // Empty strings, null and empty arrays are unset.
 // `false` and `0` are valid values.
@@ -105,7 +100,6 @@ function createPanelForm({
 }) {
 
   const state = createFieldState(fields);
-  const hasDependencies = hasDependentFields(fields);
 
   const panelsByNumber = new Map(
     panels.map(panel => [panel.panel, panel]),
@@ -116,6 +110,9 @@ function createPanelForm({
   const renderedPanels = panels.filter(panel => !panel.build);
 
   let panelElements = new Map();
+
+  // Built in `initialise`, once the fieldsets its sections render into exist.
+  let panelForm = null;
 
   function getPanel(panelNumber) {
     return panelElements.get(panelNumber);
@@ -186,24 +183,33 @@ function createPanelForm({
       ]),
     );
 
+    panelForm = createFieldForm({
+      fields,
+      getState: () => state,
+
+      sections: renderedPanels
+        .filter(panel => getPanel(panel.panel))
+        .map(panel => ({
+          container: getPanel(panel.panel),
+          draw: values => renderGroups(
+            buildGroups(panel),
+            values,
+            fields,
+            renderFields,
+          ),
+        })),
+
+      onChange: async (key, value, cleared) => {
+        await onChange?.(key, value, cleared);
+        handleFieldChange(cleared);
+      },
+    });
+
     render();
   }
 
   function render() {
-    for (const panel of renderedPanels) {
-      const element = getPanel(panel.panel);
-
-      if (!element) continue;
-
-      element.innerHTML = renderGroups(
-        buildGroups(panel),
-        state,
-        fields,
-        renderFields,
-      );
-    }
-
-    refreshIcons();
+    panelForm.render();
   }
 
   function applyLocks() {
@@ -231,6 +237,9 @@ function createPanelForm({
     submitButton().disabled = !canSubmit();
   }
 
+  // The panels have already been redrawn by the time this runs, if the schema needed it —
+  // all this owes the change is the message and the locks, which the form knows nothing
+  // about. The locks are unconditional: `required` decides those, not the schema's rules.
   function handleFieldChange(cleared) {
     if (cleared.length) {
       const labels = cleared
@@ -244,10 +253,6 @@ function createPanelForm({
     } else {
       // Clear stale messages from a previous change
       showMessage(pageMessage(), "");
-    }
-
-    if (cleared.length || hasDependencies) {
-      render();
     }
 
     refresh();
@@ -277,21 +282,7 @@ function createPanelForm({
   }
 
   function attach() {
-    for (const panel of renderedPanels) {
-      const element = getPanel(panel.panel);
-
-      if (!element) continue;
-
-      attachFieldEvents(
-        element,
-        state,
-        fields,
-        async (key, value, cleared) => {
-          await onChange?.(key, value, cleared);
-          handleFieldChange(cleared);
-        },
-      );
-    }
+    panelForm.attach();
 
     if (submit) {
       submitButton().addEventListener(

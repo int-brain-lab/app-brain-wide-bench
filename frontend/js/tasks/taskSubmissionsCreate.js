@@ -18,7 +18,7 @@ import {
 } from "../components/fields/state.js";
 import { renderFields } from "../components/fields/render.js";
 import { fieldsForPanel } from "../components/fields/groups.js";
-import { getFieldValue, withPreservedFocus } from "../components/fields/events.js";
+import { attachFieldEvents, withPreservedFocus } from "../components/fields/form.js";
 import {
   TASK_FIELDS,
   trainingFieldKeys,
@@ -346,21 +346,30 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     });
   }
 
-  function updateField(taskId, key, value) {
-    const task = getTask(taskId);
+  // The state a methodology change is written to: whichever task is showing, and nothing
+  // at all when none is. A thunk rather than the object, because the selection changes
+  // under a listener attached once for the panel's lifetime — and returning null is what
+  // stops a change arriving before any task is selected.
+  //
+  // This panel can't use createFieldForm as well: the fields are a fragment of a
+  // master–detail layout whose other half is the task picker, and most of what `render`
+  // draws — the picker, the placeholder, the confirm and apply-to-suite controls — isn't
+  // fields at all.
+  function selectedState() {
+    return getTask(selectedTaskId)?.state ?? null;
+  }
+
+  // Called after the change has been written to that state and the rest of the schema
+  // revalidated against it, so `cleared` is what the write invalidated.
+  function updateField(cleared) {
+    const task = getTask(selectedTaskId);
 
     if (!task) return;
 
     updateTask(task, currentTask => {
       // Editing methodology invalidates the previous confirmation.
       currentTask.confirmed = false;
-
-      currentTask.cleared = setFieldValue(
-        currentTask.state,
-        TASK_FIELDS,
-        key,
-        value,
-      );
+      currentTask.cleared = cleared;
     });
   }
 
@@ -384,6 +393,8 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     }
   }
 
+  // The panel's own controls, which are not schema fields — they carry `data-task`, not
+  // `data-field`, so this and attachFieldEvents below never see the same change.
   function handleChange(event) {
     const confirmCheckbox = event.target.closest(".task-confirm");
 
@@ -404,33 +415,22 @@ function createTaskSection({ taskSuites, onChange } = {}) {
         applyCheckbox.dataset.task,
         applyCheckbox.checked,
       );
-      return;
     }
-
-    const input = event.target.closest("[data-field]");
-
-    if (!input || !selectedTaskId) return;
-
-    const key = input.dataset.field;
-    const field = TASK_FIELDS[key];
-
-    if (!field) return;
-
-    updateField(
-      selectedTaskId,
-      key,
-      getFieldValue(
-        field,
-        key,
-        input,
-        container,
-      ),
-    );
   }
 
   function attach() {
     container.addEventListener("click", handleClick);
     container.addEventListener("change", handleChange);
+
+    // The methodology fields, on the same container: a second `change` listener, because
+    // this half of the panel is an ordinary schema form and gets the shared handling —
+    // one write through setFieldValue, revalidated, reporting what it cleared.
+    attachFieldEvents(
+      container,
+      selectedState,
+      TASK_FIELDS,
+      (key, value, cleared) => updateField(cleared),
+    );
 
     // Draws the "no tasks yet" placeholder; without it the panel is blank until a zip
     // lands, which the old `initialise()` avoided by rendering here.

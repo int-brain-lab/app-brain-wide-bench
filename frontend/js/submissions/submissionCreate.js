@@ -198,6 +198,11 @@ async function setupPanels(form, context) {
         ? taskIds.filter(id => !knownTasks.has(id))
         : [];
 
+      // Written straight onto the state: the file is panel 3's own, not a schema field, and
+      // reaches the form only as the `required: ["file"]` that keeps panel 4 locked. That
+      // is a lock, re-evaluated by the `refresh()` at the end of this path, not something
+      // the fields draw — so no redraw is owed here. A `disabledWhen` that reads
+      // `state.file` would change that, and would have to ask for one.
       form.state.file = file;
 
       // Only ids the catalogue recognises reach the task panel — which is why it has no

@@ -48,7 +48,7 @@ function fullRowClass(field) {
 // an edit form's labels stay plain, since there the input itself carries the
 // meaning. The `<i>` is a placeholder: lucide.createIcons() replaces it with an
 // <svg>, so whatever injects this HTML has to call that afterwards (renderDetails
-// and the editor's renderDraft both do).
+// and createFieldForm's render both do).
 //
 // The row/gap utilities go on the label only when there's an icon to space, so
 // `.field-label` keeps its default inline layout everywhere else.
