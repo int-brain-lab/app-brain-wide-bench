@@ -13,13 +13,12 @@ import {
 } from "../utils.js";
 import {
   createFieldState,
-  fieldsForPanel,
-  getFieldValue,
-  renderFields,
   revalidateFields,
   setFieldValue,
-  withPreservedFocus,
-} from "../components/form-fields.js";
+} from "../components/fields/state.js";
+import { renderFields } from "../components/fields/render.js";
+import { fieldsForPanel } from "../components/fields/groups.js";
+import { getFieldValue, withPreservedFocus } from "../components/fields/events.js";
 import {
   TASK_FIELDS,
   trainingFieldKeys,

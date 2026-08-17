@@ -7,7 +7,7 @@ import { isAuthenticated } from "../api.js";
 import { fillSidebarUser } from "../nav/nav_side.js";
 import { showError, showMessage } from "../utils.js";
 import { Editor } from "../pages/editor.js";
-import { panelGroups } from "../components/form-fields.js";
+import { panelGroups } from "../components/fields/groups.js";
 import { showGate } from "../pages/gate.js";
 import { loadMe, updateMe } from "./userApi.js";
 import { USER_FIELDS, USER_PANELS } from "./userSchema.js";

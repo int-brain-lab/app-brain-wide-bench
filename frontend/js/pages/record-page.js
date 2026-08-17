@@ -1,10 +1,7 @@
 // Page chrome shared by every record view: the wrapper, header, actions and sections.
 
-import {
-  panelGroups,
-  renderDisplayFields,
-  renderGroups,
-} from "../components/form-fields.js";
+import { panelGroups, renderGroups } from "../components/fields/groups.js";
+import { renderDisplayFields } from "../components/fields/render.js";
 
 const CONTAINER_ID = "container";
 const TITLE_ID = "title";

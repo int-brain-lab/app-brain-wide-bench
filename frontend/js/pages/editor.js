@@ -10,14 +10,10 @@
 // was never called, so a page still built that way had its form rendered into a section
 // nothing ever unhid.
 
-import {
-  createFieldState,
-  getFieldValue,
-  renderFields,
-  renderGroups,
-  setFieldValue,
-  withPreservedFocus,
-} from "../components/form-fields.js";
+import { createFieldState, setFieldValue } from "../components/fields/state.js";
+import { renderFields } from "../components/fields/render.js";
+import { renderGroups } from "../components/fields/groups.js";
+import { getFieldValue, withPreservedFocus } from "../components/fields/events.js";
 
 /**
  * @param container    Element — where the edit form is rendered.

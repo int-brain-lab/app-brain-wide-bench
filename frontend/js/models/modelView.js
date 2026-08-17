@@ -1,7 +1,8 @@
 // Model record page — dashboard, details, submissions and scores for one model.
 
 import { formatDate, showError, showMessage } from "../utils.js";
-import { panelGroups, renderDisplayFields } from "../components/form-fields.js";
+import { panelGroups } from "../components/fields/groups.js";
+import { renderDisplayFields } from "../components/fields/render.js";
 import { Editor } from "../pages/editor.js";
 import { loadModelFields, MODEL_PANELS } from "./modelSchema.js";
 import { loadModel, updateModel } from "./modelApi.js";
