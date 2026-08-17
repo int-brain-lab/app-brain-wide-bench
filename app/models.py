@@ -101,7 +101,7 @@ class Metric(str, enum.Enum):
     bacc = "bacc"
     cohens_r2 = "cohens_r2"
     d2 = "d2"
-    f1_macro = "f1_macro"
+    f1_macro = "macro/f1-score"
     r2 = "r2"
 
 
