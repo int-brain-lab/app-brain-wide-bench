@@ -15,7 +15,7 @@ import uuid
 import httpx
 from fastapi import Depends, Header, HTTPException, status
 from jose import jwt
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -87,10 +87,31 @@ async def _upsert_user(session: AsyncSession, claims: dict) -> User:
     """Insert or update the ``User`` row matching the token's ``sub``."""
     sub = claims["sub"]
     provider, orcid_id = parse_sub(sub)
+    email = claims.get("email", "")
     user = (
         await session.execute(select(User).where(User.auth0_sub == sub))
     ).scalar_one_or_none()
     if user is None:
+        # A new ``auth0_sub`` sharing an existing account's email is the same person
+        # signing in through a second provider (e.g. Google, then ORCID) — a ``User``
+        # row holds exactly one ``auth0_sub``, so there is no way to link the two
+        # without minting a second, disconnected account (separate teams, separate
+        # submissions). Refuse instead, and point them at the provider they already
+        # used; not silently splitting one identity is worth the rare false positive
+        # of two different people who happen to share an email.
+        if email:
+            existing = (
+                await session.execute(
+                    select(User).where(func.lower(User.email) == email.lower())
+                )
+            ).scalar_one_or_none()
+            if existing is not None:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    f"An account already exists for {email} via {existing.provider}. "
+                    "Sign in with that provider instead.",
+                )
+
         user = User(auth0_sub=sub, provider=provider, orcid_id=orcid_id)
         # Seeded once, from the provider, and never overwritten again: ``name`` is a
         # display name the user owns and can change via PATCH /api/users/me. Re-syncing
@@ -102,7 +123,7 @@ async def _upsert_user(session: AsyncSession, claims: dict) -> User:
 
     # ``email`` does keep syncing. It is how a person is found and added to a team, so it
     # has to track the identity provider rather than drift from it.
-    user.email = claims.get("email", user.email or "")
+    user.email = email or user.email or ""
     await session.commit()
     await session.refresh(user)
     return user
