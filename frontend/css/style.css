@@ -179,7 +179,7 @@ MAIN SHELLS ETC
   overflow: hidden;
   background: transparent;
   justify-content: center;
-  margin: 0 auto;
+  margin: 40px auto 0px;
   max-width: 900px;
 }
 
@@ -978,6 +978,30 @@ GENERIC TEXT
    line inside a page, so it is sized and spaced to stand alone. The tint is the danger
    colour at low opacity rather than --danger-light, so it reads the same on either shell's
    ground. */
+/* The sign-in gate, and the in-page prompt for a record that isn't public. Placed like
+   .page-error below — a lone sentence spanning the full width reads as a mistake — but
+   green and a size up: this is an invitation, not a failure, and it is the only thing on
+   the page. */
+#gate,
+.sign-in-card {
+  max-width: 560px;
+  margin: 80px auto;
+  padding: 40px;
+  border-color: var(--success);
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+  color: var(--success-dark);
+  font-size: var(--font-lg);
+  font-weight: var(--bold);
+  text-align: center;
+}
+
+/* Centres the button under the sentence rather than stretching it across the card, which is
+   what a .column's default `align-items: stretch` would do. */
+#gate .column,
+.sign-in-card .column {
+  align-items: center;
+}
+
 /* A page that failed before it could render anything: this is the whole content area, so
    unlike the others it is sized and placed rather than filling a slot. */
 .page-error {
