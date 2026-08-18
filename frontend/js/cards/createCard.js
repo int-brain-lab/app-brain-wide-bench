@@ -34,14 +34,24 @@ function refreshIcons() {
 /**
  * Append the card into the grid that already holds the record cards, so it becomes the
  * last cell. Call after the grid's own innerHTML has been written.
+ *
+ * No `options` means no affordance — a list read by a signed-out visitor has nothing to
+ * create with, and every caller would otherwise need the same guard.
  */
 function appendCreateCard(container, options) {
+  if (!options) return;
+
   container.insertAdjacentHTML("beforeend", buildMarkup(options));
   refreshIcons();
 }
 
 /** Write the full-width variant into its own container, below the table. */
 function renderCreateRow(container, options) {
+  if (!options) {
+    clearCreateRow(container);
+    return;
+  }
+
   container.innerHTML = buildMarkup(options, "as-row");
   refreshIcons();
 }

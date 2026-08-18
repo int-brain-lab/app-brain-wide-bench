@@ -3,16 +3,21 @@ import { apiFetch, isAuthenticated } from "../api/client.js";
 import { renderLogo } from "./navTop.js";
 // ─── CONSTANTS ─────────────────────────────────────────────────────────────
 
+// "My" throughout, because every one of these is scoped to the viewer — the public
+// counterparts below list the same domains unscoped, and the labels are what tells them
+// apart in a rail where both appear.
 const MAIN_NAV_ITEMS = [
-  { label: "Dashboard", href: "/html/dashboard/dashboard.html", icon: "layout-grid" },
-  { label: "Models", href: "/html/models/model_list.html", icon: "chart-column" },
-  { label: "Submissions", href: "/html/submissions/submission_list.html", icon: "chart-column" },
-  { label: "Teams", href: "/html/teams/team_list.html", icon: "users" },
-  { label: "Settings", href: "/html/users/user_details.html", icon: "settings" },
+  { label: "My dashboard", href: "/html/dashboard/dashboard.html", icon: "layout-grid" },
+  { label: "My models", href: "/html/models/model_list.html", icon: "chart-column" },
+  { label: "My submissions", href: "/html/submissions/submission_list.html", icon: "layers" },
+  { label: "My teams", href: "/html/teams/team_list.html", icon: "users" },
+  { label: "My settings", href: "/html/users/user_details.html", icon: "settings" },
 ];
 
 const PUBLIC_NAV_ITEMS = [
   { label: "Leaderboard", href: "/html/leaderboard/leaderboard.html", icon: "trophy" },
+  { label: "All models", href: "/html/models/model_list_public.html", icon: "chart-column" },
+  { label: "All submissions", href: "/html/submissions/submission_list_public.html", icon: "layers" },
   { label: "Home", href: "/index.html", icon: "house" },
 ];
 

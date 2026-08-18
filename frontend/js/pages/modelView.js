@@ -3,7 +3,7 @@
 import { formatDate, showMessage } from "../core/utils.js";
 import { buildDisplayFields } from "../forms/fields.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
-import { loadModelFields, MODEL_PANELS } from "../schemas/modelSchema.js";
+import { loadModelFields, MODEL_FIELDS, MODEL_PANELS } from "../schemas/modelSchema.js";
 import { loadModel, updateModel } from "../api/modelApi.js";
 import { buildSuiteScoreBars } from "../components/bars.js";
 import {
@@ -157,7 +157,7 @@ function renderDetailsSection(model, fields) {
   `;
 }
 
-function renderSubmissionsSection(model, submissions) {
+function renderSubmissionsSection(model, submissions, signedIn) {
   const container = sectionBody("submissions");
 
   if (!submissions.length) {
@@ -166,16 +166,18 @@ function renderSubmissionsSection(model, submissions) {
     renderStaticSubmissionsTable({ container, submissions, limit: MAX_SUBMISSIONS });
   }
 
-  renderCreateRow(
-    sectionCreate("submissions"),
-    getSubmissionLink(model),
-  );
+  if (signedIn) {
+    renderCreateRow(
+      sectionCreate("submissions"),
+      getSubmissionLink(model),
+    );
+  }
 }
 
 // ─── VIEWS ───────────────────────────────────────────────────────────────────
 
 function renderDashboardView(context, router) {
-  const { model, fields, dashboardData } = context;
+  const { model, fields, dashboardData, signedIn } = context;
   const { submissions, meanScores, taskCount } = dashboardData;
   const statistics = getStatistics(
     submissions,
@@ -185,7 +187,7 @@ function renderDashboardView(context, router) {
 
   renderPage(
     buildPage({
-      header: buildHeader([EDIT_ACTION]),
+      header: buildHeader(signedIn ? [EDIT_ACTION] : []),
       body: buildStats() + buildSections(DASHBOARD_SECTIONS),
     }),
   );
@@ -195,23 +197,27 @@ function renderDashboardView(context, router) {
   renderStatsSection(statistics);
   renderScoresSection(meanScores);
   renderDetailsSection(model, fields);
-  renderSubmissionsSection(model, submissions);
+  renderSubmissionsSection(model, submissions, signedIn);
 
   // Edit button that goes directly to full model editing view
-  attachEditLink(router);
+  if (signedIn) attachEditLink(router);
 }
 
-function renderDetailsView({ model, fields, edit = false, created = false })  {
+function renderDetailsView({ model, fields, signedIn, edit = false, created = false })  {
   renderPage(
     buildPage({
       back: BACK,
-      header: buildHeader(EDIT_ACTIONS),
+      header: buildHeader(signedIn ? EDIT_ACTIONS : []),
       body: buildMessage() + buildBody() + (created ? buildSection({ id: "post-create" }) : ""),
     }),
   );
 
   renderHeader(model.name, getSubtitle(model));
   renderDetails(model, fields, MODEL_PANELS);
+
+  // renderDetails has already written the read-only fields, so a signed-out reader has the
+  // whole view without the editor being wired at all.
+  if (!signedIn) return;
 
   // Only when model_create.html sent us here. A model registered moments ago has nothing
   // submitted against it, and this is the one visit where that is known without asking.
@@ -282,10 +288,16 @@ loadRecordPage({
   noun: "model",
   flags: ["edit", "created"],
 
-  load: async modelId => {
+  // A model with a public submission is readable by anyone — see GET /api/models/{id}.
+  requiresAuth: false,
+
+  load: async (modelId, { signedIn }) => {
     const [model, fields] = await Promise.all([
       loadModel(modelId),
-      loadModelFields(),
+      // loadModelFields fills the Team select from /api/users/me/teams, which a signed-out
+      // reader can't fetch and doesn't need: a display row renders the stored value, not an
+      // option's label. The bare schema is the whole read-only view.
+      signedIn ? loadModelFields() : MODEL_FIELDS,
     ]);
 
     if (!model) {

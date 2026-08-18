@@ -1,14 +1,25 @@
-// The models the user has created or has access to.
+// The models list, in the two scopes the pages ask for:
+//
+//   data-scope="mine"  model_list.html    — the viewer's own teams' models, signed in only
+//   data-scope="all"   model_list_public.html  — every model they may see, signed out too
+//
+// One script because the two differ only in which fetch they call and what the heading
+// says: the cards, the table and the create link are the same list either way.
 
-import { getMyModels } from "../api/modelApi.js";
+import { getModels, getMyModels } from "../api/modelApi.js";
 import { renderModelsTable } from "../tables/modelTable.js";
 import { buildModelCards } from "../cards/modelCards.js";
 import { loadListPage } from "../templates/list-page.js";
 
+const MINE = document.body.dataset.scope === "mine";
+
 loadListPage({
-  title: "My models",
+  title: MINE ? "My models" : "Models",
   noun: "models",
-  fetch: getMyModels,
+  // GET /api/models filters by visibility, so signed in the public scope is a superset of
+  // this one: the viewer's own teams' models plus everyone else's public ones.
+  fetch: MINE ? getMyModels : getModels,
+  requiresAuth: MINE,
   cards: buildModelCards,
   table: ({ container, rows }) => renderModelsTable({ container, models: rows }),
   create: {

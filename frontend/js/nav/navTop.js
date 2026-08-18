@@ -3,12 +3,15 @@ import { apiFetch, isAuthenticated, login, logout } from "../api/client.js";
 
 // ─── CONSTANTS ─────────────────────────────────────────────────────────────
 
+// The public surface, in the order a reader meets it — the scores, then what produced
+// them — with the way into the signed-in half last. Models and Submissions are the
+// unscoped lists; the sidebar's "My models" and "My submissions" are the same pages at
+// data-scope="mine".
 const NAV_ITEMS = [
   { label: "Leaderboard", href: "/html/leaderboard/leaderboard.html" },
-  { label: "Docs", href: "#" },
-  { label: "Submit", href: "/html/submissions/submission_create.html" },
-  { label: "About", href: "#" },
-  { label: "Dashboard", href: "/html/dashboard/dashboard.html" },
+  { label: "Models", href: "/html/models/model_list_public.html" },
+  { label: "Submissions", href: "/html/submissions/submission_list_public.html" },
+  { label: "My dashboard", href: "/html/dashboard/dashboard.html" },
 ];
 
 

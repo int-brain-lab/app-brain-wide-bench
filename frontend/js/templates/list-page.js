@@ -1,11 +1,12 @@
 // A list of one domain's records, as cards or as a table.
 //
-// The page's markup needs a `#gate` card and a `#container`, same as a record page;
+// The page's markup needs a `#container`, and a `#gate` card if the list is private;
 // everything else is rendered. A domain that passes no `table` gets cards only and no
 // toggle — that's the teams list.
 
 import { isAuthenticated } from "../api/client.js";
 import { showGate } from "./gate.js";
+import { applyShell } from "./shell.js";
 import { showError } from "../core/utils.js";
 import {
   appendCreateCard,
@@ -118,15 +119,22 @@ async function loadListPage({
   fetch,
   cards,
   table = null,
-  create,
+  create: createLink,
   description = "",
   maxCards = 6,
+  // False for a list the API serves to anyone. Such a page is one URL for both audiences:
+  // no gate, the public shell when signed out, and no create affordance.
+  requiresAuth = true,
 }) {
   const container = document.getElementById("container");
 
   // The currently mounted Tabulator instance. It needs to be destroyed before
   // switching views because replacing the list's contents does not destroy it.
   let tableInstance = null;
+
+  // The one affordance on a list page that isn't just reading it, so it stays null until
+  // the sign-in state is known. Declared out here because renderView closes over it.
+  let create = null;
 
   function destroyTable() {
     tableInstance?.destroy?.();
@@ -157,12 +165,19 @@ async function loadListPage({
   }
 
   try {
-    if (!(await isAuthenticated())) {
-      showGate(false);
-      return;
+    const signedIn = await isAuthenticated();
+
+    if (requiresAuth) {
+      showGate(signedIn);
+
+      if (!signedIn) return;
+    } else {
+      // Only a page that can be read either way has a shell to choose; a private one is
+      // written in the private shell and stays there.
+      applyShell(signedIn);
     }
 
-    showGate(true);
+    create = signedIn ? createLink : null;
 
     renderPage(
       buildPage({

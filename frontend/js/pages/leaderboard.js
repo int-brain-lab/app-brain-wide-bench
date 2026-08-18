@@ -5,7 +5,9 @@
 // leaderboardTable.js; the fetch is in leaderboardApi.js.
 
 import { getLeaderboard } from "../api/leaderboardApi.js";
+import { isAuthenticated } from "../api/client.js";
 import { renderLeaderboardTable } from "../tables/leaderboardTable.js";
+import { applyShell } from "../templates/shell.js";
 import { renderMessage } from "../core/utils.js";
 
 
@@ -20,6 +22,10 @@ function showError(message) {
 
 async function loadLeaderboardPage() {
   try {
+    // Before the fetch, so the page settles into one shell rather than rearranging itself
+    // around the table once the rows land.
+    applyShell(await isAuthenticated());
+
     const submissions = await getLeaderboard();
 
     if (!submissions) {

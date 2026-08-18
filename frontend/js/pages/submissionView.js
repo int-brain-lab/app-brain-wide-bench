@@ -3,7 +3,7 @@
 import { formatDate, showMessage } from "../core/utils.js";
 import { buildDisplayFields } from "../forms/fields.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
-import { loadSubmissionFields, SUBMISSION_PANELS } from "../schemas/submissionSchema.js";
+import { loadSubmissionFields, SUBMISSION_FIELDS, SUBMISSION_PANELS } from "../schemas/submissionSchema.js";
 import { loadSubmission, updateSubmission } from "../api/submissionApi.js";
 import {
   renderStaticTaskSubmissionsTable,
@@ -164,12 +164,12 @@ function renderTasksSection(submission, taskSubmissions) {
 // ─── VIEWS ───────────────────────────────────────────────────────────────────
 
 function renderDashboardView(context, router) {
-  const { submission, fields, dashboardData } = context;
+  const { submission, fields, dashboardData, signedIn } = context;
   const { taskSubmissions } = dashboardData;
 
   renderPage(
     buildPage({
-      header: buildHeader([EDIT_ACTION]),
+      header: buildHeader(signedIn ? [EDIT_ACTION] : []),
       body: buildStats() + buildSections(DASHBOARD_SECTIONS),
     }),
   );
@@ -182,20 +182,24 @@ function renderDashboardView(context, router) {
   renderTasksSection(submission, taskSubmissions);
 
   // Edit button that goes directly to full submission editing view
-  attachEditLink(router);
+  if (signedIn) attachEditLink(router);
 }
 
-function renderDetailsView({ submission, fields, edit = false }) {
+function renderDetailsView({ submission, fields, signedIn, edit = false }) {
   renderPage(
     buildPage({
       back: BACK,
-      header: buildHeader(EDIT_ACTIONS),
+      header: buildHeader(signedIn ? EDIT_ACTIONS : []),
       body: buildMessage() + buildBody(),
     }),
   );
 
   renderHeader(submission.label, getSubtitle(submission));
   renderDetails(submission, fields, SUBMISSION_PANELS);
+
+  // renderDetails has already written the read-only fields, so a signed-out reader has the
+  // whole view without the editor being wired at all.
+  if (!signedIn) return;
 
   attachRecordEditor({
     record: submission,
@@ -207,7 +211,7 @@ function renderDetailsView({ submission, fields, edit = false }) {
   });
 }
 
-function renderTasksView({ submission }) {
+function renderTasksView({ submission, signedIn }) {
   renderPage(
     buildPage({
       back: BACK,
@@ -226,6 +230,7 @@ function renderTasksView({ submission }) {
   return renderTaskSubmissionsTable({
     container: sectionBody("body"),
     submission,
+    showEdit: signedIn,
   });
 }
 
@@ -270,10 +275,16 @@ loadRecordPage({
   flags: ["edit"],
   params: ["task"],
 
-  load: async submissionId => {
+  // A public submission is readable by anyone — see GET /api/submissions/{id}, which
+  // withholds the team-only fields rather than the whole record.
+  requiresAuth: false,
+
+  load: async (submissionId, { signedIn }) => {
     const [submission, fields, taskFields] = await Promise.all([
       loadSubmission(submissionId),
-      loadSubmissionFields(),
+      // Same as modelView: the Model select's options come from /api/users/me/models, which
+      // only the editor needs. loadTaskFields is /api/meta/enums, which is public.
+      signedIn ? loadSubmissionFields() : SUBMISSION_FIELDS,
       loadTaskFields(),
     ]);
 

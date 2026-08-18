@@ -11,6 +11,7 @@
 // the top nav, which most private pages don't load. Doing it here means it can't be
 // forgotten on page 18.
 
+import { escapeHtml } from "../core/utils.js";
 import { login } from "../api/client.js";
 
 
@@ -47,4 +48,26 @@ function showGate(signedIn) {
 }
 
 
-export { showGate };
+/**
+ * The gate's card, rendered into a container rather than over the whole page — for a record
+ * that a signed-out visitor may simply not be allowed to see, where the page itself loaded
+ * fine and only the record is missing.
+ *
+ * @param container element to render into. Its contents are replaced.
+ * @param message   what to say above the button.
+ */
+function showSignInPrompt(container, message) {
+  container.innerHTML = `
+    <div class="card">
+      <div class="column gap-md">
+        <p>${escapeHtml(message)}</p>
+        <button class="btn primary" data-role="login">Sign in</button>
+      </div>
+    </div>
+  `;
+
+  container.querySelector("[data-role='login']").addEventListener("click", () => login());
+}
+
+
+export { showGate, showSignInPrompt };
