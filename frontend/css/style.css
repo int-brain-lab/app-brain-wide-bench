@@ -69,6 +69,11 @@ a {
   --danger-dark: #b30000;
   --danger-light: #fdecec;
 
+  /* Warning */
+  --warning: #c98a00;
+  --warning-dark: #8a5d00;
+  --warning-light: #fdf4e3;
+
   /* Success */
   --success: #2f9e44;
   --success-dark: #1b6e2f;
@@ -881,11 +886,100 @@ GENERIC TEXT
   margin: 0;
 }
 
+/* The page's own message region, between the header and the body. Spaced off whatever
+   follows it — hidden it collapses, so the gap only exists when there is something to
+   read. */
+#page-message {
+  margin-bottom: var(--gap-lg);
+}
+
+/* Message cards: one skeleton, four meanings. Each fills the slot the content it stands in
+   for would have taken, so none carries an outer margin — the section around it spaces it.
+   .info-msg and .error-msg below stay text-only, for a line inside a page rather than a
+   block standing in its place. */
+.empty-msg,
+.success-msg,
+.warn-msg,
+.failure-msg,
+.page-error {
+  margin: 0;
+  padding: 24px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-md);
+  text-align: center;
+}
+
+.info-msg p,
+.error-msg p,
+.empty-msg p,
+.success-msg p,
+.warn-msg p,
+.failure-msg p,
+.page-error p {
+  margin: 0;
+}
+
+/* Nothing here yet. */
+.empty-msg {
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+}
+
+/* It worked. */
+.success-msg {
+  border-color: var(--success);
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+  color: var(--success-dark);
+  font-weight: var(--bold);
+}
+
+/* It worked, but something went with it. */
+.warn-msg {
+  border-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  color: var(--warning-dark);
+  font-weight: var(--bold);
+}
+
+/* It didn't. */
+.failure-msg {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  color: var(--danger-dark);
+  font-weight: var(--bold);
+}
+
+/* What actually went wrong, under the sentence that says something did. Quieter, and
+   allowed to break mid-word: it carries whatever the server sent back, which can be one
+   long unbroken line. */
+.msg-detail {
+  margin-top: 10px;
+  font-size: var(--font-sm);
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
 .error-msg {
   color: #B42318;
   font-size: var(--font-md);
   font-weight: var(--bold);
   margin: 0;
+}
+
+/* A page that failed before it could render anything: this is the whole content area, not a
+   line inside a page, so it is sized and spaced to stand alone. The tint is the danger
+   colour at low opacity rather than --danger-light, so it reads the same on either shell's
+   ground. */
+/* A page that failed before it could render anything: this is the whole content area, so
+   unlike the others it is sized and placed rather than filling a slot. */
+.page-error {
+  max-width: 520px;
+  margin: 80px auto;
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  color: var(--danger-dark);
+  font-weight: var(--bold);
 }
 
 /*----------------------------------------------------------------------------------------

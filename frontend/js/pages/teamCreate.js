@@ -11,10 +11,12 @@ import { createTeam } from "../api/teamApi.js";
 import { loadMe } from "../api/userApi.js";
 import { buildMembersPanel, createMembersSection } from "../widgets/teamMembers.js";
 import { TEAM_FIELDS } from "../schemas/teamSchema.js";
-import { showError, showMessage } from "../core/utils.js";
+import { showFailure, showMessage } from "../core/utils.js";
 import { loadCreatePage } from "../templates/create-page.js";
-import { pageMessage } from "../templates/record-page.js";
-
+import {
+  pageMessage,
+  showPageError,
+} from "../templates/record-page.js";
 
 // Panel 2 requires nothing of its own: a team with no one but its creator is valid, and the
 // creator is added by the server regardless. Its `build` marks it as the page's own, so the
@@ -40,7 +42,7 @@ async function loadCreator() {
   const me = await loadMe();
 
   if (!me) {
-    showError(document.getElementById("container"), "Could not load your account.");
+    showPageError("Could not load your account.");
     return null;
   }
 
@@ -52,7 +54,6 @@ async function loadCreator() {
 // Two api requests. First create the team and then add members. Doesn't prevent team
 // from being created if a member does not exist.
 async function submitTeam(state, draft, members) {
-  showMessage(pageMessage(), "Creating team…");
 
   // The whole state: createTeam builds the payload from it and trims the name itself.
   // Passing `state.name` here sent a *string* to be object-spread, so the body went out
@@ -74,15 +75,15 @@ async function submitTeam(state, draft, members) {
 
   // Deliberately no destination: this message is the only record of who didn't make it,
   // and the team's own page can't say what was attempted.
-  showError(
+  showFailure(
     pageMessage(),
-    `Team created, but could not add: ${failed.join("; ")}. `
-    + "They may not have signed in yet — add them from the team page.",
+    "Team created, but some members could not be added — they may not have signed in yet. "
+    + "Add them from the team page.",
+    new Error(failed.join("; ")),
   );
 
   return null;
 }
-
 
 loadCreatePage({
   noun: "team",
@@ -94,7 +95,9 @@ loadCreatePage({
   setup: (form, context) => {
     context.members = createMembersSection({
       getTeam: () => context.draft,
-      onMessage: message => showMessage(pageMessage(), message),
+      onMessage: (message, failed) => (failed
+        ? showFailure(pageMessage(), message)
+        : showMessage(pageMessage(), message)),
       canRemove: member => member.id !== context.me.id,
     });
 

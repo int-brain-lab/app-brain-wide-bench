@@ -10,6 +10,7 @@
 //   #stat-submissions #stat-models
 
 import { getLeaderboard } from "../api/leaderboardApi.js";
+import { showFailure } from "../core/utils.js";
 import { renderStaticLeaderboardTable } from "../tables/leaderboardTable.js";
 
 
@@ -41,8 +42,11 @@ function renderStats(rows, submissions) {
   document.getElementById("stat-models").textContent = rows.length;
 }
 
-function showError(message) {
-  document.getElementById("lb-table-count").textContent = message;
+// Into the preview's own slot rather than the count line under it: the count is a number,
+// and a failure there would read as one.
+function showFailedPreview(message, error) {
+  showFailure(document.getElementById("lb-table-preview"), message, error);
+  document.getElementById("lb-table-count").textContent = "";
 }
 
 
@@ -53,14 +57,14 @@ async function loadLandingPage() {
     const submissions = await getLeaderboard();
 
     if (!submissions) {
-      showError("Could not load leaderboard.");
+      showFailedPreview("Loading the leaderboard failed.");
       return;
     }
 
     renderStats(renderPreview(submissions), submissions);
   } catch (err) {
     console.error("Failed to initialise the landing page:", err);
-    showError("Could not load leaderboard.");
+    showFailedPreview("Loading the leaderboard failed.", err);
   }
 }
 

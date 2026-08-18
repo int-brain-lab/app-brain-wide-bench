@@ -14,6 +14,12 @@ import { refreshIcons } from "../core/utils.js";
 
 // ─── SCHEMA RULES ───────────────────────────────────────────────────────────
 
+// What every form says when a change invalidated values the user had already chosen. One
+// string because there are three places that report it — the create form, the record editor
+// and the task panel — and they had already drifted apart once.
+const CLEARED_MESSAGE =
+  "That change ruled out choices you had already made, so they have been cleared.";
+
 function isDisabled(field, state) {
   return typeof field.disabledWhen === "function" && field.disabledWhen(state);
 }
@@ -243,6 +249,7 @@ function createFieldForm({
 // `getFieldValue` and `parseFieldValue` stay private: reading a control is only correct as
 // part of writing the state through setFieldValue, which attachFieldEvents does.
 export {
+  CLEARED_MESSAGE,
   attachFieldEvents,
   createFieldForm,
   disabledOptionValues,

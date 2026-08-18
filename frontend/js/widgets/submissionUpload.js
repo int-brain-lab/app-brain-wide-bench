@@ -7,12 +7,7 @@
 // This component owns its markup and event listeners. `buildUploadPanel()` creates the
 // markup; `createUploadSection()` is then called once that markup is in the DOM.
 
-import {
-  escapeHtml,
-  formatBytes,
-  showError,
-  showMessage,
-} from "../core/utils.js";
+import { clearMessage, escapeHtml, formatBytes, showFailure } from "../core/utils.js";
 import {
   inferTasks,
   listZipEntries,
@@ -48,6 +43,11 @@ function buildUploadPanel() {
           Delete
         </button>
       </div>
+
+      <!-- Beside the file card rather than replacing it: a rejected file leaves the
+           dropzone up to try again, and the card's own name/size/Delete markup has to
+           survive for the next valid one. -->
+      <div id="file-message" hidden></div>
 
       <div id="task-info" hidden></div>
     </div>
@@ -92,6 +92,7 @@ function getElements() {
     fileName: document.getElementById("file-name"),
     fileSize: document.getElementById("file-size"),
     fileRemove: document.getElementById("file-remove"),
+    fileMessage: document.getElementById("file-message"),
     taskInfo: document.getElementById("task-info"),
   };
 }
@@ -107,13 +108,11 @@ function isValidZip(file) {
 
 // ─── CONTROLLER ───────────────────────────────────────────────────────────
 /**
- * @param message  Element used to display errors and messages.
  * @param knownTasks Map of task id -> suite.
  * @param onFile    Called with `(file, taskIds)` when a file is selected,
  *                  or `(null, [])` when it is removed.
  */
 function createUploadSection({
-  message,
   knownTasks,
   onFile,
 }) {
@@ -149,17 +148,18 @@ function createUploadSection({
     elements.dropzone.hidden = false;
     elements.fileInfo.hidden = true;
     elements.taskInfo.hidden = true;
+    elements.fileMessage.hidden = true;
   }
 
   // ─── EVENTS ───────────────────────────────────────────────────────────────
 
   async function processFile(file) {
     if (!isValidZip(file)) {
-      showError(message, "That isn't a .zip file.");
+      showFailure(elements.fileMessage, `${file?.name ?? "That file"} is not a .zip file.`);
       return;
     }
 
-    showMessage(message, "");
+    clearMessage(elements.fileMessage);
     showSelectedFile(file);
 
     try {
@@ -171,9 +171,10 @@ function createUploadSection({
     } catch (error) {
       console.error(error);
 
-      showError(
-        message,
-        `Could not read the zip (${error.message}). Check the file and upload it again.`,
+      showFailure(
+        elements.fileMessage,
+        "That .zip could not be read. Check the file and upload it again.",
+        error,
       );
 
       onFile(null, []);
@@ -182,7 +183,7 @@ function createUploadSection({
 
   function removeFile() {
     showDropzone();
-    showMessage(message, "");
+    clearMessage(elements.fileMessage);
     onFile(null, []);
   }
 

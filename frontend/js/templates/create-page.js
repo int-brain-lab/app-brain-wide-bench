@@ -16,17 +16,18 @@
 // by hand, and the order is the part that's easy to get wrong.
 
 import { isAuthenticated } from "../api/client.js";
+import { CLEARED_MESSAGE } from "../forms/form.js";
 import { showGate } from "./gate.js";
-import { showError, showMessage } from "../core/utils.js";
+import { clearMessage, showFailure, showWarning } from "../core/utils.js";
 import { createPanelForm } from "../forms/create-form.js";
 import {
   buildFormFooter,
   buildHeader,
-  buildMessage,
   buildPage,
   pageMessage,
   renderHeader,
   renderPage,
+  showPageError,
   submitButton,
 } from "./record-page.js";
 
@@ -43,7 +44,6 @@ function renderChrome({ noun, header, backTo }) {
       body: `
         <div class="column gap-lg">
           <div class="column gap-lg" id="${PANELS_ID}"></div>
-          ${buildMessage()}
           ${buildFormFooter({
             cancelHref: backTo.href ?? "",
             submitLabel: `Create ${noun}`
@@ -108,8 +108,6 @@ async function loadCreatePage({
   submit,
   onChange,
 }) {
-  const container = document.getElementById("container");
-
   try {
     if (!(await isAuthenticated())) {
       showGate(false);
@@ -138,9 +136,9 @@ async function loadCreatePage({
       // the moment to drop a message left over from the change before.
       onCleared: labels => {
         if (labels) {
-          showError(pageMessage(), `Cleared (no longer valid): ${labels}`);
+          showWarning(pageMessage(), CLEARED_MESSAGE, labels);
         } else {
-          showMessage(pageMessage(), "");
+          clearMessage(pageMessage());
         }
       },
 
@@ -153,7 +151,7 @@ async function loadCreatePage({
     // form whether it is still complete, rather than assuming it is.
     async function handleSubmit() {
       submitButton().disabled = true;
-      showMessage(pageMessage(), "");
+      clearMessage(pageMessage());
 
       try {
         const destination = await submit(form.state, context);
@@ -167,7 +165,7 @@ async function loadCreatePage({
       } catch (error) {
         console.error(error);
 
-        showError(pageMessage(), `Failed to create new ${noun}: ${error.message}`);
+        showFailure(pageMessage(), `Creating ${noun} failed.`, error);
         form.refresh();
       }
     }
@@ -187,7 +185,7 @@ async function loadCreatePage({
   } catch (error) {
     console.error(`Failed to initialise the ${noun} create page:`, error);
 
-    showError(container, `The ${noun} create page could not be loaded.`);
+    showPageError(`The ${noun} create page could not be loaded.`, error);
 
     return null;
   }

@@ -7,7 +7,7 @@
 import { isAuthenticated } from "../api/client.js";
 import { showGate } from "./gate.js";
 import { applyShell } from "./shell.js";
-import { showError } from "../core/utils.js";
+import { showEmpty, showFailure } from "../core/utils.js";
 import {
   appendCreateCard,
   clearCreateRow,
@@ -15,11 +15,10 @@ import {
 } from "../cards/createCard.js";
 import {
   buildHeader,
-  buildMessage,
   buildPage,
-  pageMessage,
   renderHeader,
   renderPage,
+  showPageError,
 } from "./record-page.js";
 
 const CARDS = "view-cards";
@@ -90,9 +89,13 @@ function renderTable(items, elements, table, create) {
   return tableInstance ?? null;
 }
 
-function renderEmptyState(elements, create) {
-  elements.list.className = "grid-2";
+function renderEmptyState(elements, create, noun) {
+  elements.list.className = "column gap-md";
   elements.list.replaceChildren();
+
+  // Before the create card, and shown whether or not there is one: signed out there is no
+  // card, and an empty list would otherwise be an empty page.
+  showEmpty(elements.list, `No ${noun} yet.`);
 
   appendCreateCard(elements.list, create);
   clearCreateRow(elements.create);
@@ -126,8 +129,6 @@ async function loadListPage({
   // no gate, the public shell when signed out, and no create affordance.
   requiresAuth = true,
 }) {
-  const container = document.getElementById("container");
-
   // The currently mounted Tabulator instance. It needs to be destroyed before
   // switching views because replacing the list's contents does not destroy it.
   let tableInstance = null;
@@ -184,7 +185,7 @@ async function loadListPage({
         header: buildHeader(
           table ? [CARDS_ACTION, TABLE_ACTION] : [],
         ),
-        body: buildMessage() + buildList(),
+        body: buildList(),
       }),
     );
 
@@ -193,13 +194,15 @@ async function loadListPage({
     const elements = getElements();
     const items = await fetch();
 
+    // Into the list rather than the page message: the fetch came back with nothing, so the
+    // failure belongs where the rows would have been — same place as the empty state.
     if (!items) {
-      showError(pageMessage(), `Could not load ${noun}.`);
+      showFailure(elements.list, `Loading ${noun} failed.`);
       return;
     }
 
     if (!items.length) {
-      renderEmptyState(elements, create);
+      renderEmptyState(elements, create, noun);
       return;
     }
 
@@ -219,12 +222,7 @@ async function loadListPage({
   } catch (error) {
     console.error(`Failed to load the ${noun} list:`, error);
 
-    // `pageMessage()` only exists once the page has rendered; a failure before that has
-    // nowhere to go but the container.
-    showError(
-      pageMessage() ?? container,
-      `The ${noun} list page could not be loaded.`,
-    );
+    showPageError(`The ${noun} list page could not be loaded.`, error);
   }
 }
 

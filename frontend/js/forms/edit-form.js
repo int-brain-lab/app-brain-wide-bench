@@ -32,7 +32,8 @@ import { createFieldForm } from "./form.js";
  *                     e.g. re-render the page's tabs.
  * @param onCleared    optional (labels: string) => void, when a change
  *                     invalidated other fields.
- * @param onError      optional (message: string) => void.
+ * @param onError      optional (error: Error) => void. The error itself, so the caller
+ *                     decides how to word the failure and what to do with the detail.
  * @param onEdit       optional () => void, as edit mode opens — before the draft is built,
  *                     so it can set up whatever `context` will be read from.
  * @param onCancel     optional () => void, after the draft is discarded.
@@ -126,7 +127,7 @@ function Editor({
       // A save helper that swallowed its error returns undefined — a failure, not a
       // reason to wipe the record.
       if (!updated) {
-        onError?.("Could not save changes.");
+        onError?.(new Error("The server returned no record."));
         return;
       }
 
@@ -137,7 +138,7 @@ function Editor({
       await onSaved?.(record);
     } catch (err) {
       console.error(err);
-      onError?.(`Could not save changes: ${err.message}`);
+      onError?.(err);
     }
   }
 

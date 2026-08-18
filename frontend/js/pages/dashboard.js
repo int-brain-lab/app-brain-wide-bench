@@ -7,7 +7,7 @@ import { loadMe } from "../api/userApi.js";
 import { getMySubmissions } from "../api/submissionApi.js";
 import { getMyModels } from "../api/modelApi.js";
 import { getMyTaskSubmissions} from "../api/taskSubmissionApi.js";
-import { showMessage } from "../core/utils.js";
+import { showEmpty } from "../core/utils.js";
 import { renderStaticSubmissionsTable } from "../tables/submissionTable.js";
 import {
   renderStaticTaskScoresTable,
@@ -23,15 +23,14 @@ import { loadRecordPage } from "../templates/record-loader.js";
 import {
   buildBody,
   buildHeader,
-  buildMessage,
   buildPage,
   buildSections,
   buildStats,
-  pageMessage,
   renderHeader,
   renderPage,
   sectionBody,
 } from "../templates/record-page.js";
+
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
@@ -151,7 +150,7 @@ function renderTeamsSection(teams) {
   const container = sectionBody("teams");
 
   if (!teams.length) {
-    showMessage(container, "No teams yet.");
+    showEmpty(container, "No teams yet.");
     return;
   }
 
@@ -196,8 +195,9 @@ function renderSubmissionsSection(submissions) {
 function renderScoresSection(scoreRows) {
   const container = sectionBody("scores");
 
+  scoreRows = []
   if (!scoreRows.length) {
-    showMessage(container, "No scored tasks yet.");
+    showEmpty(container, "No scored tasks yet.");
     return;
   }
 
@@ -257,7 +257,7 @@ function renderScoresView({ models, scoreRows }) {
     buildPage({
       back: BACK,
       header: buildHeader(),
-      body: buildMessage() + buildBody(),
+      body: buildBody(),
     }),
   );
 
@@ -269,10 +269,7 @@ function renderScoresView({ models, scoreRows }) {
   );
 
   if (!taskCount) {
-    showMessage(
-      pageMessage(),
-      "No task scores available. Please submit models to see scores here.",
-    );
+    showEmpty(sectionBody("body"), "No scored tasks yet.");
     return;
   }
 

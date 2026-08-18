@@ -1,6 +1,6 @@
 // Team record page — dashboard and details for one team.
 
-import { escapeHtml, showError, showMessage } from "../core/utils.js";
+import { escapeHtml, showEmpty, showFailure, showMessage, showSuccess } from "../core/utils.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
 import { TEAM_FIELDS, TEAM_PANELS } from "../schemas/teamSchema.js";
 import { loadTeam, updateTeam } from "../api/teamApi.js";
@@ -16,7 +16,6 @@ import {
   EDIT_ACTIONS,
   buildBody,
   buildHeader,
-  buildMessage,
   buildPage,
   buildSection,
   buildSections,
@@ -132,7 +131,7 @@ function renderModelsSection(models) {
   const container = sectionBody("models");
 
   if (!models.length) {
-    showMessage(container, "This team has no models.");
+    showEmpty(container, "No models yet.");
     return;
   }
 
@@ -145,7 +144,7 @@ function renderMembersSection(team) {
   const container = sectionBody("members");
 
   if (!team.members.length) {
-    showMessage(container, "This team has no members.");
+    showEmpty(container, "No members yet.");
     return;
   }
 
@@ -193,7 +192,6 @@ function renderDetailsView({ team, fields, canEdit, edit = false, created = fals
       back: BACK,
       header: buildHeader(canEdit ? EDIT_ACTIONS : []),
       body:
-        buildMessage() +
         buildBody() +
         (canEdit ? buildSections([MEMBERS_SECTION_BODY]) : "") +
         (created ? buildSection({ id: "post-create" }) : ""),
@@ -205,6 +203,8 @@ function renderDetailsView({ team, fields, canEdit, edit = false, created = fals
 
   // Only when team_create.html sent us here. A team made moments ago owns nothing yet.
   if (created) {
+    showSuccess(pageMessage(), "Team successfully created.");
+
     appendCreateCard(sectionBody("post-create"), {
       href: "/html/models/model_create.html",
       label: "Register your first model for this team",
@@ -219,7 +219,9 @@ function renderDetailsView({ team, fields, canEdit, edit = false, created = fals
 
   const members = createMembersSection({
     getTeam: () => team,
-    onMessage: message => showMessage(pageMessage(), message),
+    onMessage: (message, failed) => (failed
+      ? showFailure(pageMessage(), message)
+      : showMessage(pageMessage(), message)),
   });
 
   members.render();
@@ -229,6 +231,7 @@ function renderDetailsView({ team, fields, canEdit, edit = false, created = fals
   let failedMembers = [];
 
   attachRecordEditor({
+    noun: "team",
     record: team,
     fields,
     panels: TEAM_PANELS,
@@ -249,14 +252,13 @@ function renderDetailsView({ team, fields, canEdit, edit = false, created = fals
       members.setEditing(false);
       members.render();
 
-      // A member that couldn't be added doesn't undo the rename, so both outcomes are
-      // reported rather than the failure replacing the success.
-      if (failedMembers.length === 0) {
-        showMessage(pageMessage(), "Changes saved.");
-      } else {
-        showError(
+      // attachRecordEditor has already reported the save; this overwrites it only when the
+      // rename went through but a member didn't, which the standard card cannot say.
+      if (failedMembers.length) {
+        showFailure(
           pageMessage(),
-          `Saved, but some members could not be changed — ${failedMembers.join("; ")}`,
+          "Team saved, but some members could not be changed.",
+          new Error(failedMembers.join("; ")),
         );
       }
 

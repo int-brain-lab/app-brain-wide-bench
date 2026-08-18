@@ -1,6 +1,6 @@
 // Model record page — dashboard, details, submissions and scores for one model.
 
-import { formatDate, showMessage } from "../core/utils.js";
+import { formatDate, showEmpty, showSuccess } from "../core/utils.js";
 import { buildDisplayFields } from "../forms/fields.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
 import { loadModelFields, MODEL_FIELDS, MODEL_PANELS } from "../schemas/modelSchema.js";
@@ -19,20 +19,20 @@ import { appendCreateCard, renderCreateRow } from "../cards/createCard.js";
 import { renderTaskScoresTable, toScoreRows } from "../tables/scoreTable.js";
 import { loadRecordPage } from "../templates/record-loader.js";
 import {
-  EDIT_ACTION,
-  EDIT_ACTIONS,
   buildBody,
   buildHeader,
-  buildMessage,
   buildPage,
   buildSection,
   buildSections,
   buildStats,
+  EDIT_ACTION,
+  EDIT_ACTIONS,
+  pageMessage,
+  renderDetails,
   renderHeader,
   renderPage,
   sectionBody,
   sectionCreate,
-  renderDetails,
 } from "../templates/record-page.js";
 import { buildStatCards } from "../cards/statCards.js";
 
@@ -161,7 +161,7 @@ function renderSubmissionsSection(model, submissions, canEdit) {
   const container = sectionBody("submissions");
 
   if (!submissions.length) {
-    showMessage(container, "This model has no submissions.");
+    showEmpty(container, "No submissions yet.");
   } else {
     renderStaticSubmissionsTable({ container, submissions, limit: MAX_SUBMISSIONS });
   }
@@ -208,7 +208,7 @@ function renderDetailsView({ model, fields, canEdit, edit = false, created = fal
     buildPage({
       back: BACK,
       header: buildHeader(canEdit ? EDIT_ACTIONS : []),
-      body: buildMessage() + buildBody() + (created ? buildSection({ id: "post-create" }) : ""),
+      body: buildBody() + (created ? buildSection({ id: "post-create" }) : ""),
     }),
   );
 
@@ -222,6 +222,8 @@ function renderDetailsView({ model, fields, canEdit, edit = false, created = fal
   // Only when model_create.html sent us here. A model registered moments ago has nothing
   // submitted against it, and this is the one visit where that is known without asking.
   if (created) {
+    showSuccess(pageMessage(), "Model successfully created.");
+
     appendCreateCard(sectionBody("post-create"), {
       href: `/html/submissions/submission_create.html?model=${encodeURIComponent(model.id)}`,
       label: "Make your first submission for this model",
@@ -229,6 +231,7 @@ function renderDetailsView({ model, fields, canEdit, edit = false, created = fal
   }
 
   attachRecordEditor({
+    noun: "model",
     record: model,
     fields,
     panels: MODEL_PANELS,

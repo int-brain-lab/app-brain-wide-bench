@@ -1,5 +1,6 @@
 // Page chrome shared by every record view: the wrapper, header, actions and sections.
 
+import { renderMessage } from "../core/utils.js";
 import { panelGroups } from "../schemas/schema.js";
 import { buildDisplayFields, buildGroupCards } from "../forms/fields.js";
 
@@ -218,14 +219,9 @@ function buildBody() {
 
 // Deliberately not a `.page-section` — an empty message shouldn't introduce
 // the section spacing used by normal content sections.
-function buildMessage() {
-  return `<div id="${MESSAGE_ID}" hidden></div>`;
-}
-
-// Cancel beside the primary button, identical on every create form. The caller wraps this,
-// the panels and the message in one `.column.gap-lg` — that wrapper is what spaces the
-// button off the last panel, and it puts the message directly above the control that
-// produced it.
+// Cancel beside the primary button, identical on every create form. The caller wraps this
+// and the panels in one `.column.gap-lg`, which is what spaces the button off the last
+// panel; buildPage puts the message region below the pair.
 function buildFormFooter({ cancelHref, submitLabel }) {
   return `
     <div class="row right gap-md">
@@ -241,6 +237,14 @@ function buildFormFooter({ cancelHref, submitLabel }) {
   `;
 }
 
+// Every page gets its message region here rather than composing it per view: a view that
+// forgot it left `pageMessage()` null, and the first report of a failed save threw instead
+// of showing.
+//
+// Under the header, above the body. Everything that writes here is the outcome of something
+// the user just did — a save, a create — and a form or a record long enough to scroll would
+// hide it anywhere lower. A view reporting something about one section writes to that
+// section instead, not here.
 function buildPage({
   back = null,
   header = "",
@@ -249,6 +253,7 @@ function buildPage({
   return `
     ${back ? buildBackLink(back) : ""}
     ${header}
+    <div id="${MESSAGE_ID}" hidden></div>
     ${body}
   `;
 }
@@ -298,6 +303,21 @@ function pageMessage() {
   return document.getElementById(MESSAGE_ID);
 }
 
+function pageContainer() {
+  return document.getElementById(CONTAINER_ID);
+}
+
+// The one way to report a page that failed before it could render. The error replaces the
+// container, so nothing half-built is left behind it — and going through here rather than
+// each loader finding #container for itself is what keeps a failure looking the same
+// wherever it happened.
+//
+// Not for a failure *after* the page is up: that one has a page to sit in, and belongs in
+// the message region or the section whose content is missing.
+function showPageError(message, error) {
+  renderMessage(pageContainer(), message, "page-error", error?.message ?? "");
+}
+
 function submitButton() {
   return document.getElementById(SUBMIT_ID);
 }
@@ -325,14 +345,15 @@ export {
   buildSection,
   buildSections,
   buildBody,
-  buildMessage,
   buildFormFooter,
   buildPage,
   renderPage,
+  showPageError,
   renderDetails,
   renderHeader,
   sectionBody,
   sectionCreate,
+  pageContainer,
   pageMessage,
   submitButton,
 };

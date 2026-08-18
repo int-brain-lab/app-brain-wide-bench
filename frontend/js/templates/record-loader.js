@@ -5,7 +5,7 @@
 import { isAuthenticated } from "../api/client.js";
 import { showGate, showSignInPrompt } from "./gate.js";
 import { applyShell } from "./shell.js";
-import { showError } from "../core/utils.js";
+import { pageContainer, showPageError } from "./record-page.js";
 import { createRecordRouter } from "../core/router.js";
 
 async function loadRecordPage({
@@ -24,8 +24,6 @@ async function loadRecordPage({
   // reader may *change* is the record's own `can_edit`, which is team membership.
   requiresAuth = true,
 }) {
-  const container = document.getElementById("container");
-
   try {
     const signedIn = await isAuthenticated();
 
@@ -42,14 +40,14 @@ async function loadRecordPage({
     const id = requiresId ? new URLSearchParams(location.search).get("id") : null;
 
     if (requiresId && !id) {
-      showError(container, `No ${noun} id in the URL.`);
+      showPageError(`No ${noun} id in the URL.`);
       return;
     }
 
     const context = await load(id, { signedIn });
 
     if (!context) {
-      showError(container, requiresId ? `Could not load ${noun} ${id}.` : `Could not load your ${noun}.`);
+      showPageError(requiresId ? `Could not load ${noun} ${id}.` : `Could not load your ${noun}.`);
       return;
     }
 
@@ -68,11 +66,11 @@ async function loadRecordPage({
     // in it, not a broken page — and signing in is what would change the answer, since a
     // team member sees their own team's private records at the same URL.
     if (error.status === 404 && !requiresAuth) {
-      showSignInPrompt(container, `This ${noun} is not public. Sign in if you have access to it.`);
+      showSignInPrompt(pageContainer(), `This ${noun} is not public. Sign in if you have access to it.`);
       return;
     }
 
-    showError(container, `The ${noun} page could not be loaded.`);
+    showPageError(`The ${noun} page could not be loaded.`, error);
   }
 }
 

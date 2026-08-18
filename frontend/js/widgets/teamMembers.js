@@ -14,7 +14,7 @@
 
 import { addTeamMember, removeTeamMember, updateTeamMember } from "../api/teamApi.js";
 import { searchUsers } from "../api/userApi.js";
-import { escapeHtml, initials, renderMessage } from "../core/utils.js";
+import { escapeHtml, initials, showEmpty } from "../core/utils.js";
 
 // The server's TeamRole. Ordered as the select shows them, most privileged first.
 const ROLES = ["owner", "collaborator"];
@@ -184,7 +184,7 @@ function createMembersSection({
     }
 
     if (members.length === 0) {
-      renderMessage(elements.list, "This team has no members.");
+      showEmpty(elements.list, "No members yet.");
       return;
     }
 
@@ -381,10 +381,9 @@ function createMembersSection({
 
     if (users.length === 0) {
       clearSearchResults();
-      onMessage(
-        `No user with that email: ${query}`,
-        "error-msg",
-      );
+      // Second argument, not a class name: the host decides what a failure looks like, and
+      // both of them render it the same way.
+      onMessage(`No user with that email: ${query}`, true);
       return;
     }
 

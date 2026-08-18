@@ -12,7 +12,8 @@
 // apply-to-suite checkbox to reveal. Those arrive as hooks that run *after* the standard
 // behaviour, so a view adds to it rather than restating it.
 
-import { showError, showMessage } from "../core/utils.js";
+import { clearMessage, showFailure, showSuccess, showWarning } from "../core/utils.js";
+import { CLEARED_MESSAGE } from "../forms/form.js";
 import { panelGroups } from "../schemas/schema.js";
 import { Editor } from "../forms/edit-form.js";
 import {
@@ -24,6 +25,9 @@ import {
 
 
 /**
+ * @param noun         What is being edited — "model", "team". Names it in the card that
+ *                     reports the save, so every view says the same thing the same way.
+ *
  * @param record       The record being edited. Mutated in place on a successful save, so the
  *                     surrounding view sees the new values.
  *
@@ -58,7 +62,13 @@ import {
  *
  * @returns the editor, already attached.
  */
+function capitalise(noun) {
+  return noun.charAt(0).toUpperCase() + noun.slice(1);
+}
+
+
 function attachRecordEditor({
+  noun = "record",
   record,
   fields,
   panels,
@@ -75,9 +85,19 @@ function attachRecordEditor({
     renderDetails(current, fields, panels);
   }
 
+  const buttons = editButtons();
+
+  // Edit, Save and Cancel all mean the user has moved on, so whatever the last change or
+  // save said is stale — and left up under a fresh edit it reads as a response to this
+  // click. Registered before Editor's own handlers, so a save that reports something writes
+  // into a region this has just emptied.
+  for (const button of Object.values(buttons)) {
+    button?.addEventListener("click", () => clearMessage(pageMessage()));
+  }
+
   const editor = Editor({
     container: sectionBody("body"),
-    ...editButtons(),
+    ...buttons,
     record,
     fields,
     groups: () => panelGroups(fields, panels, { columns: 1 }),
@@ -86,14 +106,14 @@ function attachRecordEditor({
     onEdit,
 
     onCleared: onCleared ?? (labels => {
-      showError(pageMessage(), `Cleared (no longer valid): ${labels}`);
+      showWarning(pageMessage(), CLEARED_MESSAGE, labels);
     }),
 
-    // The message is cleared first so a view's own report is the only thing left standing,
-    // and the rows are redrawn before the hook runs so a hook that touches the page is
-    // looking at the saved record.
+    // The standard report goes up first and the rows are redrawn before the hook runs, so a
+    // view with something better to say — which tasks a task edit actually changed — writes
+    // over it while looking at the saved record.
     onSaved: saved => {
-      showMessage(pageMessage(), "");
+      showSuccess(pageMessage(), `${capitalise(noun)} successfully saved.`);
       renderTitle?.(saved);
       renderRows(saved);
 
@@ -106,7 +126,7 @@ function attachRecordEditor({
       onCancel?.();
     },
 
-    onError: message => showError(pageMessage(), message),
+    onError: error => showFailure(pageMessage(), `Saving ${noun} failed.`, error),
   });
 
   editor.attach();

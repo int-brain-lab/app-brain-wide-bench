@@ -26,13 +26,14 @@ const MODEL_PANELS = [
   },
   {
     panel: 3,
-    required: [],
+    required: ["is_pretrained"],
     title: "3. Describe your model parameters"
   },
 ];
 
 async function submitModel(state) {
   const model = await createModel(state);
+
   // TODO do I need to throw an error if model is null or undefined?
   //  Or will createModel throw an error itself?
   return `/html/models/models.html?id=${encodeURIComponent(model.id)}&view=details&created`;

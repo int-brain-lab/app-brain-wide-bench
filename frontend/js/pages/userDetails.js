@@ -5,21 +5,21 @@
 
 import { isAuthenticated } from "../api/client.js";
 import { fillSidebarUser } from "../nav/navSide.js";
-import { showError, showMessage } from "../core/utils.js";
+import { showSuccess } from "../core/utils.js";
 import { attachRecordEditor } from "../templates/record-editor.js";
 import { showGate } from "../templates/gate.js";
 import { loadMe, updateMe } from "../api/userApi.js";
 import { USER_FIELDS, USER_PANELS } from "../schemas/userSchema.js";
 import {
-  EDIT_ACTIONS,
   buildBody,
   buildHeader,
-  buildMessage,
   buildPage,
+  EDIT_ACTIONS,
   pageMessage,
   renderDetails,
   renderHeader,
   renderPage,
+  showPageError,
 } from "../templates/record-page.js";
 
 const DESCRIPTION =
@@ -30,13 +30,14 @@ const DESCRIPTION =
 
 function attachEditor(user) {
   attachRecordEditor({
+    noun: "details",
     record: user,
     fields: USER_FIELDS,
     panels: USER_PANELS,
     save: draft => updateMe(draft),
 
     onSaved: async () => {
-      showMessage(pageMessage(), "Your details have been saved.");
+      showSuccess(pageMessage(), "Details successfully saved.");
 
       // The sidebar shows the name that was just edited.
       await fillSidebarUser();
@@ -47,8 +48,6 @@ function attachEditor(user) {
 // ─── INITIALISATION ──────────────────────────────────────────────────────────
 
 async function loadUserDetailsPage() {
-  const container = document.getElementById("container");
-
   try {
     if (!(await isAuthenticated())) {
       showGate(false);
@@ -60,14 +59,14 @@ async function loadUserDetailsPage() {
     const user = await loadMe();
 
     if (!user) {
-      showError(container, "Could not load your details.");
+      showPageError("Could not load your details.");
       return;
     }
 
     renderPage(
       buildPage({
         header: buildHeader(EDIT_ACTIONS),
-        body: buildMessage() + buildBody(),
+        body: buildBody(),
       }),
     );
 
@@ -79,7 +78,7 @@ async function loadUserDetailsPage() {
   } catch (error) {
     console.error("Failed to load user details page ", error);
 
-    showError(container, "User details page could not be loaded.");
+    showPageError("User details page could not be loaded.", error);
   }
 }
 

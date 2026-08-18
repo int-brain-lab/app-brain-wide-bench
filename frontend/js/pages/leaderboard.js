@@ -3,47 +3,68 @@
 // Thin, like modelList.js and submissionList.js: fetch, then hand the payload to the table
 // module. The rows, columns, controls and the grouping/metric behaviour are all in
 // leaderboardTable.js; the fetch is in leaderboardApi.js.
+//
+// The chrome is the shared one — header, body section, message region — so the leaderboard
+// reports an empty result or a failure exactly as the list pages do.
 
 import { getLeaderboard } from "../api/leaderboardApi.js";
 import { isAuthenticated } from "../api/client.js";
 import { renderLeaderboardTable } from "../tables/leaderboardTable.js";
 import { applyShell } from "../templates/shell.js";
-import { renderMessage } from "../core/utils.js";
+import { showEmpty, showFailure } from "../core/utils.js";
+import {
+  buildBody,
+  buildHeader,
+  buildPage,
+  renderHeader,
+  renderPage,
+  sectionBody,
+  showPageError,
+} from "../templates/record-page.js";
 
 
-// ─── RENDERING ──────────────────────────────────────────────────────────────
+// ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
-function showError(message) {
-  renderMessage(document.getElementById("leaderboard"), message, "error-msg");
-}
+const TITLE = "Leaderboard";
+const DESCRIPTION = "Public, completed submissions scored against held-out test data.";
 
 
 // ─── INITIALISATION ─────────────────────────────────────────────────────────
 
 async function loadLeaderboardPage() {
   try {
-    // Before the fetch, so the page settles into one shell rather than rearranging itself
-    // around the table once the rows land.
+    // Before anything renders, so the page settles into one shell rather than rearranging
+    // itself around the table once the rows land.
     applyShell(await isAuthenticated());
+
+    renderPage(
+      buildPage({
+        header: buildHeader(),
+        body: buildBody(),
+      }),
+    );
+
+    renderHeader(TITLE, DESCRIPTION);
 
     const submissions = await getLeaderboard();
 
     if (!submissions) {
-      showError("Could not load the leaderboard.");
+      showFailure(sectionBody("body"), "Loading the leaderboard failed.");
       return;
     }
 
-    // An empty payload isn't an error — nothing public has been scored yet — but the table
+    // An empty payload isn't a failure — nothing public has been scored yet — but the table
     // would render a filter bar over nothing, so it says so instead.
     if (submissions.length === 0) {
-      showError("No public submissions have been scored yet.");
+      showEmpty(sectionBody("body"), "No public submissions have been scored yet.");
       return;
     }
 
-    renderLeaderboardTable({ container: "leaderboard", submissions });
-  } catch (err) {
-    console.error("Failed to initialise the leaderboard:", err);
-    showError("Something went wrong.");
+    renderLeaderboardTable({ container: sectionBody("body"), submissions });
+  } catch (error) {
+    console.error("Failed to initialise the leaderboard:", error);
+
+    showPageError("The leaderboard page could not be loaded.", error);
   }
 }
 

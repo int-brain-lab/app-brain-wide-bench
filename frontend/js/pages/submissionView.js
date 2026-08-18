@@ -1,6 +1,6 @@
 // Submission record page — dashboard, details, tasks and scores for one submission.
 
-import { formatDate, showMessage } from "../core/utils.js";
+import { formatDate, showEmpty, showSuccess } from "../core/utils.js";
 import { buildDisplayFields } from "../forms/fields.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
 import { loadSubmissionFields, SUBMISSION_FIELDS, SUBMISSION_PANELS } from "../schemas/submissionSchema.js";
@@ -20,14 +20,13 @@ import { renderTaskView } from "./taskSubmissionView.js";
 import { buildStatCards } from "../cards/statCards.js";
 import { loadRecordPage } from "../templates/record-loader.js";
 import {
-  EDIT_ACTION,
-  EDIT_ACTIONS,
   buildBody,
   buildHeader,
-  buildMessage,
   buildPage,
   buildSections,
   buildStats,
+  EDIT_ACTION,
+  EDIT_ACTIONS,
   pageMessage,
   renderDetails,
   renderHeader,
@@ -117,7 +116,7 @@ function renderScoresSection(submission) {
   const container = sectionBody("scores");
 
   if (!rows.length) {
-    showMessage(container, "No scores yet — this submission hasn't been scored.");
+    showEmpty(container, "No scored tasks yet.");
     return;
   }
 
@@ -154,7 +153,7 @@ function renderTasksSection(submission, taskSubmissions) {
   const container = sectionBody("tasks");
 
   if (!taskSubmissions.length) {
-    showMessage(container, "This submission has no tasks.");
+    showEmpty(container, "No tasks yet.");
     return;
   }
 
@@ -185,23 +184,27 @@ function renderDashboardView(context, router) {
   if (canEdit) attachEditLink(router);
 }
 
-function renderDetailsView({ submission, fields, canEdit, edit = false }) {
+function renderDetailsView({ submission, fields, canEdit, edit = false, created = false }) {
   renderPage(
     buildPage({
       back: BACK,
       header: buildHeader(canEdit ? EDIT_ACTIONS : []),
-      body: buildMessage() + buildBody(),
+      body: buildBody(),
     }),
   );
 
   renderHeader(submission.label, getSubtitle(submission));
   renderDetails(submission, fields, SUBMISSION_PANELS);
 
+  // Only when submission_create.html sent us here.
+  if (created) showSuccess(pageMessage(), "Submission successfully created.");
+
   // renderDetails has already written the read-only fields, so a reader who may not edit
   // has the whole view without the editor being wired at all.
   if (!canEdit) return;
 
   attachRecordEditor({
+    noun: "submission",
     record: submission,
     fields,
     panels: SUBMISSION_PANELS,
@@ -216,14 +219,14 @@ function renderTasksView({ submission, canEdit }) {
     buildPage({
       back: BACK,
       header: buildHeader(),
-      body: buildMessage() + buildBody(),
+      body: buildBody(),
     }),
   );
 
   renderHeader(submission.label, getSubtitle(submission));
 
   if (!submission.task_submissions?.length) {
-    showMessage(pageMessage(), "This submission has no tasks yet.");
+    showEmpty(sectionBody("body"), "No tasks yet.");
     return;
   }
 
@@ -239,14 +242,14 @@ function renderScoresView({ submission }) {
     buildPage({
       back: BACK,
       header: buildHeader(),
-      body: buildMessage() + buildBody(),
+      body: buildBody(),
     }),
   );
 
   renderHeader(submission.label, getSubtitle(submission));
 
   if (!submission.task_submissions?.length) {
-    showMessage(pageMessage(), "This submission has no scored tasks yet.");
+    showEmpty(sectionBody("body"), "No scored tasks yet.");
     return;
   }
 
@@ -272,7 +275,7 @@ const VIEWS = {
 loadRecordPage({
   views: VIEWS,
   noun: "submission",
-  flags: ["edit"],
+  flags: ["edit", "created"],
   params: ["task"],
 
   // A public submission is readable by anyone — see GET /api/submissions/{id}, which

@@ -7,10 +7,8 @@
 // add, remove, or rename tasks.
 //
 
-import {
-  escapeHtml,
-  renderMessage,
-} from "../core/utils.js";
+import { buildMessageCard, escapeHtml, showEmpty } from "../core/utils.js";
+import { CLEARED_MESSAGE } from "../forms/form.js";
 import { createFieldState, fieldsForPanel } from "../schemas/schema.js";
 import { buildFields } from "../forms/fields.js";
 import {
@@ -209,18 +207,16 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     `;
   }
 
+  // Markup rather than a showWarning call: this sits inside the task's own card, built with
+  // the fields it warns about.
   function buildClearedNotice(task) {
     if (!task.cleared.length) return "";
 
-    const labels = task.cleared
-      .map(key => TASK_FIELDS[key].label)
-      .join(", ");
-
-    return `
-      <p class="error-msg">
-        Cleared (no longer valid): ${escapeHtml(labels)}
-      </p>
-    `;
+    return buildMessageCard(
+      CLEARED_MESSAGE,
+      "warn-msg",
+      task.cleared.map(key => TASK_FIELDS[key].label).join(", "),
+    );
   }
 
   function buildApplyToSuite(task) {
@@ -303,10 +299,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
 
   function render() {
     if (!tasks.size) {
-      renderMessage(
-        container,
-        "No tasks yet — upload a zip on the panel above.",
-      );
+      showEmpty(container, "No tasks yet — upload a .zip on the panel above.");
       return;
     }
 

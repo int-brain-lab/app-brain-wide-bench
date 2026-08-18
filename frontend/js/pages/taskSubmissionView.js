@@ -2,23 +2,23 @@
 //
 // Apply-to-suite propagates the change to every sibling task in the same suite.
 
-import { showError, showMessage } from "../core/utils.js";
+import { showFailure, showSuccess } from "../core/utils.js";
 import { attachRecordEditor } from "../templates/record-editor.js";
 import { suiteFromTask } from "../core/suites.js";
 import { TASK_PANELS, taskPayload } from "../schemas/taskSubmissionSchema.js";
 import { updateTaskSubmissions } from "../api/taskSubmissionApi.js";
 import {
-  CANCEL_ACTION,
-  EDIT_ACTION,
-  SAVE_ACTION,
   buildBody,
   buildHeader,
-  buildMessage,
   buildPage,
+  CANCEL_ACTION,
+  EDIT_ACTION,
   pageMessage,
   renderDetails,
   renderHeader,
   renderPage,
+  SAVE_ACTION,
+  sectionBody,
 } from "../templates/record-page.js";
 
 const BACK = {
@@ -85,14 +85,14 @@ function renderTaskView({ submission, taskFields, task, canEdit, edit = false })
           ? [EDIT_ACTION, APPLY_TO_SUITE_ACTION, SAVE_ACTION, CANCEL_ACTION]
           : [],
       ),
-      body: buildMessage() + buildBody(),
+      body: buildBody(),
     }),
   );
 
   // Reachable by editing the URL, and by a Back into a task that a later save removed.
   if (!taskSubmission) {
     renderHeader(submission.label, submission.team_name ?? "");
-    showError(pageMessage(), "That task is not part of this submission.");
+    showFailure(sectionBody("body"), "That task is not part of this submission.");
     return;
   }
 
@@ -126,6 +126,7 @@ function renderTaskView({ submission, taskFields, task, canEdit, edit = false })
   // paradigm can rule out the supervision regime already chosen. Reporting that is
   // attachRecordEditor's default, which is why no onCleared appears here.
   attachRecordEditor({
+    noun: "task",
     record: taskSubmission,
     fields: taskFields,
     panels: TASK_PANELS,
@@ -161,7 +162,7 @@ function renderTaskView({ submission, taskFields, task, canEdit, edit = false })
       // Names what the server reported it changed, not what the page asked for.
       const names = updated.map(row => row.task_id).sort();
 
-      showMessage(
+      showSuccess(
         pageMessage(),
         names.length === 1
           ? `Updated ${names[0]}.`
