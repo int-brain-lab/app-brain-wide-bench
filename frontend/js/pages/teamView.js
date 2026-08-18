@@ -4,6 +4,8 @@ import { escapeHtml, showError, showMessage } from "../core/utils.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
 import { TEAM_FIELDS, TEAM_PANELS } from "../schemas/teamSchema.js";
 import { loadTeam, updateTeam } from "../api/teamApi.js";
+import { getModels } from "../api/modelApi.js";
+import { renderStaticModelsTable } from "../tables/modelTable.js";
 import { buildMembersPanel, createMembersSection } from "../widgets/teamMembers.js";
 import { appendCreateCard } from "../cards/createCard.js";
 import { buildStatCards } from "../cards/statCards.js";
@@ -28,22 +30,30 @@ import {
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
-const DASHBOARD_SECTIONS = [
-  {
-    id: "members",
-    title: "Members",
-    view: "details",
-    linkIcon: "users",
-    linkText: "Manage members",
-  },
-];
+const MAX_MODELS = 5;
 
-const DETAILS_SECTIONS = [
-  {
-    id: "members",
-    title: "Members",
-  },
-];
+// Models first: it is what a visitor came for, and the only section a non-member sees.
+//
+// No "view all" link, deliberately: the models list is every team's, and pointing a team
+// page at it would quietly change what the reader is looking at.
+const MODELS_SECTION = {
+  id: "models",
+  title: "Models",
+};
+
+const MEMBERS_SECTION = {
+  id: "members",
+  title: "Members",
+  view: "details",
+  linkIcon: "users",
+  linkText: "Manage members",
+};
+
+// The same section without the link: the details view is where "Manage members" leads.
+const MEMBERS_SECTION_BODY = {
+  id: "members",
+  title: "Members",
+};
 
 const BACK = {
   text: "← Back to dashboard",
@@ -60,13 +70,7 @@ function getStatistics(team) {
   ];
 }
 
-// A member list is present only for a member — `null` means "not shown to you", which is a
-// different answer from an empty team, and the two must not render the same way.
-function isMember(team) {
-  return Array.isArray(team.members);
-}
-
-// A separate question from isMember: renaming the team is any member's, but deciding who
+// A separate question from `canEdit`: renaming the team is any member's, but deciding who
 // is *in* it is the owner's, and the server refuses the rest with a 403. Offering the
 // controls to a collaborator would only produce that error on save.
 function isOwner(team) {
@@ -123,13 +127,22 @@ function renderStatsSection(statistics) {
   sectionBody("stats").innerHTML = buildStatCards(statistics);
 }
 
-function renderMembersSection(team) {
-  const container = sectionBody("members");
+// No Team column: every row is this team's, which the page's own heading already says.
+function renderModelsSection(models) {
+  const container = sectionBody("models");
 
-  if (!isMember(team)) {
-    showMessage(container, "Only members of this team can see who is in it.");
+  if (!models.length) {
+    showMessage(container, "This team has no models.");
     return;
   }
+
+  renderStaticModelsTable({ container, models, showTeam: false, limit: MAX_MODELS });
+}
+
+// Only reached for a member — the section itself isn't built for anyone else, since the
+// API withholds the list and a block saying so is noise on a public page.
+function renderMembersSection(team) {
+  const container = sectionBody("members");
 
   if (!team.members.length) {
     showMessage(container, "This team has no members.");
@@ -142,22 +155,25 @@ function renderMembersSection(team) {
 // ─── VIEWS ───────────────────────────────────────────────────────────────────
 
 function renderDashboardView(context, router) {
-  const { team } = context;
-  const member = isMember(team);
+  const { team, models, canEdit } = context;
 
   renderPage(
     buildPage({
-      header: buildHeader(member ? [EDIT_ACTION] : []),
-      body: buildStats("grid-3") + buildSections(DASHBOARD_SECTIONS),
+      header: buildHeader(canEdit ? [EDIT_ACTION] : []),
+      body:
+        buildStats("grid-3") +
+        buildSections(canEdit ? [MODELS_SECTION, MEMBERS_SECTION] : [MODELS_SECTION]),
     }),
   );
 
   renderHeader(team.name, getSubtitle(team));
 
   renderStatsSection(getStatistics(team));
-  renderMembersSection(team);
+  renderModelsSection(models);
 
-  if (!member) return;
+  if (!canEdit) return;
+
+  renderMembersSection(team);
 
   attachEditLink(router);
 
@@ -171,17 +187,15 @@ function renderDashboardView(context, router) {
   });
 }
 
-function renderDetailsView({ team, fields, edit = false, created = false }) {
-  const member = isMember(team);
-
+function renderDetailsView({ team, fields, canEdit, edit = false, created = false }) {
   renderPage(
     buildPage({
       back: BACK,
-      header: buildHeader(member ? EDIT_ACTIONS : []),
+      header: buildHeader(canEdit ? EDIT_ACTIONS : []),
       body:
         buildMessage() +
         buildBody() +
-        (member ? buildSections(DETAILS_SECTIONS) : "") +
+        (canEdit ? buildSections([MEMBERS_SECTION_BODY]) : "") +
         (created ? buildSection({ id: "post-create" }) : ""),
     }),
   );
@@ -197,9 +211,9 @@ function renderDetailsView({ team, fields, edit = false, created = false }) {
     });
   }
 
-  // A non-member sees the card and nothing else: the members block would report an empty
-  // team rather than an unreadable one, and every write it offers would 403.
-  if (!member) return;
+  // A reader who may not edit sees the card and nothing else: the members block would
+  // report an empty team rather than an unreadable one, and every write it offers would 403.
+  if (!canEdit) return;
 
   sectionBody("members").innerHTML = buildMembersPanel();
 
@@ -268,13 +282,29 @@ loadRecordPage({
   noun: "team",
   flags: ["edit", "created"],
 
-  load: async teamId => {
-    const team = await loadTeam(teamId);
+  // A team page is readable by anyone — see GET /api/teams/{id}, which withholds the
+  // member list rather than the whole record.
+  requiresAuth: false,
+
+  load: async (teamId, { signedIn }) => {
+    const [team, models] = await Promise.all([
+      loadTeam(teamId),
+      // Scoped server-side rather than filtered here: the endpoint decides what this caller
+      // may see, which is the whole point on a page a stranger can open.
+      getModels(teamId),
+    ]);
 
     if (!team) {
       return null;
     }
 
-    return { team, fields: TEAM_FIELDS };
+    // Both halves, as on the model and submission pages: `can_edit` is team membership as
+    // the API sees it, `signedIn` is this browser having a session at all.
+    return {
+      team,
+      models,
+      fields: TEAM_FIELDS,
+      canEdit: signedIn && team.can_edit === true,
+    };
   },
 });

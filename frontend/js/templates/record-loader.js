@@ -19,8 +19,9 @@ async function loadRecordPage({
   // in the URL, so `load` is called with a null id.
   requiresId = true,
   // False for a record the API serves to anyone — a model, a submission. Those pages are
-  // one URL for both audiences: no gate, the public shell when signed out, and `signedIn`
-  // in the context so the views can drop what a reader can't do.
+  // one URL for both audiences: no gate, and the public shell when signed out. `load` is
+  // handed `signedIn` so it can skip the fetches only a signed-in caller can make; what a
+  // reader may *change* is the record's own `can_edit`, which is team membership.
   requiresAuth = true,
 }) {
   const container = document.getElementById("container");
@@ -54,7 +55,7 @@ async function loadRecordPage({
 
     createRecordRouter({
       views,
-      context: { ...context, signedIn },
+      context,
       defaultView,
       container,
       flags,

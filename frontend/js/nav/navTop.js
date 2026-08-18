@@ -11,10 +11,13 @@ import { apiFetch, isAuthenticated, login, logout } from "../api/client.js";
 // the link can't drift apart.
 const DASHBOARD_HREF = "/html/dashboard/dashboard.html";
 
+const HOME_HREF = "/index.html";
+
 const NAV_ITEMS = [
   { label: "Leaderboard", href: "/html/leaderboard/leaderboard.html" },
   { label: "Models", href: "/html/models/model_list_public.html" },
   { label: "Submissions", href: "/html/submissions/submission_list_public.html" },
+  { label: "Teams", href: "/html/teams/team_list_public.html" },
   { label: "My dashboard", href: DASHBOARD_HREF },
 ];
 
@@ -164,8 +167,10 @@ async function initialiseNav() {
     return;
   }
 
+  // The link lives here rather than inside renderLogo: the sidebar wraps the same mark in
+  // its own anchor, and an <a> inside an <a> is invalid.
   nav.innerHTML = `
-    ${renderLogo()}
+    <a href="${HOME_HREF}">${renderLogo()}</a>
     ${renderNavLinks(currentPage())}
     ${await renderAuthSection()}
   `;

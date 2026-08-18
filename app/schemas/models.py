@@ -86,6 +86,13 @@ class ModelDetail(ModelBase):
 
     submissions: list[ModelSubmissionOut] = []
 
+    # Whether this caller may edit the model, which is team membership — the same rule
+    # ``require_team_member`` enforces on PATCH. Sent so the client can hide an action it
+    # would only be refused, never to decide anything: the endpoint checks for itself.
+    #
+    # Defaults False, so a construction that says nothing about the caller offers nothing.
+    can_edit: bool = False
+
 
 class ModelCreate(ModelMetadata):
     """Request body for POST /api/models."""

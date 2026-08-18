@@ -42,7 +42,17 @@ function toModelRows(models) {
 
 // ─── COLUMNS ────────────────────────────────────────────────────────────────
 
-function getModelColumns() {
+// `showTeam` off drops the Team column, for a caller already scoped to one — a team's own
+// page, where it would repeat the page's heading down every row.
+function getModelColumns({ showTeam = true } = {}) {
+  const teamColumn = showTeam
+    ? [{
+        title: "Team",
+        field: "team_name",
+        formatter: metadataFormatter,
+      }]
+    : [];
+
   return [
     {
       title: "Model",
@@ -53,11 +63,7 @@ function getModelColumns() {
       ),
       widthGrow: 2,
     },
-    {
-      title: "Team",
-      field: "team_name",
-      formatter: metadataFormatter,
-    },
+    ...teamColumn,
     {
       title: "Suites",
       field: "suites",
@@ -139,15 +145,16 @@ function renderModelsTable({ container, models }) {
  *
  * @param container element, or the id of one. Its contents are replaced.
  * @param models    as renderModelsTable.
+ * @param showTeam  keep the Team column. Pass false when every row is one team's.
  * @param limit     how many rows to show. Omit for all of them.
  * @returns every row it built, not just the slice it rendered, so a caller can report
  *          a total alongside the preview.
  */
-function renderStaticModelsTable({ container, models, limit }) {
+function renderStaticModelsTable({ container, models, showTeam = true, limit }) {
   const rows = toModelRows(models);
 
   resolveContainer(container, "renderStaticModelsTable").innerHTML = renderStaticTable({
-    columns: getModelColumns(),
+    columns: getModelColumns({ showTeam }),
     rows: previewRows(rows, (a, b) => dateSorter(b.created_at, a.created_at), limit),
   });
 

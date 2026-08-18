@@ -74,14 +74,14 @@ function getSubtitle(submission, taskSubmission) {
 
 // ─── VIEW ────────────────────────────────────────────────────────────────────
 
-function renderTaskView({ submission, taskFields, task, signedIn, edit = false }) {
+function renderTaskView({ submission, taskFields, task, canEdit, edit = false }) {
   const taskSubmission = (submission.task_submissions ?? []).find(row => row.id === task);
 
   renderPage(
     buildPage({
       back: BACK,
       header: buildHeader(
-        taskSubmission && signedIn
+        taskSubmission && canEdit
           ? [EDIT_ACTION, APPLY_TO_SUITE_ACTION, SAVE_ACTION, CANCEL_ACTION]
           : [],
       ),
@@ -100,8 +100,8 @@ function renderTaskView({ submission, taskFields, task, signedIn, edit = false }
   renderDetails(taskSubmission, taskFields, TASK_PANELS);
 
   // Everything below reads the apply-to-suite checkbox and the editor's buttons, which are
-  // header actions — so signed out there is nothing there to wire.
-  if (!signedIn) return;
+  // header actions — so without the right to edit there is nothing there to wire.
+  if (!canEdit) return;
 
   const siblings = suiteSiblings(submission, taskSubmission);
   const applyToSuite = document.getElementById("apply-to-suite");

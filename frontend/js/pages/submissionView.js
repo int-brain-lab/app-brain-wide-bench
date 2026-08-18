@@ -164,12 +164,12 @@ function renderTasksSection(submission, taskSubmissions) {
 // ─── VIEWS ───────────────────────────────────────────────────────────────────
 
 function renderDashboardView(context, router) {
-  const { submission, fields, dashboardData, signedIn } = context;
+  const { submission, fields, dashboardData, canEdit } = context;
   const { taskSubmissions } = dashboardData;
 
   renderPage(
     buildPage({
-      header: buildHeader(signedIn ? [EDIT_ACTION] : []),
+      header: buildHeader(canEdit ? [EDIT_ACTION] : []),
       body: buildStats() + buildSections(DASHBOARD_SECTIONS),
     }),
   );
@@ -182,14 +182,14 @@ function renderDashboardView(context, router) {
   renderTasksSection(submission, taskSubmissions);
 
   // Edit button that goes directly to full submission editing view
-  if (signedIn) attachEditLink(router);
+  if (canEdit) attachEditLink(router);
 }
 
-function renderDetailsView({ submission, fields, signedIn, edit = false }) {
+function renderDetailsView({ submission, fields, canEdit, edit = false }) {
   renderPage(
     buildPage({
       back: BACK,
-      header: buildHeader(signedIn ? EDIT_ACTIONS : []),
+      header: buildHeader(canEdit ? EDIT_ACTIONS : []),
       body: buildMessage() + buildBody(),
     }),
   );
@@ -197,9 +197,9 @@ function renderDetailsView({ submission, fields, signedIn, edit = false }) {
   renderHeader(submission.label, getSubtitle(submission));
   renderDetails(submission, fields, SUBMISSION_PANELS);
 
-  // renderDetails has already written the read-only fields, so a signed-out reader has the
-  // whole view without the editor being wired at all.
-  if (!signedIn) return;
+  // renderDetails has already written the read-only fields, so a reader who may not edit
+  // has the whole view without the editor being wired at all.
+  if (!canEdit) return;
 
   attachRecordEditor({
     record: submission,
@@ -211,7 +211,7 @@ function renderDetailsView({ submission, fields, signedIn, edit = false }) {
   });
 }
 
-function renderTasksView({ submission, signedIn }) {
+function renderTasksView({ submission, canEdit }) {
   renderPage(
     buildPage({
       back: BACK,
@@ -230,7 +230,7 @@ function renderTasksView({ submission, signedIn }) {
   return renderTaskSubmissionsTable({
     container: sectionBody("body"),
     submission,
-    showEdit: signedIn,
+    showEdit: canEdit,
   });
 }
 
@@ -296,6 +296,10 @@ loadRecordPage({
       submission,
       fields,
       taskFields,
+      // Both halves, as in modelView: `can_edit` is team membership as the API sees it, and
+      // `signedIn` is this browser having a session — a dev-mode API answers every request
+      // as its stub user, so without it a signed-out visitor would be offered edit controls.
+      canEdit: signedIn && submission.can_edit === true,
       dashboardData: getDashboardData(submission),
     };
   },

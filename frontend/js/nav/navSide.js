@@ -18,6 +18,7 @@ const PUBLIC_NAV_ITEMS = [
   { label: "Leaderboard", href: "/html/leaderboard/leaderboard.html", icon: "trophy" },
   { label: "All models", href: "/html/models/model_list_public.html", icon: "chart-column" },
   { label: "All submissions", href: "/html/submissions/submission_list_public.html", icon: "layers" },
+  { label: "All teams", href: "/html/teams/team_list_public.html", icon: "users" },
   { label: "Home", href: "/index.html", icon: "house" },
 ];
 

@@ -206,7 +206,7 @@ async def _load_team_detail(
     )
 
     if is_member:
-        return detail
+        return detail.model_copy(update={"can_edit": True})
 
     return detail.withhold_private()
 

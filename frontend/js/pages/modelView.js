@@ -157,7 +157,7 @@ function renderDetailsSection(model, fields) {
   `;
 }
 
-function renderSubmissionsSection(model, submissions, signedIn) {
+function renderSubmissionsSection(model, submissions, canEdit) {
   const container = sectionBody("submissions");
 
   if (!submissions.length) {
@@ -166,7 +166,7 @@ function renderSubmissionsSection(model, submissions, signedIn) {
     renderStaticSubmissionsTable({ container, submissions, limit: MAX_SUBMISSIONS });
   }
 
-  if (signedIn) {
+  if (canEdit) {
     renderCreateRow(
       sectionCreate("submissions"),
       getSubmissionLink(model),
@@ -177,7 +177,7 @@ function renderSubmissionsSection(model, submissions, signedIn) {
 // ─── VIEWS ───────────────────────────────────────────────────────────────────
 
 function renderDashboardView(context, router) {
-  const { model, fields, dashboardData, signedIn } = context;
+  const { model, fields, dashboardData, canEdit } = context;
   const { submissions, meanScores, taskCount } = dashboardData;
   const statistics = getStatistics(
     submissions,
@@ -187,7 +187,7 @@ function renderDashboardView(context, router) {
 
   renderPage(
     buildPage({
-      header: buildHeader(signedIn ? [EDIT_ACTION] : []),
+      header: buildHeader(canEdit ? [EDIT_ACTION] : []),
       body: buildStats() + buildSections(DASHBOARD_SECTIONS),
     }),
   );
@@ -197,17 +197,17 @@ function renderDashboardView(context, router) {
   renderStatsSection(statistics);
   renderScoresSection(meanScores);
   renderDetailsSection(model, fields);
-  renderSubmissionsSection(model, submissions, signedIn);
+  renderSubmissionsSection(model, submissions, canEdit);
 
   // Edit button that goes directly to full model editing view
-  if (signedIn) attachEditLink(router);
+  if (canEdit) attachEditLink(router);
 }
 
-function renderDetailsView({ model, fields, signedIn, edit = false, created = false })  {
+function renderDetailsView({ model, fields, canEdit, edit = false, created = false })  {
   renderPage(
     buildPage({
       back: BACK,
-      header: buildHeader(signedIn ? EDIT_ACTIONS : []),
+      header: buildHeader(canEdit ? EDIT_ACTIONS : []),
       body: buildMessage() + buildBody() + (created ? buildSection({ id: "post-create" }) : ""),
     }),
   );
@@ -215,9 +215,9 @@ function renderDetailsView({ model, fields, signedIn, edit = false, created = fa
   renderHeader(model.name, getSubtitle(model));
   renderDetails(model, fields, MODEL_PANELS);
 
-  // renderDetails has already written the read-only fields, so a signed-out reader has the
-  // whole view without the editor being wired at all.
-  if (!signedIn) return;
+  // renderDetails has already written the read-only fields, so a reader who may not edit
+  // has the whole view without the editor being wired at all.
+  if (!canEdit) return;
 
   // Only when model_create.html sent us here. A model registered moments ago has nothing
   // submitted against it, and this is the one visit where that is known without asking.
@@ -307,6 +307,11 @@ loadRecordPage({
     return {
       model,
       fields,
+      // Both halves. `can_edit` is team membership as the API sees it — the same rule PATCH
+      // enforces, and signing in alone doesn't earn it. `signedIn` is this browser having a
+      // session at all: a dev-mode API answers every request as its stub user, so without
+      // this a signed-out visitor would be offered edit controls locally.
+      canEdit: signedIn && model.can_edit === true,
       dashboardData: getDashboardData(model),
     };
   },

@@ -213,8 +213,10 @@ async def _load_model_detail(
         ],
     )
 
+    member = user is not None and await is_team_member(user.id, model.team_id, session)
+
     submissions: list[Submission]
-    if user is not None and await is_team_member(user.id, model.team_id, session):
+    if member:
         submissions = model.submissions
     else:
         submissions = [s for s in model.submissions if s.is_public]
@@ -222,12 +224,13 @@ async def _load_model_detail(
         if not submissions:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Model not found")
 
-    return ModelDetail.from_model(model, submissions=submissions)
+    return ModelDetail.from_model(model, submissions=submissions, can_edit=member)
 
 
 # ── Endpoints ──────────────────────────────────────────────────────
 @router.get("", response_model=list[ModelResponse])
 async def list_models(
+    team_id: uuid.UUID | None = None,
     user: User | None = Depends(get_current_user_optional),
     session: AsyncSession = Depends(get_session),
 ) -> list[ModelResponse]:
@@ -237,20 +240,24 @@ async def list_models(
 
     An authenticated user additionally sees every model on a team they belong
     to, whether or not it has a public submission.
+
+    ``team_id`` narrows the list to one team, for a team page listing what it has
+    registered. It narrows what is *shown*, never what is visible: a team the caller isn't
+    in still yields only its models with a public submission.
     """
     visible = await visible_models(user, session)
-    models = (
-        (
-            await session.execute(
-                select(Model)
-                .options(selectinload(Model.team))
-                .where(visible)
-                .order_by(Model.created_at.desc())
-            )
-        )
-        .scalars()
-        .all()
+
+    query = (
+        select(Model)
+        .options(selectinload(Model.team))
+        .where(visible)
+        .order_by(Model.created_at.desc())
     )
+
+    if team_id is not None:
+        query = query.where(Model.team_id == team_id)
+
+    models = (await session.execute(query)).scalars().all()
 
     # Find the countable submissions based on authentication
     visible = await visible_submissions(user, session)

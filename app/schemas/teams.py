@@ -109,6 +109,14 @@ class TeamDetail(TeamResponse):
 
     members: list[TeamMemberOut] | None = None
 
+    # Whether this caller may edit the team, which is membership — the same rule PATCH
+    # enforces. Deciding who is *in* it is narrower still and stays keyed off ``role``,
+    # since the member endpoints require ownership.
+    #
+    # Defaults False, which is what ``withhold_private`` leaves behind: a reader who
+    # doesn't get the member list doesn't get its edit rights either.
+    can_edit: bool = False
+
     def withhold_private(self) -> "TeamDetail":
         """Return a copy without the member list, for a reader outside the team.
 
