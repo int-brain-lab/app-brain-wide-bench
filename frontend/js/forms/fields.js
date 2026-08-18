@@ -1,16 +1,13 @@
 // Fields as markup — an input for an edit form or a label/value row for a read-only view,
 // and the cards and grids a run of them sits in.
 //
-// Every function here returns an HTML string and reads nothing from the document, so
-// the caller decides where the result is injected. Anything that has to touch a live
-// control belongs in form.js instead, which is also where the disabled-rule readers below
-// come from: whether a field draws as disabled is the same question as whether its value
-// would be cleared as invalid.
+// Everything here returns an HTML string and reads nothing from the document; anything that
+// touches a live control belongs in form.js, which is where the disabled-rule readers come
+// from too.
 //
-// Every interpolation below goes through escapeHtml. Field keys/labels come from
-// our own schemas and are effectively trusted, but the *values* and the dynamic
-// `options` (team names, model names — straight off the API) are not. Escaping
-// uniformly means no future reader has to work out which slot is which.
+// Every interpolation goes through escapeHtml. Keys and labels are our own schemas', but
+// values and dynamic `options` (team and model names, straight off the API) are not, and
+// escaping uniformly means no reader has to work out which slot is which.
 
 import { escapeHtml, formatDate } from "../core/utils.js";
 import { disabledOptionValues, isDisabled } from "./form.js";
@@ -25,8 +22,8 @@ function toArray(value) {
 
 // ─── DISPLAY ────────────────────────────────────────────────────────────────
 
-// checkbox-list values are arrays; joined for display so they don't render as
-// the bare "a,b" of String(array). An empty array reads as unset, not "".
+// A checkbox-list's array is joined rather than left to String(array), and an empty one
+// reads as unset rather than "".
 function displayValue(field, raw) {
   if (field.input === "datetime-local") return formatDate(raw);
   if (Array.isArray(raw)) return raw.length ? raw.join(", ") : null;
@@ -34,26 +31,17 @@ function displayValue(field, raw) {
   return raw;
 }
 
-// A textarea's value is prose, so its display row takes the whole width whatever
-// the card's `columns` is — half a row is the one place it can't afford. Any field
-// can opt in the same way with `fullRow: true` in its schema, for a long joined
-// checkbox list say.
-//
-// Safe to emit unconditionally: `.span-all` is a grid-column rule, so it does
-// nothing to a flex child in a single-column card.
+// A textarea's value is prose, so its row takes the whole width whatever the card's
+// `columns` says; any field can opt in with `fullRow: true`. Safe to emit unconditionally —
+// `.span-all` is a grid rule, so it does nothing to a flex child in a one-column card.
 function fullRowClass(field) {
   return field.fullRow || field.input === "textarea" ? " span-all" : "";
 }
 
 
-// A field's optional `icon` is a Lucide name, rendered only on display rows —
-// an edit form's labels stay plain, since there the input itself carries the
-// meaning. The `<i>` is a placeholder: lucide.createIcons() replaces it with an
-// <svg>, so whatever injects this HTML has to call that afterwards (renderDetails
-// and createFieldForm's render both do).
-//
-// The row/gap utilities go on the label only when there's an icon to space, so
-// `.field-label` keeps its default inline layout everywhere else.
+// `icon` is a Lucide name, and the `<i>` is a placeholder — whatever injects this markup
+// has to run createIcons() afterwards. The row/gap utilities go on only when there is an
+// icon to space, so `.field-label` keeps its default layout everywhere else.
 function buildFieldLabel(field) {
   if (!field.icon) {
     return `<label class="field-label">${escapeHtml(field.label)}</label>`;
@@ -92,10 +80,9 @@ function buildDisplayField(key, state, fields, inline=false) {
 
 // ─── INPUTS ─────────────────────────────────────────────────────────────────
 
-// A textarea holds its value as element *content*, not a `value` attribute, so
-// it can't share buildInputField. The closing `>` must sit tight against the
-// value: HTML strips one newline directly after the open tag, which would
-// silently eat a leading blank line in a saved narrative.
+// A textarea holds its value as element content, not an attribute, so it can't share
+// buildInputField. The closing `>` must sit tight against the value: HTML strips one
+// newline after the open tag, which would eat a leading blank line in a saved narrative.
 function buildTextareaField(key, state, fields) {
   const value = state[key];
   const field = fields[key];
@@ -136,9 +123,8 @@ function buildInputField(key, state, fields) {
 }
 
 
-// Options are either plain scalars (e.g. is_pretrained's [true, false], where
-// the value and its label are the same) or {value, label} pairs (e.g. teams,
-// where the id must be sent but the name is what's shown).
+// Options are either scalars, where the value is its own label, or {value, label} pairs —
+// a team, whose id is sent but whose name is shown.
 function normalizeOption(option) {
   if (typeof option === "object" && option !== null) return option;
   return { value: option, label: option };
@@ -260,8 +246,7 @@ function buildField(key, state, fields) {
 
 // ─── RUNS OF FIELDS ─────────────────────────────────────────────────────────
 
-// Both take (keys, state, fields, inline) so either can be handed to
-// buildGroupCards as its per-group renderer.
+// Both take (keys, state, fields, inline), so either can be buildGroupCards' renderer.
 
 function buildFields(keys, state, fields) {
   return keys
@@ -279,35 +264,27 @@ function buildDisplayFields(keys, state, fields, inline=false) {
 
 // ─── CARDS AND GRIDS ────────────────────────────────────────────────────────
 
-// The grid utilities that exist in style.css. A `columns` value with no class
-// here (1, undefined, or something nobody wrote a rule for) falls back to the
-// card's own single flex column rather than emitting a class that does nothing.
+// A `columns` value with no class here falls back to the card's own flex column, rather
+// than emitting a class style.css has no rule for.
 const GRID_CLASS = { 2: "grid-2", 3: "grid-3", 4: "grid-4" };
 
 
-// Fields arrive as a flat run of sibling divs, so it's the container that decides
-// how they flow: one column needs no wrapper (the card is already a flex column),
-// more than one needs a grid around them.
+// Fields arrive as a flat run of siblings, so the container decides how they flow: one
+// column needs no wrapper, more than one needs a grid.
 function wrapColumns(html, columns) {
   const gridClass = GRID_CLASS[columns];
   return gridClass ? `<div class="${gridClass}">${html}</div>` : html;
 }
 
 
-// Renders one card per group, so a read-only view and its edit form can share a
-// single layout definition instead of each hardcoding the same card titles.
+// One card per group, so a read-only view and its edit form share one layout definition.
 //
-// Deliberately knows nothing about `panel`: a group is just `{title, keys,
-// inline, columns}`, which leaves callers free to group by something else
-// entirely — schemas/schema.js's panelGroups is only the usual way to build them.
-// `render` is the per-group field renderer — buildFields for an edit form,
-// buildDisplayFields for a read-only view; both take (keys, state, fields,
-// inline), so either can be passed straight in.
+// A group is just `{title, keys, inline, columns}` — nothing here knows about `panel`, so a
+// caller is free to group by something else; schema.js's panelGroups is only the usual way.
+// `render` is the per-group renderer: buildFields to edit, buildDisplayFields to display.
 //
-// `columns` lays a group's fields out N-up instead of stacked. Mostly useful on a
-// read-only view, where a row is a short label/value pair and one per line wastes
-// most of the card's width; inputs and textareas usually want the full width, so
-// an edit form tends to override it back to 1.
+// `columns` lays fields out N-up. Mostly for a read-only view, where a label/value pair per
+// line wastes the card's width; inputs want the full width, so an edit form overrides it.
 function buildGroupCards(groups, state, fields, render) {
   return `
     <div class="column gap-lg">

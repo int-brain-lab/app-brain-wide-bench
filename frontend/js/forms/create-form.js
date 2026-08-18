@@ -1,30 +1,17 @@
 // A form whose fields are grouped into panels, where each panel is locked until the one
 // above it is complete.
 //
-// Knows one element: the container it is given. It renders no page, owns no buttons and
-// writes no messages — a change worth reporting is handed back through `onCleared`, and
-// completeness through `onRefresh`, for the owner to show however its page is built. The
-// submit button, the message region and the navigation on success all belong to whatever
-// put this on a page (see create-page.js). Same arrangement as editor.js, which is handed
-// its container and its buttons for the same reason.
+// It knows one element, the container it is given: no page, no buttons, no messages. What a
+// change invalidated comes back through `onCleared` and completeness through `onRefresh`,
+// for the owner to show however its page is built (see create-page.js).
 //
-// Panels can be schema-driven or component-driven. Schema-driven panels are built from the
-// field definitions, while component-driven panels are built using the build function
-// supplied in the panel definition.
+// A panel is either schema-driven, built from the field definitions, or component-driven,
+// built by the `build` function in its definition. Component-driven panels are never
+// re-rendered after mount, so they can keep their own state and listeners. The rest go to
+// one createFieldForm as its sections, so a change in any panel redraws all of them — a
+// `disabledWhen` can name a value set in an earlier panel.
 //
-// Component-driven panels are never re-rendered after the initial mount, so they can maintain
-// their own state and event listeners.
-//
-// The schema-driven panels are handed to one createFieldForm as its sections, so a change
-// in any of them re-renders all of them: a field's disabledWhen or disabledOptionsWhen can
-// name a value set in an earlier panel, and a dependent field only picks that up on a
-// redraw. A schema with no such rules is never redrawn at all — see form.js.
-//
-// The form is created in two phases. `initialise()` builds every fieldset once, including panels
-// owned by components. `render()` only updates schema-driven panels, so component
-// listeners are never destroyed by a form re-render.
-//
-// The page builds its components between the two, so the lifecycle is:
+// Hence two phases, with the page building its components in between:
 //
 //   initialise()  → build the fieldsets and fill the schema-driven ones
 //   …             → construct the components that own the remaining panels
@@ -49,25 +36,19 @@ function isFilled(value) {
  * @param container     Element — the fieldsets are rendered into it. The only part of the
  *                      document this form knows about.
  *
- * @param panels        [{ panel, required, complete, build, title }] — one entry per panel.
- *                      The order in the list defines the order on the page.
- *                      `panel` is a number, `required` is an array of field keys that must
- *                      be filled for the panel to be considered complete, `title` is an
- *                      optional string to display above the panel, and `build` is an optional
- *                      function that returns HTML to insert into the panel.
+ * @param panels        [{ panel, required, complete, build, title }], in page order.
+ *                      `required` is the field keys that must be filled for the panel to
+ *                      count as complete; `build` returns markup for a component-driven one.
  *
- *                      `complete` is an optional () => boolean, ANDed with the required keys.
- *                      It is how a component-driven panel reports completeness the schema
- *                      can't see — and because the panels below it stay locked until it
- *                      passes, it is also how a panel refuses to let the user move on.
+ *                      `complete` is an optional () => boolean, ANDed with `required`. It is
+ *                      how a component-driven panel reports what the schema can't see — and
+ *                      since the panels below stay locked until it passes, how it refuses to
+ *                      let the user move on.
  *
- * @param fields        The field definitions, defined in the schema. The form uses these
- *                      to build schema-driven panels and to determine which fields are required for each panel.
+ * @param fields        the schema, used to build the schema-driven panels and to read each
+ *                      panel's required keys.
  *
- * @param onChange      async (key, value, cleared) => void. Called when a field changes. Optional.
- *                     `key` is the field key, `value` is the new value, and `cleared` is an array of
- *                     field keys that were cleared as a result of the change. This is useful for re-rendering
- *                     dependent fields.
+ * @param onChange      optional async (key, value, cleared) => void, on every field change.
  *
  * @param onCleared     optional (labels: string) => void, when a change invalidated other
  *                      fields. The labels are joined ready to show; where they are shown is
@@ -92,8 +73,7 @@ function createPanelForm({
     panels.map(panel => [panel.panel, panel]),
   );
 
-  // Panels with their own build function are owned by components and must not
-  // be re-rendered after mount.
+  // A panel with its own build function is a component's, and must not be re-rendered.
   const renderedPanels = panels.filter(panel => !panel.build);
 
   let panelElements = new Map();
@@ -119,8 +99,7 @@ function createPanelForm({
       .every(panel => isPanelComplete(panel.panel));
   }
 
-  // Returns group descriptors, not markup — hence `groupsFor` rather than a `build*` name,
-  // which in this codebase means a function that hands back HTML.
+  // Group descriptors, not markup — hence not a `build*` name, which here means HTML.
   function groupsFor(panel) {
     return panelGroups(
       fields,
@@ -143,7 +122,7 @@ function createPanelForm({
       )
       .join("");
 
-    // Store the panels so they can be easily accessed without querying the DOM each time.
+    // Held so later lookups don't go back to the DOM.
     panelElements = new Map(
       [...container.querySelectorAll("[data-panel]")].map(element => [
         Number(element.dataset.panel),
@@ -202,11 +181,10 @@ function createPanelForm({
     onRefresh?.(isComplete());
   }
 
-  // The panels have already been redrawn by the time this runs, if the schema needed it —
-  // all this owes the change is the locks, and the labels of anything the change
-  // invalidated. The locks are unconditional: `required` decides those, not the schema's
-  // rules. `onCleared` is called with nothing to say when nothing was cleared, which is how
-  // the owner knows it can drop a message left over from an earlier change.
+  // The panels have already been redrawn if the schema needed it, so all this owes the
+  // change is the locks and the labels of whatever it invalidated. `onCleared` is called
+  // with an empty string when nothing was cleared, which is how the owner knows to drop a
+  // message left from an earlier change.
   function handleFieldChange(cleared) {
     onCleared?.(
       cleared

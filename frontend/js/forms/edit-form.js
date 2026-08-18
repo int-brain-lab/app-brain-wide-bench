@@ -1,14 +1,9 @@
-// Generic "view a record / click Edit / change fields / Save or Cancel" flow for
-// a details page. Extracted from the model card so the submission card can use
-// the same lifecycle; the pages differ only in their schema, their save call,
-// and which DOM ids they use.
+// Generic "view a record / click Edit / change fields / Save or Cancel" flow for a details
+// page; the pages differ only in their schema, their save call and their buttons.
 //
 // One container serves both modes: the caller renders the read-only view into it, this
 // replaces that with the form while editing, and the caller's onSaved/onCancel puts the
-// read-only view back. It used to assume a pair of `section[data-tab]` panels switched by
-// js/tab.js — that stopped being true, but the import lingered and the `showTab` it named
-// was never called, so a page still built that way had its form rendered into a section
-// nothing ever unhid.
+// read-only view back.
 
 import { createFieldState } from "../schemas/schema.js";
 import { buildFields, buildGroupCards } from "./fields.js";
@@ -16,26 +11,33 @@ import { createFieldForm } from "./form.js";
 
 /**
  * @param container    Element — where the edit form is rendered.
+ * @param editButton   Element — shown outside edit mode, and what opens it.
+ * @param saveButton   Element — shown while editing.
+ * @param cancelButton Element — shown while editing.
+ *
+ *                     All three are resolved once, at construction (record-page.js's
+ *                     editButtons() finds them by id), so a page that re-renders its header
+ *                     afterwards leaves this editor holding detached nodes.
+ *
  * @param fields       the schema (MODEL_FIELDS, SUBMISSION_FIELDS, ...).
- * @param keys         () => string[] — which keys the form shows, as one flat
- *                     list. A thunk, not an array, because `fields` can gain
- *                     options asynchronously.
- * @param groups       optional () => [{title, keys, inline}] — renders one card
- *                     per group instead of a flat list. Build it with
- *                     panelGroups(fields, PANELS) to share a layout with the
- *                     read-only view. Takes precedence over `keys`.
- * @param record       the record being edited. Mutated in place on a successful
- *                     save so the surrounding page sees the new values.
+ * @param keys         () => string[] — the keys to show, as one flat list. A thunk, not
+ *                     an array, because `fields` can gain options asynchronously.
+ * @param groups       optional () => [{title, keys, inline}] — one card per group instead
+ *                     of a flat list, built with panelGroups(fields, PANELS) to share a
+ *                     layout with the read-only view. Takes precedence over `keys`.
+ * @param record       the record being edited. Mutated in place on a successful save, so
+ *                     the surrounding page sees the new values.
  * @param save         async (draft) => updated record (or null/undefined on failure).
  * @param onSaved      optional async (record) => void, after a successful save —
  *                     e.g. re-render the page's tabs.
  * @param onCleared    optional (labels: string) => void, when a change
  *                     invalidated other fields.
  * @param onError      optional (message: string) => void.
- * @param context      optional () => object — extra state merged into the draft that
- *                     the schema's predicates read but that aren't editable fields
- *                     themselves. A thunk, so it can pick up values that load late.
-
+ * @param onEdit       optional () => void, as edit mode opens — before the draft is built,
+ *                     so it can set up whatever `context` will be read from.
+ * @param onCancel     optional () => void, after the draft is discarded.
+ * @param context      optional () => object — state the schema's predicates read that
+ *                     isn't an editable field. A thunk, so it picks up late values.
  */
 function Editor({
   container,
@@ -54,12 +56,9 @@ function Editor({
   onCancel,
   context,
 }) {
-  // Edits accumulate on a draft, never on `record` — so Cancel is free and a
-  // failed save can't leave the page showing values the server never took.
-  //
-  // Null outside editing, which is also how the form below knows to ignore a change:
-  // its listener is attached once for the page's lifetime, but the draft it writes to
-  // only exists between Edit and Save.
+  // Edits accumulate on a draft, never on `record`, so Cancel is free and a failed save
+  // can't leave the page showing values the server never took. Null outside editing, which
+  // is also how the form knows to ignore a change: its listener outlives the draft.
   let draft = null;
 
   // One section: an editor's fields all live in the container the read-only view was in.
@@ -70,14 +69,9 @@ function Editor({
     sections: [{
       container,
 
-      // Drawn from the record merged with the draft, not the draft alone:
-      // createFieldState drops every `editable: false` key, so a form that also shows
-      // read-only rows for context (an email, a created-at) would render them as "—".
-      // The draft is still what gets saved — this merge is display-only.
-      //
-      // `groups` and `keys` are both thunks so the layout is recomputed per render:
-      // a schema whose options arrive late (or a group that becomes empty) is picked
-      // up without re-creating the editor.
+      // Record merged with draft, not the draft alone: createFieldState drops every
+      // `editable: false` key, so read-only context rows would render as "—". Display
+      // only — the draft is still what gets saved.
       draw: state => {
         const values = { ...record, ...state };
 
@@ -94,8 +88,6 @@ function Editor({
     },
   });
 
-  // The buttons arrive as thunks, not elements — a page can re-render its header
-  // and hand back a different node — so they have to be resolved on every call.
   function showButtons(editing) {
     editButton.hidden = editing;
     saveButton.hidden = !editing;
@@ -106,14 +98,10 @@ function Editor({
     showButtons(true);
     onEdit?.();
 
-    // `context` is merged in after createFieldState, which by design keeps only
-    // editable fields — so a schema whose predicates read something that *isn't* an
-    // editable field would otherwise revalidate against undefined. TASK_FIELDS is the
-    // case in point: its disabledOptionsWhen read `task_id` (editable: false) and
-    // `model` (not a field at all), and without them every option check silently
-    // behaves as though the model were not pretrained.
-    //
-    // It never reaches the server: `save` decides the payload, not the draft.
+    // createFieldState keeps only editable fields, so a predicate reading anything else
+    // would revalidate against undefined — TASK_FIELDS reads `task_id` and `model`, and
+    // without them every option check behaves as though the model were not pretrained.
+    // `context` never reaches the server: `save` decides the payload.
     draft = { ...createFieldState(fields, record), ...(context?.() ?? {}) };
     form.render();
   }
@@ -135,8 +123,8 @@ function Editor({
 
       const updated = await save(draft);
 
-      // A save helper that swallowed its error returns undefined — treat that as
-      // a failure rather than wiping the record with nothing.
+      // A save helper that swallowed its error returns undefined — a failure, not a
+      // reason to wipe the record.
       if (!updated) {
         onError?.("Could not save changes.");
         return;
@@ -153,9 +141,8 @@ function Editor({
     }
   }
 
-  // Listeners attach once. The form's change handler is delegated to the container,
-  // which survives every re-render, so re-attaching per Edit click would stack
-  // duplicate handlers — each firing against a stale draft.
+  // Once only: the form's handler is delegated to the container, which survives every
+  // re-render, so re-attaching per Edit click would stack duplicates.
   function attach() {
     editButton.addEventListener("click", startEditing);
     saveButton.addEventListener("click", saveEdits);
@@ -163,9 +150,7 @@ function Editor({
     form.attach();
   }
 
-  // `startEditing` is exposed for the `&edit` flag: arriving from a list page's Edit link
-  // has to open the editor without a button press, and calling this beats synthesising a
-  // click on an element found by id.
+  // `startEditing` is exposed for the `&edit` flag, which opens the editor with no click.
   return { attach, startEditing };
 }
 

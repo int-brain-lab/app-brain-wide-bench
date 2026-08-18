@@ -1,23 +1,13 @@
 // A live form: the working copy of its values, the schema rules that keep that copy valid,
-// and the `[data-field]` controls the two are wired to.
+// and the `[data-field]` controls the two are wired to. fields.js turns a state and a
+// schema into markup; this is where a change event becomes a state write, and a state write
+// becomes new markup. The `disabledWhen` readers live here so revalidation and rendering
+// answer the same question the same way.
 //
-// The values start as a projection of the schema (schemas/schema.js builds them) and from
-// there they are this file's business: what a change writes, what that write invalidates,
-// and what the user sees as a result. fields.js turns the pair into markup; this is where a
-// real `change` event on a real element becomes a state write, and where a state write
-// becomes new markup.
-//
-// The `disabledWhen`/`disabledOptionsWhen` readers live here rather than beside the markup
-// because revalidation and rendering must answer the same question the same way — a field
-// drawn as disabled and a value cleared as invalid are two views of one rule.
-//
-// State arrives as `getState`, a thunk, not the object — the two forms in this codebase
-// need that for different reasons. A create form's state lives as long as the page, so a
-// thunk costs it nothing. An editor's draft is thrown away and rebuilt on every Edit
-// click, while its listener is attached once for the page's lifetime: bound to an object,
-// the listener would keep writing to the draft that existed when it was attached. A thunk
-// returning null also says "not live", which is how an editor ignores changes arriving
-// while nothing is being edited.
+// State arrives as `getState`, a thunk rather than the object: an editor's draft is thrown
+// away and rebuilt on every Edit click while its listener is attached once, so a listener
+// bound to an object would keep writing to a draft nobody is looking at. Returning null
+// also says "not live", which is how an editor ignores changes between Save and Edit.
 
 import { refreshIcons } from "../core/utils.js";
 
@@ -28,18 +18,16 @@ function isDisabled(field, state) {
   return typeof field.disabledWhen === "function" && field.disabledWhen(state);
 }
 
-// Options disabled by `disabledOptionsWhen` stay in the list (visible, but
-// unselectable) rather than being removed — so users can see what exists and
-// why a choice isn't available, instead of it silently disappearing.
+// Disabled options stay in the list, unselectable rather than removed, so a user can see
+// what exists instead of watching a choice disappear.
 function disabledOptionValues(field, state) {
   return typeof field.disabledOptionsWhen === "function"
     ? field.disabledOptionsWhen(state)
     : [];
 }
 
-// Whether anything in this schema can make one field's markup depend on another's value.
 // A schema with no such rule draws the same fields for every state it can hold, which is
-// what lets `handleChange` below know a redraw would change nothing.
+// what lets `handleChange` know a redraw would change nothing.
 function hasDependentFields(fields) {
   return Object.values(fields).some(
     field => field.disabledWhen || field.disabledOptionsWhen,
@@ -63,13 +51,9 @@ function parseFieldValue(field, value) {
   }
 }
 
-// `disabledWhen`/`disabledOptionsWhen` only stop *new* invalid selections —
-// they don't retroactively clear a value that's already set when whatever it
-// depends on (another field, or external context like the selected model)
-// changes later. Call this after any change that could invalidate other
-// fields' current values, so stale selections don't silently persist.
-// Returns the keys it actually cleared, so callers can tell the user what
-// just happened instead of a value silently vanishing.
+// The rules only stop *new* invalid selections; a value already set when its dependency
+// changes stays until something clears it. Returns the keys it cleared, so a caller can
+// say what went away rather than leaving it to vanish unexplained.
 function revalidateFields(state, fields) {
   const cleared = [];
 
@@ -85,8 +69,7 @@ function revalidateFields(state, fields) {
     if (typeof field.disabledOptionsWhen !== "function") continue;
     const disabledOptions = field.disabledOptionsWhen(state);
 
-    // Multi-value (checkbox-list) fields: drop just the now-invalid values
-    // rather than nulling the whole selection.
+    // A checkbox-list drops just the now-invalid values, not the whole selection.
     if (Array.isArray(state[key])) {
       const filtered = state[key].filter(value => !disabledOptions.includes(value));
       if (filtered.length !== state[key].length) {
@@ -102,10 +85,8 @@ function revalidateFields(state, fields) {
   return cleared;
 }
 
-// Sets one field then revalidates the rest of the schema against it in one
-// step, so a call site can't mutate state and forget to revalidate — returns
-// the cleared keys, excluding `key` itself (that one was deliberately set,
-// not "silently cleared").
+// One step, so a call site can't write to the state and forget to revalidate. `key` is
+// excluded from the result: it was deliberately set, not silently cleared.
 function setFieldValue(state, fields, key, value) {
   state[key] = value;
   return revalidateFields(state, fields).filter(clearedKey => clearedKey !== key);
@@ -130,18 +111,9 @@ function getFieldValue(field, key, input, container) {
 }
 
 
-// Goes through setFieldValue rather than assigning `state[key]` directly, so a
-// change can never land without the rest of the schema being revalidated against
-// it. Previously each caller had to remember to call revalidateFields itself —
-// models/create and models/edit never did, so a `disabledWhen` rule added to
-// MODEL_FIELDS would have silently kept an invalid value on those two forms.
-//
-// One delegated listener on `container`, which is why it survives every re-render of the
-// fields inside it.
-//
-// `cleared` (the other keys this change invalidated, never `key` itself) is
-// passed on so callers can tell the user what just went away instead of leaving
-// a value to vanish unexplained.
+// Writes through setFieldValue, so a change can't land without the rest of the schema being
+// revalidated against it. One delegated listener on `container`, which is why it survives
+// every re-render of the fields inside it.
 function attachFieldEvents(container, getState, fields, onFieldChange) {
   container.addEventListener("change", event => {
     const state = getState();
@@ -155,9 +127,7 @@ function attachFieldEvents(container, getState, fields, onFieldChange) {
     const key = input.dataset.field;
     const field = fields[key];
 
-    // Not this schema's field — e.g. a nested schema (task methodology
-    // fields inside the wizard form) bubbling a "change" up to this
-    // container's own listener. Let it fall through untouched.
+    // Not this schema's field — a nested schema's control bubbling up. Leave it alone.
     if (!field) return;
 
     const value = getFieldValue(field, key, input, container);
@@ -170,14 +140,13 @@ function attachFieldEvents(container, getState, fields, onFieldChange) {
 }
 
 
-// Re-rendering a form replaces its inputs, so whichever one had focus is destroyed. Text
-// inputs are safe — `change` fires on blur, so focus has already left — but a select or a
-// checkbox fires `change` while still focused, and that is exactly when a dependent-field
-// re-render happens. Without this, choosing from a dropdown drops the caret to the body.
+// Re-rendering replaces the inputs, destroying whichever had focus. Text inputs are safe —
+// `change` fires on blur — but a select or checkbox fires it while still focused, which is
+// exactly when a dependent-field redraw happens: without this, choosing from a dropdown
+// drops the caret to the body.
 //
-// The key is read off `[data-field]`, which is the element the change handlers already
-// match on; for a checkbox-list that is a wrapper rather than a control, so the first
-// focusable descendant stands in for it.
+// For a checkbox-list `[data-field]` is a wrapper rather than a control, so its first
+// focusable descendant stands in.
 function withPreservedFocus(container, render) {
   const active = document.activeElement;
   const key = container.contains(active) ? active.closest("[data-field]")?.dataset.field : null;
@@ -209,16 +178,10 @@ function withPreservedFocus(container, render) {
  *                  form isn't live, and both `render` and the change handler do nothing.
  *
  * @param sections  [{ container, draw }] — one entry per container of fields, all bound to
- *                  that one state. `container` is an Element the fields are drawn into and
- *                  whose `change` events this listens to, so it has to outlive the fields
- *                  inside it. `draw(state)` returns its markup, and is given the same state
- *                  changes are written to — a caller that displays more than it edits (an
- *                  editor showing read-only context rows) merges the extra in there.
- *
- *                  More than one, because a create form puts its fields in a fieldset per
- *                  panel: a change in one panel can invalidate a field in another, so a
- *                  redraw has to cover all of them. Handing the form every container is
- *                  what lets it do that itself instead of each caller remembering to.
+ *                  that one state. `container` has to outlive the fields inside it, since
+ *                  its `change` events are what this listens to; `draw(state)` returns its
+ *                  markup. More than one because a change in one panel can invalidate a
+ *                  field in another, and the redraw has to cover both.
  *
  * @param onChange  optional (key, value, cleared) => void, called once the state has been
  *                  written, revalidated and — if the schema called for it — redrawn. A
@@ -245,25 +208,20 @@ function createFieldForm({
       });
     }
 
-    // `editable: false` keys render as display rows, which carry the `icon`
-    // placeholders — so an edit form needs createIcons() too, or a read-only field with
-    // an icon would show an empty <i> here while looking right on the read-only view.
+    // `editable: false` keys render as display rows, which carry `icon` placeholders — so
+    // an edit form needs this too, not just the read-only views.
     refreshIcons();
   }
 
   // Redrawn whenever the schema has dependent fields, not only when something was cleared:
-  // a change can *re-enable* a field or an option as easily as invalidate one, and that
-  // only shows up on a redraw.
+  // a change can re-enable a field as easily as invalidate one.
   //
-  // Skipped entirely for a schema with no such rules, and that is not just an
-  // optimisation — the markup would come back identical, and redrawing is not free. Blur
-  // happens on mousedown, so a redraw triggered by leaving a text input replaces the
-  // control the user is halfway through clicking: the click lands on a detached node and
-  // the checkbox never ticks, the select never opens. Only a schema that has something new
-  // to show is worth that.
+  // Skipped for a schema with no such rules, which is not just an optimisation. Blur fires
+  // on mousedown, so a redraw on leaving a text input replaces the control the user is
+  // halfway through clicking — the click lands on a detached node and the checkbox never
+  // ticks. Redraw only where there is something new to show.
   //
-  // Before `onChange`, so a handler that reports what happened is describing fields the
-  // user can already see.
+  // Before `onChange`, so a handler reporting what happened describes what is on screen.
   function handleChange(key, value, cleared) {
     if (cleared.length || hasDependencies) {
       render();
@@ -283,10 +241,7 @@ function createFieldForm({
 
 
 // `getFieldValue` and `parseFieldValue` stay private: reading a control is only correct as
-// part of writing the state through setFieldValue, which is what attachFieldEvents does.
-// Every caller that used to do the two by hand now goes through that.
-//
-// So does `hasDependentFields` — the one thing that asks it is `handleChange`.
+// part of writing the state through setFieldValue, which attachFieldEvents does.
 export {
   attachFieldEvents,
   createFieldForm,
