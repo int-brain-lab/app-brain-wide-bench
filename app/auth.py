@@ -22,8 +22,22 @@ from app.config import settings
 from app.database import get_session
 from app.models import TeamRole, UserTeam, User
 
-_DEV_SUB = "dev|local-user"
+# _DEV_SUB = "dev|local-user"
+_DEV_SUB = "google-oauth2|000000000000000000001"
 _jwks_cache: dict | None = None
+
+
+_CLAIM_NS = "https://brainwidebench.iblcore.org/"
+
+
+def _claim(claims: dict, name: str) -> str | None:
+    """Read ``name`` from the namespaced custom claims, falling back to the bare key.
+
+    The fallback is what keeps dev mode working: ``get_current_user`` synthesises plain
+    ``email`` and ``name`` keys with no namespace, and an ID token would too.
+    """
+
+    return claims.get(f"{_CLAIM_NS}{name}") or claims.get(name)
 
 
 def parse_sub(auth0_sub: str) -> tuple[str, str | None]:
@@ -87,7 +101,7 @@ async def _upsert_user(session: AsyncSession, claims: dict) -> User:
     """Insert or update the ``User`` row matching the token's ``sub``."""
     sub = claims["sub"]
     provider, orcid_id = parse_sub(sub)
-    email = claims.get("email", "")
+    email = _claim(claims, "email") or ""
     user = (
         await session.execute(select(User).where(User.auth0_sub == sub))
     ).scalar_one_or_none()
@@ -118,7 +132,7 @@ async def _upsert_user(session: AsyncSession, claims: dict) -> User:
         # it on every request — as this used to — silently undid their edit on the very
         # next call. Nothing depends on it matching the provider; identity is
         # ``auth0_sub`` and the lookup key is ``email``.
-        user.name = claims.get("name")
+        user.name = _claim(claims, "name")
         session.add(user)
 
     # ``email`` does keep syncing. It is how a person is found and added to a team, so it
