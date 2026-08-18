@@ -6,11 +6,9 @@ import { attachEditLink, attachRecordEditor } from "../templates/record-editor.j
 import { loadModelFields, MODEL_PANELS } from "../schemas/modelSchema.js";
 import { loadModel, updateModel } from "../api/modelApi.js";
 import { buildSuiteScoreBars } from "../components/bars.js";
-import { renderStaticTable } from "../tables/table.js";
 import {
+  renderStaticSubmissionsTable,
   renderSubmissionsTable,
-  submissionColumns,
-  toRow as toSubmissionRow,
 } from "../tables/submissionTable.js";
 import {
   countTasks,
@@ -18,8 +16,7 @@ import {
   scoresBySuite,
 } from "../core/scoreData.js";
 import { appendCreateCard, renderCreateRow } from "../cards/createCard.js";
-import { renderTaskScoresTable } from "../tables/scoreTable.js";
-import { getTaskSuites } from "../api/taskSubmissionApi.js";
+import { renderTaskScoresTable, toScoreRows } from "../tables/scoreTable.js";
 import { loadRecordPage } from "../templates/record-loader.js";
 import {
   EDIT_ACTION,
@@ -92,16 +89,6 @@ function getStatistics(submissions, meanScores, taskCount) {
   ];
 }
 
-function getRecentSubmissions(submissions) {
-  return [...submissions]
-    .sort(
-      (a, b) =>
-        new Date(b.updated_at).getTime() -
-        new Date(a.updated_at).getTime(),
-    )
-    .slice(0, MAX_SUBMISSIONS);
-}
-
 function getDashboardData(model) {
   const submissions = model.submissions ?? [];
   const suiteScores = scoresBySuite(submissions);
@@ -171,16 +158,12 @@ function renderDetailsSection(model, fields) {
 }
 
 function renderSubmissionsSection(model, submissions) {
-  const recentSubmissions = getRecentSubmissions(submissions);
   const container = sectionBody("submissions");
 
-  if (!recentSubmissions.length) {
+  if (!submissions.length) {
     showMessage(container, "This model has no submissions.");
   } else {
-    container.innerHTML = renderStaticTable({
-      columns: submissionColumns(),
-      rows: recentSubmissions.map(toSubmissionRow),
-    });
+    renderStaticSubmissionsTable({ container, submissions, limit: MAX_SUBMISSIONS });
   }
 
   renderCreateRow(
@@ -266,7 +249,7 @@ function renderSubmissionsView({ model }) {
   });
 }
 
-function renderScoresView({ model, knownTasks }) {
+function renderScoresView({ model }) {
   renderPage(
     buildPage({
       back: BACK,
@@ -279,8 +262,7 @@ function renderScoresView({ model, knownTasks }) {
 
   return renderTaskScoresTable({
     container: sectionBody("body"),
-    submissions: model.submissions ?? [],
-    tasks: knownTasks,
+    rows: toScoreRows(model.submissions ?? []),
     showModel: false,
     showSubmission: true,
   });
@@ -301,10 +283,9 @@ loadRecordPage({
   flags: ["edit", "created"],
 
   load: async modelId => {
-    const [model, fields, knownTasks] = await Promise.all([
+    const [model, fields] = await Promise.all([
       loadModel(modelId),
       loadModelFields(),
-      getTaskSuites(),
     ]);
 
     if (!model) {
@@ -314,7 +295,6 @@ loadRecordPage({
     return {
       model,
       fields,
-      knownTasks,
       dashboardData: getDashboardData(model),
     };
   },

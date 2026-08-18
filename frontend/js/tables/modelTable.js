@@ -1,26 +1,30 @@
 // Filterable models table
 //
 // The table allows you to search by model name and filter by team or suite
-//
-// This code just defines the columns, rows and controls. Table infrastructure lives in utils/tables.js
 
 import {
   SUITE_OPTIONS,
   createFilterableTable,
-  dateFormatter,
-  dateSorter,
-  linkFormatter,
+  previewRows,
+  renderStaticTable,
+  resolveContainer,
   matchEquals,
   matchInArray,
   matchIncludes,
-  metadataFormatter,
   optionsFromRows,
-  suiteBadgesFormatter,
 } from "./table.js";
+import {
+  dateFormatter,
+  dateSorter,
+  linkFormatter,
+  metadataFormatter,
+  suiteBadgesFormatter,
+} from "./formatters.js";
+
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────
 
-function toRow(model) {
+function toModelRow(model) {
   return {
     id: model.id,
     name: model.name,
@@ -31,9 +35,14 @@ function toRow(model) {
   };
 }
 
+function toModelRows(models) {
+  return models.map(toModelRow);
+}
+
+
 // ─── COLUMNS ────────────────────────────────────────────────────────────────
 
-function buildColumns() {
+function getModelColumns() {
   return [
     {
       title: "Model",
@@ -69,9 +78,10 @@ function buildColumns() {
   ];
 }
 
-// ─── FILTERS ────────────────────────────────────────────────────────────────
 
-function buildControls(rows) {
+// ─── CONTROLS ───────────────────────────────────────────────────────────────
+
+function getModelControls(rows) {
   return [
     {
       type: "search",
@@ -96,23 +106,22 @@ function buildControls(rows) {
   ];
 }
 
-// ─── TABLE ─────────────────────────────────────────────────────────────
+
+// ─── TABLE ──────────────────────────────────────────────────────────────────
 
 /**
- * Render a filterable models table.
- * /**
- *  * @param container   element, or the id of one. Its contents are replaced.
- *  * @param models list of models with taskSuites attached. Each model is mapped to a row with toRow().
- *  * @returns the Tabulator instance.
- *  */
+ * @param container element, or the id of one. Its contents are replaced.
+ * @param models    list of models with task suites attached, mapped to rows by toModelRows().
+ * @returns the Tabulator instance.
+ */
 function renderModelsTable({ container, models }) {
-  const rows = models.map(toRow);
+  const rows = toModelRows(models);
 
   return createFilterableTable({
     container,
     rows,
-    columns: buildColumns(),
-    controls: buildControls(rows),
+    columns: getModelColumns(),
+    controls: getModelControls(rows),
     noun: "models",
     initialSort: [
       { column: "created_at", dir: "desc" },
@@ -121,6 +130,31 @@ function renderModelsTable({ container, models }) {
   });
 }
 
-export { renderModelsTable, toRow };
+
+// ─── STATIC TABLE ───────────────────────────────────────────────────────────
+
+/**
+ * Plain-markup counterpart to renderModelsTable, for a fixed preview — no filters, no
+ * paging, and no Tabulator needed on the page.
+ *
+ * @param container element, or the id of one. Its contents are replaced.
+ * @param models    as renderModelsTable.
+ * @param limit     how many rows to show. Omit for all of them.
+ * @returns every row it built, not just the slice it rendered, so a caller can report
+ *          a total alongside the preview.
+ */
+function renderStaticModelsTable({ container, models, limit }) {
+  const rows = toModelRows(models);
+
+  resolveContainer(container, "renderStaticModelsTable").innerHTML = renderStaticTable({
+    columns: getModelColumns(),
+    rows: previewRows(rows, (a, b) => dateSorter(b.created_at, a.created_at), limit),
+  });
+
+  return rows;
+}
+
+
+export { renderModelsTable, renderStaticModelsTable };
 
 

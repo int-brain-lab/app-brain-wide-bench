@@ -1,133 +1,84 @@
-// Filterable task-score table: one row per scored task, across however many
-// submissions the caller passes in. All the table plumbing lives in
-// utils/tables.js — this module is just the rows, the columns and the controls.
-//
-// Rows are the *flattening* of submissions → task_submissions, so one submission
-// covering four tasks becomes four rows. That's what makes "which submission scored
-// best on ts1-reward" answerable, which the per-submission tables can't show.
+// Filterable task-score table: one row per scored task, across however many submissions
+// the caller passes in. Rows, columns and controls only — the table plumbing is in
+// table.js.
 
-import { escapeHtml } from "../core/utils.js";
 import { suiteFromTask } from "../core/suites.js";
 import {
   SUITE_OPTIONS,
   createFilterableTable,
-  linkFormatter,
+  previewRows,
+  renderStaticTable,
+  resolveContainer,
   matchEquals,
   matchIncludes,
-  numericSorter,
-  metricPillsFormatter,
   optionsFromRows,
-  suiteBadgeFormatter,
-  score
 } from "./table.js";
+import {
+  linkFormatter,
+  metricsBadgeFormatter,
+  numericSorter,
+  scoreFormatter,
+  semFormatter,
+  suiteBadgeFormatter,
+  taskNameFormatter,
+} from "./formatters.js";
 
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────
 
-// TaskScoreOut now carries `primary_metric`, the name of the metric its mean and sem
-// are measured in, so a scored row is self-describing.
-//
-// The task catalogue (GET /api/tasks/) is still accepted, and still consulted for rows
-// that have no score: an unscored task has no TaskScoreOut to carry the name, and the
-// column read "—" rather than naming the metric the task will be scored on. Passing it
-// is optional — without it those rows fall back to "—".
-function metricsByTaskId(tasks) {
-  return new Map((tasks ?? []).map(task => [task.id, task.primary_metric]));
+// A task submission read through GET /api/users/me/task-submissions already names the
+// submission and model it belongs to; the same task read through a submission or model
+// detail is nested inside that context instead. Lifting the nested shape into the flat one
+// leaves a single row builder for both.
+function flattenSubmissions(submissions) {
+  return submissions.flatMap(submission =>
+    (submission.task_submissions ?? []).map(taskSubmission => ({
+      ...taskSubmission,
+      submission_id: submission.id,
+      submission_name: submission.label,
+      // Absent on a model *detail* response's submissions, so a caller flattening several
+      // models attaches them itself before calling in.
+      model_id: submission.model_id,
+      model_name: submission.model_name,
+    }))
+  );
 }
 
-// The one definition of a task-score row, shared by both adapters below so the table's
-// columns don't have to care whether the rows were nested inside submissions or came
-// back flat from GET /api/users/me/task-submissions.
-function toRow({ taskSubmission, score, submission, model, metrics }) {
+function toScoreRow(result) {
   return {
-    id: taskSubmission.id,
-    task_id: taskSubmission.task_id,
-    task_name: taskSubmission.task_id,
-    suite: suiteFromTask(taskSubmission.task_id),
-    submission_id: submission.id ?? null,
-    submission_label: submission.label ?? null,
-    model_id: model.id ?? null,
-    model_name: model.name ?? null,
-    // Both null for a task that hasn't been scored yet — the formatter shows "—"
-    // and the sorter pushes it to the bottom. `sem` is separately nullable even
-    // on a scored task: TaskScoreOut declares primary_metric_sem optional, so a
-    // single-seed run has a mean but no spread.
-    mean_score: score?.primary_metric_mean ?? null,
-    sem: score?.primary_metric_sem ?? null,
-    metric: score?.primary_metric ?? metrics.get(taskSubmission.task_id) ?? null,
+    id: result.id,
+    task_id: result.task_id,
+    task_name: result.task_id,
+    suite: suiteFromTask(result.task_id),
+    submission_id: result.submission_id ?? null,
+    submission_label: result.submission_name ?? null,
+    model_id: result.model_id ?? null,
+    model_name: result.model_name ?? null,
+    // All three null on a task that isn't scored yet. `sem` is nullable even on a scored
+    // one — a single-seed run has a mean but no spread.
+    mean_score: result.score?.primary_metric_mean ?? null,
+    sem: result.score?.primary_metric_sem ?? null,
+    metric: result.score?.primary_metric ?? null,
   };
 }
 
-// One row per task submission, from records that *nest* their tasks — a submission
-// detail, or a model detail's embedded submissions. `task_name` is the subtask half of
-// the flat id ("reward" from "ts1-reward"), since the suite is already its own column —
-// the full id would read as "ts1" twice.
-function toRows(submissions, tasks = []) {
-  const metrics = metricsByTaskId(tasks);
-
-  return submissions.flatMap(submission =>
-    (submission.task_submissions ?? []).map(taskSubmission =>
-      toRow({
-        taskSubmission,
-        score: taskSubmission.score,
-        submission,
-        // Only a model *detail* response's submissions lack these, so a caller flattening
-        // several models attaches them itself before calling in.
-        model: { id: submission.model_id, name: submission.model_name },
-        metrics,
-      })
-    )
-  );
+// For records that nest their tasks — a submission detail, or a model detail's
+// submissions.
+function toScoreRows(submissions) {
+  return flattenSubmissions(submissions).map(toScoreRow);
 }
 
-// One row per entry of GET /api/users/me/task-submissions, which is already flat — one
-// task per row, each naming its own submission, model and team. No flattening to do, so
-// this is a rename of the server's field names onto the table's.
-function toResultRows(results, tasks = []) {
-  const metrics = metricsByTaskId(tasks);
-  console.log(metrics)
-  console.log(results[10])
-  return (results ?? []).map(result =>
-    toRow({
-      taskSubmission: result,
-      score: result.score,
-      submission: { id: result.submission_id, label: result.submission_name },
-      model: { id: result.model_id, name: result.model_name },
-      metrics,
-    })
-  );
+// For GET /api/users/me/task-submissions, which is already one task per row.
+function toScoreResultRows(results) {
+  return (results ?? []).map(toScoreRow);
 }
 
 
 // ─── COLUMNS ────────────────────────────────────────────────────────────────
 
-function taskNameFormatter(cell) {
-  return `<span class="label">${escapeHtml(cell.getValue())}</span>`;
-}
-
-function scoreFormatter(cell) {
-  return score(cell.getValue());
-}
-
-// Prefixed so the column reads as a spread rather than as a second score, and
-// muted so it doesn't compete with the mean beside it. score() already renders a
-// missing value as "—", which shouldn't carry a ±.
-function semFormatter(cell) {
-  const value = cell.getValue();
-
-  return value == null
-    ? `<span class="metadata">—</span>`
-    : `<span class="metadata">± ${score(value)}</span>`;
-}
-
-
 // `showSubmission` off drops the Submission column, for a caller already scoped to one
-// — the submission dashboard's preview, where it would repeat the page's own heading
-// down every row. On by default: the model-wide table spans submissions, so there it
-// is the column doing the most work.
-// Options object rather than positional flags: with two independent toggles,
-// `getColumns(false, true)` at a call site says nothing about which is which.
-function getColumns({ showSubmission = true, showModel = false } = {}) {
+// submission — there it would repeat the page's own heading down every row.
+function getScoreColumns({ showSubmission = true, showModel = false } = {}) {
   const modelColumn = showModel
     ? [{
         title: "Model",
@@ -178,7 +129,7 @@ function getColumns({ showSubmission = true, showModel = false } = {}) {
     {
       title: "Metric",
       field: "metric",
-      formatter: metricPillsFormatter,
+      formatter: metricsBadgeFormatter,
       headerSort: false,
     },
   ];
@@ -187,16 +138,9 @@ function getColumns({ showSubmission = true, showModel = false } = {}) {
 
 // ─── CONTROLS ───────────────────────────────────────────────────────────────
 
-// Suite options are hardcoded from SUITES (a fixed server enum), submission labels
-// come from the rows — there's no enum of those, and the ones present are exactly
-// the ones worth offering.
-//
-// `suite` is a single value per row here, not the array the submissions and models
-// tables carry, so this matches with matchEquals rather than matchInArray.
-// `showSubmission` drops the submission select alongside its column, for a caller
-// already scoped to one submission — a select whose every option is the same value
-// filters nothing.
-function getControls(rows, { showSubmission = true, showModel = false } = {}) {
+// `suite` is a single value per row here, not the array the submission and model tables
+// carry, so it matches with matchEquals rather than matchInArray.
+function getScoreControls(rows, { showSubmission = true, showModel = false } = {}) {
   const modelControl = showModel
     ? [{
         type: "select",
@@ -237,37 +181,30 @@ function getControls(rows, { showSubmission = true, showModel = false } = {}) {
 }
 
 
+// ─── TABLE ──────────────────────────────────────────────────────────────────
+
 /**
  * @param container   element, or the id of one. Its contents are replaced.
- * @param submissions records carrying `task_submissions` — a model detail's
- *                    `submissions`, or `[submission]` for a single submission's
- *                    tasks. GET /api/submissions rows have no task_submissions and
- *                    so contribute no rows at all.
- * @param rows        already-built rows, from toResultRows. Takes precedence over
- *                    `submissions`, for a caller whose source is already flat — the
- *                    dashboard, off GET /api/users/me/task-submissions.
- * @param tasks       the catalogue from GET /api/tasks/, naming the metric on rows
- *                    that have no score to name it themselves. Optional.
+ * @param rows        rows from toScoreRows (records nesting their tasks) or
+ *                    toScoreResultRows (already-flat task submissions).
  * @param showSubmission  keep the Submission column and its filter. Pass false when
  *                    every row belongs to the same submission.
+ * @param showModel   add the Model column and its filter. For rows spanning models.
  * @returns the Tabulator instance.
  */
 function renderTaskScoresTable({
   container,
-  submissions,
-  rows: prebuiltRows,
-  tasks = [],
+  rows,
   showSubmission = true,
   showModel = false,
 }) {
-  const rows = prebuiltRows ?? toRows(submissions, tasks);
   const shown = { showSubmission, showModel };
 
   return createFilterableTable({
     container,
     rows,
-    columns: getColumns(shown),
-    controls: getControls(rows, shown),
+    columns: getScoreColumns(shown),
+    controls: getScoreControls(rows, shown),
     noun: "tasks",
     initialSort: [{ column: "mean_score", dir: "desc" }],
     caller: "renderTaskScoresTable",
@@ -275,13 +212,39 @@ function renderTaskScoresTable({
 }
 
 
+// ─── STATIC TABLE ───────────────────────────────────────────────────────────
+
+/**
+ * Plain-markup counterpart to renderTaskScoresTable, for a fixed preview — no filters,
+ * no paging, and no Tabulator needed on the page.
+ *
+ * @param container   element, or the id of one. Its contents are replaced.
+ * @param rows        as renderTaskScoresTable.
+ * @param showSubmission  as renderTaskScoresTable.
+ * @param showModel   as renderTaskScoresTable.
+ * @param limit       how many rows to show. Omit for all of them.
+ * @returns every row it was given, not just the slice it rendered, so a caller can
+ *          report a total alongside the preview.
+ */
+function renderStaticTaskScoresTable({
+  container,
+  rows,
+  showSubmission = true,
+  showModel = false,
+  limit,
+}) {
+  resolveContainer(container, "renderStaticTaskScoresTable").innerHTML = renderStaticTable({
+    columns: getScoreColumns({ showSubmission, showModel }),
+    rows: previewRows(rows, (a, b) => numericSorter(b.mean_score, a.mean_score), limit),
+  });
+
+  return rows;
+}
+
+
 export {
   renderTaskScoresTable,
-  toRows,
-  toResultRows,
-  // Exported so the submission dashboard can render these same columns as plain markup
-  // via renderStaticTable — one definition of what a task-score row looks like,
-  // whether it appears as a preview or as the full filterable table.
-  getColumns as taskScoreColumns,
-  numericSorter as scoreSorter,
+  renderStaticTaskScoresTable,
+  toScoreRows,
+  toScoreResultRows,
 };

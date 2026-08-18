@@ -8,13 +8,11 @@ import { getMySubmissions } from "../api/submissionApi.js";
 import { getMyModels } from "../api/modelApi.js";
 import { getMyTaskSubmissions} from "../api/taskSubmissionApi.js";
 import { showMessage } from "../core/utils.js";
-import { renderStaticTable } from "../tables/table.js";
-import { submissionColumns, toRow as toSubmissionRow } from "../tables/submissionTable.js";
+import { renderStaticSubmissionsTable } from "../tables/submissionTable.js";
 import {
+  renderStaticTaskScoresTable,
   renderTaskScoresTable,
-  scoreSorter,
-  taskScoreColumns,
-  toResultRows,
+  toScoreResultRows,
 } from "../tables/scoreTable.js";
 import { buildCount } from "../components/count.js";
 import { buildModelCards } from "../cards/modelCards.js";
@@ -124,18 +122,6 @@ function getStatistics(models, teams, submissionCount) {
   ];
 }
 
-function getRecentSubmissions(submissions) {
-  return [...submissions]
-    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-    .slice(0, MAX_SUBMISSIONS);
-}
-
-function getTopScores(scoreRows) {
-  return [...scoreRows]
-    .sort((a, b) => scoreSorter(b.mean_score, a.mean_score))
-    .slice(0, MAX_SCORES);
-}
-
 function countSubmissions(models) {
   return models.reduce((total, model) => total + (model.n_submissions ?? 0), 0);
 }
@@ -190,34 +176,36 @@ function renderModelsSection(models) {
 }
 
 function renderSubmissionsSection(submissions) {
-  const recentSubmissions = getRecentSubmissions(submissions);
   const container = sectionBody("submissions");
 
   // The row variant, not the card — this section is a table, so the strip reads as the
   // place a first row would go.
-  if (!recentSubmissions.length) {
+  if (!submissions.length) {
     renderCreateRow(container, CREATE_FIRST_SUBMISSION);
     return;
   }
 
-  container.innerHTML = renderStaticTable({
-    columns: submissionColumns({ showModel: true }),
-    rows: recentSubmissions.map(toSubmissionRow),
+  renderStaticSubmissionsTable({
+    container,
+    submissions,
+    showModel: true,
+    limit: MAX_SUBMISSIONS,
   });
 }
 
 function renderScoresSection(scoreRows) {
-  const scores = getTopScores(scoreRows);
   const container = sectionBody("scores");
 
-  if (!scores.length) {
+  if (!scoreRows.length) {
     showMessage(container, "No scored tasks yet.");
     return;
   }
 
-  container.innerHTML = renderStaticTable({
-    columns: taskScoreColumns({ showModel: true }),
-    rows: scores,
+  renderStaticTaskScoresTable({
+    container,
+    rows: scoreRows,
+    showModel: true,
+    limit: MAX_SCORES,
   });
 }
 
@@ -319,7 +307,7 @@ loadRecordPage({
       models,
       teams: teams ?? [],
       submissions: submissions ?? [],
-      scoreRows: toResultRows(taskSubmissions),
+      scoreRows: toScoreResultRows(taskSubmissions),
     };
   },
 });

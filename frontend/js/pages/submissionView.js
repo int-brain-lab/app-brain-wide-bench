@@ -5,20 +5,16 @@ import { buildDisplayFields } from "../forms/fields.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
 import { loadSubmissionFields, SUBMISSION_PANELS } from "../schemas/submissionSchema.js";
 import { loadSubmission, updateSubmission } from "../api/submissionApi.js";
-import { renderStaticTable } from "../tables/table.js";
 import {
+  renderStaticTaskSubmissionsTable,
   renderTaskSubmissionsTable,
-  taskSubmissionColumns,
-  toRow as toTaskRow,
 } from "../tables/taskSubmissionTable.js";
 import {
+  renderStaticTaskScoresTable,
   renderTaskScoresTable,
-  scoreSorter,
-  taskScoreColumns,
-  toRows as toTaskScoreRows,
+  toScoreRows,
 } from "../tables/scoreTable.js";
 import { suitesFromSubmission } from "../core/suites.js";
-import { getTaskSuites } from "../api/taskSubmissionApi.js";
 import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
 import { renderTaskView } from "./taskSubmissionView.js";
 import { buildStatCards } from "../cards/statCards.js";
@@ -92,12 +88,6 @@ function getStatistics(submission, taskSubmissions) {
   ];
 }
 
-function getTopScores(submission, knownTasks) {
-  return toTaskScoreRows([submission], knownTasks)
-    .sort((a, b) => scoreSorter(b.mean_score, a.mean_score))
-    .slice(0, SCORE_LIMIT);
-}
-
 function getDashboardData(submission) {
   return {
     taskSubmissions: submission.task_submissions ?? [],
@@ -122,8 +112,8 @@ function renderStatsSection(statistics) {
   sectionBody("stats").innerHTML = buildStatCards(statistics);
 }
 
-function renderScoresSection(submission, knownTasks) {
-  const rows = getTopScores(submission, knownTasks);
+function renderScoresSection(submission) {
+  const rows = toScoreRows([submission]);
   const container = sectionBody("scores");
 
   if (!rows.length) {
@@ -131,9 +121,11 @@ function renderScoresSection(submission, knownTasks) {
     return;
   }
 
-  container.innerHTML = renderStaticTable({
-    columns: taskScoreColumns({ showSubmission: false }),
+  renderStaticTaskScoresTable({
+    container,
     rows,
+    showSubmission: false,
+    limit: SCORE_LIMIT,
   });
 }
 
@@ -166,16 +158,13 @@ function renderTasksSection(submission, taskSubmissions) {
     return;
   }
 
-  container.innerHTML = renderStaticTable({
-    columns: taskSubmissionColumns(),
-    rows: taskSubmissions.map(taskSubmission => toTaskRow(submission, taskSubmission)),
-  });
+  renderStaticTaskSubmissionsTable({ container, submission });
 }
 
 // ─── VIEWS ───────────────────────────────────────────────────────────────────
 
 function renderDashboardView(context, router) {
-  const { submission, fields, knownTasks, dashboardData } = context;
+  const { submission, fields, dashboardData } = context;
   const { taskSubmissions } = dashboardData;
 
   renderPage(
@@ -188,7 +177,7 @@ function renderDashboardView(context, router) {
   renderHeader(submission.label, getSubtitle(submission));
 
   renderStatsSection(getStatistics(submission, taskSubmissions));
-  renderScoresSection(submission, knownTasks);
+  renderScoresSection(submission);
   renderDetailsSection(submission, fields);
   renderTasksSection(submission, taskSubmissions);
 
@@ -240,7 +229,7 @@ function renderTasksView({ submission }) {
   });
 }
 
-function renderScoresView({ submission, knownTasks }) {
+function renderScoresView({ submission }) {
   renderPage(
     buildPage({
       back: BACK,
@@ -259,8 +248,7 @@ function renderScoresView({ submission, knownTasks }) {
   // Neither model nor submission is a column — every row belongs to this one submission.
   return renderTaskScoresTable({
     container: sectionBody("body"),
-    submissions: [submission],
-    tasks: knownTasks,
+    rows: toScoreRows([submission]),
     showModel: false,
     showSubmission: false,
   });
@@ -283,10 +271,9 @@ loadRecordPage({
   params: ["task"],
 
   load: async submissionId => {
-    const [submission, fields, knownTasks, taskFields] = await Promise.all([
+    const [submission, fields, taskFields] = await Promise.all([
       loadSubmission(submissionId),
       loadSubmissionFields(),
-      getTaskSuites(),
       loadTaskFields(),
     ]);
 
@@ -297,7 +284,6 @@ loadRecordPage({
     return {
       submission,
       fields,
-      knownTasks,
       taskFields,
       dashboardData: getDashboardData(submission),
     };

@@ -1,11 +1,8 @@
 // Page entry for index.html — the public landing page: two counts and a five-row
 // leaderboard preview.
 //
-// The preview goes through renderStaticTable with columns borrowed from
-// leaderboard/leaderboardTable.js, the same arrangement modelView.js uses for its
-// recent-submissions preview. It used to hand-write its own <tr>/<td> markup against a
-// <table> in index.html, which meant the rank medals, the model cell and the score
-// formatting were all written twice — once here and once on the leaderboard.
+// The preview is the leaderboard table's own static renderer, so the rank medals, the
+// model cell and the score formatting are written once and shared with the full page.
 //
 // The page provides:
 //   #lb-table-preview   where the table is rendered
@@ -13,8 +10,7 @@
 //   #stat-submissions #stat-models
 
 import { getLeaderboard } from "../api/leaderboardApi.js";
-import { leaderboardPreviewColumns, toRows } from "../tables/leaderboardTable.js";
-import { renderStaticTable } from "../tables/table.js";
+import { renderStaticLeaderboardTable } from "../tables/leaderboardTable.js";
 
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
@@ -24,20 +20,18 @@ const PREVIEW_LIMIT = 5;
 
 // ─── RENDERING ──────────────────────────────────────────────────────────────
 
-// By `rank`, which toRows has already assigned by overall — this page has no metric
-// selector of its own, so the leaderboard's default order is the only one it shows.
-function renderPreview(rows) {
-  const topRows = rows
-    .slice()
-    .sort((a, b) => a.rank - b.rank)
-    .slice(0, PREVIEW_LIMIT);
-
-  document.getElementById("lb-table-preview").innerHTML = renderStaticTable({
-    columns: leaderboardPreviewColumns(),
-    rows: topRows,
+// Returns every row, not the five it rendered — the count below the preview and the
+// model stat are both totals.
+function renderPreview(submissions) {
+  const rows = renderStaticLeaderboardTable({
+    container: "lb-table-preview",
+    submissions,
+    limit: PREVIEW_LIMIT,
   });
 
   document.getElementById("lb-table-count").textContent = `${rows.length} models`;
+
+  return rows;
 }
 
 // `submissions.length` is every public scored submission; `rows.length` is one per
@@ -63,10 +57,7 @@ async function loadLandingPage() {
       return;
     }
 
-    const rows = toRows(submissions);
-
-    renderPreview(rows);
-    renderStats(rows, submissions);
+    renderStats(renderPreview(submissions), submissions);
   } catch (err) {
     console.error("Failed to initialise the landing page:", err);
     showError("Could not load leaderboard.");

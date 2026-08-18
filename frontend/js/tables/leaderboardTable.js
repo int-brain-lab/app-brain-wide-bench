@@ -1,6 +1,5 @@
 // Filterable leaderboard table: a model search plus two linked selects above a Tabulator
-// grid. All the table plumbing lives in utils/tables.js — this module is just the rows, the
-// columns and the three controls, same as modelTable.js and submissionTable.js.
+// grid. Rows, columns and controls only — the table plumbing is in table.js.
 //
 // The two linked selects are what this table has that the others don't:
 //
@@ -11,29 +10,34 @@
 // switch: its value names a field on the row, so `match` narrows to models that have a
 // score for it, and the same value drives the score column's title, its sort and the
 // ranking. Picking ts1-choice shows exactly the models scored on ts1-choice, ranked by it.
-//
-// Row building lives here too (it was js/scores/leaderboardRows.js): turning the
-// per-submission payload into one row per (model, team) is this table's shape, not shared
-// score maths. What is shared — SUITES, suiteOf, mean — comes from scores/scoreMaths.js.
 
-import { escapeHtml, mean} from "../core/utils.js";
+import { mean } from "../core/utils.js";
 import { SUITES, suiteFromTask } from "../core/suites.js";
-import { createFilterableTable, matchIncludes, numericSorter, score } from "./table.js";
+import {
+  createFilterableTable,
+  matchIncludes,
+  previewRows,
+  renderStaticTable,
+  resolveContainer,
+} from "./table.js";
+import {
+  modelFormatter,
+  numericSorter,
+  rankFormatter,
+  score,
+  scoreFormatter,
+  suiteBarsFormatter,
+} from "./formatters.js";
 
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────
 
-// One row per (model_id, team_id), carrying the scores of that pair's most recent
-// submission.
+// Keyed on the (model, team) pair rather than the model alone: a model can be reassigned to
+// another team while its submissions keep the team they were made under, so one model
+// legitimately holds more than one leaderboard entry.
 //
-// The pair is the key rather than the model alone because a model can be reassigned to a
-// different team (PATCH /api/models/{id}) while its submissions keep the team they were made
-// under — so one model legitimately appears under more than one team, and those are
-// different entries on a leaderboard.
-//
-// Compared on `created_at` rather than trusting the payload's order: the endpoint does sort
-// newest-first today, but a row builder that silently depends on that breaks the day
-// someone changes the ORDER BY.
+// Compared on `created_at` rather than trusting the payload's order, which is an ORDER BY
+// away from changing.
 function latestPerModelTeam(submissions) {
   const latest = new Map();
 
@@ -50,12 +54,12 @@ function latestPerModelTeam(submissions) {
 }
 
 // Every scored task becomes a field named after the task id, and every suite it touches a
-// field named after the suite. A column can then bind to `ts1` or to `ts1-choice` with no
+// field named after the suite, so a column can bind to `ts1` or to `ts1-choice` with no
 // reshaping — which is what lets the metric select switch between the two.
 //
 // `overall` is the mean of the suites present, not of all three: a model scored on ts1 and
 // ts2 is judged on those two rather than penalised for a missing ts3.
-function toRow(submission) {
+function toLeaderboardRow(submission) {
   const scores = submission.scores ?? {};
 
   const row = {
@@ -89,12 +93,11 @@ function toRow(submission) {
  * @param submissions the GET /api/leaderboard payload.
  * @returns one row per (model, team), ranked by `overall`.
  *
- * Ranked here rather than left to the caller because js/landing.js sorts its top-five
- * preview on `row.rank` and has no metric of its own. The table re-ranks whenever its
- * metric changes, which layers on top rather than duplicating this.
+ * Ranked here rather than left to the caller, so a preview with no metric selector still
+ * has `row.rank` to order by. The table re-ranks whenever its metric changes.
  */
-function toRows(submissions) {
-  const rows = latestPerModelTeam(submissions).map(toRow);
+function toLeaderboardRows(submissions) {
+  const rows = latestPerModelTeam(submissions).map(toLeaderboardRow);
 
   assignRanks(rows, "overall");
 
@@ -138,16 +141,15 @@ const GROUPINGS = [
   { value: "task", label: "Individual tasks" },
 ];
 
-// "overall" first, so a `required` select lands on it by default — createFilterableTable
-// starts such a control on options[0].
+// "overall" first, so a `required` select lands on it — createFilterableTable starts such a
+// control on options[0].
 const SUITE_METRICS = [
   { value: "overall", label: "Overall" },
   ...SUITES.map(suite => ({ value: suite, label: suite.toUpperCase() })),
 ];
 
-// Task options come from the rows rather than GET /api/tasks — the same reasoning as
-// modelTable's team select: an option for a task no public submission has been scored on
-// would filter the table to nothing. Sorted, so they read ts1-… then ts2-… then ts3-….
+// From the rows rather than GET /api/tasks: an option for a task no public submission has
+// been scored on would filter the table to nothing.
 function taskMetrics(rows) {
   const ids = new Set();
 
@@ -164,9 +166,8 @@ function metricsFor(grouping, rows) {
   return grouping === "task" ? taskMetrics(rows) : SUITE_METRICS;
 }
 
-// What the table shows before any control is touched. Everything the first render depends
-// on — the score column's title, which suite columns are visible, the initial sort — is
-// declared against this rather than applied afterwards.
+// Everything the first render depends on — the score column's title, which suite columns
+// are visible, the initial sort — is declared against this rather than applied afterwards.
 const INITIAL_METRIC = SUITE_METRICS[0].value;
 
 function metricLabel(metric) {
@@ -174,61 +175,17 @@ function metricLabel(metric) {
 }
 
 
-// ─── FORMATTERS ─────────────────────────────────────────────────────────────
-
-// Tabulator inserts a formatter's return value as HTML, so each of these is an innerHTML
-// sink — and `title`/`affiliation` are model and team names as typed by users. This is the
-// public leaderboard, the widest-reach injection point in the app, hence escapeHtml on
-// every interpolation.
-
-const MEDAL_CLASSES = { 1: "rank-gold", 2: "rank-silver", 3: "rank-bronze" };
-
-// The suite bars beside the score. Their own list because a bar needs a colour class,
-// which the metric options don't carry.
-const SUITE_BARS = SUITES.map(suite => ({ key: suite, label: suite.toUpperCase(), cls: suite }));
-
-// Returns markup rather than reaching for cell.getElement() and setting classes on the td.
-// That's what lets the same formatter serve renderStaticTable, whose faked cell offers only
-// getValue and getData — and the medal rules are plain colour/weight with no element
-// selector, so they apply to a span exactly as they did to a cell.
-function rankFormatter(cell) {
-  const rank = cell.getValue();
-  const medal = MEDAL_CLASSES[rank];
-
-  return medal ? `<span class="${medal}">${escapeHtml(rank)}</span>` : String(rank ?? "");
-}
-
-function scoreFormatter(cell) {
-  return score(cell.getValue());
-}
-
-function modelFormatter(cell) {
-  const row = cell.getData();
-
-  return `
-    <a href="/html/models/models.html?id=${encodeURIComponent(row.modelId)}" class="column">
-      <div class="label">${escapeHtml(row.title)}</div>
-      <div class="metadata">${escapeHtml(row.affiliation)}</div>
-    </a>
-  `;
-}
-
-
 // ─── COLUMNS ────────────────────────────────────────────────────────────────
 
-// One score column, retitled as the metric changes, rather than a column per suite. That's
-// what makes task-level grouping possible: eleven task columns wouldn't fit beside the
-// model and bars cells, and most would be empty for any given model.
+// One score column retitled as the metric changes, rather than a column per suite: eleven
+// task columns wouldn't fit beside the model and bars cells, and most would be empty.
 //
 // Its `field` is the synthetic "score", which no row has, and it never changes — the
 // formatter and sorter read the active metric off the row instead. Pointing the field at
 // the live metric is the obvious move and a trap: updateColumnDefinition finds a column
 // *by its current field*, so the first swap renames the field out from under the next
 // lookup and every later retitle misses.
-//
-// `metric` is threaded through a closure rather than read from module state, so two of
-// these tables on one page couldn't fight over it.
-function getColumns(getMetric) {
+function getLeaderboardColumns(getMetric) {
   const valueOf = row => row[getMetric()];
 
   return [
@@ -249,20 +206,13 @@ function getColumns(getMetric) {
       title: metricLabel(INITIAL_METRIC),
       field: "score",
       formatter: cell => score(valueOf(cell.getData())),
-      // Tabulator sorts on the field by default, and this column's field holds nothing —
-      // so the comparison is on the active metric, through the shared null-last sorter.
+      // The field holds nothing, so the comparison is on the active metric instead.
       sorter: (a, b, aRow, bRow) => numericSorter(valueOf(aRow.getData()), valueOf(bRow.getData())),
       cssClass: "overall-cell",
     },
-    // The per-suite breakdown, shown only while ranking by Overall — there the single score
-    // column is an average of these three, so seeing the parts beside the whole is the
-    // point. Ranking by one suite or one task makes them noise, and applyMetric hides them.
-    //
-    // Visible by default, because INITIAL_METRIC is Overall. They were declared hidden and
-    // switched on by an applyMetric call right after construction, which silently did
-    // nothing: Tabulator builds asynchronously and discards showColumn/hideColumn issued
-    // before it finishes, so the columns only appeared once a control was touched. The
-    // first render now comes entirely from these definitions and `initialSort`.
+    // The breakdown behind an Overall score, hidden by applyMetric while ranking by a single
+    // suite or task. Declared visible rather than switched on after construction: Tabulator
+    // builds asynchronously and discards a showColumn issued before it finishes.
     ...SUITES.map(suite => ({
       title: suite.toUpperCase(),
       field: suite,
@@ -271,45 +221,19 @@ function getColumns(getMetric) {
       width: 90,
     })),
     {
-      // All three suites while ranking by Overall, otherwise just the one being ranked by —
-      // an individual task shows its own suite's bar, since the task is part of that score.
       title: "Scores",
       field: "scores",
       headerSort: false,
       width: 150,
-      formatter: cell => {
-        const row = cell.getData();
-        const metric = getMetric();
-        const bars = metric === "overall"
-          ? SUITE_BARS
-          : SUITE_BARS.filter(bar => bar.key === suiteFromTask(metric));
-
-        return `<div class="column gap-sm">${bars.map(bar => {
-          const percent = row[bar.key] == null ? 0 : Math.round(row[bar.key] * 100);
-
-          return `
-            <div class="row gap-sm">
-              <span class="metadata">${escapeHtml(bar.label)}</span>
-              <div class="bar-track">
-                <div class="bar ${escapeHtml(bar.cls)}" style="width:${percent}%"></div>
-              </div>
-            </div>
-          `;
-        }).join("")}</div>`;
-      },
+      formatter: suiteBarsFormatter(getMetric),
     },
   ];
 }
 
-
-// The landing page's five-row preview shows a score per suite rather than one metric and
-// bars: it has no controls to pick a metric with, so the per-suite spread is what carries
-// the information. A different column set, but built from the same rows and the same
-// formatters, so the two can't disagree about what a leaderboard row means.
-//
-// No `sorter` on these — a static table doesn't sort, and the caller has already ordered
-// the rows by rank.
-function getPreviewColumns() {
+// A score per suite rather than one metric and bars: a preview has no control to pick a
+// metric with, so the spread is what carries the information. Same rows and formatters as
+// the full table, so the two can't disagree about what a leaderboard row means.
+function getLeaderboardPreviewColumns() {
   return [
     { title: "#", field: "rank", formatter: rankFormatter },
     { title: "Model", field: "title", formatter: modelFormatter },
@@ -325,7 +249,7 @@ function getPreviewColumns() {
 
 // ─── CONTROLS ───────────────────────────────────────────────────────────────
 
-function getControls() {
+function getLeaderboardControls() {
   return [
     {
       type: "search",
@@ -338,7 +262,7 @@ function getControls() {
       name: "grouping",
       required: true,
       options: GROUPINGS,
-      // Grouping picks what `metric` offers, not which rows show — so it matches everything
+      // Grouping picks what `metric` offers, not which rows show, so it matches everything
       // and leaves the narrowing to the metric.
       match: () => true,
     },
@@ -355,22 +279,22 @@ function getControls() {
 }
 
 
+// ─── TABLE ──────────────────────────────────────────────────────────────────
+
 /**
  * @param container    element, or the id of one. Its contents are replaced.
  * @param submissions  the GET /api/leaderboard payload.
  * @returns the Tabulator instance.
  */
 function renderLeaderboardTable({ container, submissions }) {
-  const rows = toRows(submissions);
+  const rows = toLeaderboardRows(submissions);
 
-  // Which metric the table is ranked by. Held here rather than at module scope so it
-  // belongs to this table instance. toRows has already ranked by it, and the column
-  // definitions and initialSort below are written for it, so nothing has to be applied to
-  // get the first render right.
+  // Held per call rather than at module scope, so two of these on one page can't fight over
+  // it. The rows, the column definitions and initialSort below all already agree with it.
   let metric = INITIAL_METRIC;
 
-  // Re-ranks, retitles and re-sorts. Only the title changes on the column — the field
-  // stays "score" and the sorter follows `metric`, so setSort uses that stable field.
+  // Re-ranks, retitles and re-sorts. Only the title changes on the column — the field stays
+  // "score" and the sorter follows `metric`, so setSort uses that stable field.
   function applyMetric(table, next) {
     metric = next;
 
@@ -387,11 +311,11 @@ function renderLeaderboardTable({ container, submissions }) {
     table.replaceData(rows).then(() => table.setSort("score", "desc"));
   }
 
-  const table = createFilterableTable({
+  return createFilterableTable({
     container,
     rows,
-    columns: getColumns(() => metric),
-    controls: getControls(),
+    columns: getLeaderboardColumns(() => metric),
+    controls: getLeaderboardControls(),
     noun: "models",
     initialSort: [{ column: "score", dir: "desc" }],
     caller: "renderLeaderboardTable",
@@ -403,23 +327,41 @@ function renderLeaderboardTable({ container, submissions }) {
       }
 
       if (name === "grouping") {
-        // Returns the value it settled on — the first option of the new list — so the
-        // column and the ranking follow the swap without re-reading the select.
+        // setControlOptions returns the value it settled on, so the column and the ranking
+        // follow the swap without re-reading the select.
         applyMetric(api.table, api.setControlOptions("metric", metricsFor(value, rows)));
       }
     },
   });
+}
 
-  return table;
+
+// ─── STATIC TABLE ───────────────────────────────────────────────────────────
+
+/**
+ * Plain-markup counterpart to renderLeaderboardTable, for a fixed preview — no filters,
+ * no paging, and no Tabulator needed on the page. Ordered by the `overall` rank
+ * toLeaderboardRows assigned, the only order a preview without a metric selector has.
+ *
+ * @param container   element, or the id of one. Its contents are replaced.
+ * @param submissions as renderLeaderboardTable.
+ * @param limit       how many rows to show. Omit for all of them.
+ * @returns every row it built, not just the slice it rendered, so a caller can report
+ *          a total alongside the preview.
+ */
+function renderStaticLeaderboardTable({ container, submissions, limit }) {
+  const rows = toLeaderboardRows(submissions);
+
+  resolveContainer(container, "renderStaticLeaderboardTable").innerHTML = renderStaticTable({
+    columns: getLeaderboardPreviewColumns(),
+    rows: previewRows(rows, (a, b) => a.rank - b.rank, limit),
+  });
+
+  return rows;
 }
 
 
 export {
   renderLeaderboardTable,
-  toRow,
-  toRows,
-  assignRanks,
-  // Exported so the landing page can render a preview from the same rows and formatters
-  // via renderStaticTable — one definition of what a leaderboard row looks like.
-  getPreviewColumns as leaderboardPreviewColumns,
+  renderStaticLeaderboardTable,
 };

@@ -3,16 +3,23 @@
 // the rows, the columns and the two controls.
 
 
-import { escapeHtml } from "../core/utils.js";
 import { suiteFromTask } from "../core/suites.js";
 import { TASK_FIELDS, trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
 import {
   SUITE_OPTIONS,
   createFilterableTable,
+  previewRows,
+  renderStaticTable,
+  resolveContainer,
   matchEquals,
   matchIncludes,
-  suiteBadgeFormatter,
 } from "./table.js";
+import {
+  editFormatter,
+  parameterFormatter,
+  suiteBadgeFormatter,
+  taskLinkFormatter,
+} from "./formatters.js";
 
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────
@@ -29,7 +36,7 @@ function parameterKeys() {
 //
 // `submission_id` rides along unused by any column: the Task link needs both ids, and
 // a formatter can only reach what's on the row.
-function toRow(submission, taskSubmission) {
+function toTaskSubmissionRow(submission, taskSubmission) {
   const parameters = Object.fromEntries(
     parameterKeys().map(key => [key, taskSubmission[key]])
   );
@@ -43,49 +50,17 @@ function toRow(submission, taskSubmission) {
   };
 }
 
+// Plural counterpart. The submission is the same for every row — it carries the id the
+// edit link needs — so it stays outside the map rather than being repeated per task.
+function toTaskSubmissionRows(submission, taskSubmissions = submission.task_submissions ?? []) {
+  return taskSubmissions.map(taskSubmission => toTaskSubmissionRow(submission, taskSubmission));
+}
+
 
 // ─── COLUMNS ────────────────────────────────────────────────────────────────
 
-// Not linkFormatter: that builds an href, and these rows only ever render inside the
-// submission record page — so they route through it. `data-task` is the declared view param
-// the router copies from the link's dataset into the URL.
-function taskLinkAttributes(row) {
-  return `href="#" data-view="task" data-task="${escapeHtml(row.id)}"`;
-}
-
-function taskLinkFormatter(cell) {
-  const row = cell.getData();
-
-  return `<a ${taskLinkAttributes(row)}>${escapeHtml(row.task_id)}</a>`;
-}
-
-
-function editFormatter(cell) {
-  return `
-    <a class="btn with-icon" ${taskLinkAttributes(cell.getData())}>
-      <i class="btn-icon" data-lucide="pencil"></i>
-      Edit
-    </a>
-  `;
-}
-
-
-function parameterFormatter(cell) {
-  const value = cell.getValue();
-
-  if (Array.isArray(value)) {
-    return value.length
-      ? `<span class="metadata">${escapeHtml(value.join(", "))}</span>`
-      : `<span class="metadata">—</span>`;
-  }
-
-  return value == null || value === ""
-    ? `<span class="metadata">—</span>`
-    : `<span class="metadata">${escapeHtml(value)}</span>`;
-}
-
 // `showEdit` appends a per-row Edit button. Off by default
-function getColumns(showEdit = false) {
+function getTaskSubmissionColumns({ showEdit = false } = {}) {
 
 
   const editColumn = showEdit
@@ -128,7 +103,7 @@ function getColumns(showEdit = false) {
 // ─── CONTROLS ───────────────────────────────────────────────────────────────
 
 
-function getControls() {
+function getTaskSubmissionControls() {
   return [
     {
       type: "search",
@@ -147,10 +122,13 @@ function getControls() {
 }
 
 
+// ─── TABLE ──────────────────────────────────────────────────────────────────
+
 /**
  * @param container  element, or the id of one. Its contents are replaced.
  * @param submission a submission detail record — its `task_submissions` are the rows,
  *                   and its id is half of each row's edit link.
+ * @param showEdit   append the per-row Edit button.
  * @returns the Tabulator instance.
  */
 function renderTaskSubmissionsTable({
@@ -162,9 +140,9 @@ function renderTaskSubmissionsTable({
 
   return createFilterableTable({
     container,
-    rows: taskSubmissions.map(taskSubmission => toRow(submission, taskSubmission)),
-    columns: getColumns(showEdit),
-    controls: getControls(),
+    rows: toTaskSubmissionRows(submission, taskSubmissions),
+    columns: getTaskSubmissionColumns({ showEdit }),
+    controls: getTaskSubmissionControls(),
     noun: "tasks",
     initialSort: [{ column: "task_id", dir: "asc" }],
     caller: "renderTaskSubmissionsTable",
@@ -172,8 +150,33 @@ function renderTaskSubmissionsTable({
 }
 
 
+// ─── STATIC TABLE ───────────────────────────────────────────────────────────
+
+/**
+ * Plain-markup counterpart to renderTaskSubmissionsTable, for a fixed preview — no
+ * filters, no paging, and no Tabulator needed on the page.
+ *
+ * @param container  element, or the id of one. Its contents are replaced.
+ * @param submission as renderTaskSubmissionsTable.
+ * @param limit      how many rows to show. Omit for all of them.
+ * @returns every row it built, not just the slice it rendered, so a caller can report
+ *          a total alongside the preview.
+ */
+function renderStaticTaskSubmissionsTable({ container, submission, limit }) {
+  const rows = toTaskSubmissionRows(submission);
+
+  resolveContainer(container, "renderStaticTaskSubmissionsTable").innerHTML = renderStaticTable({
+    // No Edit column: the button routes through the record page's task view, which a
+    // preview isn't.
+    columns: getTaskSubmissionColumns(),
+    rows: previewRows(rows, (a, b) => String(a.task_id).localeCompare(b.task_id), limit),
+  });
+
+  return rows;
+}
+
+
 export {
   renderTaskSubmissionsTable,
-  toRow,
-  getColumns as taskSubmissionColumns,
+  renderStaticTaskSubmissionsTable,
 };
