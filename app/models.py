@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Optional
 
-from sqlalchemy import Column, DateTime, Index, JSON, func, select, text
+from sqlalchemy import Column, DateTime, Enum as SAEnum, Index, JSON, func, select, text
 from sqlalchemy.orm import column_property
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -292,7 +292,18 @@ class Task(SQLModel, table=True):
     task_type: TaskType
 
     # An enum rather than free text, so a metric name is spelled one way everywhere.
-    primary_metric: Metric
+    #
+    # ``values_callable`` because SQLAlchemy stores enum *names* by default, and
+    # ``Metric.f1_macro`` is the one member whose name and value differ — its value,
+    # ``macro/f1-score``, cannot be a Python identifier. The tasks seed in the initial
+    # migration inserts by value, so without this the ORM asks the database for a label
+    # it has never held and every read of a ts3 task raises ``LookupError``.
+    primary_metric: Metric = Field(
+        sa_column=Column(
+            SAEnum(Metric, name="metric", values_callable=lambda e: [m.value for m in e]),
+            nullable=False,
+        )
+    )
 
     task_submissions: list["TaskSubmission"] = Relationship(back_populates="task")
 
