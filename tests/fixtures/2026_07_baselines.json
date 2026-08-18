@@ -37,8 +37,8 @@
       "n_parameters": null,
       "temporal_context_s": 1.0,
       "is_pretrained": true,
-      "pretrained_in_modalities": "spikes",
-      "pretrained_out_modalities": "spikes",
+      "pretrained_in_modalities": ["spikes"],
+      "pretrained_out_modalities": ["spikes"],
       "pretraining_data": "Multi-session IBL brain-wide map recordings, per-session stitching layer"
     },
     {
@@ -61,7 +61,7 @@
       "n_parameters": null,
       "temporal_context_s": 1.0,
       "is_pretrained": true,
-      "pretrained_in_modalities": "spikes",
+      "pretrained_in_modalities": ["spikes"],
       "pretrained_out_modalities": null,
       "pretraining_data": "NuCLR single-unit waveform/feature pretraining corpus"
     },
@@ -73,7 +73,7 @@
       "n_parameters": null,
       "temporal_context_s": 1.0,
       "is_pretrained": true,
-      "pretrained_in_modalities": "spikes",
+      "pretrained_in_modalities": ["spikes"],
       "pretrained_out_modalities": null,
       "pretraining_data": "NuCLR multi-unit (population) feature pretraining corpus"
     }
@@ -162,18 +162,18 @@
     {"id": "27a532b2-1cc3-4b4c-8e07-70f7a534109b", "submission_id": "bbf6dfec-7281-48a4-b4e6-57c98aeb0855", "task_id": "ts1-licking_rate",          "training_paradigm": "TSS", "calibration": "transductive"},
     {"id": "fe8ae4d7-a726-4c7a-b37c-958327866752", "submission_id": "bbf6dfec-7281-48a4-b4e6-57c98aeb0855", "task_id": "ts1-whisker_motion_energy", "training_paradigm": "TSS", "calibration": "transductive"},
 
-    {"id": "5eef715b-e64e-4eba-bd00-5f0c3a7b287d", "submission_id": "f76a9d9c-02f2-4777-bf65-796a8c7a030c", "task_id": "ts1-choice",                "training_paradigm": "TSU", "calibration": "transductive", "finetuning_strategy": "full_finetuning"},
-    {"id": "f1f8690b-5470-41d0-ae2a-452466637d16", "submission_id": "f76a9d9c-02f2-4777-bf65-796a8c7a030c", "task_id": "ts1-licking_rate",          "training_paradigm": "TSU", "calibration": "transductive", "finetuning_strategy": "full_finetuning"},
-    {"id": "48b7d4af-353c-4510-aa06-6f172add019a", "submission_id": "f76a9d9c-02f2-4777-bf65-796a8c7a030c", "task_id": "ts1-whisker_motion_energy", "training_paradigm": "TSU", "calibration": "transductive", "finetuning_strategy": "full_finetuning"},
+    {"id": "5eef715b-e64e-4eba-bd00-5f0c3a7b287d", "submission_id": "f76a9d9c-02f2-4777-bf65-796a8c7a030c", "task_id": "ts1-choice",                "training_paradigm": "TSU", "calibration": "transductive", "finetuning_strategy": ["full_finetuning"]},
+    {"id": "f1f8690b-5470-41d0-ae2a-452466637d16", "submission_id": "f76a9d9c-02f2-4777-bf65-796a8c7a030c", "task_id": "ts1-licking_rate",          "training_paradigm": "TSU", "calibration": "transductive", "finetuning_strategy": ["full_finetuning"]},
+    {"id": "48b7d4af-353c-4510-aa06-6f172add019a", "submission_id": "f76a9d9c-02f2-4777-bf65-796a8c7a030c", "task_id": "ts1-whisker_motion_energy", "training_paradigm": "TSU", "calibration": "transductive", "finetuning_strategy": ["full_finetuning"]},
 
     {"id": "0802923d-f156-4ddd-adfb-dbd5027f4bff", "submission_id": "3aadcc15-32e9-4d70-ba91-b5b936066f51", "task_id": "ts2-forecasting",  "training_paradigm": "TSS", "calibration": "transductive"},
     {"id": "8f16d830-73f9-4c10-9107-13cd3915ffec", "submission_id": "3aadcc15-32e9-4d70-ba91-b5b936066f51", "task_id": "ts2-co_smoothing", "training_paradigm": "TSS", "calibration": "transductive"},
 
-    {"id": "f4ecc03b-d6ad-446e-92cb-9f5190414bf0", "submission_id": "00d531b8-beb6-464f-94f3-6771c033ca8e", "task_id": "ts2-forecasting",  "training_paradigm": "TSU", "calibration": "transductive", "finetuning_strategy": "full_finetuning"},
-    {"id": "6b91a3fe-0849-4e13-9d4f-fd015304885e", "submission_id": "00d531b8-beb6-464f-94f3-6771c033ca8e", "task_id": "ts2-co_smoothing", "training_paradigm": "TSU", "calibration": "transductive", "finetuning_strategy": "full_finetuning"},
+    {"id": "f4ecc03b-d6ad-446e-92cb-9f5190414bf0", "submission_id": "00d531b8-beb6-464f-94f3-6771c033ca8e", "task_id": "ts2-forecasting",  "training_paradigm": "TSU", "calibration": "transductive", "finetuning_strategy": ["full_finetuning"]},
+    {"id": "6b91a3fe-0849-4e13-9d4f-fd015304885e", "submission_id": "00d531b8-beb6-464f-94f3-6771c033ca8e", "task_id": "ts2-co_smoothing", "training_paradigm": "TSU", "calibration": "transductive", "finetuning_strategy": ["full_finetuning"]},
 
-    {"id": "8e652845-738a-4231-b4d6-f51fe0484d27", "submission_id": "048d81b9-a389-4058-8c62-2562dacf68f7", "task_id": "ts3-cosmos", "training_paradigm": "TSU", "calibration": "inductive", "finetuning_strategy": "linear_probe"},
-    {"id": "30acf900-2d0c-401c-a1e3-1aea4a518dbc", "submission_id": "9369a7ab-065e-474c-ab1c-c0b39cd811b7", "task_id": "ts3-cosmos", "training_paradigm": "TSU", "calibration": "inductive", "finetuning_strategy": "linear_probe"}
+    {"id": "8e652845-738a-4231-b4d6-f51fe0484d27", "submission_id": "048d81b9-a389-4058-8c62-2562dacf68f7", "task_id": "ts3-cosmos", "training_paradigm": "TSU", "calibration": "inductive", "finetuning_strategy": ["linear_probe"]},
+    {"id": "30acf900-2d0c-401c-a1e3-1aea4a518dbc", "submission_id": "9369a7ab-065e-474c-ab1c-c0b39cd811b7", "task_id": "ts3-cosmos", "training_paradigm": "TSU", "calibration": "inductive", "finetuning_strategy": ["linear_probe"]}
   ],
 
   "task_scores": [
