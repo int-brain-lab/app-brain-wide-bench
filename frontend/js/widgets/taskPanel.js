@@ -277,18 +277,18 @@ function createTaskSection({ taskSuites, onChange } = {}) {
             )}
           </div>
 
-          <div class="row left gap-sm">
-            <label class="label" for="task-confirm">
-              Confirm this task
-            </label>
-
-            <input
-              class="input-checkbox task-confirm"
-              id="task-confirm"
-              type="checkbox"
+          <!-- One way: editing any field clears the confirmation again (see updateField),
+               so there is nothing for the user to untick. Disabled once saved, which is
+               also the only feedback the click gives — the tick in the picker is the
+               lasting record. -->
+          <div class="row right">
+            <button
+              type="button"
+              class="btn primary task-confirm"
               data-task="${taskId}"
-              ${task.confirmed ? "checked" : ""}
-            />
+              ${task.confirmed ? "disabled" : ""}>
+              ${task.confirmed ? "Saved" : "Save selection"}
+            </button>
           </div>
         </div>
 
@@ -329,13 +329,13 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     render();
   }
 
-  function confirmTask(taskId, confirmed) {
+  function confirmTask(taskId) {
     const task = getTask(taskId);
 
     if (!task) return;
 
     updateTask(task, currentTask => {
-      currentTask.confirmed = confirmed;
+      currentTask.confirmed = true;
     });
   }
 
@@ -379,6 +379,13 @@ function createTaskSection({ taskSuites, onChange } = {}) {
   // ─── EVENTS ───────────────────────────────────────────────────────────────
 
   function handleClick(event) {
+    const confirmButton = event.target.closest(".task-confirm");
+
+    if (confirmButton) {
+      confirmTask(confirmButton.dataset.task);
+      return;
+    }
+
     const item = event.target.closest(".task-item");
 
     if (item) {
@@ -389,16 +396,6 @@ function createTaskSection({ taskSuites, onChange } = {}) {
   // The panel's own controls, which are not schema fields — they carry `data-task`, not
   // `data-field`, so this and attachFieldEvents below never see the same change.
   function handleChange(event) {
-    const confirmCheckbox = event.target.closest(".task-confirm");
-
-    if (confirmCheckbox) {
-      confirmTask(
-        confirmCheckbox.dataset.task,
-        confirmCheckbox.checked,
-      );
-      return;
-    }
-
     const applyCheckbox = event.target.closest(
       ".task-apply-suite",
     );

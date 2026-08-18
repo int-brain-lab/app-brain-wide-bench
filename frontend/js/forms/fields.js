@@ -80,6 +80,21 @@ function buildDisplayField(key, state, fields, inline=false) {
 
 // ─── INPUTS ─────────────────────────────────────────────────────────────────
 
+// Shown on inputs only, never on a display row — a read-only value can't be filled in.
+// aria-hidden because the control itself carries the `required` attribute, which is what a
+// screen reader announces; the asterisk would otherwise be read out as punctuation.
+const REQUIRED_MARKER = `<span class="required-marker" aria-hidden="true">*</span>`;
+
+// `htmlFor` off for a checkbox-list, whose label heads a group of checkboxes rather than
+// naming one control — there is no id for it to point at.
+function buildInputLabel(key, field, { htmlFor = true } = {}) {
+  return `
+    <label class="field-label"${htmlFor ? ` for="${escapeHtml(key)}"` : ""}>
+      ${escapeHtml(field.label)}${field.required ? REQUIRED_MARKER : ""}
+    </label>
+  `;
+}
+
 // A textarea holds its value as element content, not an attribute, so it can't share
 // buildInputField. The closing `>` must sit tight against the value: HTML strips one
 // newline after the open tag, which would eat a leading blank line in a saved narrative.
@@ -89,12 +104,13 @@ function buildTextareaField(key, state, fields) {
 
   return `
     <div class="column gap-xs">
-      <label class="field-label" for="${escapeHtml(key)}">${escapeHtml(field.label)}</label>
+      ${buildInputLabel(key, field)}
       <textarea
         id="${escapeHtml(key)}"
         class="field-input field-textarea"
         placeholder="${escapeHtml(field.placeholder)}"
         data-field="${escapeHtml(key)}"
+        ${field.required ? "required" : ""}
         ${isDisabled(field, state) ? "disabled" : ""}
       >${escapeHtml(value)}</textarea>
     </div>
@@ -109,13 +125,14 @@ function buildInputField(key, state, fields) {
 
   return `
     <div class="column gap-xs">
-      <label class="field-label" for="${escapeHtml(key)}">${escapeHtml(field.label)}</label>
+      ${buildInputLabel(key, field)}
       <input
         id="${escapeHtml(key)}"
         class="field-input"
         type="${escapeHtml(field.input)}"
         placeholder="${escapeHtml(field.placeholder)}"
         data-field="${escapeHtml(key)}"
+        ${field.required ? "required" : ""}
         ${isDisabled(field, state) ? "disabled" : ""}
         value="${escapeHtml(value)}">
     </div>
@@ -138,12 +155,13 @@ function buildSelectField(key, state, fields) {
 
   return `
     <div class="column gap-xs">
-      <label class="field-label" for="${escapeHtml(key)}">${escapeHtml(field.label)}</label>
+      ${buildInputLabel(key, field)}
 
       <select
         id="${escapeHtml(key)}"
         class="input-select"
         data-field="${escapeHtml(key)}"
+        ${field.required ? "required" : ""}
         ${isDisabled(field, state) ? "disabled" : ""}>
 
         <option value="" disabled ${value == null ? "selected" : ""}>
@@ -173,7 +191,7 @@ function buildCheckboxListField(key, state, fields) {
 
   return `
     <div class="column gap-xs">
-      <label class="field-label">${escapeHtml(field.label)}</label>
+      ${buildInputLabel(key, field, { htmlFor: false })}
 
       <div class="column gap-sm">
         ${field.options.map(option => `
@@ -200,11 +218,7 @@ function buildCheckboxField(key, state, fields) {
 
   return `
     <div class="row left gap-sm">
-      <label
-        class="field-label"
-        for="${escapeHtml(key)}">
-        ${escapeHtml(field.label)}
-      </label>
+      ${buildInputLabel(key, field)}
 
       <input
         id="${escapeHtml(key)}"
@@ -300,6 +314,7 @@ function buildGroupCards(groups, state, fields, render) {
 
 
 export {
+  REQUIRED_MARKER,
   buildDisplayFields,
   buildFields,
   buildGroupCards,

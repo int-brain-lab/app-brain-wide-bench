@@ -8,6 +8,7 @@
 // markup; `createUploadSection()` is then called once that markup is in the DOM.
 
 import { clearMessage, escapeHtml, formatBytes, showFailure } from "../core/utils.js";
+import { REQUIRED_MARKER } from "../forms/fields.js";
 import {
   inferTasks,
   listZipEntries,
@@ -20,6 +21,11 @@ function buildUploadPanel() {
   return `
     <div class="card column gap-md">
       <p class="title muted">Predictions</p>
+
+      <!-- Not a schema field, so it has no label of its own — but it is required, and the
+           panel reads as optional without one. Same classes as a field's, so it lines up
+           with the panels above and below. -->
+      <label class="field-label">Upload a file${REQUIRED_MARKER}</label>
 
       <div class="dropzone" id="dropzone">
         <input

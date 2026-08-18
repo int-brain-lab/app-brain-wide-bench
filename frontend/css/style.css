@@ -778,6 +778,13 @@ GENERIC TEXT
   color: var(--text-muted);
 }
 
+/* The asterisk beside a required field's label. Inherits the label's size, so it stays in
+   proportion wherever a label is used. */
+.required-marker {
+  margin-left: 2px;
+  color: var(--danger);
+}
+
 .statistic {
   font-size: 28px;
   font-weight: var(--bold);
@@ -1282,6 +1289,15 @@ BARS
   font-family: inherit;
   min-height: 96px;
   resize: vertical;
+}
+
+/* An option the schema has ruled out — `disabledOptionsWhen`, or the whole field being
+   disabled. Driven off the control's own :disabled, the same way .form-panel is, so the
+   dimming cannot disagree with whether the box can actually be ticked. Without it only the
+   small square greys out and the label beside it reads as available. */
+.value:has(.field-checkbox:disabled) {
+  opacity: 50%;
+  cursor: not-allowed;
 }
 
 .field-checkbox,

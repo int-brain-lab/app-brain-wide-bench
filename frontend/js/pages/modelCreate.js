@@ -16,17 +16,14 @@ import { loadCreatePage } from "../templates/create-page.js";
 const MODEL_PANELS = [
   {
     panel: 1,
-    required: ["name", "team_id"],
     title: "1. Choose a model name and the team it belongs to"
   },
   {
     panel: 2,
-    required: [],
     title: "2. Add links to your models"
   },
   {
     panel: 3,
-    required: ["is_pretrained"],
     title: "3. Describe your model parameters"
   },
 ];

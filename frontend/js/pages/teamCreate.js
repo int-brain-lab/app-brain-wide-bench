@@ -24,11 +24,9 @@ import {
 const TEAM_PANELS = [
   {
     panel: 1,
-    required: ["name"]
   },
   {
     panel: 2,
-    required: [],
     build: buildMembersPanel
   },
 ];

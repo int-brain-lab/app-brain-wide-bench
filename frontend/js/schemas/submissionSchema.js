@@ -13,6 +13,7 @@ const SUBMISSION_FIELDS = {
     input: "text",
     panel: 1,
     default: "",
+    required: true,
   },
 
   model_id: {
@@ -20,6 +21,7 @@ const SUBMISSION_FIELDS = {
     input: "select",
     options: null,
     panel: 1,
+    required: true,
   },
 
   model_name: {
@@ -54,6 +56,7 @@ const SUBMISSION_FIELDS = {
     input: "select",
     options: [true, false],
     panel: 2,
+    required: true,
   },
 
   // `s3_key`, not `s3_url` — matches SubmissionDetail and the mock fixture.

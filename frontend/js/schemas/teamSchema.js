@@ -19,6 +19,7 @@ const TEAM_FIELDS = {
     input: "text",
     panel: 1,
     default: "",
+    required: true,
   },
 
   n_members: {

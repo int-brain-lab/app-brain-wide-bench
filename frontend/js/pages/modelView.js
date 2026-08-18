@@ -28,6 +28,7 @@ import {
   EDIT_ACTION,
   EDIT_ACTIONS,
   pageMessage,
+  POST_CREATE_SECTION,
   renderDetails,
   renderHeader,
   renderPage,
@@ -208,7 +209,7 @@ function renderDetailsView({ model, fields, canEdit, edit = false, created = fal
     buildPage({
       back: BACK,
       header: buildHeader(canEdit ? EDIT_ACTIONS : []),
-      body: buildBody() + (created ? buildSection({ id: "post-create" }) : ""),
+      body: buildBody() + (created ? buildSection({ id: POST_CREATE_SECTION }) : ""),
     }),
   );
 
@@ -224,7 +225,7 @@ function renderDetailsView({ model, fields, canEdit, edit = false, created = fal
   if (created) {
     showSuccess(pageMessage(), "Model successfully created.");
 
-    appendCreateCard(sectionBody("post-create"), {
+    appendCreateCard(sectionBody(POST_CREATE_SECTION), {
       href: `/html/submissions/submission_create.html?model=${encodeURIComponent(model.id)}`,
       label: "Make your first submission for this model",
     });

@@ -35,24 +35,22 @@ function buildPanels(context) {
   return [
     {
       panel: 1,
-      required: ["label", "model_id"],
       title: "1. Choose a submission name and the model it belongs to"
     },
     {
       panel: 2,
-      required: ["is_public"],
       title: "2. Set submission visibility and optional narratives"
     },
     {
       panel: 3,
-      required: ["file"],
-      complete: () => context.unknownTaskIds.length === 0,
+      // The file is this panel's, not the schema's — it never renders as a field, and the
+      // upload widget is what knows whether there is one.
+      complete: () => Boolean(context.file) && context.unknownTaskIds.length === 0,
       build: buildUploadPanel,
       title: "3. Upload a zip file and detect tasks"
     },
     {
       panel: 4,
-      required: [],
       complete: () => context.taskPanel?.allConfirmed(),
       build: buildTaskPanel,
       title: "4. Configure task parameters"
@@ -169,7 +167,7 @@ async function loadSubmissionContext() {
   const knownTasks = await loadKnownTasks();
   await loadTaskFields();
 
-  return { fields, knownTasks, unknownTaskIds: [], taskPanel: null };
+  return { fields, knownTasks, unknownTaskIds: [], taskPanel: null, file: null };
 }
 
 // The task section owns panel 4, the upload section panel 3; both are built here, between
@@ -194,11 +192,10 @@ async function setupPanels(form, context) {
         ? taskIds.filter(id => !knownTasks.has(id))
         : [];
 
-      // Written straight onto the state: the file is panel 3's own, not a schema field, and
-      // reaches the form only as the `required: ["file"]` that keeps panel 4 locked. That
-      // is a lock, re-evaluated by the `refresh()` at the end of this path, not something
-      // the fields draw — so no redraw is owed here. A `disabledWhen` that reads
-      // `state.file` would change that, and would have to ask for one.
+      // Onto the context for panel 3's `complete`, and onto the state because that is where
+      // submitSubmission reads it from. Neither is a field the form draws, so no redraw is
+      // owed here — the lock is re-evaluated by the `refresh()` at the end of this path.
+      context.file = file;
       form.state.file = file;
 
       // Only ids the catalogue recognises reach the task panel — which is why it has no
@@ -214,7 +211,7 @@ async function setupPanels(form, context) {
 
 loadCreatePage({
   noun: "submission",
-  backTo: { href: "/html/submissions/submissions.html", text: "← Back to submissions" },
+  backTo: { href: "/html/submissions/submission_list.html", text: "← Back to submissions" },
   load: loadSubmissionContext,
   fields: context => context.fields,
   panels: buildPanels,

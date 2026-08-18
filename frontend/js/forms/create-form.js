@@ -36,17 +36,17 @@ function isFilled(value) {
  * @param container     Element — the fieldsets are rendered into it. The only part of the
  *                      document this form knows about.
  *
- * @param panels        [{ panel, required, complete, build, title }], in page order.
- *                      `required` is the field keys that must be filled for the panel to
- *                      count as complete; `build` returns markup for a component-driven one.
+ * @param panels        [{ panel, complete, build, title }], in page order. `build` returns
+ *                      markup for a component-driven panel.
  *
- *                      `complete` is an optional () => boolean, ANDed with `required`. It is
- *                      how a component-driven panel reports what the schema can't see — and
- *                      since the panels below stay locked until it passes, how it refuses to
- *                      let the user move on.
+ *                      `complete` is an optional () => boolean, ANDed with the panel's
+ *                      required fields. It is how a component-driven panel reports what the
+ *                      schema can't see — a file chosen, tasks confirmed — and since the
+ *                      panels below stay locked until it passes, how it refuses to let the
+ *                      user move on.
  *
- * @param fields        the schema, used to build the schema-driven panels and to read each
- *                      panel's required keys.
+ * @param fields        the schema. A panel's required fields are read from it: the ones
+ *                      marked `required` and declared in that panel.
  *
  * @param onChange      optional async (key, value, cleared) => void, on every field change.
  *
@@ -85,10 +85,19 @@ function createPanelForm({
     return panelElements.get(panelNumber);
   }
 
+  // From the schema, not from the panel: `required` is a property of the field, and the
+  // asterisk beside it and the lock below it have to be the same fact. What the schema
+  // can't know — a file, a set of confirmed tasks — is the panel's own `complete`.
+  function requiredKeys(panelNumber) {
+    return Object.entries(fields)
+      .filter(([, field]) => field.required && field.panel === panelNumber)
+      .map(([key]) => key);
+  }
+
   function isPanelComplete(panelNumber) {
     const panel = panelsByNumber.get(panelNumber);
 
-    return (panel?.required ?? []).every(key => isFilled(state[key]))
+    return requiredKeys(panelNumber).every(key => isFilled(state[key]))
       && (panel?.complete?.() ?? true);
   }
 

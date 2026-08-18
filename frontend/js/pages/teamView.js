@@ -12,15 +12,16 @@ import { buildStatCards } from "../cards/statCards.js";
 import { buildRoleBadge } from "../components/badges.js";
 import { loadRecordPage } from "../templates/record-loader.js";
 import {
-  EDIT_ACTION,
-  EDIT_ACTIONS,
   buildBody,
   buildHeader,
   buildPage,
   buildSection,
   buildSections,
   buildStats,
+  EDIT_ACTION,
+  EDIT_ACTIONS,
   pageMessage,
+  POST_CREATE_SECTION,
   renderDetails,
   renderHeader,
   renderPage,
@@ -194,7 +195,7 @@ function renderDetailsView({ team, fields, canEdit, edit = false, created = fals
       body:
         buildBody() +
         (canEdit ? buildSections([MEMBERS_SECTION_BODY]) : "") +
-        (created ? buildSection({ id: "post-create" }) : ""),
+        (created ? buildSection({ id: POST_CREATE_SECTION }) : ""),
     }),
   );
 
@@ -205,7 +206,7 @@ function renderDetailsView({ team, fields, canEdit, edit = false, created = fals
   if (created) {
     showSuccess(pageMessage(), "Team successfully created.");
 
-    appendCreateCard(sectionBody("post-create"), {
+    appendCreateCard(sectionBody(POST_CREATE_SECTION), {
       href: "/html/models/model_create.html",
       label: "Register your first model for this team",
     });

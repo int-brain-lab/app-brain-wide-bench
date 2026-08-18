@@ -13,6 +13,7 @@ const MODEL_FIELDS = {
     input: "text",
     panel: 1,
     default: "",
+    required: true,
   },
 
   team_id: {
@@ -20,6 +21,7 @@ const MODEL_FIELDS = {
     input: "select",
     options: null,
     panel: 1,
+    required: true,
   },
 
   team_name: {
@@ -81,7 +83,8 @@ const MODEL_FIELDS = {
     label: "Pretrained",
     input: "select",
     panel: 3,
-    options: [true, false]
+    options: [true, false],
+    required: true,
   },
 
   pretrained_in_modalities: {

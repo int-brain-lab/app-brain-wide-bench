@@ -17,6 +17,7 @@ import { CLEARED_MESSAGE } from "../forms/form.js";
 import { panelGroups } from "../schemas/schema.js";
 import { Editor } from "../forms/edit-form.js";
 import {
+  clearPostCreate,
   editButtons,
   pageMessage,
   renderDetails,
@@ -92,7 +93,13 @@ function attachRecordEditor({
   // click. Registered before Editor's own handlers, so a save that reports something writes
   // into a region this has just emptied.
   for (const button of Object.values(buttons)) {
-    button?.addEventListener("click", () => clearMessage(pageMessage()));
+    button?.addEventListener("click", () => {
+      clearMessage(pageMessage());
+
+      // The post-create card says "you have just made this and it has nothing in it yet",
+      // which stops being the interesting thing the moment the user acts on the record.
+      clearPostCreate();
+    });
   }
 
   const editor = Editor({

@@ -95,10 +95,12 @@ function renderEmptyState(elements, create, noun) {
 
   // Before the create card, and shown whether or not there is one: signed out there is no
   // card, and an empty list would otherwise be an empty page.
-  showEmpty(elements.list, `No ${noun} yet.`);
-
-  appendCreateCard(elements.list, create);
-  clearCreateRow(elements.create);
+  if (!create) {
+    showEmpty(elements.list, `No public ${noun} yet.`);
+  } else {
+    appendCreateCard(elements.list, create);
+    clearCreateRow(elements.create);
+  }
 
   for (const button of [
     elements.cardsButton,

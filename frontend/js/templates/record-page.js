@@ -291,6 +291,14 @@ function renderDetails(model, fields, recordPanels) {
 
 // ─── DOM ACCESS ──────────────────────────────────────────────────────────────
 
+// The "make your first submission / register your first model" card a create flow leaves
+// behind. True only until the user does something else, so any editor action removes it.
+const POST_CREATE_SECTION = "post-create";
+
+function clearPostCreate() {
+  sectionBody(POST_CREATE_SECTION)?.closest("section")?.remove();
+}
+
 function sectionBody(id) {
   return document.getElementById(`section-${id}`);
 }
@@ -336,6 +344,8 @@ function editButtons() {
 
 export {
   CANCEL_ACTION,
+  POST_CREATE_SECTION,
+  clearPostCreate,
   EDIT_ACTION,
   EDIT_ACTIONS,
   SAVE_ACTION,
