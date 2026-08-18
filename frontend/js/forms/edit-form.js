@@ -27,7 +27,8 @@ import { createFieldForm } from "./form.js";
  *                     layout with the read-only view. Takes precedence over `keys`.
  * @param record       the record being edited. Mutated in place on a successful save, so
  *                     the surrounding page sees the new values.
- * @param save         async (draft) => updated record (or null/undefined on failure).
+ * @param save         async (changes) => updated record (or null/undefined on failure).
+ *                     `changes` is only the fields the user edited, ready for a PATCH.
  * @param onSaved      optional async (record) => void, after a successful save —
  *                     e.g. re-render the page's tabs.
  * @param onCleared    optional (labels: string) => void, when a change
@@ -40,6 +41,37 @@ import { createFieldForm } from "./form.js";
  * @param context      optional () => object — state the schema's predicates read that
  *                     isn't an editable field. A thunk, so it picks up late values.
  */
+// null and undefined both mean "unset" here: a text input that was cleared reads back as
+// null, while a record that never carried the value arrives undefined. Arrays are compared
+// as sets — a checkbox list's order follows the schema's options, not the user's clicks.
+function sameValue(a, b) {
+  if (Array.isArray(a) || Array.isArray(b)) {
+    const left = [...(a ?? [])].sort();
+    const right = [...(b ?? [])].sort();
+
+    return left.length === right.length
+      && left.every((value, index) => value === right[index]);
+  }
+
+  return (a ?? null) === (b ?? null);
+}
+
+// What the user actually changed. Every PATCH endpoint takes a partial body
+// (`exclude_unset`), so naming untouched fields would write values this page read minutes
+// ago over whatever has changed since — and on a task submission it would null the four
+// fields the user didn't touch, which is the case tasksubmissions.py calls out by name.
+//
+// Keyed off the schema rather than the draft, which also keeps `context` out of the
+// payload: those extras are there for the schema's predicates to read, not to be saved.
+function changedFields(draft, record, fields) {
+  return Object.fromEntries(
+    Object.keys(fields)
+      .filter(key => key in draft && !sameValue(draft[key], record[key]))
+      .map(key => [key, draft[key]]),
+  );
+}
+
+
 function Editor({
   container,
   editButton,
@@ -117,12 +149,10 @@ function Editor({
     if (!draft) return;
 
     try {
-
-      // TODO only pass in the fields that have changed!
-      // iterate through the draft and compare to the record, only send the changed fields to save
-
-
-      const updated = await save(draft);
+      // Always called, even with nothing to send: a save can do more than the fields — the
+      // team editor applies its member changes in there — and an empty PATCH is a no-op the
+      // server answers with the current record.
+      const updated = await save(changedFields(draft, record, fields));
 
       // A save helper that swallowed its error returns undefined — a failure, not a
       // reason to wipe the record.
