@@ -1,5 +1,5 @@
 import { initials} from "../core/utils.js";
-import { apiFetch, isAuthenticated } from "../api/client.js";
+import { apiFetch, isAuthenticated, logout } from "../api/client.js";
 import { renderLogo } from "./navTop.js";
 // ─── CONSTANTS ─────────────────────────────────────────────────────────────
 
@@ -97,7 +97,7 @@ function renderSidebar() {
     <div class="sidebar-bottom">
       <div class="row left gap-md">
         <div class="user-logo" id="user-initials">—</div>
-         <div class="text-md muted bold" id="user-name">…</div>
+        <a class="btn primary" id="sidebar-logout">Sign out</a>
       </div>
     </div>
   `;
@@ -108,24 +108,21 @@ function renderSidebar() {
 
 // ─── USER ───────────────────────────────────────────────────────────────────
 
-// Exported so the settings page can re-run it after a rename — otherwise the
-// sidebar keeps showing the old name until the next navigation. The lookups are
-// optional because an external caller can't assume renderSidebar() has run.
+// Exported so the settings page can re-run it after a rename — the initials are taken from
+// the name, so they go stale with it. The lookup is optional because an external caller
+// can't assume renderSidebar() has run.
 async function fillSidebarUser() {
+  const user = await loadCurrentUser();
 
-    const user = await loadCurrentUser();
+  if (!user) {
+    return;
+  }
 
-    if (!user) {
-      return;
-    }
+  const initialsElement = document.getElementById("user-initials");
 
-    const name = user.name || user.email;
-
-    const nameElement = document.getElementById("user-name");
-    const initialsElement = document.getElementById("user-initials");
-
-    if (nameElement) nameElement.textContent = name;
-    if (initialsElement) initialsElement.textContent = initials(name);
+  if (initialsElement) {
+    initialsElement.textContent = initials(user.name || user.email);
+  }
 }
 
 
@@ -139,6 +136,11 @@ async function initialiseSidebar() {
   }
 
   nav.innerHTML = renderSidebar();
+
+  // Straight back to the public home, which logout() is already pointed at.
+  document
+    .getElementById("sidebar-logout")
+    ?.addEventListener("click", () => logout());
 
   await fillSidebarUser();
 

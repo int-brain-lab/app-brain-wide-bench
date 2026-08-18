@@ -7,11 +7,15 @@ import { apiFetch, isAuthenticated, login, logout } from "../api/client.js";
 // them — with the way into the signed-in half last. Models and Submissions are the
 // unscoped lists; the sidebar's "My models" and "My submissions" are the same pages at
 // data-scope="mine".
+// Where signing in lands, and the nav item that names it — one constant, so the button and
+// the link can't drift apart.
+const DASHBOARD_HREF = "/html/dashboard/dashboard.html";
+
 const NAV_ITEMS = [
   { label: "Leaderboard", href: "/html/leaderboard/leaderboard.html" },
   { label: "Models", href: "/html/models/model_list_public.html" },
   { label: "Submissions", href: "/html/submissions/submission_list_public.html" },
-  { label: "My dashboard", href: "/html/dashboard/dashboard.html" },
+  { label: "My dashboard", href: DASHBOARD_HREF },
 ];
 
 
@@ -138,13 +142,15 @@ async function renderAuthSection() {
 // ─── EVENTS ─────────────────────────────────────────────────────────────────
 
 function attachNavEvents() {
+  // Arrows, not the bare functions: a listener is called with the click event, and `login`
+  // now reads its first argument as the page to return to.
   document
     .getElementById("login-btn")
-    ?.addEventListener("click", login);
+    ?.addEventListener("click", () => login(DASHBOARD_HREF));
 
   document
     .getElementById("logout-btn")
-    ?.addEventListener("click", logout);
+    ?.addEventListener("click", () => logout());
 }
 
 
