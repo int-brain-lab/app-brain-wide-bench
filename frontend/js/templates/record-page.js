@@ -70,6 +70,7 @@ function buildAction(action) {
     id,
     label,
     icon,
+    href,
     className = "",
     hidden = false,
   } = action;
@@ -78,8 +79,13 @@ function buildAction(action) {
     .filter(Boolean)
     .join(" ");
 
+  // Either an `id` for the page to wire — Edit, Save, Cancel — or an `href` for an action
+  // that is simply a link, like "New submission". Both are already anchors, so the two look
+  // the same in the header whichever they are.
+  const target = href ? ` href="${escapeHtml(href)}"` : ` id="${id}"`;
+
   return `
-    <a class="${classes}" id="${id}"${hidden ? " hidden" : ""}>
+    <a class="${classes}"${target}${hidden ? " hidden" : ""}>
       <i class="btn-icon" data-lucide="${icon}"></i>
       ${label}
     </a>

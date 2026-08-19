@@ -1,7 +1,7 @@
 // One card per model, for the model list and the team dashboard.
 
 import { escapeHtml, formatDate } from "../core/utils.js";
-import { buildSuiteCoverageBadges } from "../components/badges.js";
+import {buildSuiteBadgeList, buildVisibleBadge} from "../components/badges.js";
 import { buildCount } from "../components/count.js";
 
 
@@ -10,7 +10,7 @@ function buildModelCard(model) {
 
   return `
     <a
-      class="card column left gap-sm"
+      class="card column left gap-md"
       href="/html/models/models.html?id=${encodeURIComponent(model.id)}"
     >
       <div class="column left">
@@ -19,7 +19,7 @@ function buildModelCard(model) {
       </div>
 
       <div class="row left gap-md">
-        ${buildSuiteCoverageBadges(model.task_suites ?? [], "sm")}
+        ${buildSuiteBadgeList(model.task_suites ?? [], "sm")}
       </div>
 
       <p class="metadata">

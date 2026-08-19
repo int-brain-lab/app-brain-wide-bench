@@ -19,7 +19,7 @@ import {
   getMeanScores,
   scoresBySuite,
 } from "../core/scoreData.js";
-import { appendCreateCard, renderCreateRow } from "../cards/createCard.js";
+import { appendCreateCard } from "../cards/createCard.js";
 import { renderTaskScoresTable, toScoreRows } from "../tables/scoreTable.js";
 import { loadRecordPage } from "../templates/record-loader.js";
 import {
@@ -37,7 +37,6 @@ import {
   renderHeader,
   renderPage,
   sectionBody,
-  sectionCreate,
 } from "../templates/record-page.js";
 import { buildStatCards } from "../cards/statCards.js";
 
@@ -74,7 +73,6 @@ const DASHBOARD_SECTIONS = [
     view: "submissions",
     linkIcon: getIcon("submission"),
     linkText: "View all submissions",
-    create: true,
   },
 ];
 
@@ -129,6 +127,18 @@ function getSubtitle(model) {
 }
 
 
+// Beside Edit rather than under the submissions list: it belongs to the model, not to the
+// three rows the dashboard happens to show, and a member is as likely to want it before
+// reading them as after.
+function getCreateAction(model) {
+  return {
+    ...getSubmissionLink(model),
+    label: "New submission",
+    icon: getIcon("add"),
+    className: "primary-inv",
+  };
+}
+
 function getSubmissionLink(model) {
   return {
     href: `/html/submissions/submission_create.html?model=${encodeURIComponent(
@@ -174,21 +184,15 @@ function renderDetailsSection(model, fields) {
   `;
 }
 
-function renderSubmissionsSection(model, submissions, canEdit) {
+function renderSubmissionsSection(submissions) {
   const container = sectionBody("submissions");
 
   if (!submissions.length) {
     showEmpty(container, "No submissions yet.");
-  } else {
-    renderStaticSubmissionsTable({ container, submissions, limit: MAX_SUBMISSIONS });
+    return;
   }
 
-  if (canEdit) {
-    renderCreateRow(
-      sectionCreate("submissions"),
-      getSubmissionLink(model),
-    );
-  }
+  renderStaticSubmissionsTable({ container, submissions, limit: MAX_SUBMISSIONS });
 }
 
 // ─── VIEWS ───────────────────────────────────────────────────────────────────
@@ -204,7 +208,7 @@ function renderDashboardView(context, router) {
 
   renderPage(
     buildPage({
-      header: buildHeader(canEdit ? [EDIT_ACTION] : []),
+      header: buildHeader(canEdit ? [getCreateAction(model), EDIT_ACTION] : []),
       body: buildStats() + buildSections(DASHBOARD_SECTIONS),
     }),
   );
@@ -214,7 +218,7 @@ function renderDashboardView(context, router) {
   renderStatsSection(statistics);
   renderScoresSection(meanScores);
   renderDetailsSection(model, fields);
-  renderSubmissionsSection(model, submissions, canEdit);
+  renderSubmissionsSection(submissions);
 
   // Edit button that goes directly to full model editing view
   if (canEdit) attachEditLink(router);

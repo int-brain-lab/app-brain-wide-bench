@@ -12,13 +12,15 @@ function buildTeamCards(teams) {
   // they aren't in simply doesn't have the badge.
   return teams.map(team => `
     <a
-    class="card column left gap-sm"
+    class="card column left gap-md"
     href="/html/teams/teams.html?id=${encodeURIComponent(team.id)}"
     >
       <p class="title">${escapeHtml(team.name)}</p>
       ${buildRoleBadge(team.role, "sm")}
-      <p class="metadata">${buildCount(team.n_members, "member")}</p>
-      <p class="metadata">${buildCount(team.n_models, "model")}</p>
+      <p class="metadata">
+        ${buildCount(team.n_members, "member")}
+        · ${buildCount(team.n_models, "model")}
+      </p>
     </a>
   `).join("");
 }

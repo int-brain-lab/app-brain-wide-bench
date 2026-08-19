@@ -70,7 +70,7 @@ async function loadUserDetailsPage() {
       }),
     );
 
-    renderHeader("Settings", DESCRIPTION);
+    renderHeader("My details");
     renderDetails(user, USER_FIELDS, USER_PANELS);
     attachEditor(user);
 

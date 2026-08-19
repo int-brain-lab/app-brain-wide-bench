@@ -1,7 +1,7 @@
 // One card per submission, for the submission list and the model dashboard.
 
 import { escapeHtml, formatDate } from "../core/utils.js";
-import { buildStatusBadge, buildSuiteCoverageBadges } from "../components/badges.js";
+import {buildStatusBadge, buildSuiteBadgeList } from "../components/badges.js";
 import { suitesFromSubmission } from "../core/suites.js";
 
 
@@ -10,7 +10,7 @@ function buildSubmissionCards(submissions) {
     .map(
       submission => `
         <a
-          class="card column left gap-sm"
+          class="card column left gap-md"
           href="/html/submissions/submissions.html?id=${encodeURIComponent(submission.id)}"
         >
           <div class="column left">
@@ -21,10 +21,9 @@ function buildSubmissionCards(submissions) {
             </p>
           </div>
 
-          ${buildStatusBadge(submission.status, "sm")}
-
-          <div class="row left gap-sm">
-            ${buildSuiteCoverageBadges(suitesFromSubmission(submission), "sm")}
+          <div class="row left gap-md">
+            ${buildSuiteBadgeList(suitesFromSubmission(submission), "sm")}
+            ${buildStatusBadge(submission.status, "sm")}
           </div>
 
           <p class="metadata">

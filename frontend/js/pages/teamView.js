@@ -57,6 +57,15 @@ const MEMBERS_SECTION_BODY = {
   title: "Members",
 };
 
+// Beside Edit, as on the model page. Creating a team isn't an action *on* this team, but it
+// is what someone looking at one most often wants next.
+const CREATE_TEAM_ACTION = {
+  href: "/html/teams/model_create.html",
+  label: "New model",
+  icon: getIcon("add"),
+  className: "primary-inv",
+};
+
 const BACK = {
   text: "← Back to dashboard",
   view: "dashboard",
@@ -157,7 +166,7 @@ function renderDashboardView(context, router) {
 
   renderPage(
     buildPage({
-      header: buildHeader(canEdit ? [EDIT_ACTION] : []),
+      header: buildHeader(canEdit ? [CREATE_TEAM_ACTION, EDIT_ACTION] : []),
       body:
         buildStats() +
         buildSections(canEdit ? [MODELS_SECTION, MEMBERS_SECTION] : [MODELS_SECTION]),
