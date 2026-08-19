@@ -16,7 +16,7 @@ function buildTeamCards(teams) {
     href="/html/teams/teams.html?id=${encodeURIComponent(team.id)}"
     >
       <p class="title">${escapeHtml(team.name)}</p>
-      ${buildRoleBadge(team.role)}
+      ${buildRoleBadge(team.role, "sm")}
       <p class="metadata">${buildCount(team.n_members, "member")}</p>
       <p class="metadata">${buildCount(team.n_models, "model")}</p>
     </a>

@@ -9,6 +9,9 @@
 // Several concepts share a glyph, and that is fine: they are separate entries because they
 // are separate ideas, and one of them may want its own icon later.
 
+import { escapeHtml } from "../core/utils.js";
+
+
 const ICONS = {
   // Records and their parts
   model: "chart-column",
@@ -30,6 +33,8 @@ const ICONS = {
   created: "calendar",
   status: "check-check",
   visibility: "globe",
+  public: "eye",
+  private: "eye-off",
 
   // Actions
   add: "plus",
@@ -66,4 +71,20 @@ function getIcon(name) {
 }
 
 
-export { ICONS, getIcon };
+/**
+ * @param name      a concept from ICONS.
+ * @param className the icon's size class — `field-icon` beside text, `btn-icon` in a button.
+ * @param title     hover text, for an icon standing on its own with no label beside it.
+ */
+function buildIcon(name, { className = "field-icon", title = "" } = {}) {
+  return `
+    <i
+      class="${className}"
+      data-lucide="${getIcon(name)}"
+      ${title ? `title="${escapeHtml(title)}"` : ""}
+    ></i>
+  `;
+}
+
+
+export { ICONS, buildIcon, getIcon };

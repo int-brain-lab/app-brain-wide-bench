@@ -71,7 +71,7 @@ function dateFormatter(cell) {
 // ─── SUITES ─────────────────────────────────────────────────────────────────
 
 function suiteBadgesFormatter(cell) {
-  return `<span class="row left gap-sm">${buildSuiteBadgeList(cell.getValue() ?? [])}</span>`;
+  return `<span class="row left gap-sm">${buildSuiteBadgeList(cell.getValue() ?? [], "sm")}</span>`;
 }
 
 // Singular counterpart, for a row belonging to exactly one suite (a task) rather than
@@ -79,7 +79,7 @@ function suiteBadgesFormatter(cell) {
 function suiteBadgeFormatter(cell) {
   const suite = cell.getValue();
 
-  return suite ? buildSuiteBadgeList([suite]) : "—";
+  return suite ? buildSuiteBadgeList([suite], "sm") : "—";
 }
 
 // SUITES order rather than discovery order, so the badges line up down the column.
@@ -126,7 +126,7 @@ function taskNameFormatter(cell) {
 // ─── SUBMISSIONS ────────────────────────────────────────────────────────────
 
 function statusFormatter(cell) {
-  return buildStatusBadge(cell.getValue());
+  return buildStatusBadge(cell.getValue(), "sm");
 }
 
 
@@ -135,7 +135,7 @@ function statusFormatter(cell) {
 // buildRoleBadge renders nothing without a role, which on a listing of every team is most
 // rows — so the em dash stands in, as it does for any other empty cell.
 function roleBadgeFormatter(cell) {
-  return buildRoleBadge(cell.getValue()) || "—";
+  return buildRoleBadge(cell.getValue(), "sm") || "—";
 }
 
 

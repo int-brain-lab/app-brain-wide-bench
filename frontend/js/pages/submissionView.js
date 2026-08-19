@@ -2,6 +2,11 @@
 
 import { formatDate, showEmpty, showSuccess } from "../core/utils.js";
 import { getIcon } from "../components/icons.js";
+import {
+  buildStatusBadge,
+  buildSuiteBadgeList,
+  buildVisibleBadge,
+} from "../components/badges.js";
 import { buildDisplayFields } from "../forms/fields.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
 import { loadSubmissionFields, SUBMISSION_FIELDS, SUBMISSION_PANELS } from "../schemas/submissionSchema.js";
@@ -60,7 +65,7 @@ const DASHBOARD_SECTIONS = [
     title: "Submission Details",
     view: "details",
     linkIcon: getIcon("details"),
-    linkText: "View submission details",
+    linkText: "View all details",
   },
   {
     id: "tasks",
@@ -83,8 +88,8 @@ function getStatistics(submission, taskSubmissions) {
   return [
     ["tasks", taskSubmissions.length, getIcon("task")],
     ["task suites", suitesFromSubmission(submission).length, getIcon("suite")],
-    ["scoring status", submission.status, getIcon("status")],
-    ["visibility", submission.is_public ? "Public" : "Private", getIcon("visibility")],
+    // TODO PLACEHOLDER FOR NOW
+    ["scored suites", suitesFromSubmission(submission).length, getIcon("score")],
   ];
 }
 
@@ -95,6 +100,17 @@ function getDashboardData(submission) {
 }
 
 // ─── UTILS ───────────────────────────────────────────────────────────────────
+
+// What the submission is, at a glance: which suites it covers, how far scoring has got,
+// and whether anyone can read it. The suites come from the tasks it carries, the same way
+// the tables derive them.
+function getBadges(submission) {
+  return [
+    buildSuiteBadgeList(suitesFromSubmission(submission)),
+    buildVisibleBadge(submission.is_public),
+    buildStatusBadge(submission.status),
+  ];
+}
 
 function getSubtitle(submission) {
   return [
@@ -174,7 +190,7 @@ function renderDashboardView(context, router) {
     }),
   );
 
-  renderHeader(submission.label, getSubtitle(submission));
+  renderHeader(submission.label, getSubtitle(submission), getBadges(submission));
 
   renderStatsSection(getStatistics(submission, taskSubmissions));
   renderScoresSection(submission);

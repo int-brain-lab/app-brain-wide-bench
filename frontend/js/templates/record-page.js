@@ -8,6 +8,7 @@ import { buildDisplayFields, buildGroupCards } from "../forms/fields.js";
 const CONTAINER_ID = "container";
 const TITLE_ID = "title";
 const DESCRIPTION_ID = "description";
+const BADGES_ID = "badges";
 const MESSAGE_ID = "page-message";
 const SUBMIT_ID = "submit-button";
 const EDIT_ID = "edit-button";
@@ -55,6 +56,7 @@ function buildTitle() {
     <div class="page-header side">
       <h1 class="page-title" id="${TITLE_ID}"></h1>
       <p class="section-description" id="${DESCRIPTION_ID}"></p>
+      <span class="row left gap-xs" id="${BADGES_ID}" hidden></span>
     </div>
   `;
 }
@@ -121,6 +123,15 @@ function buildSubtitle(subtitles) {
     .join("<span>·</span>");
 
   return items ? `<span class="row left gap-md">${items}</span>` : "";
+}
+
+// Each entry is markup — a run of suite badges, a lone icon — so a record puts whatever it
+// has there. An entry that came back empty is dropped rather than joined, which is what
+// keeps a record with nothing to say from rendering a bare row.
+function buildBadges(badges) {
+  const items = badges.filter(Boolean);
+
+  return items.length ? `<span class="row left gap-md">${items.join("")}</span>` : "";
 }
 
 function buildBackLink({text, view}) {
@@ -206,9 +217,10 @@ function buildSection({
     ? `<div id="section-${id}-create"></div>`
     : "";
 
-  const classAttribute = className
-    ? ` class="${className}"`
-    : "";
+  // `section-body` always, whatever the caller asked for: it is what a layout keys off to
+  // reach the content — see `.section-row` in style.css, which stretches two sections that
+  // share a row so their cards end level.
+  const classAttribute = ` class="section-body ${className}"`;
 
   return `
     <section class="page-section">
@@ -223,7 +235,7 @@ function buildSections(sections) {
   return sections.map(buildSection).join("");
 }
 
-function buildStats(className = "grid-4") {
+function buildStats(className = "stats-grid") {
   return buildSection({
     id: "stats",
     className,
@@ -291,12 +303,23 @@ function renderPage(html) {
 /**
  * @param title       the record's name.
  * @param description a plain string, or [{ text, icon }] for a subtitle with icons.
+ * @param badges      [markup] for the row between the two — a run of suite badges, a
+ *                    visibility icon. Markup per entry rather than one shape, because what
+ *                    goes there is whatever the record has to say about itself. Omitted,
+ *                    empty, or all-empty entries leave the row hidden.
  */
-function renderHeader(title, description = "") {
+function renderHeader(title, description = "", badges = []) {
   const titleElement = document.getElementById(TITLE_ID);
   const descriptionElement = document.getElementById(DESCRIPTION_ID);
+  const badgesElement = document.getElementById(BADGES_ID);
 
   titleElement.textContent = title;
+
+  // Most pages have no badges at all and call this with two arguments.
+  const badgeRow = buildBadges(badges ?? []);
+
+  badgesElement.innerHTML = badgeRow;
+  badgesElement.hidden = !badgeRow;
 
   const subtitle = typeof description === "string"
     ? escapeHtml(description)

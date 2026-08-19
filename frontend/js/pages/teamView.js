@@ -83,9 +83,9 @@ function isOwner(team) {
 
 function getSubtitle(team) {
   return [
-    buildCount(team.n_members, "member"),
-    buildCount(team.n_models, "model"),
-  ].join(" · ");
+    {text: buildCount(team.n_members, "member"), icon: getIcon("member")},
+    {text: buildCount(team.n_models, "model"), icon: getIcon("model")},
+  ].filter(entry => entry.text);
 }
 
 // ─── MARKUP ──────────────────────────────────────────────────────────────────
@@ -159,7 +159,7 @@ function renderDashboardView(context, router) {
     buildPage({
       header: buildHeader(canEdit ? [EDIT_ACTION] : []),
       body:
-        buildStats("grid-3") +
+        buildStats() +
         buildSections(canEdit ? [MODELS_SECTION, MEMBERS_SECTION] : [MODELS_SECTION]),
     }),
   );

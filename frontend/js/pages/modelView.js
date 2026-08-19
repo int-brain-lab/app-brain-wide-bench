@@ -2,6 +2,9 @@
 
 import { formatDate, showEmpty, showSuccess } from "../core/utils.js";
 import { getIcon } from "../components/icons.js";
+import { buildSuiteBadgeList, buildVisibleBadge } from "../components/badges.js";
+import { suitesFromSubmission } from "../core/suites.js";
+import { sortSuites } from "../tables/formatters.js";
 import { buildDisplayFields } from "../forms/fields.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
 import { loadModelFields, MODEL_FIELDS, MODEL_PANELS } from "../schemas/modelSchema.js";
@@ -85,7 +88,6 @@ const BACK = {
 function getStatistics(submissions, meanScores, taskCount) {
   return [
     ["submissions", submissions.length, getIcon("submission")],
-    ["public submissions", submissions.filter(({ is_public }) => is_public).length, getIcon("visibility")],
     ["task suites", Object.keys(meanScores).length - 1, getIcon("suite")],
     ["tasks", taskCount, getIcon("task")],
   ];
@@ -104,6 +106,20 @@ function getDashboardData(model) {
 }
 
 // ─── UTILS ───────────────────────────────────────────────────────────────────
+
+// The suites come from the submissions rather than `model.task_suites`: the detail response
+// leaves that field empty — only the list endpoint computes it — and deriving it here has
+// the same effect anyway, since a non-member is only sent public submissions.
+//
+// Public means "has a submission anyone can read", which is also what makes the model
+// visible to a stranger at all.
+function getBadges(model) {
+  const submissions = model.submissions ?? [];
+  const suites = sortSuites([...new Set(submissions.flatMap(suitesFromSubmission))]);
+  const isPublic = submissions.some(({ is_public }) => is_public);
+
+  return [buildSuiteBadgeList(suites), buildVisibleBadge(isPublic)];
+}
 
 function getSubtitle(model) {
   return [
@@ -193,7 +209,7 @@ function renderDashboardView(context, router) {
     }),
   );
 
-  renderHeader(model.name, getSubtitle(model));
+  renderHeader(model.name, getSubtitle(model), getBadges(model));
 
   renderStatsSection(statistics);
   renderScoresSection(meanScores);

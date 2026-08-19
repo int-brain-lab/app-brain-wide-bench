@@ -21,10 +21,10 @@ function buildSubmissionCards(submissions) {
             </p>
           </div>
 
-          ${buildStatusBadge(submission.status)}
+          ${buildStatusBadge(submission.status, "sm")}
 
           <div class="row left gap-sm">
-            ${buildSuiteCoverageBadges(suitesFromSubmission(submission))}
+            ${buildSuiteCoverageBadges(suitesFromSubmission(submission), "sm")}
           </div>
 
           <p class="metadata">

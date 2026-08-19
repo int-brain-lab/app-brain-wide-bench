@@ -19,7 +19,7 @@ function buildModelCard(model) {
       </div>
 
       <div class="row left gap-md">
-        ${buildSuiteCoverageBadges(model.task_suites ?? [])}
+        ${buildSuiteCoverageBadges(model.task_suites ?? [], "sm")}
       </div>
 
       <p class="metadata">

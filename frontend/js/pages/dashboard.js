@@ -231,7 +231,7 @@ function renderDashboardView({ user, models, teams, submissions, scoreRows }) {
     buildPage({
       header: buildHeader(),
       body:
-        buildStats("grid-3") +
+        buildStats() +
         // Teams and Models side by side: both are short card lists, and a full-width row of
         // each would push everything below off the fold. `align-start` so the shorter of the
         // two sits at the top rather than being stretched by .page-section's space-between.
