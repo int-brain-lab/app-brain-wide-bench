@@ -3,6 +3,7 @@
 // Apply-to-suite propagates the change to every sibling task in the same suite.
 
 import { showFailure, showSuccess } from "../core/utils.js";
+import { buildCount } from "../components/count.js";
 import { attachRecordEditor } from "../templates/record-editor.js";
 import { suiteFromTask } from "../core/suites.js";
 import { TASK_PANELS, taskPayload } from "../schemas/taskSubmissionSchema.js";
@@ -166,7 +167,7 @@ function renderTaskView({ submission, taskFields, task, canEdit, edit = false })
         pageMessage(),
         names.length === 1
           ? `Updated ${names[0]}.`
-          : `Updated ${names.length} tasks: ${names.join(", ")}.`,
+          : `Updated ${buildCount(names.length, "task")}: ${names.join(", ")}.`,
       );
 
       updated = [];

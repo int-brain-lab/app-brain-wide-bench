@@ -12,7 +12,7 @@
 
 import { escapeHtml, formatDate } from "../core/utils.js";
 import { SUITES, suiteFromTask } from "../core/suites.js";
-import { buildSuiteBadgeList, buildStatusBadge } from "../components/badges.js";
+import { buildRoleBadge, buildStatusBadge, buildSuiteBadgeList } from "../components/badges.js";
 
 
 // ─── VALUES ─────────────────────────────────────────────────────────────────
@@ -129,6 +129,15 @@ function statusFormatter(cell) {
 }
 
 
+// ─── TEAMS ──────────────────────────────────────────────────────────────────
+
+// buildRoleBadge renders nothing without a role, which on a listing of every team is most
+// rows — so the em dash stands in, as it does for any other empty cell.
+function roleBadgeFormatter(cell) {
+  return buildRoleBadge(cell.getValue()) || "—";
+}
+
+
 // ─── TASK SUBMISSIONS ───────────────────────────────────────────────────────
 
 // Not an href: these rows only ever render inside the submission record page, so they
@@ -234,6 +243,7 @@ export {
   scoreFormatter,
   semFormatter,
   taskNameFormatter,
+  roleBadgeFormatter,
   statusFormatter,
   taskLinkAttributes,
   taskLinkFormatter,

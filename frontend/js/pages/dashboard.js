@@ -195,7 +195,6 @@ function renderSubmissionsSection(submissions) {
 function renderScoresSection(scoreRows) {
   const container = sectionBody("scores");
 
-  scoreRows = []
   if (!scoreRows.length) {
     showEmpty(container, "No scored tasks yet.");
     return;
@@ -265,7 +264,7 @@ function renderScoresView({ models, scoreRows }) {
 
   renderHeader(
     "Task scores",
-    `${buildCount(taskCount, "tasks")} across ${buildCount(models.length, "models")}`,
+    `${buildCount(taskCount, "task")} across ${buildCount(models.length, "model")}`,
   );
 
   if (!taskCount) {

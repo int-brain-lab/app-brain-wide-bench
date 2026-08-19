@@ -1,6 +1,7 @@
 // Team record page — dashboard and details for one team.
 
 import { escapeHtml, showEmpty, showFailure, showMessage, showSuccess } from "../core/utils.js";
+import { buildCount } from "../components/count.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
 import { TEAM_FIELDS, TEAM_PANELS } from "../schemas/teamSchema.js";
 import { loadTeam, updateTeam } from "../api/teamApi.js";
@@ -79,14 +80,10 @@ function isOwner(team) {
 
 // ─── UTILS ───────────────────────────────────────────────────────────────────
 
-function pluralise(count, noun) {
-  return `${count ?? 0} ${noun}${count === 1 ? "" : "s"}`;
-}
-
 function getSubtitle(team) {
   return [
-    pluralise(team.n_members, "member"),
-    pluralise(team.n_models, "model"),
+    buildCount(team.n_members, "member"),
+    buildCount(team.n_models, "model"),
   ].join(" · ");
 }
 

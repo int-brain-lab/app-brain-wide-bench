@@ -2,12 +2,10 @@
 //
 //   data-scope="mine"  team_list.html         — the teams the viewer belongs to, signed in only
 //   data-scope="all"   team_list_public.html  — every team, readable signed out
-//
-// No `table`, so no toggle: a team is a name and a member count, which a card says better
-// than a row and which nobody needs to filter.
 
 import { getTeams, getMyTeams } from "../api/teamApi.js";
 import { buildTeamCards } from "../cards/teamCards.js";
+import { renderTeamsTable } from "../tables/teamTable.js";
 import { loadListPage } from "../templates/list-page.js";
 
 const MINE = document.body.dataset.scope === "mine";
@@ -20,6 +18,7 @@ loadListPage({
   fetch: MINE ? getMyTeams : getTeams,
   requiresAuth: MINE,
   cards: buildTeamCards,
+  table: ({ container, rows }) => renderTeamsTable({ container, teams: rows }),
   create: {
     href: "/html/teams/team_create.html",
     label: "New team",

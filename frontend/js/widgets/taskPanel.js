@@ -8,6 +8,7 @@
 //
 
 import { buildMessageCard, escapeHtml, showEmpty } from "../core/utils.js";
+import { buildCount } from "../components/count.js";
 import { CLEARED_MESSAGE } from "../forms/form.js";
 import { createFieldState, fieldsForPanel } from "../schemas/schema.js";
 import { buildFields } from "../forms/fields.js";
@@ -171,7 +172,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
         <div class="row left gap-sm">
           ${buildSuiteBadgeList([suite])}
           <span class="metadata">
-            ${count} task${count === 1 ? "" : "s"}
+            ${buildCount(count, "task")}
           </span>
         </div>
       `
