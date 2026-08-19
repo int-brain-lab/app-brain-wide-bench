@@ -11,6 +11,7 @@
 // would work in one renderer and not the other.
 
 import { escapeHtml, formatDate } from "../core/utils.js";
+import { getIcon } from "../components/icons.js";
 import { SUITES, suiteFromTask } from "../core/suites.js";
 import { buildRoleBadge, buildStatusBadge, buildSuiteBadgeList } from "../components/badges.js";
 
@@ -156,7 +157,7 @@ function taskLinkFormatter(cell) {
 function editFormatter(cell) {
   return `
     <a class="btn with-icon" ${taskLinkAttributes(cell.getData())}>
-      <i class="btn-icon" data-lucide="pencil"></i>
+      <i class="btn-icon" data-lucide="${getIcon("edit")}"></i>
       Edit
     </a>
   `;

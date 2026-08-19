@@ -1,6 +1,7 @@
 // Team record page — dashboard and details for one team.
 
 import { escapeHtml, showEmpty, showFailure, showMessage, showSuccess } from "../core/utils.js";
+import { getIcon } from "../components/icons.js";
 import { buildCount } from "../components/count.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
 import { TEAM_FIELDS, TEAM_PANELS } from "../schemas/teamSchema.js";
@@ -46,7 +47,7 @@ const MEMBERS_SECTION = {
   id: "members",
   title: "Members",
   view: "details",
-  linkIcon: "users",
+  linkIcon: getIcon("team"),
   linkText: "Manage members",
 };
 
@@ -65,9 +66,9 @@ const BACK = {
 
 function getStatistics(team) {
   return [
-    ["members", team.n_members ?? 0, "users"],
-    ["models", team.n_models ?? 0, "chart-column"],
-    ["submissions", team.n_submissions ?? 0, "layers"],
+    ["members", team.n_members ?? 0, getIcon("team")],
+    ["models", team.n_models ?? 0, getIcon("model")],
+    ["submissions", team.n_submissions ?? 0, getIcon("submission")],
   ];
 }
 

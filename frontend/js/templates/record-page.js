@@ -1,6 +1,7 @@
 // Page chrome shared by every record view: the wrapper, header, actions and sections.
 
-import { renderMessage } from "../core/utils.js";
+import { escapeHtml, refreshIcons, renderMessage } from "../core/utils.js";
+import { getIcon } from "../components/icons.js";
 import { panelGroups } from "../schemas/schema.js";
 import { buildDisplayFields, buildGroupCards } from "../forms/fields.js";
 
@@ -27,13 +28,13 @@ const CANCEL_ID = "cancel-button";
 const EDIT_ACTION = {
   id: EDIT_ID,
   label: "Edit",
-  icon: "pencil",
+  icon: getIcon("edit"),
 };
 
 const SAVE_ACTION = {
   id: SAVE_ID,
   label: "Save",
-  icon: "check",
+  icon: getIcon("save"),
   className: "primary",
   hidden: true,
 };
@@ -41,7 +42,7 @@ const SAVE_ACTION = {
 const CANCEL_ACTION = {
   id: CANCEL_ID,
   label: "Cancel",
-  icon: "x",
+  icon: getIcon("cancel"),
   hidden: true,
 };
 
@@ -104,7 +105,25 @@ function buildHeader(actions = []) {
   `;
 }
 
-function buildBackLink({ text, view }) {
+
+function buildSubtitle(subtitles) {
+  const items = subtitles
+    // Drops the separator too, which is the point: an entry with no text would otherwise
+    // leave a dangling "·" and a floating icon. It is also what keeps an empty description
+    // hidden, now that renderHeader turns "" into a part rather than handling it apart.
+    .filter(part => part?.text)
+    .map(({ text, icon }) => `
+      <span class="row left gap-sm">
+        ${icon ? `<i class="field-icon" data-lucide="${escapeHtml(icon)}"></i>` : ""}
+        <span>${escapeHtml(text)}</span>
+      </span>
+    `)
+    .join("<span>·</span>");
+
+  return items ? `<span class="row left gap-md">${items}</span>` : "";
+}
+
+function buildBackLink({text, view}) {
   return `
     <a
       class="link un"
@@ -226,11 +245,11 @@ function buildFormFooter({ cancelHref, submitLabel }) {
   return `
     <div class="row right gap-md">
       <a class="btn with-icon" href="${cancelHref}">
-        <i class="btn-icon" data-lucide="x"></i>
+        <i class="btn-icon" data-lucide="${getIcon("cancel")}"></i>
         Cancel
       </a>
       <button type="button" class="btn primary with-icon" id="${SUBMIT_ID}" disabled>
-        <i class="btn-icon" data-lucide="plus"></i>
+        <i class="btn-icon" data-lucide="${getIcon("add")}"></i>
         ${submitLabel}
       </button>
     </div>
@@ -269,15 +288,26 @@ function renderPage(html) {
   return container;
 }
 
+/**
+ * @param title       the record's name.
+ * @param description a plain string, or [{ text, icon }] for a subtitle with icons.
+ */
 function renderHeader(title, description = "") {
   const titleElement = document.getElementById(TITLE_ID);
-  const descriptionElement = document.getElementById(
-    DESCRIPTION_ID,
-  );
+  const descriptionElement = document.getElementById(DESCRIPTION_ID);
 
   titleElement.textContent = title;
-  descriptionElement.textContent = description;
-  descriptionElement.hidden = !description;
+
+  const subtitle = typeof description === "string"
+    ? escapeHtml(description)
+    : buildSubtitle(description);
+
+  descriptionElement.innerHTML = subtitle;
+  descriptionElement.hidden = !subtitle;
+
+  // The subtitle's icons are `<i data-lucide>` placeholders, and this runs outside a view
+  // render too — `renderTitle` calls it after a save, where nothing else would.
+  refreshIcons();
 }
 
 function renderDetails(model, fields, recordPanels) {

@@ -5,6 +5,7 @@
 // toggle — that's the teams list.
 
 import { isAuthenticated } from "../api/client.js";
+import { getIcon } from "../components/icons.js";
 import { showGate } from "./gate.js";
 import { applyShell } from "./shell.js";
 import { showEmpty, showFailure } from "../core/utils.js";
@@ -27,13 +28,13 @@ const TABLE = "view-table";
 const CARDS_ACTION = {
   id: CARDS,
   label: "Cards",
-  icon: "layout-grid",
+  icon: getIcon("cards"),
 };
 
 const TABLE_ACTION = {
   id: TABLE,
   label: "Table",
-  icon: "table",
+  icon: getIcon("table"),
 };
 
 // The create control has its own container rather than living in `#list`, which Tabulator

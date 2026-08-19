@@ -1,4 +1,5 @@
 import { getMyTeams } from "../api/teamApi.js";
+import { getIcon } from "../components/icons.js";
 
 const MODEL_FIELDS = {
   id: {
@@ -42,28 +43,28 @@ const MODEL_FIELDS = {
     label: "Project link",
     input: "url",
     panel: 2,
-    icon: "link",
+    icon: getIcon("link"),
   },
 
   link_code: {
     label: "Project code",
     input: "url",
     panel: 2,
-    icon: "code",
+    icon: getIcon("code"),
   },
 
   publication_doi: {
     label: "Publication (DOI)",
     input: "text",
     panel: 2,
-    icon: "book-open",
+    icon: getIcon("publication"),
   },
 
   link_weights: {
     label: "Model weights",
     input: "url",
     panel: 2,
-    icon: "database",
+    icon: getIcon("data"),
   },
 
   n_parameters: {

@@ -1,6 +1,7 @@
 // Model record page — dashboard, details, submissions and scores for one model.
 
 import { formatDate, showEmpty, showSuccess } from "../core/utils.js";
+import { getIcon } from "../components/icons.js";
 import { buildDisplayFields } from "../forms/fields.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
 import { loadModelFields, MODEL_FIELDS, MODEL_PANELS } from "../schemas/modelSchema.js";
@@ -54,21 +55,21 @@ const DASHBOARD_SECTIONS = [
     id: "scores",
     title: "Task Suites",
     view: "scores",
-    linkIcon: "chart-column",
+    linkIcon: getIcon("model"),
     linkText: "View task scores",
   },
   {
     id: "details",
     title: "Model details",
     view: "details",
-    linkIcon: "book-open",
+    linkIcon: getIcon("details"),
     linkText: "View model details",
   },
   {
     id: "submissions",
     title: "Recent submissions",
     view: "submissions",
-    linkIcon: "layers",
+    linkIcon: getIcon("submission"),
     linkText: "View all submissions",
     create: true,
   },
@@ -83,10 +84,10 @@ const BACK = {
 
 function getStatistics(submissions, meanScores, taskCount) {
   return [
-    ["submissions", submissions.length, "layers"],
-    ["public submissions", submissions.filter(({ is_public }) => is_public).length, "globe"],
-    ["task suites", Object.keys(meanScores).length - 1, "grid-3x3"],
-    ["tasks", taskCount, "list-checks"],
+    ["submissions", submissions.length, getIcon("submission")],
+    ["public submissions", submissions.filter(({ is_public }) => is_public).length, getIcon("visibility")],
+    ["task suites", Object.keys(meanScores).length - 1, getIcon("suite")],
+    ["tasks", taskCount, getIcon("task")],
   ];
 }
 
@@ -106,12 +107,11 @@ function getDashboardData(model) {
 
 function getSubtitle(model) {
   return [
-    model.team_name,
-    model.created_at ? `Created ${formatDate(model.created_at)}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+    { text: model.team_name, icon: getIcon("team") },
+    { text: model.created_at ? `Created ${formatDate(model.created_at)}` : null, icon: getIcon("created") },
+  ].filter(entry => entry.text);
 }
+
 
 function getSubmissionLink(model) {
   return {

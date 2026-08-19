@@ -16,12 +16,13 @@
 // load — the nav modules' own call may well have already happened by then.
 
 import { escapeHtml } from "../core/utils.js";
+import { getIcon } from "../components/icons.js";
 
 
 function buildMarkup({ href, label }, extraClass = "") {
   return `
     <a class="create-card ${extraClass}" href="${escapeHtml(href)}">
-      <i class="btn-icon" data-lucide="plus"></i>
+      <i class="btn-icon" data-lucide="${getIcon("add")}"></i>
       <span>${escapeHtml(label)}</span>
     </a>
   `;

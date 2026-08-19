@@ -1,6 +1,7 @@
 // Submission record page — dashboard, details, tasks and scores for one submission.
 
 import { formatDate, showEmpty, showSuccess } from "../core/utils.js";
+import { getIcon } from "../components/icons.js";
 import { buildDisplayFields } from "../forms/fields.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
 import { loadSubmissionFields, SUBMISSION_FIELDS, SUBMISSION_PANELS } from "../schemas/submissionSchema.js";
@@ -51,21 +52,21 @@ const DASHBOARD_SECTIONS = [
     id: "scores",
     title: "Task Scores",
     view: "scores",
-    linkIcon: "book-open",
+    linkIcon: getIcon("details"),
     linkText: "View task scores",
   },
   {
     id: "details",
     title: "Submission Details",
     view: "details",
-    linkIcon: "book-open",
+    linkIcon: getIcon("details"),
     linkText: "View submission details",
   },
   {
     id: "tasks",
     title: "Task Submissions",
     view: "tasks",
-    linkIcon: "chart-column",
+    linkIcon: getIcon("model"),
     linkText: "View task details",
   },
 ];
@@ -80,10 +81,10 @@ const BACK = {
 
 function getStatistics(submission, taskSubmissions) {
   return [
-    ["tasks", taskSubmissions.length, "list-checks"],
-    ["task suites", suitesFromSubmission(submission).length, "grid-3x3"],
-    ["scoring status", submission.status, "check-check"],
-    ["visibility", submission.is_public ? "Public" : "Private", "globe"],
+    ["tasks", taskSubmissions.length, getIcon("task")],
+    ["task suites", suitesFromSubmission(submission).length, getIcon("suite")],
+    ["scoring status", submission.status, getIcon("status")],
+    ["visibility", submission.is_public ? "Public" : "Private", getIcon("visibility")],
   ];
 }
 
@@ -97,13 +98,13 @@ function getDashboardData(submission) {
 
 function getSubtitle(submission) {
   return [
-    submission.model_name,
-    submission.team_name,
-    submission.created_at ? `Created ${formatDate(submission.created_at)}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+    { text: submission.model_name, icon: getIcon("model") },
+    { text: submission.team_name, icon: getIcon("team") },
+    { text: submission.created_at ? `Created ${formatDate(submission.created_at)}` : null, icon: getIcon("created") },
+  ].filter(entry => entry.text);
+
 }
+
 
 // ─── DASHBOARD SECTIONS ──────────────────────────────────────────────────────
 

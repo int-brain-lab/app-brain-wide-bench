@@ -91,29 +91,13 @@ a {
   --radius-xl: 18px;
 
   /* Font sizes */
-  /*--font-xs: 10px;*/
-  /*--font-sm: 11px;*/
-  /*--font-md: 13px;*/
-  /*--font-lg: 15px;*/
-  /*--font-xl: 17px;*/
-  /*--font-hd: 22px;*/
-
-
-  /*--font-xs: 12px;*/
-  /*--font-sm: 14px;*/
-  /*--font-md: 16px;*/
-  /*--font-lg: 20px;*/
-  /*--font-xl: 24px;*/
-  /*--font-hd: 32px;*/
-
   font-size: 16px;
-
   --font-xs: 0.75rem;
   --font-sm: 0.875rem;
   --font-md: 1rem;
   --font-lg: 1.125rem;
   --font-xl: 1.25rem;
-  --font-hd: 1.75rem;
+  --font-hd: 2rem;
 
 
   /* Font weight */
@@ -727,6 +711,7 @@ GENERIC TEXT
   color: var(--text-muted)
 }
 
+
 .card-title {
   font-size: var(--font-lg);
   font-weight: var(--bold);
@@ -828,64 +813,6 @@ GENERIC TEXT
 .ts2-bg { border-color: var(--ts2-light); border-width: 6px}
 .ts3-bg { border-color: var(--ts3-light); border-width: 6px}
 
-/* OLD */
-
-/*.link {*/
-/*  font-size: var(--font-md);*/
-/*  color: var(--primary);*/
-/*}*/
-
-/*.message {*/
-/*  font-size: var(--font-lg);*/
-/*  color: var(--text-muted);*/
-/*  font-weight: var(--bold);*/
-/*}*/
-
-
-/*.title {*/
-/*  font-size: var(--font-hd);*/
-/*  font-weight: var(--bold);*/
-/*}*/
-
-/*.subtitle {*/
-/*  font-size: var(--font-xl);*/
-/*  color: var(--text-muted)*/
-/*}*/
-
-/*.heading {*/
-/*  font-size: var(--font-xl);*/
-/*  font-weight: var(--xbold);*/
-/*}*/
-
-/*.subheading {*/
-/*  font-size: var(--font-lg);*/
-/*  color: var(--text-muted)*/
-/*}*/
-
-/*.text-md {*/
-/*  font-size: var(--font-md);*/
-/*}*/
-
-/*.text-sm {*/
-/*  font-size: var(--font-sm);*/
-/*}*/
-
-/*.text-lg {*/
-/*  font-size: var(--font-lg);*/
-/*}*/
-
-/*.muted {*/
-/*  color: var(--text-muted);*/
-/*}*/
-
-/*.bold {*/
-/*  font-weight: var(--bold);*/
-/*}*/
-
-/*.link {*/
-/*  font-size: var(--font-md);*/
-/*  color: var(--primary);*/
-/*}*/
 
 .info-msg {
   color: var(--text-muted);

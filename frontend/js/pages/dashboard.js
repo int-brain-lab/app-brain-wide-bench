@@ -3,6 +3,7 @@
 // Two views: the overview, and every task score across every model.
 
 import { getMyTeams } from "../api/teamApi.js";
+import { getIcon } from "../components/icons.js";
 import { loadMe } from "../api/userApi.js";
 import { getMySubmissions } from "../api/submissionApi.js";
 import { getMyModels } from "../api/modelApi.js";
@@ -59,11 +60,11 @@ const TEAM_SECTIONS = [
     id: "teams",
     title: "Teams",
     links: [
-      { href: "/html/teams/team_list.html", label: "View all", icon: "users" },
+      { href: "/html/teams/team_list.html", label: "View all", icon: getIcon("team") },
       {
         href: "/html/teams/team_create.html",
         label: "Create team",
-        icon: "plus",
+        icon: getIcon("add"),
         className: "primary-inv",
       },
     ],
@@ -72,11 +73,11 @@ const TEAM_SECTIONS = [
     id: "models",
     title: "Models",
     links: [
-      { href: "/html/models/model_list.html", label: "View all", icon: "chart-column" },
+      { href: "/html/models/model_list.html", label: "View all", icon: getIcon("model") },
       {
         href: "/html/models/model_create.html",
         label: "Create model",
-        icon: "plus",
+        icon: getIcon("add"),
         className: "primary-inv",
       },
     ],
@@ -88,11 +89,11 @@ const BOTTOM_SECTIONS = [
     id: "submissions",
     title: "Recent submissions",
     links: [
-      { href: "/html/submissions/submission_list.html", label: "View all", icon: "layers" },
+      { href: "/html/submissions/submission_list.html", label: "View all", icon: getIcon("submission") },
       {
         href: "/html/submissions/submission_create.html",
         label: "Create submission",
-        icon: "plus",
+        icon: getIcon("add"),
         className: "primary-inv",
       },
     ],
@@ -101,7 +102,7 @@ const BOTTOM_SECTIONS = [
     id: "scores",
     title: "Task scores",
     view: "scores",
-    linkIcon: "book-open",
+    linkIcon: getIcon("details"),
     linkText: "View all scores",
   },
 ];
@@ -115,9 +116,9 @@ const BACK = {
 
 function getStatistics(models, teams, submissionCount) {
   return [
-    ["models", models.length, "chart-column"],
-    ["submissions", submissionCount, "layers"],
-    ["teams", teams.length, "users"],
+    ["models", models.length, getIcon("model")],
+    ["submissions", submissionCount, getIcon("submission")],
+    ["teams", teams.length, getIcon("team")],
   ];
 }
 
