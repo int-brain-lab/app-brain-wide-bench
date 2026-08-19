@@ -297,6 +297,7 @@ async def test_detail_as_non_member(seeded_client):
 
     assert body["s3_key"] is None
     assert body["narrative_private"] is None
+    assert body["can_edit"] is False
 
 
 async def test_detail_private_submission_is_hidden_from_non_member(seeded_client):
@@ -320,7 +321,7 @@ async def test_detail_as_member(seeded_client, add, me):
     assert body["s3_key"] is not None
     assert body["narrative_private"] == "Seed sweep, not for release."
     assert body["model"]["name"] == "mlp-baseline"
-
+    assert body["can_edit"] is True
 
 async def test_detail_not_found(seeded_client):
     """An unknown submission id returns 404."""
