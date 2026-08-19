@@ -35,23 +35,21 @@ a {
    across the whole site. */
 :root {
 
-  /* Primary */
+  /*!* Primary *!*/
   --primary: #1D9E75;
   --primary-dark: #0F6E56;
   --primary-light: #E1F5EE;
 
-  /* Neutral */
+  /*!* Neutral *!*/
   --text-color: #1a1a1a;
   --text-muted: #666;
 
   --surface: #fff;
-  /*--surface-secondary: #f1f1f1;*/
-  /*--surface-secondary: #f1f1f1;*/
   --surface-secondary: #fbfbfb;
 
   --border-color: #e5e5e5;
 
-  /* Task suites */
+  /*!* Task suites *!*/
   /*--ts1: #085041;*/
   --ts1: #1D9E75;
   --ts1-light: #E1F5EE;
@@ -84,6 +82,8 @@ a {
   --pending-dark: #185fa5;
   --pending-light: #e6f1fb;
 
+
+
   /* Border radius */
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -91,29 +91,13 @@ a {
   --radius-xl: 18px;
 
   /* Font sizes */
-  /*--font-xs: 10px;*/
-  /*--font-sm: 11px;*/
-  /*--font-md: 13px;*/
-  /*--font-lg: 15px;*/
-  /*--font-xl: 17px;*/
-  /*--font-hd: 22px;*/
-
-
-  /*--font-xs: 12px;*/
-  /*--font-sm: 14px;*/
-  /*--font-md: 16px;*/
-  /*--font-lg: 20px;*/
-  /*--font-xl: 24px;*/
-  /*--font-hd: 32px;*/
-
   font-size: 16px;
-
   --font-xs: 0.75rem;
   --font-sm: 0.875rem;
   --font-md: 1rem;
   --font-lg: 1.125rem;
   --font-xl: 1.25rem;
-  --font-hd: 1.75rem;
+  --font-hd: 2rem;
 
 
   /* Font weight */
@@ -180,9 +164,12 @@ MAIN SHELLS ETC
   background: transparent;
   justify-content: center;
   margin: 40px auto 0px;
-  max-width: 900px;
+  max-width: 1000px;
 }
 
+.content.landing{
+  max-width: 800px
+}
 
 .main-private {
   display: grid;
@@ -539,12 +526,33 @@ GRIDS, COLUMNS AND ROWS
   gap: var(--gap-lg);
 }
 
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 300px));
+  gap: var(--gap-xl);
+  justify-content: center;
+  align-items: center;
+  margin-top: 10px;
+}
 /* A grid child that takes the whole row whatever the column count — used by the
    field renderers for textareas, which need the full width of a multi-column
    card. Ignored outside a grid, so it costs nothing on a single-column card. */
 .span-all {
   grid-column: 1 / -1;
 }
+
+
+.section-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: var(--gap-md);
+}
+
+
+
+
 
 /*----------------------------------------------------------------------------------------
 CREATE CARD
@@ -676,7 +684,7 @@ HEADERS
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--gap-sm);
-  margin-bottom: 24px;
+  margin-bottom: 25px;
   margin-top: 40px;
 }
 
@@ -710,6 +718,7 @@ GENERIC TEXT
 .page-title {
   font-size: var(--font-hd);
   font-weight: var(--xbold);
+  line-height: 1.2;
 }
 
 .page-description {
@@ -724,8 +733,11 @@ GENERIC TEXT
 
 .section-description {
   font-size: var(--font-md);
-  color: var(--text-muted)
+  color: var(--text-muted);
+  line-height: 1.4;
+  padding-bottom: 10px
 }
+
 
 .card-title {
   font-size: var(--font-lg);
@@ -828,64 +840,6 @@ GENERIC TEXT
 .ts2-bg { border-color: var(--ts2-light); border-width: 6px}
 .ts3-bg { border-color: var(--ts3-light); border-width: 6px}
 
-/* OLD */
-
-/*.link {*/
-/*  font-size: var(--font-md);*/
-/*  color: var(--primary);*/
-/*}*/
-
-/*.message {*/
-/*  font-size: var(--font-lg);*/
-/*  color: var(--text-muted);*/
-/*  font-weight: var(--bold);*/
-/*}*/
-
-
-/*.title {*/
-/*  font-size: var(--font-hd);*/
-/*  font-weight: var(--bold);*/
-/*}*/
-
-/*.subtitle {*/
-/*  font-size: var(--font-xl);*/
-/*  color: var(--text-muted)*/
-/*}*/
-
-/*.heading {*/
-/*  font-size: var(--font-xl);*/
-/*  font-weight: var(--xbold);*/
-/*}*/
-
-/*.subheading {*/
-/*  font-size: var(--font-lg);*/
-/*  color: var(--text-muted)*/
-/*}*/
-
-/*.text-md {*/
-/*  font-size: var(--font-md);*/
-/*}*/
-
-/*.text-sm {*/
-/*  font-size: var(--font-sm);*/
-/*}*/
-
-/*.text-lg {*/
-/*  font-size: var(--font-lg);*/
-/*}*/
-
-/*.muted {*/
-/*  color: var(--text-muted);*/
-/*}*/
-
-/*.bold {*/
-/*  font-weight: var(--bold);*/
-/*}*/
-
-/*.link {*/
-/*  font-size: var(--font-md);*/
-/*  color: var(--primary);*/
-/*}*/
 
 .info-msg {
   color: var(--text-muted);
@@ -1037,7 +991,12 @@ RANKS
 BADGES
 --------------------------------------------------------------------------------------*/
 .badge {
-  /*display: inline-block;*/
+  /* inline-flex, so a badge with an icon centres it on the label and still sits in a line
+     of text. The `.row` utility can't do this job — it is block-level and space-between,
+     which stretches the badge across its parent and throws the icon off the label. */
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-sm);
 
   padding: 3px 8px;
   /*margin-block-end: 10px;*/
@@ -1081,9 +1040,9 @@ BADGES
 }
 
 .badge.success {
-  background: var(--primary-light);
-  color: var(--primary-dark);
-  border-color: var(--primary-dark);
+  background: var(--success-light);
+  color: var(--success-dark);
+  border-color: var(--success-dark);
 }
 
 .badge.error {
@@ -1103,6 +1062,11 @@ BADGES
   color: var(--text-muted);
   border-color: var(--border-color);
   font-size: var(--font-xs);
+}
+
+.badge.visible {
+  background: var(--border-color);
+
 }
 
 /*----------------------------------------------------------------------------------------

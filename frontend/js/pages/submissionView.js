@@ -1,6 +1,12 @@
 // Submission record page — dashboard, details, tasks and scores for one submission.
 
 import { formatDate, showEmpty, showSuccess } from "../core/utils.js";
+import { getIcon } from "../components/icons.js";
+import {
+  buildStatusBadge,
+  buildSuiteBadgeList,
+  buildVisibleBadge,
+} from "../components/badges.js";
 import { buildDisplayFields } from "../forms/fields.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
 import { loadSubmissionFields, SUBMISSION_FIELDS, SUBMISSION_PANELS } from "../schemas/submissionSchema.js";
@@ -51,21 +57,21 @@ const DASHBOARD_SECTIONS = [
     id: "scores",
     title: "Task Scores",
     view: "scores",
-    linkIcon: "book-open",
+    linkIcon: getIcon("details"),
     linkText: "View task scores",
   },
   {
     id: "details",
     title: "Submission Details",
     view: "details",
-    linkIcon: "book-open",
-    linkText: "View submission details",
+    linkIcon: getIcon("details"),
+    linkText: "View all details",
   },
   {
     id: "tasks",
     title: "Task Submissions",
     view: "tasks",
-    linkIcon: "chart-column",
+    linkIcon: getIcon("model"),
     linkText: "View task details",
   },
 ];
@@ -80,10 +86,10 @@ const BACK = {
 
 function getStatistics(submission, taskSubmissions) {
   return [
-    ["tasks", taskSubmissions.length, "list-checks"],
-    ["task suites", suitesFromSubmission(submission).length, "grid-3x3"],
-    ["scoring status", submission.status, "check-check"],
-    ["visibility", submission.is_public ? "Public" : "Private", "globe"],
+    ["tasks", taskSubmissions.length, getIcon("task")],
+    ["task suites", suitesFromSubmission(submission).length, getIcon("suite")],
+    // TODO PLACEHOLDER FOR NOW
+    ["scored suites", suitesFromSubmission(submission).length, getIcon("score")],
   ];
 }
 
@@ -95,15 +101,26 @@ function getDashboardData(submission) {
 
 // ─── UTILS ───────────────────────────────────────────────────────────────────
 
+// What the submission is, at a glance: which suites it covers, how far scoring has got,
+// and whether anyone can read it. The suites come from the tasks it carries, the same way
+// the tables derive them.
+function getBadges(submission) {
+  return [
+    buildSuiteBadgeList(suitesFromSubmission(submission)),
+    buildVisibleBadge(submission.is_public),
+    buildStatusBadge(submission.status),
+  ];
+}
+
 function getSubtitle(submission) {
   return [
-    submission.model_name,
-    submission.team_name,
-    submission.created_at ? `Created ${formatDate(submission.created_at)}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+    { text: submission.model_name, icon: getIcon("model") },
+    { text: submission.team_name, icon: getIcon("team") },
+    { text: submission.created_at ? `Created ${formatDate(submission.created_at)}` : null, icon: getIcon("created") },
+  ].filter(entry => entry.text);
+
 }
+
 
 // ─── DASHBOARD SECTIONS ──────────────────────────────────────────────────────
 
@@ -173,7 +190,7 @@ function renderDashboardView(context, router) {
     }),
   );
 
-  renderHeader(submission.label, getSubtitle(submission));
+  renderHeader(submission.label, getSubtitle(submission), getBadges(submission));
 
   renderStatsSection(getStatistics(submission, taskSubmissions));
   renderScoresSection(submission);

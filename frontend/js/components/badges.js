@@ -1,19 +1,22 @@
 import {escapeHtml} from "../core/utils.js";
 import {SUITES} from "../core/suites.js";
+import { buildIcon } from "./icons.js";
 
 function statusBadgeClass(status) {
   return { done: "success", scoring: "pending", failed: "error", pending: "pending" }[status] ?? "";
 }
 
 
-function buildSuiteBadgeList(suites) {
-  return suites
-    .map(suite => `<span class="badge sm ${escapeHtml(suite)}">${escapeHtml(suite.toUpperCase())}</span>`)
+function buildSuiteBadgeList(suites, size="") {
+  const badges = suites
+    .map(suite => `<span class="badge ${size} ${escapeHtml(suite)}">${escapeHtml(suite.toUpperCase())}</span>`)
     .join("");
+  
+  return `<span class="row left gap-sm">${badges}</span>`;
 }
 
 
-function buildSuiteCoverageBadges(suites) {
+function buildSuiteCoverageBadges(suites, size="") {
   const covered = new Set(suites);
 
   return SUITES
@@ -22,13 +25,13 @@ function buildSuiteCoverageBadges(suites) {
       // the same uniformity as everywhere else in this file.
       const variant = covered.has(suite) ? escapeHtml(suite) : "neutral";
 
-      return `<span class="badge sm ${variant}">${escapeHtml(suite.toUpperCase())}</span>`;
+      return `<span class="badge ${size} ${variant}">${escapeHtml(suite.toUpperCase())}</span>`;
     })
     .join("");
 }
 
-function buildStatusBadge(status) {
-  return `<span class="badge sm ${statusBadgeClass(status)}">${escapeHtml(status)}</span>`;
+function buildStatusBadge(status, size="") {
+  return `<span class="badge ${size} ${statusBadgeClass(status)}">${escapeHtml(status)}</span>`;
 }
 
 
@@ -40,15 +43,37 @@ function roleBadgeClass(role) {
   return role === "owner" ? "success" : "neutral";
 }
 
-function buildRoleBadge(role) {
+function buildRoleBadge(role, size="") {
   if (!role) return "";
 
-  return `<span class="badge sm ${roleBadgeClass(role)}">${escapeHtml(role)}</span>`;
+  return `<span class="badge ${size} ${roleBadgeClass(role)}">${escapeHtml(role)}</span>`;
 }
+
+
+// Whether anyone can read the record. Null *or* undefined renders nothing: a list row that
+// never carried the field says nothing about visibility, which is different from saying it
+// is private — and the two branches below both make a claim.
+//
+// The icon's concept is the same word as the badge's modifier class, so there is one
+// decision here rather than three that could disagree.
+function buildVisibleBadge(visible, size = "") {
+  if (visible == null) return "";
+
+  const state = visible ? "public" : "private";
+
+  return `
+    <span class="badge ${size} visible">
+      ${buildIcon(state, { className: "field-icon" })}
+      ${visible ? "Public" : "Private"}
+    </span>
+  `;
+}
+
 
 export {
   buildSuiteBadgeList,
   buildStatusBadge,
   buildSuiteCoverageBadges,
-  buildRoleBadge
+  buildRoleBadge,
+  buildVisibleBadge
 }

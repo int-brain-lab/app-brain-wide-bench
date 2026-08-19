@@ -1,6 +1,7 @@
 // Team record page — dashboard and details for one team.
 
 import { escapeHtml, showEmpty, showFailure, showMessage, showSuccess } from "../core/utils.js";
+import { getIcon } from "../components/icons.js";
 import { buildCount } from "../components/count.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
 import { TEAM_FIELDS, TEAM_PANELS } from "../schemas/teamSchema.js";
@@ -46,7 +47,7 @@ const MEMBERS_SECTION = {
   id: "members",
   title: "Members",
   view: "details",
-  linkIcon: "users",
+  linkIcon: getIcon("team"),
   linkText: "Manage members",
 };
 
@@ -54,6 +55,15 @@ const MEMBERS_SECTION = {
 const MEMBERS_SECTION_BODY = {
   id: "members",
   title: "Members",
+};
+
+// Beside Edit, as on the model page. Creating a team isn't an action *on* this team, but it
+// is what someone looking at one most often wants next.
+const CREATE_TEAM_ACTION = {
+  href: "/html/teams/model_create.html",
+  label: "New model",
+  icon: getIcon("add"),
+  className: "primary-inv",
 };
 
 const BACK = {
@@ -65,9 +75,9 @@ const BACK = {
 
 function getStatistics(team) {
   return [
-    ["members", team.n_members ?? 0, "users"],
-    ["models", team.n_models ?? 0, "chart-column"],
-    ["submissions", team.n_submissions ?? 0, "layers"],
+    ["members", team.n_members ?? 0, getIcon("team")],
+    ["models", team.n_models ?? 0, getIcon("model")],
+    ["submissions", team.n_submissions ?? 0, getIcon("submission")],
   ];
 }
 
@@ -82,9 +92,9 @@ function isOwner(team) {
 
 function getSubtitle(team) {
   return [
-    buildCount(team.n_members, "member"),
-    buildCount(team.n_models, "model"),
-  ].join(" · ");
+    {text: buildCount(team.n_members, "member"), icon: getIcon("member")},
+    {text: buildCount(team.n_models, "model"), icon: getIcon("model")},
+  ].filter(entry => entry.text);
 }
 
 // ─── MARKUP ──────────────────────────────────────────────────────────────────
@@ -156,9 +166,9 @@ function renderDashboardView(context, router) {
 
   renderPage(
     buildPage({
-      header: buildHeader(canEdit ? [EDIT_ACTION] : []),
+      header: buildHeader(canEdit ? [CREATE_TEAM_ACTION, EDIT_ACTION] : []),
       body:
-        buildStats("grid-3") +
+        buildStats() +
         buildSections(canEdit ? [MODELS_SECTION, MEMBERS_SECTION] : [MODELS_SECTION]),
     }),
   );

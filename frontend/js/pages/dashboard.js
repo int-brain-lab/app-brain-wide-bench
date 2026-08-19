@@ -3,6 +3,7 @@
 // Two views: the overview, and every task score across every model.
 
 import { getMyTeams } from "../api/teamApi.js";
+import { getIcon } from "../components/icons.js";
 import { loadMe } from "../api/userApi.js";
 import { getMySubmissions } from "../api/submissionApi.js";
 import { getMyModels } from "../api/modelApi.js";
@@ -18,7 +19,7 @@ import { buildCount } from "../components/count.js";
 import { buildModelCards } from "../cards/modelCards.js";
 import { buildStatCards } from "../cards/statCards.js";
 import { buildTeamCards } from "../cards/teamCards.js";
-import { appendCreateCard, renderCreateRow } from "../cards/createCard.js";
+import { renderCreateRow } from "../cards/createCard.js";
 import { loadRecordPage } from "../templates/record-loader.js";
 import {
   buildBody,
@@ -29,6 +30,7 @@ import {
   renderHeader,
   renderPage,
   sectionBody,
+  sectionCreate,
 } from "../templates/record-page.js";
 
 
@@ -41,44 +43,40 @@ const MAX_SCORES = 3;
 
 const DESCRIPTION = "Your models, submissions and results.";
 
-// "your first" rather than a bare "Create": on a section with nothing in it the wording is
-// the only thing distinguishing "you haven't done this yet" from "here is another one", and
-// the header button beside it already says the plain version.
-const CREATE_FIRST_MODEL = {
-  href: "/html/models/model_create.html",
-  label: "Register your first model",
+// The create affordance is a card at the foot of each section rather than a button in its
+// header: it is the same card the list pages end with, and at the bottom it reads as the
+// next row rather than as an action on what is already there. Shown whether or not the
+// section has anything — an empty one says so above it.
+const CREATE_TEAM = {
+  href: "/html/teams/team_create.html",
+  label: "Create a new team",
 };
 
-const CREATE_FIRST_SUBMISSION = {
+const CREATE_MODEL = {
+  href: "/html/models/model_create.html",
+  label: "Create a new model",
+};
+
+const CREATE_SUBMISSION = {
   href: "/html/submissions/submission_create.html",
-  label: "Make your first submission",
+  label: "Create a new submission",
 };
 
 const TEAM_SECTIONS = [
   {
     id: "teams",
     title: "Teams",
+    create: true,
     links: [
-      { href: "/html/teams/team_list.html", label: "View all", icon: "users" },
-      {
-        href: "/html/teams/team_create.html",
-        label: "Create team",
-        icon: "plus",
-        className: "primary-inv",
-      },
+      { href: "/html/teams/team_list.html", label: "View all", icon: getIcon("team") },
     ],
   },
   {
     id: "models",
     title: "Models",
+    create: true,
     links: [
-      { href: "/html/models/model_list.html", label: "View all", icon: "chart-column" },
-      {
-        href: "/html/models/model_create.html",
-        label: "Create model",
-        icon: "plus",
-        className: "primary-inv",
-      },
+      { href: "/html/models/model_list.html", label: "View all", icon: getIcon("model") },
     ],
   },
 ];
@@ -87,21 +85,16 @@ const BOTTOM_SECTIONS = [
   {
     id: "submissions",
     title: "Recent submissions",
+    create: true,
     links: [
-      { href: "/html/submissions/submission_list.html", label: "View all", icon: "layers" },
-      {
-        href: "/html/submissions/submission_create.html",
-        label: "Create submission",
-        icon: "plus",
-        className: "primary-inv",
-      },
+      { href: "/html/submissions/submission_list.html", label: "View all", icon: getIcon("submission") },
     ],
   },
   {
     id: "scores",
     title: "Task scores",
     view: "scores",
-    linkIcon: "book-open",
+    linkIcon: getIcon("score"),
     linkText: "View all scores",
   },
 ];
@@ -115,9 +108,9 @@ const BACK = {
 
 function getStatistics(models, teams, submissionCount) {
   return [
-    ["models", models.length, "chart-column"],
-    ["submissions", submissionCount, "layers"],
-    ["teams", teams.length, "users"],
+    ["models", models.length, getIcon("model")],
+    ["submissions", submissionCount, getIcon("submission")],
+    ["teams", teams.length, getIcon("team")],
   ];
 }
 
@@ -149,6 +142,8 @@ function getWelcome(user) {
 function renderTeamsSection(teams) {
   const container = sectionBody("teams");
 
+  renderCreateRow(sectionCreate("teams"), CREATE_TEAM);
+
   if (!teams.length) {
     showEmpty(container, "No teams yet.");
     return;
@@ -163,11 +158,10 @@ function renderModelsSection(models) {
 
   container.className = "column gap-md";
 
-  // A create card rather than "No models yet." — the card is both the statement that there
-  // are none and the way to fix it, and it matches what the models list page shows.
+  renderCreateRow(sectionCreate("models"), CREATE_MODEL);
+
   if (!models.length) {
-    container.replaceChildren();
-    appendCreateCard(container, CREATE_FIRST_MODEL);
+    showEmpty(container, "No models yet.");
     return;
   }
 
@@ -177,10 +171,10 @@ function renderModelsSection(models) {
 function renderSubmissionsSection(submissions) {
   const container = sectionBody("submissions");
 
-  // The row variant, not the card — this section is a table, so the strip reads as the
-  // place a first row would go.
+  renderCreateRow(sectionCreate("submissions"), CREATE_SUBMISSION);
+
   if (!submissions.length) {
-    renderCreateRow(container, CREATE_FIRST_SUBMISSION);
+    showEmpty(container, "No submissions yet.");
     return;
   }
 
@@ -230,11 +224,11 @@ function renderDashboardView({ user, models, teams, submissions, scoreRows }) {
     buildPage({
       header: buildHeader(),
       body:
-        buildStats("grid-3") +
+        buildStats() +
         // Teams and Models side by side: both are short card lists, and a full-width row of
         // each would push everything below off the fold. `align-start` so the shorter of the
         // two sits at the top rather than being stretched by .page-section's space-between.
-        `<div class="grid-2 align-start">${buildSections(TEAM_SECTIONS)}</div>` +
+        `<div class="section-row">${buildSections(TEAM_SECTIONS)}</div>` +
         buildSections(BOTTOM_SECTIONS),
     }),
   );

@@ -1,4 +1,5 @@
 import { initials} from "../core/utils.js";
+import { getIcon } from "../components/icons.js";
 import { apiFetch, isAuthenticated, logout } from "../api/client.js";
 import { renderLogo } from "./navTop.js";
 // ─── CONSTANTS ─────────────────────────────────────────────────────────────
@@ -7,19 +8,19 @@ import { renderLogo } from "./navTop.js";
 // counterparts below list the same domains unscoped, and the labels are what tells them
 // apart in a rail where both appear.
 const MAIN_NAV_ITEMS = [
-  { label: "My dashboard", href: "/html/dashboard/dashboard.html", icon: "layout-grid" },
-  { label: "My models", href: "/html/models/model_list.html", icon: "chart-column" },
-  { label: "My submissions", href: "/html/submissions/submission_list.html", icon: "layers" },
-  { label: "My teams", href: "/html/teams/team_list.html", icon: "users" },
-  { label: "My settings", href: "/html/users/user_details.html", icon: "settings" },
+  { label: "My dashboard", href: "/html/dashboard/dashboard.html", icon: getIcon("dashboard") },
+  { label: "My models", href: "/html/models/model_list.html", icon: getIcon("model") },
+  { label: "My submissions", href: "/html/submissions/submission_list.html", icon: getIcon("submission") },
+  { label: "My teams", href: "/html/teams/team_list.html", icon: getIcon("team") },
+  { label: "My settings", href: "/html/users/user_details.html", icon: getIcon("settings") },
 ];
 
 const PUBLIC_NAV_ITEMS = [
-  { label: "Leaderboard", href: "/html/leaderboard/leaderboard.html", icon: "trophy" },
-  { label: "All models", href: "/html/models/model_list_public.html", icon: "chart-column" },
-  { label: "All submissions", href: "/html/submissions/submission_list_public.html", icon: "layers" },
-  { label: "All teams", href: "/html/teams/team_list_public.html", icon: "users" },
-  { label: "Home", href: "/index.html", icon: "house" },
+  { label: "Leaderboard", href: "/html/leaderboard/leaderboard.html", icon: getIcon("leaderboard") },
+  { label: "All models", href: "/html/models/model_list_public.html", icon: getIcon("model") },
+  { label: "All submissions", href: "/html/submissions/submission_list_public.html", icon: getIcon("submission") },
+  { label: "All teams", href: "/html/teams/team_list_public.html", icon: getIcon("team") },
+  { label: "Home", href: "/index.html", icon: getIcon("home") },
 ];
 
 // ─── API ────────────────────────────────────────────────────────────────────

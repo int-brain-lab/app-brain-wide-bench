@@ -1,12 +1,14 @@
 // Page chrome shared by every record view: the wrapper, header, actions and sections.
 
-import { renderMessage } from "../core/utils.js";
+import { escapeHtml, refreshIcons, renderMessage } from "../core/utils.js";
+import { getIcon } from "../components/icons.js";
 import { panelGroups } from "../schemas/schema.js";
 import { buildDisplayFields, buildGroupCards } from "../forms/fields.js";
 
 const CONTAINER_ID = "container";
 const TITLE_ID = "title";
 const DESCRIPTION_ID = "description";
+const BADGES_ID = "badges";
 const MESSAGE_ID = "page-message";
 const SUBMIT_ID = "submit-button";
 const EDIT_ID = "edit-button";
@@ -27,13 +29,13 @@ const CANCEL_ID = "cancel-button";
 const EDIT_ACTION = {
   id: EDIT_ID,
   label: "Edit",
-  icon: "pencil",
+  icon: getIcon("edit"),
 };
 
 const SAVE_ACTION = {
   id: SAVE_ID,
   label: "Save",
-  icon: "check",
+  icon: getIcon("save"),
   className: "primary",
   hidden: true,
 };
@@ -41,7 +43,7 @@ const SAVE_ACTION = {
 const CANCEL_ACTION = {
   id: CANCEL_ID,
   label: "Cancel",
-  icon: "x",
+  icon: getIcon("cancel"),
   hidden: true,
 };
 
@@ -54,6 +56,7 @@ function buildTitle() {
     <div class="page-header side">
       <h1 class="page-title" id="${TITLE_ID}"></h1>
       <p class="section-description" id="${DESCRIPTION_ID}"></p>
+      <span class="row left gap-xs" id="${BADGES_ID}" hidden></span>
     </div>
   `;
 }
@@ -67,6 +70,7 @@ function buildAction(action) {
     id,
     label,
     icon,
+    href,
     className = "",
     hidden = false,
   } = action;
@@ -75,8 +79,13 @@ function buildAction(action) {
     .filter(Boolean)
     .join(" ");
 
+  // Either an `id` for the page to wire — Edit, Save, Cancel — or an `href` for an action
+  // that is simply a link, like "New submission". Both are already anchors, so the two look
+  // the same in the header whichever they are.
+  const target = href ? ` href="${escapeHtml(href)}"` : ` id="${id}"`;
+
   return `
-    <a class="${classes}" id="${id}"${hidden ? " hidden" : ""}>
+    <a class="${classes}"${target}${hidden ? " hidden" : ""}>
       <i class="btn-icon" data-lucide="${icon}"></i>
       ${label}
     </a>
@@ -104,7 +113,34 @@ function buildHeader(actions = []) {
   `;
 }
 
-function buildBackLink({ text, view }) {
+
+function buildSubtitle(subtitles) {
+  const items = subtitles
+    // Drops the separator too, which is the point: an entry with no text would otherwise
+    // leave a dangling "·" and a floating icon. It is also what keeps an empty description
+    // hidden, now that renderHeader turns "" into a part rather than handling it apart.
+    .filter(part => part?.text)
+    .map(({ text, icon }) => `
+      <span class="row left gap-sm">
+        ${icon ? `<i class="field-icon" data-lucide="${escapeHtml(icon)}"></i>` : ""}
+        <span>${escapeHtml(text)}</span>
+      </span>
+    `)
+    .join("<span>·</span>");
+
+  return items ? `<span class="row left gap-md">${items}</span>` : "";
+}
+
+// Each entry is markup — a run of suite badges, a lone icon — so a record puts whatever it
+// has there. An entry that came back empty is dropped rather than joined, which is what
+// keeps a record with nothing to say from rendering a bare row.
+function buildBadges(badges) {
+  const items = badges.filter(Boolean);
+
+  return items.length ? `<span class="row left gap-md">${items.join("")}</span>` : "";
+}
+
+function buildBackLink({text, view}) {
   return `
     <a
       class="link un"
@@ -187,9 +223,10 @@ function buildSection({
     ? `<div id="section-${id}-create"></div>`
     : "";
 
-  const classAttribute = className
-    ? ` class="${className}"`
-    : "";
+  // `section-body` always, whatever the caller asked for: it is what a layout keys off to
+  // reach the content — see `.section-row` in style.css, which stretches two sections that
+  // share a row so their cards end level.
+  const classAttribute = ` class="section-body ${className}"`;
 
   return `
     <section class="page-section">
@@ -204,7 +241,7 @@ function buildSections(sections) {
   return sections.map(buildSection).join("");
 }
 
-function buildStats(className = "grid-4") {
+function buildStats(className = "stats-grid") {
   return buildSection({
     id: "stats",
     className,
@@ -226,11 +263,11 @@ function buildFormFooter({ cancelHref, submitLabel }) {
   return `
     <div class="row right gap-md">
       <a class="btn with-icon" href="${cancelHref}">
-        <i class="btn-icon" data-lucide="x"></i>
+        <i class="btn-icon" data-lucide="${getIcon("cancel")}"></i>
         Cancel
       </a>
       <button type="button" class="btn primary with-icon" id="${SUBMIT_ID}" disabled>
-        <i class="btn-icon" data-lucide="plus"></i>
+        <i class="btn-icon" data-lucide="${getIcon("add")}"></i>
         ${submitLabel}
       </button>
     </div>
@@ -269,15 +306,37 @@ function renderPage(html) {
   return container;
 }
 
-function renderHeader(title, description = "") {
+/**
+ * @param title       the record's name.
+ * @param description a plain string, or [{ text, icon }] for a subtitle with icons.
+ * @param badges      [markup] for the row between the two — a run of suite badges, a
+ *                    visibility icon. Markup per entry rather than one shape, because what
+ *                    goes there is whatever the record has to say about itself. Omitted,
+ *                    empty, or all-empty entries leave the row hidden.
+ */
+function renderHeader(title, description = "", badges = []) {
   const titleElement = document.getElementById(TITLE_ID);
-  const descriptionElement = document.getElementById(
-    DESCRIPTION_ID,
-  );
+  const descriptionElement = document.getElementById(DESCRIPTION_ID);
+  const badgesElement = document.getElementById(BADGES_ID);
 
   titleElement.textContent = title;
-  descriptionElement.textContent = description;
-  descriptionElement.hidden = !description;
+
+  // Most pages have no badges at all and call this with two arguments.
+  const badgeRow = buildBadges(badges ?? []);
+
+  badgesElement.innerHTML = badgeRow;
+  badgesElement.hidden = !badgeRow;
+
+  const subtitle = typeof description === "string"
+    ? escapeHtml(description)
+    : buildSubtitle(description);
+
+  descriptionElement.innerHTML = subtitle;
+  descriptionElement.hidden = !subtitle;
+
+  // The subtitle's icons are `<i data-lucide>` placeholders, and this runs outside a view
+  // render too — `renderTitle` calls it after a save, where nothing else would.
+  refreshIcons();
 }
 
 function renderDetails(model, fields, recordPanels) {
