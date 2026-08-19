@@ -141,7 +141,7 @@ async def test_detail_as_non_member(seeded_client):
     assert body["n_models"] == 1
     assert body["members"] is None
     assert body["role"] is None
-
+    assert body["can_edit"] is False
 
 async def test_detail_as_member(seeded_client, add, me, caller):
     """A member sees all counts, their role, and the member list."""
@@ -165,6 +165,7 @@ async def test_detail_as_member(seeded_client, add, me, caller):
     assert body["n_submissions"] == 5
     assert body["n_models"] == 2
     assert body["role"] == "owner"
+    assert body["can_edit"] is True
 
     roles = {
         member["email"]: member["role"]

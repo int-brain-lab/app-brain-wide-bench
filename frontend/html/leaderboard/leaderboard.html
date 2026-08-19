@@ -9,28 +9,29 @@
 </head>
 <body>
 
+    <!-- The public shell, as the model and submission pages are: shell.js swaps in the
+         sidebar for a signed-in reader, so the leaderboard sits inside the app for them and
+         stands alone for a visitor. Nothing on it is private — only the shell changes. -->
     <div class="main">
+
       <nav class="nav" id="top-nav"></nav>
+
+      <aside class="sidebar" id="side-nav" hidden></aside>
+
       <div class="content">
 
-        <div class="page-header">
-            <h1 class="page-title">Leaderboard</h1>
-            <p class="page-description">Public, completed submissions scored against held-out test data.</p>
-       </div>
-
-        <!-- The metric tabs that used to sit here are now the grouping and metric selects
-             in the table's own filter bar, which createFilterableTable renders into this
-             container along with the grid and the row count. -->
-        <div id="leaderboard"></div>
+        <div id="container"></div>
 
       </div>
     </div>
 
 
 <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
 <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
-<script type="module" src="/js/nav/nav_top.js"></script>
-<script type="module" src="/js/leaderboard/leaderboard.js"></script>
+<script type="module" src="/js/nav/navTop.js"></script>
+<script type="module" src="/js/nav/navSide.js"></script>
+<script type="module" src="/js/pages/leaderboard.js"></script>
 
 </body>
 </html>

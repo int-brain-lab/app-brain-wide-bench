@@ -5,10 +5,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Brain-Wide Bench - My teams</title>
+  <link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 
-<body data-view="private">
+<body data-view="private" data-scope="mine">
 
     <div class="main-private">
 
@@ -28,11 +29,12 @@
       </div>
     </div>
 
+  <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
-  <script type="module" src="/js/nav/nav_top.js"></script>
-  <script type="module" src="/js/nav/nav_side.js"></script>
-  <script type="module" src="/js/teams/teamList.js"></script>
+  <script type="module" src="/js/nav/navTop.js"></script>
+  <script type="module" src="/js/nav/navSide.js"></script>
+  <script type="module" src="/js/pages/teamList.js"></script>
 
 </body>
 </html>

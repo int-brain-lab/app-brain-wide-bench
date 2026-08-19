@@ -86,6 +86,34 @@ async def test_list_as_member(seeded_client, add, me):
     assert listed["unsubmitted-net"]["task_suites"] == []
 
 
+async def test_list_filtered_by_team(seeded_client, add, me):
+    """``team_id`` narrows the list to one team's models."""
+    await add(
+        UserTeam(user_id=me, team_id=MY_TEAM),
+        UserTeam(user_id=me, team_id=OTHER_TEAM),
+    )
+
+    response = await seeded_client.get(models_url(), params={"team_id": str(MY_TEAM)})
+
+    assert response.status_code == 200
+    assert set(by_name(response)) == {"mlp-baseline", "ssl-transformer"}
+
+    response = await seeded_client.get(models_url(), params={"team_id": str(OTHER_TEAM)})
+
+    assert set(by_name(response)) == {"unsubmitted-net"}
+
+
+async def test_list_filtered_by_an_unknown_team_is_empty(seeded_client, add, me):
+    """A team id that matches nothing is an empty list, not an error."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.get(models_url(), params={"team_id": str(uuid.uuid4())})
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+
 # ── GET /api/models/{id} ──────────────────────────────────────────────────────
 
 
@@ -109,6 +137,7 @@ async def test_detail_as_non_member(seeded_client):
     assert [s["label"] for s in body["submissions"]] == [
         "mlp-ts1-baseline"
     ]
+    assert body["can_edit"] is False
 
     # A model with no public submissions is not visible.
     response = await get_model(seeded_client, UNSUBMITTED)
@@ -135,6 +164,8 @@ async def test_detail_as_member(seeded_client, add, me):
         "mlp-ts1-rerun",
         "mlp-ts3-internal",
     ]
+
+    assert body["can_edit"] is True
 
 
 async def test_detail_embeds_submission_tasks_and_scores(seeded_client):
@@ -167,11 +198,13 @@ async def test_detail_returns_all_model_fields(seeded_client):
 
     body = response.json()
 
-    # These are response-only/context fields rather than model columns.
+    # These are response-only/context fields rather than model columns. `can_edit` is a
+    # statement about the caller, not about the model, which is why it has no fixture row
+    # to match — see the tests above for what it says.
     response_fields = {
         key: value
         for key, value in body.items()
-        if key not in {"team_name", "submissions", "created_at"}
+        if key not in {"team_name", "submissions", "created_at", "can_edit"}
     }
 
     assert response_fields == expected

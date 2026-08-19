@@ -289,7 +289,7 @@ async def _load_submission_detail(
     detail = SubmissionDetail.from_submission(submission)
 
     if await is_team_member(user_id, submission.team_id, session):
-        return detail
+        return detail.model_copy(update={"can_edit": True})
 
     return detail.withhold_private()
 

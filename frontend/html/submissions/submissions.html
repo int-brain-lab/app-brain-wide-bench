@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Brain-Wide Bench - My submission</title>
+  <title>Brain-Wide Bench - Submission</title>
   <!-- Tabulator's stylesheet first so style.css's `.tabulator` overrides win, same order as
        the other pages that mount a grid. Without it Tabulator's JS still builds its rows —
        it renders nested divs rather than a real <table> — but every cell falls back to a
@@ -13,20 +13,18 @@
   <link rel="stylesheet" href="/css/style.css">
 </head>
 
-<body data-view="private">
+<body>
 
-    <div class="main-private">
+    <!-- One URL for both audiences, and no gate: a public submission is readable signed
+         out. The markup is the public shell — what a visitor should see, painted before any
+         script runs — and shell.js swaps in the sidebar for a signed-in reader. -->
+    <div class="main">
 
-      <aside class="sidebar" id="side-nav"></aside>
+      <nav class="nav" id="top-nav"></nav>
 
-      <div class="content-private">
+      <aside class="sidebar" id="side-nav" hidden></aside>
 
-        <div class="card" id="gate" hidden>
-          <div class="column gap-md">
-            <p>Please sign in to view this submission.</p>
-            <button class="btn primary" id="gate-login">Sign in</button>
-          </div>
-        </div>
+      <div class="content">
 
         <div id="container"></div>
 
@@ -36,9 +34,9 @@
   <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
-  <script type="module" src="/js/nav/nav_top.js"></script>
-  <script type="module" src="/js/nav/nav_side.js"></script>
-  <script type="module" src="/js/submissions/submissionView.js"></script>
+  <script type="module" src="/js/nav/navTop.js"></script>
+  <script type="module" src="/js/nav/navSide.js"></script>
+  <script type="module" src="/js/pages/submissionView.js"></script>
 
 </body>
 </html>
