@@ -30,6 +30,45 @@ function latestSubmission(submissions) {
   }, null);
 }
 
+// The same "latest, not best" rule as above, applied per task rather than per submission:
+// each task takes its score from the newest submission that scored it. A model whose ts1
+// run and ts2 run were separate submissions is then read whole, which latestSubmission
+// cannot do — see its TODO.
+//
+// Callers of latestSubmission are deliberately left on it: collapsing a *submission* into
+// one figure per suite and collapsing a *model* into one figure per task are different
+// questions, and only the second one is asked here.
+function latestScoresByTask(submissions) {
+  const latest = new Map();
+
+  for (const submission of submissions ?? []) {
+    // NaN on an absent or unparseable date, which `|| 0` turns into "oldest" — otherwise
+    // every comparison against it is false and the task keeps whichever score came first.
+    const at = Date.parse(submission.created_at ?? 0) || 0;
+
+    for (const { task_id, score } of submission.task_submissions ?? []) {
+      if (score?.primary_metric_mean == null) continue;
+
+      const held = latest.get(task_id);
+
+      if (held && held.at >= at) continue;
+
+      latest.set(task_id, {
+        at,
+        mean: score.primary_metric_mean,
+        // Nullable on a scored task too — a single-seed run has a mean but no spread.
+        sem: score.primary_metric_sem ?? null,
+        metric: score.primary_metric ?? null,
+      });
+    }
+  }
+
+  return Object.fromEntries(
+    [...latest].map(([taskId, { mean, sem, metric }]) => [taskId, { mean, sem, metric }]),
+  );
+}
+
+
 // ─── AGGREGATION ────────────────────────────────────────────────────────────
 
 // { ts1: { "ts1-reward": 0.42, … }, ts2: { … } } — nested so callers can have either the
@@ -72,6 +111,7 @@ function countTasks(suiteScores) {
 
 export {
   latestSubmission,
+  latestScoresByTask,
   scoresBySuite,
   getMeanScores,
   countTasks

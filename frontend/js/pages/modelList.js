@@ -7,6 +7,7 @@
 // says: the cards, the table and the create link are the same list either way.
 
 import { getModels, getMyModels } from "../api/modelApi.js";
+import { getIcon } from "../components/icons.js";
 import { renderModelsTable } from "../tables/modelTable.js";
 import { buildModelCards } from "../cards/modelCards.js";
 import { loadListPage } from "../templates/list-page.js";
@@ -21,6 +22,14 @@ loadListPage({
   fetch: MINE ? getMyModels : getModels,
   requiresAuth: MINE,
   cards: buildModelCards,
+  // No id: the comparison page opens on its own reference dropdown, filled from the same
+  // list this page is showing. From a single model's page the link carries its id instead
+  // and that model is the reference.
+  actions: [{
+    href: "/html/models/compare.html",
+    label: "Compare models",
+    icon: getIcon("compare"),
+  }],
   table: ({ container, rows }) => renderModelsTable({ container, models: rows }),
   create: {
     href: "/html/models/model_create.html",

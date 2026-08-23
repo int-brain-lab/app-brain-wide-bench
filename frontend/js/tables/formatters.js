@@ -13,7 +13,12 @@
 import { escapeHtml, formatDate } from "../core/utils.js";
 import { getIcon } from "../components/icons.js";
 import { SUITES, suiteFromTask } from "../core/suites.js";
-import { buildRoleBadge, buildStatusBadge, buildSuiteBadgeList } from "../components/badges.js";
+import {
+  buildMetricBadgeList,
+  buildRoleBadge,
+  buildStatusBadge,
+  buildSuiteBadgeList,
+} from "../components/badges.js";
 
 
 // ─── VALUES ─────────────────────────────────────────────────────────────────
@@ -98,11 +103,7 @@ function metricsBadgeFormatter(cell) {
 
   if (metrics.length === 0) return "—";
 
-  const badges = metrics
-    .map(metric => `<span class="badge metric">${escapeHtml(metric)}</span>`)
-    .join("");
-
-  return `<span class="row left gap-sm">${badges}</span>`;
+  return buildMetricBadgeList(metrics);
 }
 
 function scoreFormatter(cell) {
@@ -256,6 +257,70 @@ function suiteBarsFormatter(getMetric) {
 }
 
 
+// ─── COMPARISON ─────────────────────────────────────────────────────────────
+
+// The comparison grids put a whole { mean, sem, metric } object in each task cell rather
+// than a bare number, so these read the half they want off the value. Both sorters go
+// through numericSorter, which is what keeps an unscored task last under a desc sort.
+
+function compareScoreSorter(a, b) {
+  return numericSorter(a?.mean ?? null, b?.mean ?? null);
+}
+
+function diffSorter(a, b) {
+  return numericSorter(a?.diff ?? null, b?.diff ?? null);
+}
+
+// "0.612 ± 0.014", with the spread in metadata type so a column of them reads as one
+// number each. A scored task with a single seed has a mean and no sem, and shows the mean
+// alone rather than "± —".
+function meanSemFormatter(cell) {
+  const value = cell.getValue();
+
+  if (value?.mean == null) return `<span class="metadata">—</span>`;
+
+  const spread = value.sem == null
+    ? ""
+    : ` <span class="metadata">± ${escapeHtml(score(value.sem))}</span>`;
+
+  return `<span class="value">${escapeHtml(score(value.mean))}</span>${spread}`;
+}
+
+// A signed difference against the selected model. The sign is explicit on a gain — a
+// column mixing "0.04" and "-0.04" makes the reader supply the plus themselves — and
+// coloured, because which direction is better is the one thing the grid is for.
+function diffFormatter(cell) {
+  const value = cell.getValue();
+
+  if (value?.diff == null) return `<span class="metadata">—</span>`;
+
+  const direction = value.diff > 0 ? "diff-up" : value.diff < 0 ? "diff-down" : "diff-flat";
+  const sign = value.diff > 0 ? "+" : "";
+
+  return `<span class="${direction}">${sign}${escapeHtml(score(value.diff))}</span>`;
+}
+
+// The task with the metric it is scored in, for a grid where the metric has no column of
+// its own. Under the name rather than beside it: the ids run to twenty-five characters and
+// a badge on the same line sets the column's width from the longest pair rather than the
+// longest name. It also gives the row the same two-line shape as the model headers above.
+//
+// The metric still has to be a field on the row — it is what the select above the grid
+// filters on — it just has nowhere of its own to appear.
+function taskMetricFormatter(cell) {
+  const metric = cell.getData().metric;
+
+  const badge = metric ? buildMetricBadgeList([metric]) : "";
+
+  return `
+    <span class="column gap-xs">
+      <span class="label">${escapeHtml(cell.getValue())}</span>
+      ${badge}
+    </span>
+  `;
+}
+
+
 export {
   score,
   numericSorter,
@@ -280,4 +345,9 @@ export {
   rankFormatter,
   modelFormatter,
   suiteBarsFormatter,
+  compareScoreSorter,
+  diffSorter,
+  meanSemFormatter,
+  diffFormatter,
+  taskMetricFormatter,
 };

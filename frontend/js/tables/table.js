@@ -182,6 +182,9 @@ function renderStaticTable({ columns, rows }) {
  *                       control that changes what is shown rather than which rows.
  * @param noun           plural noun for the count and empty-state text.
  * @param initialSort    Tabulator initialSort, optional.
+ * @param initialFilter  Tabulator initialFilter, optional — for a grid filtered by a
+ *                       control that lives outside it, so the filter is in place before
+ *                       the first render rather than applied to a half-built table.
  * @param paginationSize rows per page.
  * @param caller         name used in error messages.
  * @returns the Tabulator instance, so a caller can replaceData() on it later.
@@ -193,6 +196,7 @@ function createFilterableTable({
   controls = [],
   noun = "rows",
   initialSort,
+  initialFilter,
   paginationSize = 10,
   onControlChange,
   caller = "createFilterableTable",
@@ -245,6 +249,8 @@ function createFilterableTable({
     columns,
 
     ...(initialSort ? { initialSort } : {}),
+
+    ...(initialFilter ? { initialFilter } : {}),
 
     // Fires on every filter change, so the count reflects what is on screen.
     dataFiltered: (_filters, filteredRows) => {

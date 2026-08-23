@@ -164,7 +164,7 @@ MAIN SHELLS ETC
   background: transparent;
   justify-content: center;
   margin: 40px auto 0px;
-  max-width: 1000px;
+  max-width: 1200px;
 }
 
 .content.landing{
@@ -1096,14 +1096,40 @@ table {
   background: var(--surface-secondary);
   border-bottom: 1px solid var(--border-color);
   color: var(--text-muted);
-  padding: 10px 16px;
   font-size: var(--font-sm);
   font-weight: var(--bold);
+}
+
+/* A real <th> is its own box, so the padding goes straight on it. */
+.table th {
+  padding: 10px 16px;
 }
 
 .tabulator .tabulator-header .tabulator-col {
   background: transparent;
   border-right: none;
+}
+
+/* The header's padding belongs to each column, not to the strip that holds them.
+   Tabulator sizes .tabulator-col to match .tabulator-cell exactly and positions both from
+   the same origin, so padding on the container slides every header 16px right of the
+   column it labels — and a frozen column, which is positioned separately, further still.
+   Wide fitColumns grids hid it; it is obvious the moment a column is narrow. */
+.tabulator .tabulator-header .tabulator-col .tabulator-col-content {
+  padding: 10px 16px;
+}
+
+/* Tabulator parks the sort arrow absolutely at the right edge of .tabulator-col-content,
+   where it lands on top of a right-aligned header. Reserving the room here costs nothing
+   on a left-aligned column — the text is at the other end — and .num-cell below puts the
+   matching space on the cells of the columns that are right-aligned, so the two still
+   line up. */
+.tabulator .tabulator-header .tabulator-col.tabulator-sortable .tabulator-col-content {
+  padding-right: 28px;
+}
+
+.tabulator .tabulator-cell.num-cell {
+  padding-right: 28px;
 }
 
 /* Table cells */
@@ -1114,6 +1140,32 @@ table {
   border-right: none;
   border-bottom: 1px solid var(--border-color);
   border-top: none;
+  background: var(--surface);
+}
+
+
+/* Tabulator draws a frozen column as a pane rather than as columns: a divider down its
+   right edge, and a background that inherits the row striping the .tabulator-cell rule
+   above overrides away everywhere else — so the frozen column alone comes out banded, with
+   a rule beside it. Both are Tabulator's, not ours, and neither belongs in a grid whose
+   only separators are horizontal. */
+.tabulator .tabulator-header .tabulator-col.tabulator-frozen,
+.tabulator .tabulator-row .tabulator-cell.tabulator-frozen {
+  border-right: none;
+  border-left: none;
+  box-shadow: none;
+}
+
+.tabulator .tabulator-row .tabulator-cell.tabulator-frozen {
+  background: var(--surface);
+}
+
+.tabulator .tabulator-header .tabulator-col.tabulator-frozen {
+  background: var(--surface-secondary);
+}
+
+/* The striping itself, in case a row is ever visible behind its cells. */
+.tabulator .tabulator-row.tabulator-row-even {
   background: var(--surface);
 }
 
@@ -1231,6 +1283,13 @@ BARS
 
 .wide-bar {
   height: 6px;
+}
+
+/* The comparison overview, where the bars are the section rather than a detail beside a
+   suite badge. After .bar-track and .bar deliberately: same specificity, so source order
+   is what lets it win the height. */
+.thick-bar {
+  height: 12px;
 }
 
 .bar.ts1 { background: var(--ts1); }
@@ -1503,3 +1562,76 @@ WIZARD
   line-height: 1;
   color: var(--text-muted);
 }
+
+
+/*----------------------------------------------------------------------------------------
+COMPARISON
+--------------------------------------------------------------------------------------*/
+
+/* A fixed width, not a flex share: it is what makes the bars beside it start at the same
+   x and so be readable as a chart rather than as five unrelated rows. The score gets the
+   same treatment at the other end, so they all finish level too. */
+.model-bar-label {
+  width: 220px;
+  flex: none;
+}
+
+.model-bar-score {
+  width: 80px;
+  flex: none;
+  text-align: right;
+}
+
+/* The rows share one card now, so a model with nothing scored dims by itself rather than
+   through .card.disabled. */
+.model-bar.disabled {
+  opacity: 60%;
+}
+
+/* .input-select is width:100%, which in a flex row beside its label would swallow the rest
+   of the line. The wrapper is what gives it a size to be 100% of. */
+.baseline-select {
+  flex: none;
+  width: 280px;
+}
+
+/* One model that has been chosen to compare against. `flex: none` so a long name is never
+   squashed by the five beside it — the row wraps instead. */
+.chip {
+  flex: none;
+  padding: 4px 6px 4px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: var(--font-sm);
+  white-space: nowrap;
+}
+
+.chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.chip-remove:hover {
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
+/* Already used by the suite bars on the model page, where it had no rule at all: a suite
+   with no score rendered at full strength beside the ones that had one. */
+.card.disabled {
+  opacity: 60%;
+}
+
+/* Which way a difference went. Green is the primary green rather than a fresh one, so the
+   page has one "better" colour; the red is the same as .task-item.invalid. */
+.diff-up { color: var(--primary); }
+.diff-down { color: #d33; }
+.diff-flat { color: var(--text-muted); }

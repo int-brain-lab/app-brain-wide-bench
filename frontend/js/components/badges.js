@@ -16,6 +16,18 @@ function buildSuiteBadgeList(suites, size="") {
 }
 
 
+// The metric a score is measured in. Same shape as buildSuiteBadgeList, and shared for the
+// same reason: it appears as a column of its own on one grid and folded into the task label
+// on another, and the two had already drifted a size apart.
+function buildMetricBadgeList(metrics, size="") {
+  const badges = metrics
+    .map(metric => `<span class="badge ${size} metric">${escapeHtml(metric)}</span>`)
+    .join("");
+
+  return `<span class="row left gap-sm">${badges}</span>`;
+}
+
+
 function buildSuiteCoverageBadges(suites, size="") {
   const covered = new Set(suites);
 
@@ -72,6 +84,7 @@ function buildVisibleBadge(visible, size = "") {
 
 export {
   buildSuiteBadgeList,
+  buildMetricBadgeList,
   buildStatusBadge,
   buildSuiteCoverageBadges,
   buildRoleBadge,

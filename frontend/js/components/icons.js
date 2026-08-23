@@ -46,6 +46,7 @@ const ICONS = {
   // Views
   cards: "layout-grid",
   table: "table",
+  compare: "git-compare",
 
   // Field decorations, from the schemas
   link: "link",

@@ -139,6 +139,17 @@ function getCreateAction(model) {
   };
 }
 
+// Beside the submission action rather than in the scores section: the comparison is about
+// the model as a whole, and a reader who wants it does not have to have read the scores
+// first. Offered to anyone, member or not — it reads exactly what this page already shows.
+function getCompareAction(model) {
+  return {
+    href: `/html/models/compare.html?id=${encodeURIComponent(model.id)}`,
+    label: "Compare",
+    icon: getIcon("compare"),
+  };
+}
+
 function getSubmissionLink(model) {
   return {
     href: `/html/submissions/submission_create.html?model=${encodeURIComponent(
@@ -208,7 +219,11 @@ function renderDashboardView(context, router) {
 
   renderPage(
     buildPage({
-      header: buildHeader(canEdit ? [getCreateAction(model), EDIT_ACTION] : []),
+      header: buildHeader(
+        canEdit
+          ? [getCompareAction(model), getCreateAction(model), EDIT_ACTION]
+          : [getCompareAction(model)],
+      ),
       body: buildStats() + buildSections(DASHBOARD_SECTIONS),
     }),
   );

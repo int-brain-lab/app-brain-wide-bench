@@ -127,6 +127,10 @@ async function loadListPage({
   table = null,
   create: createLink,
   description = "",
+  // Header links this domain offers beyond reading the list — the models list's way on to
+  // the comparison page. Before the view toggle, which is about the list itself rather
+  // than about going anywhere.
+  actions = [],
   maxCards = 6,
   // False for a list the API serves to anyone. Such a page is one URL for both audiences:
   // no gate, the public shell when signed out, and no create affordance.
@@ -185,9 +189,10 @@ async function loadListPage({
 
     renderPage(
       buildPage({
-        header: buildHeader(
-          table ? [CARDS_ACTION, TABLE_ACTION] : [],
-        ),
+        header: buildHeader([
+          ...actions,
+          ...(table ? [CARDS_ACTION, TABLE_ACTION] : []),
+        ]),
         body: buildList(),
       }),
     );
