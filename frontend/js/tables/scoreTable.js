@@ -20,7 +20,7 @@ import {
   scoreFormatter,
   semFormatter,
   suiteBadgeFormatter,
-  taskNameFormatter,
+  taskScoreLinkFormatter,
 } from "./formatters.js";
 
 
@@ -99,9 +99,11 @@ function getScoreColumns({ showSubmission = true, showModel = false } = {}) {
 
   return [
     {
+      // The task name is the way in to the per-recording, per-metric breakdown of its score
+      // — see taskScoreLinkFormatter. An unscored row has nothing behind it and stays plain.
       title: "Task",
       field: "task_name",
-      formatter: taskNameFormatter,
+      formatter: taskScoreLinkFormatter,
       widthGrow: 2,
     },
     ...modelColumn,

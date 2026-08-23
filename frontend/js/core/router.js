@@ -104,6 +104,12 @@ function createRecordRouter({
       // to a view called "private".
       if (!link || !container.contains(link)) return;
 
+      // A view this page doesn't have falls through to the link's own href rather than
+      // being swallowed. That is what lets one piece of markup do both jobs: a score row
+      // routes client-side on the submission page, which owns the `score` view, and
+      // navigates by URL from the dashboard and the model page, which do not.
+      if (!(link.dataset.view in views)) return;
+
       event.preventDefault();
 
       // A link supplies declared params from its own dataset — `data-task="…"` alongside

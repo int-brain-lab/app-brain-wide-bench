@@ -109,6 +109,32 @@ function scoreFormatter(cell) {
   return score(cell.getValue());
 }
 
+// A task name that links to the per-recording, per-metric breakdown of its score. The
+// breakdown lives on the submission record page, so the link carries a full URL *and* the
+// router's `data-view`: the URL is what makes it work from the dashboard and the model page,
+// where there is no `score` view to route to, and the attributes are what keep it a
+// client-side navigation on the submission page itself (see the unknown-view fall-through in
+// router.js).
+//
+// A row with no score has nothing to break down, and one with no submission has nowhere to
+// go, so both render as the plain name — the same markup taskNameFormatter gives.
+function taskScoreLinkFormatter(cell) {
+  const row = cell.getData();
+  const name = escapeHtml(cell.getValue());
+
+  if (row.mean_score == null || row.submission_id == null) {
+    return `<span class="label">${name}</span>`;
+  }
+
+  const query = new URLSearchParams({ id: row.submission_id, view: "score", score: row.id });
+
+  return `
+    <a href="/html/submissions/submissions.html?${query}"
+       data-view="score"
+       data-score="${escapeHtml(row.id)}">${name}</a>
+  `;
+}
+
 // score() already renders a missing value as "—", which shouldn't carry a ±.
 function semFormatter(cell) {
   const value = cell.getValue();
@@ -244,6 +270,7 @@ export {
   scoreFormatter,
   semFormatter,
   taskNameFormatter,
+  taskScoreLinkFormatter,
   roleBadgeFormatter,
   statusFormatter,
   taskLinkAttributes,

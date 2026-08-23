@@ -148,6 +148,13 @@ function mean(values) {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 }
 
+// How a score is written everywhere it appears — a table cell, a stat card, a plot tooltip.
+// Here rather than in tables/formatters.js because it is a number format, not a cell
+// renderer, and the plots need it too.
+function score(value) {
+  return value == null ? "—" : value.toFixed(3);
+}
+
 
 export {
   escapeHtml,
@@ -164,5 +171,6 @@ export {
   showSuccess,
   showWarning,
   mean,
-  refreshIcons
+  refreshIcons,
+  score
 };

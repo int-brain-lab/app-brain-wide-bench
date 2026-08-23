@@ -23,6 +23,7 @@ import {
 import { suitesFromSubmission } from "../core/suites.js";
 import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
 import { renderTaskView } from "./taskSubmissionView.js";
+import { renderScoreBreakdownView } from "./taskScoreView.js";
 import { buildStatCards } from "../cards/statCards.js";
 import { loadRecordPage } from "../templates/record-loader.js";
 import {
@@ -287,13 +288,16 @@ const VIEWS = {
   tasks: renderTasksView,
   scores: renderScoresView,
   task: renderTaskView,
+  score: renderScoreBreakdownView,
 };
 
 loadRecordPage({
   views: VIEWS,
   noun: "submission",
   flags: ["edit", "created"],
-  params: ["task"],
+  // `task` for the methodology view, `score` for the per-recording breakdown. Both name a
+  // task submission; they are separate params so a Back out of one doesn't land in the other.
+  params: ["task", "score"],
 
   // A public submission is readable by anyone — see GET /api/submissions/{id}, which
   // withholds the team-only fields rather than the whole record.
