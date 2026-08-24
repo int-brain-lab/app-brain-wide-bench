@@ -32,6 +32,35 @@ function disabledOptionValues(field, state) {
     : [];
 }
 
+// ─── HELP TEXT ──────────────────────────────────────────────────────────────
+
+// Which fields have had their help text pinned open. Hovering the "?" shows the text as a
+// popover; clicking it writes the same text out between the label and the control, and
+// leaves it there.
+//
+// Here rather than in fields.js because fields.js already imports from this module, and the
+// reverse as well would be a cycle. It is the same arrangement as the disabled-rule readers
+// above and for the same reason: rendering reads a question, and the answer lives here.
+//
+// Keyed by field, not by element, so a pin survives a re-render — the task form redraws
+// every field whenever one of them invalidates another, and a pin held only in the DOM
+// would vanish exactly when someone was reading it.
+const pinnedHelp = new Set();
+
+function isHelpPinned(key) {
+  return pinnedHelp.has(key);
+}
+
+// @returns whether the text is now pinned.
+function toggleHelpPin(key) {
+  if (!pinnedHelp.delete(key)) {
+    pinnedHelp.add(key);
+  }
+
+  return pinnedHelp.has(key);
+}
+
+
 // A schema with no such rule draws the same fields for every state it can hold, which is
 // what lets `handleChange` know a redraw would change nothing.
 function hasDependentFields(fields) {
@@ -143,6 +172,29 @@ function attachFieldEvents(container, getState, fields, onFieldChange) {
       onFieldChange(key, value, cleared);
     }
   });
+
+  // Clicking a "?" pins its text open, in place, between the label and the control. A
+  // second listener rather than part of the one above: it writes no state, needs no schema
+  // and must work while nothing is being edited, so sharing that handler's early returns
+  // would be wrong. Delegated for the same reason — it outlives every re-render.
+  //
+  // Both the Set and the DOM are updated, so nothing has to re-render to show the change,
+  // and a later re-render of its own accord still comes back pinned.
+  container.addEventListener("click", event => {
+    const trigger = event.target.closest("[data-help-for]");
+
+    if (!trigger || !container.contains(trigger)) return;
+
+    const key = trigger.dataset.helpFor;
+    const pinned = toggleHelpPin(key);
+
+    // Also what suppresses the hover popover while the text is written out — see style.css.
+    trigger.setAttribute("aria-expanded", String(pinned));
+
+    const text = container.querySelector(`[data-help-text="${key}"]`);
+
+    if (text) text.hidden = !pinned;
+  });
 }
 
 
@@ -251,6 +303,7 @@ function createFieldForm({
 export {
   CLEARED_MESSAGE,
   attachFieldEvents,
+  isHelpPinned,
   createFieldForm,
   disabledOptionValues,
   isDisabled,

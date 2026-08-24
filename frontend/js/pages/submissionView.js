@@ -9,7 +9,7 @@ import {
 } from "../components/badges.js";
 import { buildDisplayFields } from "../forms/fields.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
-import { loadSubmissionFields, SUBMISSION_FIELDS, SUBMISSION_PANELS } from "../schemas/submissionSchema.js";
+import { loadSubmissionFields, loadSubmissionMeta, SUBMISSION_PANELS } from "../schemas/submissionSchema.js";
 import { loadSubmission, updateSubmission } from "../api/submissionApi.js";
 import {
   renderStaticTaskSubmissionsTable,
@@ -307,8 +307,9 @@ loadRecordPage({
     const [submission, fields, taskFields] = await Promise.all([
       loadSubmission(submissionId),
       // Same as modelView: the Model select's options come from /api/users/me/models, which
-      // only the editor needs. loadTaskFields is /api/meta/enums, which is public.
-      signedIn ? loadSubmissionFields() : SUBMISSION_FIELDS,
+      // only the editor needs, while loadSubmissionMeta is the help text the display rows
+      // want as well. Both that and loadTaskFields read /api/meta, which is public.
+      signedIn ? loadSubmissionFields() : loadSubmissionMeta(),
       loadTaskFields(),
     ]);
 

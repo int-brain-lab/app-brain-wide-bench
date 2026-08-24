@@ -1,8 +1,18 @@
-import {getTaskSubmissionFields } from "../api/taskSubmissionApi.js";
-import { fieldsForPanel } from "./schema.js";
+import { getMeta } from "../api/metaApi.js";
 import { suiteFromTask } from "../core/suites.js";
+import { applyFieldMeta } from "./fieldMeta.js";
+import { fieldsForPanel } from "./schema.js";
 
-const SUITE_OUTPUT_MODALITY = { ts1: "behavior", ts2: "spikes", ts3: "anatomy" };
+// What each suite asks a model to predict, from /api/meta — which is why it is a `let`
+// filled by loadTaskFields rather than a constant here. It used to be a constant here, and
+// the same three pairs are a fact about the benchmark that the scoring code also needs, so
+// the server is where they belong.
+//
+// The rules below read it synchronously during a render, which is safe because every caller
+// awaits loadTaskFields before rendering anything. Empty until then, which reads as "no
+// target modality" and disables nothing — the failure of a rule that ran too early would be
+// a permissive form, so this is asserted by the loader ordering rather than left to chance.
+let suiteOutputModality = {};
 
 const TASK_FIELDS = {
   id: {
@@ -27,7 +37,7 @@ const TASK_FIELDS = {
     label: "Extra modality",
     input: "checkbox-list",
     panel: 1,
-    options: null,
+    enum: "modality",
     // Spikes is the baseline input (not "extra"); the suite's own
     // supervision target can't be used as an input either.
     disabledOptionsWhen: state => {
@@ -46,7 +56,7 @@ const TASK_FIELDS = {
     label: "Training paradigm",
     input: "select",
     panel: 1,
-    options: null,
+    enum: "training_paradigm",
     disabledOptionsWhen: state => {
       const model = state.model;
 
@@ -60,7 +70,7 @@ const TASK_FIELDS = {
 
       // If the models modalities don't match the pretraining modalities -> rule out TSS
       const suite = suiteFromTask(state.task_id);
-      const outputModality = SUITE_OUTPUT_MODALITY[suite];
+      const outputModality = suiteOutputModality[suite];
       const inputMatches = model.pretrained_in_modalities?.includes("spikes");
       const outputMatches = outputModality && model.pretrained_out_modalities?.includes(outputModality);
       if (!inputMatches || !outputMatches) {
@@ -75,7 +85,7 @@ const TASK_FIELDS = {
     label: "Supervision regime",
     input: "select",
     panel: 1,
-    options: null,
+    enum: "supervision_regime",
     disabledOptionsWhen: state => {
       const disabled = new Set();
 
@@ -102,7 +112,7 @@ const TASK_FIELDS = {
     label: "Calibration",
     input: "select",
     panel: 1,
-    options: null,
+    enum: "calibration",
     // Single-session models are always transductive (trained from scratch).
     disabledOptionsWhen: state => (state.model?.is_pretrained ? [] : ["inductive"]),
   },
@@ -111,34 +121,30 @@ const TASK_FIELDS = {
     label: "Fine tuning strategy",
     input: "checkbox-list",
     panel: 1,
-    options: null,
+    enum: "finetuning_strategy",
     // Field disabled when pretrained is false
     disabledWhen: state => !state.model?.is_pretrained,
   },
 };
 
 
-// Populate every select/checkbox-list field's options from `/api/meta/enums`
-// once, in place, since it's shared read-only enum-like data, not per-flow
-// instance state. The endpoint returns `{fieldName: [options...]}` — one
-// options list per field, not a single shared list.
-
-// TODO DON"T MUTATE STATE AS WILL NOT WORK ON SERVER SIDE
-
+// Fill the options and the help text from /api/meta, and take the suite output modalities
+// while we are there. Every caller awaits this before rendering — see suiteOutputModality.
+//
+// Each field names the enum it wants (`enum: "calibration"`) rather than the endpoint
+// answering per field name, which is what lets extra_input_modality and the model form's
+// two pretrained-modality pickers share one list instead of three that can disagree.
+//
+// Still in place rather than returning a copy: TASK_FIELDS is imported directly by the task
+// panel, the task table and the task submission view. See applyFieldMeta.
 async function loadTaskFields() {
-  if (TASK_FIELDS.training_paradigm.options !== null) {
-    return TASK_FIELDS;
-  }
+  const meta = await getMeta();
 
-  const trainingFields = await getTaskSubmissionFields();
+  suiteOutputModality = Object.fromEntries(
+    Object.entries(meta.suites).map(([suite, { output_modality }]) => [suite, output_modality]),
+  );
 
-  for (const [key, field] of Object.entries(TASK_FIELDS)) {
-    if (field.input === "select" || field.input === "checkbox-list") {
-      field.options = trainingFields[key] ?? [];
-    }
-  }
-
-  return TASK_FIELDS;
+  return applyFieldMeta(TASK_FIELDS, meta, "task_submission");
 }
 
 // The per-task methodology ("training") fields: everything on panel 1. Both the

@@ -1,5 +1,7 @@
+import { getMeta } from "../api/metaApi.js";
 import { getMyTeams } from "../api/teamApi.js";
 import { getIcon } from "../components/icons.js";
+import { applyFieldMeta } from "./fieldMeta.js";
 
 const MODEL_FIELDS = {
   id: {
@@ -88,10 +90,12 @@ const MODEL_FIELDS = {
     required: true,
   },
 
+  // `enum` names a list on /api/meta rather than spelling the options out — this pair used
+  // to hardcode three of the five modalities, which is exactly the drift that cost.
   pretrained_in_modalities: {
     label: "Pretrained in modalities",
     input: "checkbox-list",
-    options: ['spikes', 'anatomy', 'behavior'],
+    enum: "modality",
     default: [],
     panel: 3,
   },
@@ -99,7 +103,7 @@ const MODEL_FIELDS = {
   pretrained_out_modalities: {
     label: "Pretrained out modalities",
     input: "checkbox-list",
-    options: ['spikes', 'anatomy', 'behavior'],
+    enum: "modality",
     default: [],
     panel: 3,
   },
@@ -131,19 +135,30 @@ const MODEL_PANELS = [
 
 
 
-// Populate team_id's options (team id/name pairs) once, in place, since it's
-// shared read-only enum-like data, not per-flow instance state.
+// The enum options and the help text, from /api/meta. Split out from loadModelFields
+// because every reader needs it and not every reader is signed in: the details cards show
+// the same descriptions as the edit form, and a signed-out visitor reading a public model
+// can't fetch the teams below.
+async function loadModelMeta() {
+  return applyFieldMeta(MODEL_FIELDS, await getMeta(), "model");
+}
+
+
+// The above plus the Team select, whose options are the caller's own teams — per-user data,
+// so it stays a separate fetch rather than joining the meta document.
+//
+// Both fill MODEL_FIELDS in place, once; see applyFieldMeta on why in place.
 async function loadModelFields() {
-  if (MODEL_FIELDS.team_id.options !== null) {
-    return MODEL_FIELDS;
+  await loadModelMeta();
+
+  if (MODEL_FIELDS.team_id.options === null) {
+    const teams = await getMyTeams();
+
+    MODEL_FIELDS.team_id.options = teams.map(team => ({ value: team.id, label: team.name }));
   }
-
-  const teams = await getMyTeams()
-
-  MODEL_FIELDS.team_id.options = teams.map(team => ({ value: team.id, label: team.name }));
 
   return MODEL_FIELDS;
 }
 
 
-export { MODEL_FIELDS, MODEL_PANELS, loadModelFields };
+export { MODEL_FIELDS, MODEL_PANELS, loadModelFields, loadModelMeta };

@@ -24,7 +24,7 @@ import {
   pageMessage,
   showPageError,
 } from "../templates/record-page.js";
-import {getTaskSuites} from "../api/taskSubmissionApi.js";
+import { getMeta } from "../api/metaApi.js";
 import {loadTaskFields} from "../schemas/taskSubmissionSchema.js";
 
 // Built from the context rather than declared as a constant, because panels 3 and 4 report
@@ -111,7 +111,7 @@ async function preselectModel(state, fields, taskSection) {
 // One request shared by the detected-task pills and the task section.
 async function loadKnownTasks() {
   try {
-    const tasks = await getTaskSuites();
+    const { tasks } = await getMeta();
 
     return new Map(tasks.map(task => [task.id, task.task_suite]));
   } catch (error) {

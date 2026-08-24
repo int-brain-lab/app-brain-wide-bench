@@ -797,6 +797,122 @@ GENERIC TEXT
   color: var(--danger);
 }
 
+/* ── FIELD HELP ──────────────────────────────────────────────────────────────
+   The "?" beside a field's label. Hovering shows its description as a popover, positioned by
+   components/fieldHelp.js so it is always fully on screen; on an input, clicking pins the
+   same text open between the label and the control instead. Built in forms/fields.js from
+   the `description` /api/meta fills in, so a field with nothing to explain emits none of
+   this. */
+
+.field-help {
+  display: inline-flex;
+  /* So a long label wrapping in a narrow multi-column cell can't squash it — same reason
+     as .field-icon. */
+  flex-shrink: 0;
+}
+
+/* Sized off the label it sits beside (--font-xs), like .field-icon. */
+.field-help-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1;
+  /* Default, not `pointer`: on a read-only row the "?" only hovers — there is no gap
+     between a label and a control to pin text into — and a pointer would promise a click
+     that does nothing. */
+  cursor: default;
+}
+
+/* Only a pinnable trigger — forms/fields.js emits `data-help-for` for those alone — is
+   actually clickable. */
+.field-help-trigger[data-help-for] {
+  cursor: pointer;
+}
+
+.field-help-trigger:hover,
+.field-help-trigger:focus-visible {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* `left` and `top` are written by components/fieldHelp.js, which measures the trigger and
+   the box and opens it away from the nearer edge of the viewport, so it is never cut off.
+
+   Fixed, not absolute: this sits inside a `.card` and inside `.content`, both of which hide
+   their overflow, and `.content`'s is load-bearing — it is what makes the inner region
+   scroll rather than the page grow. A fixed box is positioned against the viewport and
+   clipped by neither. Nothing in this stylesheet sets `transform`, `filter` or `contain`, so
+   no ancestor turns that back into containment.
+
+   Hidden with `visibility` and not `display` so it keeps dimensions to measure before it is
+   shown, and with pointer-events off so it can't swallow a click while invisible. */
+.field-help-text {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 10;
+  width: max-content;
+  max-width: min(26rem, 70vw);
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+  color: var(--text-color);
+  font-size: var(--font-xs);
+  font-weight: normal;
+  line-height: 1.45;
+  text-align: left;
+  /* A select's or checkbox-list's help joins the field's description and its options with
+     blank lines, so one "?" in the header explains every choice. */
+  white-space: pre-line;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Hover anywhere on the trigger's wrapper, or focus the trigger by keyboard. */
+.field-help:hover .field-help-text,
+.field-help-trigger:focus-visible + .field-help-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Pinned: the text is written out below the label, so the popover would be the same
+   paragraph twice, one of them covering the field. Must come after the two hover rules —
+   it has the same specificity as `.field-help:hover .field-help-text`, so order is what
+   decides it. */
+.field-help-trigger[aria-expanded="true"] + .field-help-text {
+  visibility: hidden;
+  opacity: 0;
+}
+
+/* The pinned copy: between a label and its control, written out rather than floating.
+   Indented off a rule so it reads as commentary on the field and not as its value.
+
+   `flex-basis` because a couple of the field wrappers are flex rows (a bare checkbox, an
+   inline display row) where this would otherwise sit between the label and the control
+   instead of under them. */
+.field-help-inline {
+  flex-basis: 100%;
+  padding-left: 8px;
+  border-left: 2px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  line-height: 1.45;
+  /* As with the popover: an option input's help keeps a line per option. */
+  white-space: pre-line;
+}
+
+
 .statistic {
   font-size: 28px;
   font-weight: var(--bold);

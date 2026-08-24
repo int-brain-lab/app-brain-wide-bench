@@ -7,7 +7,7 @@ import { suitesFromSubmission } from "../core/suites.js";
 import { sortSuites } from "../tables/formatters.js";
 import { buildDisplayFields } from "../forms/fields.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
-import { loadModelFields, MODEL_FIELDS, MODEL_PANELS } from "../schemas/modelSchema.js";
+import { loadModelFields, loadModelMeta, MODEL_PANELS } from "../schemas/modelSchema.js";
 import { loadModel, updateModel } from "../api/modelApi.js";
 import { buildSuiteScoreBars } from "../components/bars.js";
 import {
@@ -335,10 +335,11 @@ loadRecordPage({
       loadModel(modelId),
       // loadModelFields fills the Team select from /api/users/me/teams, which a signed-out
       // reader can't fetch and doesn't need: a display row renders the stored value, not an
-      // option's label. The bare schema is the whole read-only view.
-      signedIn ? loadModelFields() : MODEL_FIELDS,
+      // option's label. loadModelMeta is the rest of it — the help text, which the display
+      // rows show too, from /api/meta, which is public.
+      signedIn ? loadModelFields() : loadModelMeta(),
     ]);
-
+    console.log(fields)
     if (!model) {
       return null;
     }
