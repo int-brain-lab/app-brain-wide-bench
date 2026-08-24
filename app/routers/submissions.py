@@ -289,7 +289,7 @@ async def _load_submission_detail(
     detail = SubmissionDetail.from_submission(submission)
 
     if await is_team_member(user_id, submission.team_id, session):
-        return detail.model_copy(update={"can_edit": True})
+        return detail.model_copy(update={"is_mine": True})
 
     return detail.withhold_private()
 
@@ -407,10 +407,14 @@ async def list_submissions(
 
     suites = await suites_per_submission([s.id for s in submissions], session)
 
+    # One query for the whole listing rather than a membership check per row.
+    my_team_ids = await member_team_ids(user.id if user else None, session)
+
     return [
         SubmissionResponse.from_submission(
             submission,
             task_suites=suites.get(submission.id, []),
+            is_mine=submission.team_id in my_team_ids,
         )
         for submission in submissions
     ]

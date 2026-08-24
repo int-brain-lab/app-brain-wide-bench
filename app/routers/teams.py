@@ -206,7 +206,7 @@ async def _load_team_detail(
     )
 
     if is_member:
-        return detail.model_copy(update={"can_edit": True})
+        return detail.model_copy(update={"is_mine": True})
 
     return detail.withhold_private()
 
@@ -244,6 +244,7 @@ async def list_teams(
             n_models=n_models.get(team.id, 0),
             n_submissions=n_submissions.get(team.id, 0),
             role=my_roles.get(team.id),
+            is_mine=team.id in my_roles,
         )
         for team in teams
     ]

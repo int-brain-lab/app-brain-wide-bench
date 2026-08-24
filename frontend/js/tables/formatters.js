@@ -15,6 +15,8 @@ import { getIcon } from "../components/icons.js";
 import { SUITES } from "../core/suites.js";
 import {
   buildMetricBadgeList,
+  buildMineBadge,
+  buildPretrainedBadge,
   buildRoleBadge,
   buildStatusBadge,
   buildSuiteBadgeList,
@@ -80,6 +82,29 @@ function linkFormatter(page, labelField, idField = "id") {
     const row = cell.getData();
 
     return `<a href="${page}?id=${encodeURIComponent(row[idField])}">${escapeHtml(row[labelField])}</a>`;
+  };
+}
+
+// The model name, with its pills beside it on the models grid. Beside rather than under,
+// unlike taskMetricFormatter on the compare grid: model names are short and this column
+// carries widthGrow 2, so the pills cost the column nothing.
+//
+// Facts about the model first, then "Yours", which is about the reader — the same order the
+// model page's own header uses.
+//
+// `showMine` off for a listing that is entirely the viewer's own. Both `is_pretrained` and
+// `is_mine` have to be fields on the row for this to find them — see toModelRow.
+function modelNameFormatter(page, { showMine = false } = {}) {
+  const link = linkFormatter(page, "name");
+
+  return cell => {
+    const row = cell.getData();
+    const badges = [
+      buildPretrainedBadge(row.is_pretrained, "sm"),
+      showMine ? buildMineBadge(row.is_mine, "sm") : "",
+    ].join("");
+
+    return `<span class="row left gap-sm">${link(cell)}${badges}</span>`;
   };
 }
 
@@ -153,15 +178,6 @@ function taskScoreLinkFormatter(cell) {
        data-view="score"
        data-score="${escapeHtml(row.id)}">${name}</a>
   `;
-}
-
-// score() already renders a missing value as "—", which shouldn't carry a ±.
-function semFormatter(cell) {
-  const value = cell.getValue();
-
-  return value == null
-    ? `<span class="metadata">—</span>`
-    : `<span class="metadata">± ${score(value)}</span>`;
 }
 
 function taskNameFormatter(cell) {
@@ -241,12 +257,28 @@ function rankFormatter(cell) {
   return medal ? `<span class="${medal}">${escapeHtml(rank)}</span>` : String(rank);
 }
 
+// The leaderboard's model cell: name over affiliation, with its pills beside the name.
+// Beside rather than on a third line — the cell is already two lines and the affiliation
+// belongs under the name it qualifies.
+//
+// No `showMine` flag, unlike modelNameFormatter: the board is everyone's work by definition,
+// so marking the reader's own is always worth doing. A signed-out reader owns none of it and
+// sees no such pill.
+//
+// Both fields have to be on the row for this to find them — see toLeaderboardRow.
 function modelFormatter(cell) {
   const row = cell.getData();
+  const badges = [
+    buildPretrainedBadge(row.isPretrained, "sm"),
+    buildMineBadge(row.isMine, "sm"),
+  ].join("");
 
   return `
     <a href="/html/models/models.html?id=${encodeURIComponent(row.modelId)}" class="column">
-      <div class="label">${escapeHtml(row.title)}</div>
+      <div class="row left gap-sm">
+        <span class="label">${escapeHtml(row.title)}</span>
+        ${badges}
+      </div>
       <div class="metadata">${escapeHtml(row.affiliation)}</div>
     </a>
   `;
@@ -279,16 +311,33 @@ function diffSorter(a, b) {
 // "0.612 ± 0.014", with the spread in metadata type so a column of them reads as one
 // number each. A scored task with a single seed has a mean and no sem, and shows the mean
 // alone rather than "± —".
+//
+// Shared by the two grids that show a score this way, which disagree about where the pair
+// lives on the row — hence a builder plus a formatter each rather than one formatter.
+function buildMeanSem(mean, sem) {
+  if (mean == null) return `<span class="metadata">—</span>`;
+
+  const spread = sem == null
+    ? ""
+    : ` <span class="metadata">± ${escapeHtml(score(sem))}</span>`;
+
+  return `<span class="value">${escapeHtml(score(mean))}</span>${spread}`;
+}
+
+// The compare grid holds both numbers in one field: a column there is one model, and the
+// pair is what that model scored.
 function meanSemFormatter(cell) {
   const value = cell.getValue();
 
-  if (value?.mean == null) return `<span class="metadata">—</span>`;
+  return buildMeanSem(value?.mean ?? null, value?.sem ?? null);
+}
 
-  const spread = value.sem == null
-    ? ""
-    : ` <span class="metadata">± ${escapeHtml(score(value.sem))}</span>`;
-
-  return `<span class="value">${escapeHtml(score(value.mean))}</span>${spread}`;
+// For a grid keeping the two as separate fields. The column is keyed to the mean, so it
+// sorts on the number rather than on the spread printed beside it; `semField` names the
+// other half, which the recording breakdown spells per metric ("bacc_sem") rather than
+// plain "sem".
+function scoreSemFormatter(semField) {
+  return cell => buildMeanSem(cell.getValue(), cell.getData()[semField]);
 }
 
 // A signed difference against the baseline model. The sign is explicit on a gain — a column
@@ -333,6 +382,7 @@ export {
   rankSorter,
   dateSorter,
   linkFormatter,
+  modelNameFormatter,
   metadataFormatter,
   dateFormatter,
   suiteBadgesFormatter,
@@ -340,7 +390,6 @@ export {
   sortSuites,
   metricsBadgeFormatter,
   scoreFormatter,
-  semFormatter,
   taskNameFormatter,
   taskScoreLinkFormatter,
   roleBadgeFormatter,
@@ -355,6 +404,7 @@ export {
   compareScoreSorter,
   diffSorter,
   meanSemFormatter,
+  scoreSemFormatter,
   diffFormatter,
   taskMetricFormatter,
 };

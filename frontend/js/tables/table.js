@@ -1,12 +1,13 @@
 // Shared scaffolding for every Tabulator table in the app: the filter bar above the grid,
-// the row count below it, and the plumbing that connects the two. Each table beside it in
-// this folder supplies only its rows, columns and controls — nothing here knows what it is
-// listing, and how a cell renders is in formatters.js.
+// the row count in its footer, and the plumbing that connects the two. Each table beside it
+// in this folder supplies only its rows, columns and controls — nothing here knows what it
+// is listing, and how a cell renders is in formatters.js.
 //
 // `Tabulator` is a global from the unpkg <script>, not this module graph, so a page
 // mounting one of these tables needs both the tabulator JS and CSS tags — copy them from
 // dashboard.html.
 
+import { buildTableCount } from "../components/count.js";
 import { escapeHtml } from "../core/utils.js";
 import { SUITES } from "../core/suites.js";
 
@@ -113,6 +114,23 @@ function buildFilterBar(controls) {
 // Plain `.table` markup from the same column definitions the Tabulator grids use, for a
 // fixed preview.
 
+// Sits at the right of the footer, opposite the count, pointing wherever the section
+// heading above the table points. Two kinds of destination, because the headings have two:
+// `href` leaves the page, `view` is a view the router switches to in place. A `view` keeps
+// `href="#"` beside it — the router lets an unknown view fall through to the href, which is
+// what lets one link work on a page that owns the view and on one that doesn't.
+//
+// No destination, no link: a preview whose heading has nowhere to go shouldn't invent one.
+function buildViewAllLink(noun, viewAll) {
+  if (!viewAll) return "";
+
+  const target = viewAll.view
+    ? `href="#" data-view="${escapeHtml(viewAll.view)}"`
+    : `href="${escapeHtml(viewAll.href)}"`;
+
+  return `<a class="link" data-role="view-all" ${target}>View all ${escapeHtml(noun)}s →</a>`;
+}
+
 // Tabulator hands a formatter a cell object, so a static render has to present one. This
 // is the only place that shape is faked; the formatters work unchanged in both renderers.
 function staticCell(row, field) {
@@ -145,9 +163,15 @@ function previewRows(rows, compare, limit) {
 /**
  * @param columns Tabulator column definitions — `title`, `field`, `formatter`.
  * @param rows    already mapped, ordered and sliced — see previewRows.
+ * @param noun    *singular* noun — the footer adds the "s", as createFilterableTable does.
+ *                Omit to leave the footer off entirely.
+ * @param total   rows before the slice, so the footer can say "3 out of 12". Defaults to
+ *                what was rendered, for a preview that isn't one.
+ * @param viewAll where the footer's "View all" link goes — {href} or {view}, matching the
+ *                section heading above the table. Omit for no link.
  * @returns an HTML string; the caller does its own DOM write.
  */
-function renderStaticTable({ columns, rows }) {
+function renderStaticTable({ columns, rows, noun, total = rows.length, viewAll }) {
   return `
     <div class="table">
       <table>
@@ -160,6 +184,12 @@ function renderStaticTable({ columns, rows }) {
           `).join("")}
         </tbody>
       </table>
+      ${noun ? `
+        <div class="table-footer">
+          <span>${buildTableCount(rows.length, total, noun)}</span>
+          ${buildViewAllLink(noun, viewAll)}
+        </div>
+      ` : ""}
     </div>
   `;
 }
@@ -168,7 +198,7 @@ function renderStaticTable({ columns, rows }) {
 // ─── FILTERABLE TABLE ───────────────────────────────────────────────────────
 
 /**
- * Mounts a Tabulator grid with a filter bar above it and a live row count below.
+ * Mounts a Tabulator grid with a filter bar above it and a live row count in its footer.
  *
  * @param container      element, or the id of one. Its contents are replaced.
  * @param rows           plain row objects — map your API records first.
@@ -180,7 +210,7 @@ function renderStaticTable({ columns, rows }) {
  * @param onControlChange optional (name, value, {table, setControlOptions}) => void, run
  *                       after a control changes and the rows have been refiltered. For a
  *                       control that changes what is shown rather than which rows.
- * @param noun           plural noun for the count and empty-state text.
+ * @param noun           *singular* noun — the count and the empty-state text add the "s".
  * @param initialSort    Tabulator initialSort, optional.
  * @param initialFilter  Tabulator initialFilter, optional — for a grid filtered by a
  *                       control that lives outside it, so the filter is in place before
@@ -194,7 +224,7 @@ function createFilterableTable({
   rows,
   columns,
   controls = [],
-  noun = "rows",
+  noun = "row",
   initialSort,
   initialFilter,
   paginationSize = 10,
@@ -211,10 +241,20 @@ function createFilterableTable({
   root.innerHTML = `
     ${buildFilterBar(controls)}
     <div data-role="grid"></div>
-    <p class="metadata" data-role="count"></p>
   `;
 
-  const count = root.querySelector("[data-role='count']");
+  // The count element belongs to Tabulator's footer, and Tabulator builds its DOM
+  // asynchronously — the moment the constructor below returns, `root` is still empty. So the
+  // element is looked up per write rather than held, and nothing writes before the build.
+  //
+  // "display" rows are what is actually on screen: the filter *and* the current page applied.
+  // So the footer counts the page you are looking at, not the whole filtered set.
+  function setCount() {
+    const count = root.querySelector("[data-role='count']");
+    if (!count) return;
+
+    count.textContent = buildTableCount(table.getDataCount("display"), rows.length, noun);
+  }
 
   // Scoped to this call, so two tables on one page can't fight over one set of filter
   // values. A `required` select starts on its first option to match the markup buildSelect
@@ -238,33 +278,41 @@ function createFilterableTable({
 
     layout: "fitColumns",
 
-    // Only page when there is a second page to go to, otherwise Tabulator renders a footer
-    // with a lone "1" button. Keyed off the unfiltered total, so the footer doesn't appear
-    // and vanish as the user types.
+    // Only page when there is a second page to go to, otherwise Tabulator renders a lone
+    // "1" button. Keyed off the unfiltered total, so the buttons don't appear and vanish as
+    // the user types.
     pagination: rows.length > paginationSize,
     paginationSize,
 
-    placeholder: `No ${noun} match these filters.`,
+    // The count goes in Tabulator's own footer instead of a line under the table. Tabulator
+    // lays that strip out as a flex row and gives the paginator `flex: 1; text-align: right`,
+    // so whatever comes first sits left of the page buttons — and setting footerElement at
+    // all is what keeps the footer when pagination is off and there are no buttons to hold
+    // it open.
+    footerElement: `<span data-role="count"></span>`,
+
+    placeholder: `No ${noun}s match these filters.`,
 
     columns,
 
     ...(initialSort ? { initialSort } : {}),
 
     ...(initialFilter ? { initialFilter } : {}),
-
-    // Fires on every filter change, so the count reflects what is on screen.
-    dataFiltered: (_filters, filteredRows) => {
-      count.textContent = filteredRows.length === rows.length
-        ? `${rows.length} ${noun}`
-        : `${filteredRows.length} of ${rows.length} ${noun}`;
-    },
-
-    // A formatter may emit `<i data-lucide>` placeholders, and Tabulator rebuilds its rows
-    // on every filter, sort and page change — so this has to run per render, not at mount.
-    renderComplete: () => globalThis.lucide?.createIcons?.(),
   });
 
-  count.textContent = `${rows.length} ${noun}`;
+  // Tabulator 6 dropped callbacks-as-options, so these are bound rather than passed above.
+  // A `renderComplete:` key in the constructor is discarded in silence — OptionsList reads
+  // `debugInvalidOptions` off the raw options before the defaults are merged in, so it never
+  // even warns.
+
+  // Both hang off one event. Tabulator rebuilds its rows on every filter, sort and page
+  // change, so a render is exactly when the count can be wrong and when a formatter's
+  // `<i data-lucide>` placeholders are new — and it fires after the display rows are
+  // settled, which `dataFiltered` (before the display pipeline reruns) does not.
+  table.on("renderComplete", () => {
+    setCount();
+    globalThis.lucide?.createIcons?.();
+  });
 
   // For a control whose choices depend on another control's value — the leaderboard's
   // metric list, which is the suites or the tasks depending on the grouping. The previous

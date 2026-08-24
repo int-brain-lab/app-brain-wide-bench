@@ -86,6 +86,34 @@ async def test_list_as_member(seeded_client, add, me):
     assert listed["unsubmitted-net"]["task_suites"] == []
 
 
+async def test_list_marks_which_models_are_mine(seeded_client, add, me):
+    """``is_mine`` is per row: membership of the owning team, not visibility.
+
+    Joining only Int Brain Lab is what separates the two. ``unsubmitted-net`` is listed
+    because the caller is in its team, ``mlp-baseline`` because a submission of it is
+    public — so one is theirs and the other is only readable.
+    """
+    await add(UserTeam(user_id=me, team_id=OTHER_TEAM))
+
+    response = await seeded_client.get(models_url())
+
+    assert response.status_code == 200
+
+    listed = by_name(response)
+
+    assert listed["unsubmitted-net"]["is_mine"] is True
+    assert listed["mlp-baseline"]["is_mine"] is False
+
+
+async def test_list_marks_nothing_as_mine_for_a_non_member(seeded_client):
+    """A caller in no team owns none of what they can see."""
+    response = await seeded_client.get(models_url())
+
+    assert response.status_code == 200
+
+    assert [row["is_mine"] for row in response.json()] == [False]
+
+
 async def test_list_filtered_by_team(seeded_client, add, me):
     """``team_id`` narrows the list to one team's models."""
     await add(
@@ -137,7 +165,7 @@ async def test_detail_as_non_member(seeded_client):
     assert [s["label"] for s in body["submissions"]] == [
         "mlp-ts1-baseline"
     ]
-    assert body["can_edit"] is False
+    assert body["is_mine"] is False
 
     # A model with no public submissions is not visible.
     response = await get_model(seeded_client, UNSUBMITTED)
@@ -165,7 +193,7 @@ async def test_detail_as_member(seeded_client, add, me):
         "mlp-ts3-internal",
     ]
 
-    assert body["can_edit"] is True
+    assert body["is_mine"] is True
 
 
 async def test_detail_embeds_submission_tasks_and_scores(seeded_client):
@@ -198,13 +226,13 @@ async def test_detail_returns_all_model_fields(seeded_client):
 
     body = response.json()
 
-    # These are response-only/context fields rather than model columns. `can_edit` is a
+    # These are response-only/context fields rather than model columns. `is_mine` is a
     # statement about the caller, not about the model, which is why it has no fixture row
     # to match — see the tests above for what it says.
     response_fields = {
         key: value
         for key, value in body.items()
-        if key not in {"team_name", "submissions", "created_at", "can_edit"}
+        if key not in {"team_name", "submissions", "created_at", "is_mine"}
     }
 
     assert response_fields == expected

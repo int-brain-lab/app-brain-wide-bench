@@ -619,6 +619,21 @@ CARDS
   background: var(--surface-secondary);
 }
 
+
+/* A card whose "View all" link sits in the bottom-right corner, level with the last row of
+   fields instead of on a row of its own. The card's field columns are independent stacks,
+   so there is no shared last row for the link to join — taking it out of flow is what puts
+   it level with the bottom of both. The offsets are .card's own padding. */
+.card.corner-link {
+  position: relative;
+}
+
+.card.corner-link > .link {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+}
+
 .stat-card {
   display: flex;
   flex-direction: column;
@@ -1318,14 +1333,37 @@ table {
 }
 
 
-/* Table footer */
+/* Table footer — the strip holding the row count, and the page buttons when a grid pages.
+   Tabulator's own colour here is a hardcoded grey, so --text-muted is set explicitly
+   rather than left to whichever stylesheet loads last. */
 .table-footer,
 .tabulator .tabulator-footer {
   background: var(--surface-secondary);
   border-top: none;
-  padding: 10px 16px;
   font-size: var(--font-sm);
-  font-weight: var(--bold);
+  font-weight: normal;
+  color: var(--text-muted);
+}
+
+
+/* Tabulator nests a flex row inside the footer and pads that, so padding on the footer
+   itself would sit outside Tabulator's own — leaving the count indented past the column
+   it counts. Ours goes on the inner row, at the cell padding, so the count starts where
+   the first column's text does. The hand-written footer is that row itself. */
+.table-footer,
+.tabulator .tabulator-footer .tabulator-footer-contents {
+  padding: 10px 16px;
+}
+
+
+/* Count left, "View all" right — the same shape Tabulator gives its own footer row, where
+   the paginator's `flex: 1; text-align: right` does this job instead. A footer with only a
+   count (the member tables) has one child, which space-between leaves on the left. */
+.table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 

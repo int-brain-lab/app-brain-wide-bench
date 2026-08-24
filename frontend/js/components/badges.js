@@ -7,11 +7,17 @@ function statusBadgeClass(status) {
 }
 
 
+// Nothing at all for an empty list, rather than an empty wrapper: the wrapper still counts
+// as a flex item, so it consumes one of its parent's gaps and indents whatever follows it —
+// a pretrained pill on a model with no suites yet. It is also what lets buildBadges' filter
+// drop a record with no suites instead of joining a bare row, as its comment intends.
 function buildSuiteBadgeList(suites, size="") {
+  if (!suites.length) return "";
+
   const badges = suites
     .map(suite => `<span class="badge ${size} ${escapeHtml(suite)}">${escapeHtml(suite.toUpperCase())}</span>`)
     .join("");
-  
+
   return `<span class="row left gap-sm">${badges}</span>`;
 }
 
@@ -82,11 +88,39 @@ function buildVisibleBadge(visible, size = "") {
 }
 
 
+// A record on one of the viewer's own teams, for a listing that mixes theirs with everyone
+// else's. `success` rather than the neutral grey the other pills here use: this is the one
+// badge about the *reader* rather than about the record, and on a row that may already carry
+// a grey pill a second one would be indistinguishable at a glance.
+//
+// Only the positive case, and only where the caller asked: a listing that is entirely the
+// viewer's own — the dashboard, "My models" — would badge every row and say nothing.
+function buildMineBadge(isMine, size = "") {
+  if (!isMine) return "";
+
+  return `<span class="badge ${size} success">Yours</span>`;
+}
+
+
+// A pretrained foundation model, as against one trained from scratch on every session.
+// Only the positive case earns a badge: training from scratch is the ordinary shape for a
+// single-session baseline, so a badge on every one of those would carry no information —
+// and a null is a model whose pretraining fields were never filled in, which is not a
+// claim either way. So false and null both render nothing.
+function buildPretrainedBadge(isPretrained, size = "") {
+  if (!isPretrained) return "";
+
+  return `<span class="badge ${size} neutral">Pretrained</span>`;
+}
+
+
 export {
   buildSuiteBadgeList,
   buildMetricBadgeList,
   buildStatusBadge,
   buildSuiteCoverageBadges,
   buildRoleBadge,
-  buildVisibleBadge
+  buildVisibleBadge,
+  buildPretrainedBadge,
+  buildMineBadge,
 }

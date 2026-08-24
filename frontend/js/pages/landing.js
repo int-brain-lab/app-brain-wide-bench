@@ -5,8 +5,7 @@
 // model cell and the score formatting are written once and shared with the full page.
 //
 // The page provides:
-//   #lb-table-preview   where the table is rendered
-//   #lb-table-count     "N models", or the error
+//   #lb-table-preview   where the table is rendered — the count is in its own footer
 //   #stat-submissions #stat-models
 
 import { getLeaderboard } from "../api/leaderboardApi.js";
@@ -22,19 +21,17 @@ const PREVIEW_LIMIT = 5;
 
 // ─── RENDERING ──────────────────────────────────────────────────────────────
 
-// Returns every row, not the five it rendered — the count below the preview and the
-// model stat are both totals.
+// Returns every row, not the five it rendered — the model stat is a total, and so is the
+// count the table puts in its footer.
 function renderPreview(submissions, tasks) {
-  const rows = renderStaticLeaderboardTable({
+  return renderStaticLeaderboardTable({
     container: "lb-table-preview",
     submissions,
     tasks,
     limit: PREVIEW_LIMIT,
+    // The same place the section heading's "Full leaderboard" link goes.
+    viewAll: { href: "/html/leaderboard/leaderboard.html" },
   });
-
-  document.getElementById("lb-table-count").textContent = `${rows.length} models`;
-
-  return rows;
 }
 
 // `submissions.length` is every public scored submission; `rows.length` is one per
@@ -44,11 +41,10 @@ function renderStats(rows, submissions) {
   document.getElementById("stat-models").textContent = rows.length;
 }
 
-// Into the preview's own slot rather than the count line under it: the count is a number,
-// and a failure there would read as one.
+// Into the preview's own slot, which takes the footer count with it — a failure written
+// where a number goes would read as one.
 function showFailedPreview(message, error) {
   showFailure(document.getElementById("lb-table-preview"), message, error);
-  document.getElementById("lb-table-count").textContent = "";
 }
 
 

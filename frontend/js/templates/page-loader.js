@@ -27,7 +27,7 @@ import { pageContainer, showPageError } from "./record-page.js";
  *                  submission. Those pages are one URL for both audiences: no gate, and
  *                  the public shell when signed out. `load` is handed `signedIn` so it can
  *                  skip the fetches only a signed-in caller can make; what a reader may
- *                  *change* is the record's own `can_edit`, which is team membership.
+ *                  *change* is the record's own `is_mine`, which is team membership.
  */
 async function loadPage({
   load,

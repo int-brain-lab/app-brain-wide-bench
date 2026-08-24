@@ -47,6 +47,11 @@ class LeaderboardRow(BaseModel):
     model_name: str
     created_at: datetime
 
+    # Whether the model is a pretrained foundation model, so a row can say so beside its
+    # name. Nullable for the same reason the column is: a model whose pretraining fields
+    # were never filled in makes no claim either way, and the client badges only ``True``.
+    is_pretrained: bool | None = None
+
     # Keyed by flat task id, e.g. {"ts1-reward": {...}}.
     scores: dict[str, LeaderboardScore] = {}
 

@@ -40,21 +40,30 @@ class ModelBase(ModelMetadata):
     # ``SubmissionList.team_name``.
     team_name: str | None = None
 
+    # Whether the caller is a member of the team that owns this model, which is what makes
+    # it theirs to edit — the same rule ``require_team_member`` enforces on PATCH. On the
+    # base rather than on ``ModelDetail`` so a listing carries it too: a client rendering a
+    # grid of models needs to mark its own without a request per row.
+    #
+    # A fact, never a decision: the endpoints check membership for themselves. Defaults
+    # False, so a construction that says nothing about the caller claims nothing.
+    is_mine: bool = False
+
     @classmethod
     def from_model(cls, model, **extra):
         """Build any model response from an ORM ``Model`` with ``team`` loaded.
 
         Validated against ``ModelBase`` and not ``cls``, which is deliberate and the
         opposite of ``SubmissionBase.from_submission``. Every field a subclass adds is
-        something the caller computes — ``n_submissions``, ``task_suites``, and the
-        visibility-filtered ``submissions`` — so none of them may be read off the ORM
-        object. Validating against ``cls`` would let ``ModelDetail`` pick up the whole
+        something the caller computes — ``n_submissions``, ``task_suites``, ``is_mine``
+        and the visibility-filtered ``submissions`` — so none of them may be read off the
+        ORM object. Validating against ``cls`` would let ``ModelDetail`` pick up the whole
         ``model.submissions`` relationship, private rows included, for any caller that
         forgot to pass the filtered list. Subclass fields arrive through ``extra``,
         which the constructor still validates.
         """
         return cls(
-            **ModelBase.model_validate(model).model_dump(exclude={"team_name"}),
+            **ModelBase.model_validate(model).model_dump(exclude={"team_name", "is_mine"}),
             team_name=model.team.name,
             **extra,
         )
@@ -85,13 +94,6 @@ class ModelDetail(ModelBase):
     """Detailed model information for GET /api/models/{id}."""
 
     submissions: list[ModelSubmissionOut] = []
-
-    # Whether this caller may edit the model, which is team membership — the same rule
-    # ``require_team_member`` enforces on PATCH. Sent so the client can hide an action it
-    # would only be refused, never to decide anything: the endpoint checks for itself.
-    #
-    # Defaults False, so a construction that says nothing about the caller offers nothing.
-    can_edit: bool = False
 
 
 class ModelCreate(ModelMetadata):

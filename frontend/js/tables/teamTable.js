@@ -107,7 +107,7 @@ function renderTeamsTable({ container, teams }) {
     rows,
     columns: getTeamColumns(),
     controls: getTeamControls(rows),
-    noun: "teams",
+    noun: "team",
     initialSort: [{ column: "name", dir: "asc" }],
     caller: "renderTeamsTable",
   });

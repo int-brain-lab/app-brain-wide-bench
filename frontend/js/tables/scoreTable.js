@@ -17,8 +17,7 @@ import {
   linkFormatter,
   metricsBadgeFormatter,
   numericSorter,
-  scoreFormatter,
-  semFormatter,
+  scoreSemFormatter,
   suiteBadgeFormatter,
   taskScoreLinkFormatter,
 } from "./formatters.js";
@@ -115,18 +114,13 @@ function getScoreColumns({ showSubmission = true, showModel = false } = {}) {
     },
     ...submissionColumn,
     {
-      title: "Mean score",
+      // Mean and sem in one cell — see scoreSemFormatter. The field stays `mean_score` so
+      // the sort is on the number, not on the spread printed beside it.
+      title: "Score",
       field: "mean_score",
-      formatter: scoreFormatter,
+      formatter: scoreSemFormatter("sem"),
       sorter: numericSorter,
-      width: 120,
-    },
-    {
-      title: "SEM",
-      field: "sem",
-      formatter: semFormatter,
-      sorter: numericSorter,
-      width: 100,
+      width: 150,
     },
     {
       title: "Metric",
@@ -207,7 +201,7 @@ function renderTaskScoresTable({
     rows,
     columns: getScoreColumns(shown),
     controls: getScoreControls(rows, shown),
-    noun: "tasks",
+    noun: "task",
     initialSort: [{ column: "mean_score", dir: "desc" }],
     caller: "renderTaskScoresTable",
   });
@@ -225,8 +219,9 @@ function renderTaskScoresTable({
  * @param showSubmission  as renderTaskScoresTable.
  * @param showModel   as renderTaskScoresTable.
  * @param limit       how many rows to show. Omit for all of them.
- * @returns every row it was given, not just the slice it rendered, so a caller can
- *          report a total alongside the preview.
+ * @param viewAll     as renderStaticTable — where the footer's "View all" link goes.
+ * @returns every row it was given, not just the slice it rendered. The total is already
+ *          in the footer; this is for a caller that needs the rows themselves.
  */
 function renderStaticTaskScoresTable({
   container,
@@ -234,10 +229,16 @@ function renderStaticTaskScoresTable({
   showSubmission = true,
   showModel = false,
   limit,
+  viewAll,
 }) {
+  const shown = previewRows(rows, (a, b) => numericSorter(b.mean_score, a.mean_score), limit);
+
   resolveContainer(container, "renderStaticTaskScoresTable").innerHTML = renderStaticTable({
     columns: getScoreColumns({ showSubmission, showModel }),
-    rows: previewRows(rows, (a, b) => numericSorter(b.mean_score, a.mean_score), limit),
+    rows: shown,
+    noun: "task",
+    total: rows.length,
+    viewAll,
   });
 
   return rows;

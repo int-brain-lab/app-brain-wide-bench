@@ -21,7 +21,12 @@ async def leaderboard(
     """Return all public, completed submissions for the leaderboard.
 
     The one endpoint with no notion of a caller: it publishes finished, public work and
-    nothing else, so it takes no user and withholds nothing.
+    nothing else, so it takes no user and withholds nothing. Two callers asking the same
+    question get the same bytes, which is what keeps it cacheable.
+
+    That is also why it says nothing about whose rows these are. A client marking the
+    reader's own intersects ``team_id`` against their own teams itself — one request for
+    the board, one for the memberships — rather than making this response per-caller.
 
     Each row carries per-task primary-metric means so the frontend can build one sortable
     column per metric group, and the rank it earned on each task.
@@ -66,6 +71,9 @@ async def leaderboard(
             team_name=submission.team.name,
             model_id=submission.model_id,
             model_name=submission.model.name,
+            # Off the already-loaded ``model`` relationship — the same one supplying the
+            # name above, so this costs no extra query.
+            is_pretrained=submission.model.is_pretrained,
             created_at=submission.created_at,
             # A task with no score yet contributes no column.
             scores={

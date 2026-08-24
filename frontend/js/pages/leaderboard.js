@@ -4,6 +4,10 @@
 // module. The rows, columns, controls and the grouping/metric behaviour are all in
 // leaderboardTable.js; the fetch is in leaderboardApi.js.
 //
+// It also owns the reader's own team ids. /api/leaderboard has no notion of a caller — that
+// is what keeps one public board cacheable — so marking which rows are the reader's is an
+// intersection done here, from a second request for their memberships.
+//
 // What this page owns beyond that is the field filter. It sits above the table rather than
 // inside it because it is a different kind of narrowing: the table's own model search hides
 // rows and leaves every rank alone, while this one changes who a model is ranked against
@@ -14,6 +18,7 @@
 
 import { getLeaderboard } from "../api/leaderboardApi.js";
 import { getTasks } from "../api/taskApi.js";
+import { getMyTeams } from "../api/teamApi.js";
 import { isAuthenticated } from "../api/client.js";
 import { renderLeaderboardTable } from "../tables/leaderboardTable.js";
 import { applyShell } from "../templates/shell.js";
@@ -93,9 +98,11 @@ function buildFilterBar(selected) {
 
 async function loadLeaderboardPage() {
   try {
+    const signedIn = await isAuthenticated();
+
     // Before anything renders, so the page settles into one shell rather than rearranging
     // itself around the table once the rows land.
-    applyShell(await isAuthenticated());
+    applyShell(signedIn);
 
     renderPage(
       buildPage({
@@ -111,6 +118,14 @@ async function loadLeaderboardPage() {
     // Fetched once and kept: the task table is what the columns are built from, and it does
     // not change with the filter — only the rows do.
     const tasks = await getTasks();
+
+    // Also fetched once: the reader's memberships don't change while they read the board.
+    // Not asked for at all when signed out, where the answer is knowable without a request.
+    // A failure here leaves the set empty, so the board renders without the pill rather than
+    // not at all — knowing which rows are yours is the least of what this page is for.
+    const myTeamIds = new Set(
+      signedIn ? ((await getMyTeams()) ?? []).map(team => String(team.id)) : [],
+    );
 
     if (!tasks) {
       showFailure(sectionBody("body"), "Loading the leaderboard failed.");
@@ -156,7 +171,12 @@ async function loadLeaderboardPage() {
         return;
       }
 
-      table = renderLeaderboardTable({ container: sectionBody("body"), submissions, tasks });
+      table = renderLeaderboardTable({
+        container: sectionBody("body"),
+        submissions,
+        tasks,
+        myTeamIds,
+      });
     }
 
     sectionBody("filters").innerHTML = buildFilterBar(filters.isPretrained);

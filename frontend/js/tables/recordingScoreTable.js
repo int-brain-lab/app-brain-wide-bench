@@ -15,8 +15,7 @@ import { createFilterableTable, matchIncludes } from "./table.js";
 import {
   metricsBadgeFormatter,
   numericSorter,
-  scoreFormatter,
-  semFormatter,
+  scoreSemFormatter,
 } from "./formatters.js";
 
 // ts3 names its metrics `<brain region>/<metric>` — "TH/f1-score", "macro/precision".
@@ -203,25 +202,17 @@ function labelFormatter(field) {
   };
 }
 
-// `<metric>_mean` and `<metric>_sem` as titles, spelled the same way the metric is in the
-// scorer output, so a column can be matched back to a metric name without a lookup table.
+// One column per metric, holding "mean ± sem". The title is the metric spelled the same way
+// the scorer output does, so a column can be matched back to a metric name without a lookup
+// table — the `_mean`/`_sem` fields behind it keep those names too.
 function metricColumns(names) {
-  return names.flatMap(name => [
-    {
-      title: `${name}_mean`,
-      field: `${name}_mean`,
-      formatter: scoreFormatter,
-      sorter: numericSorter,
-      widthGrow: 1,
-    },
-    {
-      title: `${name}_sem`,
-      field: `${name}_sem`,
-      formatter: semFormatter,
-      sorter: numericSorter,
-      widthGrow: 1,
-    },
-  ]);
+  return names.map(name => ({
+    title: name,
+    field: `${name}_mean`,
+    formatter: scoreSemFormatter(`${name}_sem`),
+    sorter: numericSorter,
+    widthGrow: 1,
+  }));
 }
 
 function keyedColumns(title, field, names) {
@@ -246,18 +237,12 @@ function metricRowColumns() {
       widthGrow: 2,
     },
     {
-      title: "Mean",
+      // Mean and sem in one cell, as the task-scores grid shows them.
+      title: "Score",
       field: "mean",
-      formatter: scoreFormatter,
+      formatter: scoreSemFormatter("sem"),
       sorter: numericSorter,
-      width: 120,
-    },
-    {
-      title: "SEM",
-      field: "sem",
-      formatter: semFormatter,
-      sorter: numericSorter,
-      width: 120,
+      width: 150,
     },
     SEED_COLUMN,
   ];
@@ -270,21 +255,21 @@ function metricRowColumns() {
 // with its own shape is one entry rather than a branch in four functions.
 const LAYOUTS = {
   recording: {
-    noun: "recordings",
+    noun: "recording",
     searchField: "recording_id",
     searchPlaceholder: "Search recordings...",
     rows: toRecordingRows,
     columns: recordings => keyedColumns("Recording", "recording_id", metricNames(recordings)),
   },
   region: {
-    noun: "regions",
+    noun: "region",
     searchField: "region",
     searchPlaceholder: "Search regions...",
     rows: toRegionRows,
     columns: recordings => keyedColumns("Region", "region", metricSuffixes(recordings)),
   },
   metric: {
-    noun: "metrics",
+    noun: "metric",
     searchField: "metric",
     searchPlaceholder: "Search metrics...",
     rows: toMetricRows,

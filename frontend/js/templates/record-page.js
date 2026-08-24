@@ -170,6 +170,10 @@ function buildSectionLink({
   `;
 }
 
+// function buildSectionLink({view, linkIcon, linkText}) {
+//   return `<a class="link" href="#" data-view="${view}">${linkText} -></a>`;
+// }
+
 function buildLink({
   href,
   label,

@@ -143,6 +143,7 @@ function renderScoresSection(submission) {
     rows,
     showSubmission: false,
     limit: SCORE_LIMIT,
+    viewAll: { view: "scores" },
   });
 }
 
@@ -161,8 +162,16 @@ function renderDetailsSection(submission, fields) {
     .join("");
 
   sectionBody("details").innerHTML = `
-    <div class="card row">
-      ${columns}
+    <div class="card corner-link">
+      <!-- grid-2, not .row: .row is space-between, which pins the second column to the
+           card's right edge instead of starting it at the halfway mark. -->
+      <div class="grid-2">
+        ${columns}
+      </div>
+
+      <!-- Where the section heading's own link goes; the router picks it up by data-view.
+           The card's corner-link class lifts this onto the last row of fields. -->
+      <a class="link" href="#" data-view="details">View all details →</a>
     </div>
   `;
 }
@@ -175,7 +184,12 @@ function renderTasksSection(submission, taskSubmissions) {
     return;
   }
 
-  renderStaticTaskSubmissionsTable({ container, submission });
+  renderStaticTaskSubmissionsTable({
+    container,
+    submission,
+    limit: SCORE_LIMIT,
+    viewAll: { view: "tasks" },
+  });
 }
 
 // ─── VIEWS ───────────────────────────────────────────────────────────────────
@@ -321,10 +335,10 @@ loadRecordPage({
       submission,
       fields,
       taskFields,
-      // Both halves, as in modelView: `can_edit` is team membership as the API sees it, and
+      // Both halves, as in modelView: `is_mine` is team membership as the API sees it, and
       // `signedIn` is this browser having a session — a dev-mode API answers every request
       // as its stub user, so without it a signed-out visitor would be offered edit controls.
-      canEdit: signedIn && submission.can_edit === true,
+      canEdit: signedIn && submission.is_mine === true,
       dashboardData: getDashboardData(submission),
     };
   },

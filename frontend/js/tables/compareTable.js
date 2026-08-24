@@ -108,7 +108,7 @@ function renderCompareTable({ container, rows, models, metric = "", mode = "scor
     container,
     rows,
     columns: getCompareColumns(models, cells),
-    noun: "tasks",
+    noun: "task",
 
     // fitColumns, as every other grid in the app uses: the number of columns here changes
     // as the reader picks models, and a fixed width would leave the table stopping short of

@@ -224,7 +224,7 @@ async def _load_model_detail(
         if not submissions:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Model not found")
 
-    return ModelDetail.from_model(model, submissions=submissions, can_edit=member)
+    return ModelDetail.from_model(model, submissions=submissions, is_mine=member)
 
 
 # ── Endpoints ──────────────────────────────────────────────────────
@@ -264,11 +264,15 @@ async def list_models(
     n_submissions = await submission_count_per_model(visible, session)
     suites = await suites_per_model(visible, session)
 
+    # One query for the whole listing rather than a membership check per row.
+    my_team_ids = await member_team_ids(user.id if user else None, session)
+
     return [
         ModelResponse.from_model(
             model,
             n_submissions=n_submissions.get(model.id, 0),
             task_suites=suites.get(model.id, []),
+            is_mine=model.team_id in my_team_ids,
         )
         for model in models
     ]

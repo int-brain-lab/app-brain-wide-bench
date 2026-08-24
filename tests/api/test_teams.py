@@ -82,6 +82,26 @@ async def test_list_as_non_member(seeded_client):
     assert listed["Cortex Lab"]["role"] is None
 
 
+async def test_list_marks_which_teams_are_mine(seeded_client, add, me):
+    """``is_mine`` is per row, and tracks ``role`` — every team is listed to everyone."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.get(teams_url())
+
+    assert response.status_code == 200
+
+    listed = by_name(response)
+
+    assert {name: row["is_mine"] for name, row in listed.items()} == {
+        "Brain Wide Bench": True,
+        "Cortex Lab": False,
+        "Int Brain Lab": False,
+    }
+
+    # The two agree: membership is what sets both.
+    assert all((row["role"] is not None) == row["is_mine"] for row in listed.values())
+
+
 async def test_list_as_member(seeded_client, add, me):
     """A member sees all counts for their team and their own role."""
     await add(
@@ -141,7 +161,7 @@ async def test_detail_as_non_member(seeded_client):
     assert body["n_models"] == 1
     assert body["members"] is None
     assert body["role"] is None
-    assert body["can_edit"] is False
+    assert body["is_mine"] is False
 
 async def test_detail_as_member(seeded_client, add, me, caller):
     """A member sees all counts, their role, and the member list."""
@@ -165,7 +185,7 @@ async def test_detail_as_member(seeded_client, add, me, caller):
     assert body["n_submissions"] == 5
     assert body["n_models"] == 2
     assert body["role"] == "owner"
-    assert body["can_edit"] is True
+    assert body["is_mine"] is True
 
     roles = {
         member["email"]: member["role"]

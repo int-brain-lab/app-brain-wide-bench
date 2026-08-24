@@ -2,7 +2,7 @@
 
 import { formatDate, showEmpty, showSuccess } from "../core/utils.js";
 import { getIcon } from "../components/icons.js";
-import { buildSuiteBadgeList, buildVisibleBadge } from "../components/badges.js";
+import { buildPretrainedBadge, buildSuiteBadgeList, buildVisibleBadge } from "../components/badges.js";
 import { suitesFromSubmission } from "../core/suites.js";
 import { sortSuites } from "../tables/formatters.js";
 import { buildDisplayFields } from "../forms/fields.js";
@@ -56,23 +56,23 @@ const DASHBOARD_SECTIONS = [
   {
     id: "scores",
     title: "Task Suites",
-    view: "scores",
-    linkIcon: getIcon("model"),
-    linkText: "View task scores",
+    // view: "scores",
+    // linkIcon: getIcon("model"),
+    // linkText: "View task scores",
   },
   {
     id: "details",
     title: "Model details",
-    view: "details",
-    linkIcon: getIcon("details"),
-    linkText: "View model details",
+    // view: "details",
+    // linkIcon: getIcon("details"),
+    // linkText: "View model details",
   },
   {
     id: "submissions",
     title: "Recent submissions",
-    view: "submissions",
-    linkIcon: getIcon("submission"),
-    linkText: "View all submissions",
+    // view: "submissions",
+    // linkIcon: getIcon("submission"),
+    // linkText: "View all submissions",
   },
 ];
 
@@ -116,7 +116,13 @@ function getBadges(model) {
   const suites = sortSuites([...new Set(submissions.flatMap(suitesFromSubmission))]);
   const isPublic = submissions.some(({ is_public }) => is_public);
 
-  return [buildSuiteBadgeList(suites), buildVisibleBadge(isPublic)];
+  // Pretraining is a fact about the model, so it sits with the suites; visibility is about
+  // who may read it, and stays last.
+  return [
+    buildSuiteBadgeList(suites),
+    buildPretrainedBadge(model.is_pretrained),
+    buildVisibleBadge(isPublic),
+  ];
 }
 
 function getSubtitle(model) {
@@ -189,8 +195,16 @@ function renderDetailsSection(model, fields) {
     .join("");
 
   sectionBody("details").innerHTML = `
-    <div class="card row">
-      ${columns}
+    <div class="card corner-link">
+      <!-- grid-2, not .row: .row is space-between, which pins the second column to the
+           card's right edge instead of starting it at the halfway mark. -->
+      <div class="grid-2">
+        ${columns}
+      </div>
+
+      <!-- Where the section heading's own link goes; the router picks it up by data-view.
+           The card's corner-link class lifts this onto the last row of fields. -->
+      <a class="link" href="#" data-view="details">View all details →</a>
     </div>
   `;
 }
@@ -203,7 +217,12 @@ function renderSubmissionsSection(submissions) {
     return;
   }
 
-  renderStaticSubmissionsTable({ container, submissions, limit: MAX_SUBMISSIONS });
+  renderStaticSubmissionsTable({
+    container,
+    submissions,
+    limit: MAX_SUBMISSIONS,
+    viewAll: { view: "submissions" },
+  });
 }
 
 // ─── VIEWS ───────────────────────────────────────────────────────────────────
@@ -347,11 +366,11 @@ loadRecordPage({
     return {
       model,
       fields,
-      // Both halves. `can_edit` is team membership as the API sees it — the same rule PATCH
+      // Both halves. `is_mine` is team membership as the API sees it — the same rule PATCH
       // enforces, and signing in alone doesn't earn it. `signedIn` is this browser having a
       // session at all: a dev-mode API answers every request as its stub user, so without
       // this a signed-out visitor would be offered edit controls locally.
-      canEdit: signedIn && model.can_edit === true,
+      canEdit: signedIn && model.is_mine === true,
       dashboardData: getDashboardData(model),
     };
   },

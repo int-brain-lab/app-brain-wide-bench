@@ -3,6 +3,11 @@
 The one endpoint with no notion of a caller: it publishes public, finished work and
 nothing else. A private submission is absent whatever its scores, and so is one still
 being scored — the leaderboard is a table of results, not of attempts.
+
+Who is asking must change nothing at all — not which rows come back, and not one field on
+any of them. ``test_membership_makes_no_difference`` pins that down field by field, which
+is what a client marking the reader's own rows relies on: it intersects ``team_id`` against
+its own team list rather than expecting this response to say.
 """
 
 from app.models import Submission, SubmissionStatus, UserTeam
@@ -110,7 +115,17 @@ async def test_an_unanswered_pretrained_flag_matches_neither_value(seeded_client
 
 
 async def test_membership_makes_no_difference(seeded_client, add, me):
-    """It is the public view even for someone who can see the private rows elsewhere."""
+    """It is the public view even for someone who can see the private rows elsewhere.
+
+    The whole response, not just the labels: membership must not move a single field. A
+    future field that varied by caller — an ``is_mine`` computed here rather than in the
+    client — would fail this, which is the point.
+    """
+    anonymous = (await seeded_client.get(LEADERBOARD_URL)).json()
+
     await add(UserTeam(user_id=me, team_id=MY_TEAM))
 
-    assert labels(await seeded_client.get(LEADERBOARD_URL)) == ["mlp-ts1-baseline"]
+    response = await seeded_client.get(LEADERBOARD_URL)
+
+    assert labels(response) == ["mlp-ts1-baseline"]
+    assert response.json() == anonymous

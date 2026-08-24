@@ -67,7 +67,7 @@ function latestPerModelTeam(submissions) {
 // A group's value is the mean of the tasks in it that this model was scored on, not of all
 // of them: a model that skipped one r2 task is judged on the three it attempted rather than
 // penalised for the fourth. The count travels alongside so the table can say so.
-function toLeaderboardRow(submission, groups, suites) {
+function toLeaderboardRow(submission, groups, suites, myTeamIds) {
   const scores = submission.scores ?? {};
 
   const row = {
@@ -76,6 +76,13 @@ function toLeaderboardRow(submission, groups, suites) {
     submissionId: submission.id,
     title: submission.model_name,
     affiliation: submission.team_name,
+    // Both for the pills beside the name — see modelFormatter. Nothing filters or sorts on
+    // either.
+    isPretrained: submission.is_pretrained ?? null,
+    // Worked out here rather than sent: /api/leaderboard has no notion of a caller, so it
+    // says nothing about whose rows these are. Ids are compared as strings because one
+    // side is JSON and the other may not be.
+    isMine: myTeamIds.has(String(submission.team_id)),
     createdAt: submission.created_at,
   };
 
@@ -110,11 +117,13 @@ function toLeaderboardRow(submission, groups, suites) {
  * @param submissions the GET /api/leaderboard payload.
  * @param groups      from toMetricGroups — the (suite, metric) score columns.
  * @param suites      from toSuiteGroups — the per-suite rank columns.
+ * @param myTeamIds   Set of the viewer's own team ids, as strings. Empty for a signed-out
+ *                    reader, who owns none of the board.
  * @returns one row per (model, team), ranked by mean rank.
  */
-function toLeaderboardRows(submissions, groups, suites) {
+function toLeaderboardRows(submissions, groups, suites, myTeamIds = new Set()) {
   const rows = latestPerModelTeam(submissions).map(submission =>
-    toLeaderboardRow(submission, groups, suites),
+    toLeaderboardRow(submission, groups, suites, myTeamIds),
   );
 
   assignMeanRank(rows, groups);
@@ -393,12 +402,14 @@ function getLeaderboardControls(suites) {
  * @param container    element, or the id of one. Its contents are replaced.
  * @param submissions  the GET /api/leaderboard payload.
  * @param tasks        the GET /api/tasks payload — the columns come from it.
+ * @param myTeamIds    Set of the viewer's own team ids, as strings, for the "Yours" pill.
+ *                     Omit for no pill — see toLeaderboardRows.
  * @returns the Tabulator instance.
  */
-function renderLeaderboardTable({ container, submissions, tasks }) {
+function renderLeaderboardTable({ container, submissions, tasks, myTeamIds }) {
   const groups = toMetricGroups(tasks);
   const suites = toSuiteGroups(tasks);
-  const rows = toLeaderboardRows(submissions, groups, suites);
+  const rows = toLeaderboardRows(submissions, groups, suites, myTeamIds);
 
   // Held per call rather than at module scope, so two of these on one page can't fight over
   // it. "" is "all groups", which the rows, columns and initialSort below already agree with.
@@ -449,7 +460,7 @@ function renderLeaderboardTable({ container, submissions, tasks }) {
     rows,
     columns: getLeaderboardColumns(groups, suites, () => metric),
     controls: getLeaderboardControls(suites),
-    noun: "models",
+    noun: "model",
     layout: "fitColumns",
     initialSort: [{ column: "rank", dir: "asc" }],
     caller: "renderLeaderboardTable",
@@ -481,17 +492,32 @@ function renderLeaderboardTable({ container, submissions, tasks }) {
  * @param submissions as renderLeaderboardTable.
  * @param tasks       as renderLeaderboardTable.
  * @param limit       how many rows to show. Omit for all of them.
+ * @param viewAll     as renderStaticTable — where the footer's "View all" link goes.
+ * @param myTeamIds   as renderLeaderboardTable. Omit for no "Yours" pill, which is what a
+ *                    preview that isn't worth an extra request for the memberships does.
  * @returns every row it built, not just the slice it rendered, so a caller can report
  *          a total alongside the preview.
  */
-function renderStaticLeaderboardTable({ container, submissions, tasks, limit }) {
+function renderStaticLeaderboardTable({
+  container,
+  submissions,
+  tasks,
+  limit,
+  viewAll,
+  myTeamIds,
+}) {
   const groups = toMetricGroups(tasks);
   const suites = toSuiteGroups(tasks);
-  const rows = toLeaderboardRows(submissions, groups, suites);
+  const rows = toLeaderboardRows(submissions, groups, suites, myTeamIds);
+
+  const shown = previewRows(rows, byPosition, limit);
 
   resolveContainer(container, "renderStaticLeaderboardTable").innerHTML = renderStaticTable({
     columns: getLeaderboardPreviewColumns(suites),
-    rows: previewRows(rows, byPosition, limit),
+    rows: shown,
+    noun: "model",
+    total: rows.length,
+    viewAll,
   });
 
   return rows;

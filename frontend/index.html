@@ -88,11 +88,10 @@
           <h2 class="section-title">Leaderboard</h2>
           <a class="link" href="/html/leaderboard/leaderboard.html">Full leaderboard →</a>
         </div>
-        <!-- renderStaticTable emits the whole `.table` block, headers included, from the
-             column definitions in js/leaderboard/leaderboardTable.js — so this is a bare
-             container and the count sits below it, as the filterable tables do. -->
+        <!-- renderStaticTable emits the whole `.table` block — headers, and the footer
+             holding the row count — from the column definitions in
+             js/tables/leaderboardTable.js, so this is a bare container. -->
         <div id="lb-table-preview"></div>
-        <p class="metadata" id="lb-table-count">Loading…</p>
       </section>
 
     </div>

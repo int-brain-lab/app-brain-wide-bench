@@ -1,11 +1,14 @@
 // One card per model, for the model list and the team dashboard.
 
 import { escapeHtml, formatDate } from "../core/utils.js";
-import {buildSuiteBadgeList, buildVisibleBadge} from "../components/badges.js";
+import {buildMineBadge, buildPretrainedBadge, buildSuiteBadgeList, buildVisibleBadge} from "../components/badges.js";
 import { buildCount } from "../components/count.js";
 
 
-function buildModelCard(model) {
+// `showMine` on marks the cards on the viewer's own teams, for the public listing that
+// mixes them with everyone else's. Off by default, so the dashboard and "My models" — where
+// every card is theirs — don't badge every one of them.
+function buildModelCard(model, { showMine = false } = {}) {
   const submissionCount = model.n_submissions ?? 0;
 
   return `
@@ -20,6 +23,8 @@ function buildModelCard(model) {
 
       <div class="row left gap-md">
         ${buildSuiteBadgeList(model.task_suites ?? [], "sm")}
+        ${buildPretrainedBadge(model.is_pretrained, "sm")}
+        ${showMine ? buildMineBadge(model.is_mine, "sm") : ""}
       </div>
 
       <p class="metadata">
@@ -30,9 +35,9 @@ function buildModelCard(model) {
   `;
 }
 
-function buildModelCards(models) {
+function buildModelCards(models, options) {
   return models
-    .map(buildModelCard)
+    .map(model => buildModelCard(model, options))
     .join("");
 }
 

@@ -144,7 +144,7 @@ function renderSubmissionsTable({ container, submissions, showModel = false }) {
     rows: toSubmissionRows(submissions),
     columns: getSubmissionColumns({ showModel }),
     controls: getSubmissionControls(),
-    noun: "submissions",
+    noun: "submission",
     initialSort: [{ column: "updated_at", dir: "desc" }],
     caller: "renderSubmissionsTable",
   });
@@ -161,15 +161,21 @@ function renderSubmissionsTable({ container, submissions, showModel = false }) {
  * @param submissions as renderSubmissionsTable.
  * @param showModel   as renderSubmissionsTable.
  * @param limit       how many rows to show. Omit for all of them.
- * @returns every row it built, not just the slice it rendered, so a caller can report
- *          a total alongside the preview.
+ * @param viewAll     as renderStaticTable — where the footer's "View all" link goes.
+ * @returns every row it built, not just the slice it rendered. The total is already in
+ *          the footer; this is for a caller that needs the rows themselves.
  */
-function renderStaticSubmissionsTable({ container, submissions, showModel = false, limit }) {
+function renderStaticSubmissionsTable({ container, submissions, showModel = false, limit, viewAll }) {
   const rows = toSubmissionRows(submissions);
+
+  const shown = previewRows(rows, (a, b) => dateSorter(b.updated_at, a.updated_at), limit);
 
   resolveContainer(container, "renderStaticSubmissionsTable").innerHTML = renderStaticTable({
     columns: getSubmissionColumns({ showModel }),
-    rows: previewRows(rows, (a, b) => dateSorter(b.updated_at, a.updated_at), limit),
+    rows: shown,
+    noun: "submission",
+    total: rows.length,
+    viewAll,
   });
 
   return rows;

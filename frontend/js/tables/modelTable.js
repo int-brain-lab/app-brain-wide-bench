@@ -16,8 +16,8 @@ import {
 import {
   dateFormatter,
   dateSorter,
-  linkFormatter,
   metadataFormatter,
+  modelNameFormatter,
   suiteBadgesFormatter,
 } from "./formatters.js";
 
@@ -31,7 +31,11 @@ function toModelRow(model) {
     team_name: model.team_name ?? null,
     created_at: model.created_at,
     n_submissions: model.n_submissions ?? 0,
-    suites: model.task_suites
+    suites: model.task_suites,
+    // Both carried so modelNameFormatter can put a pill beside the name; nothing filters
+    // or sorts on either.
+    is_pretrained: model.is_pretrained ?? null,
+    is_mine: model.is_mine ?? false,
   };
 }
 
@@ -44,7 +48,10 @@ function toModelRows(models) {
 
 // `showTeam` off drops the Team column, for a caller already scoped to one — a team's own
 // page, where it would repeat the page's heading down every row.
-function getModelColumns({ showTeam = true } = {}) {
+//
+// `showMine` on marks the rows on the viewer's own teams, for the public listing that mixes
+// them with everyone else's. Off by default: on a listing that is all theirs it says nothing.
+function getModelColumns({ showTeam = true, showMine = false } = {}) {
   const teamColumn = showTeam
     ? [{
         title: "Team",
@@ -57,10 +64,7 @@ function getModelColumns({ showTeam = true } = {}) {
     {
       title: "Model",
       field: "name",
-      formatter: linkFormatter(
-        "/html/models/models.html",
-        "name",
-      ),
+      formatter: modelNameFormatter("/html/models/models.html", { showMine }),
       widthGrow: 2,
     },
     ...teamColumn,
@@ -118,17 +122,18 @@ function getModelControls(rows) {
 /**
  * @param container element, or the id of one. Its contents are replaced.
  * @param models    list of models with task suites attached, mapped to rows by toModelRows().
+ * @param showMine  mark the rows on the viewer's own teams — see getModelColumns.
  * @returns the Tabulator instance.
  */
-function renderModelsTable({ container, models }) {
+function renderModelsTable({ container, models, showMine = false }) {
   const rows = toModelRows(models);
 
   return createFilterableTable({
     container,
     rows,
-    columns: getModelColumns(),
+    columns: getModelColumns({ showMine }),
     controls: getModelControls(rows),
-    noun: "models",
+    noun: "model",
     initialSort: [
       { column: "created_at", dir: "desc" },
     ],
@@ -147,15 +152,21 @@ function renderModelsTable({ container, models }) {
  * @param models    as renderModelsTable.
  * @param showTeam  keep the Team column. Pass false when every row is one team's.
  * @param limit     how many rows to show. Omit for all of them.
- * @returns every row it built, not just the slice it rendered, so a caller can report
- *          a total alongside the preview.
+ * @param viewAll     as renderStaticTable — where the footer's "View all" link goes.
+ * @returns every row it built, not just the slice it rendered. The total is already in
+ *          the footer; this is for a caller that needs the rows themselves.
  */
-function renderStaticModelsTable({ container, models, showTeam = true, limit }) {
+function renderStaticModelsTable({ container, models, showTeam = true, limit, viewAll }) {
   const rows = toModelRows(models);
+
+  const shown = previewRows(rows, (a, b) => dateSorter(b.created_at, a.created_at), limit);
 
   resolveContainer(container, "renderStaticModelsTable").innerHTML = renderStaticTable({
     columns: getModelColumns({ showTeam }),
-    rows: previewRows(rows, (a, b) => dateSorter(b.created_at, a.created_at), limit),
+    rows: shown,
+    noun: "model",
+    total: rows.length,
+    viewAll,
   });
 
   return rows;

@@ -143,7 +143,7 @@ function renderTaskSubmissionsTable({
     rows: toTaskSubmissionRows(submission, taskSubmissions),
     columns: getTaskSubmissionColumns({ showEdit }),
     controls: getTaskSubmissionControls(),
-    noun: "tasks",
+    noun: "task",
     initialSort: [{ column: "task_id", dir: "asc" }],
     caller: "renderTaskSubmissionsTable",
   });
@@ -159,17 +159,23 @@ function renderTaskSubmissionsTable({
  * @param container  element, or the id of one. Its contents are replaced.
  * @param submission as renderTaskSubmissionsTable.
  * @param limit      how many rows to show. Omit for all of them.
- * @returns every row it built, not just the slice it rendered, so a caller can report
- *          a total alongside the preview.
+ * @param viewAll     as renderStaticTable — where the footer's "View all" link goes.
+ * @returns every row it built, not just the slice it rendered. The total is already in
+ *          the footer; this is for a caller that needs the rows themselves.
  */
-function renderStaticTaskSubmissionsTable({ container, submission, limit }) {
+function renderStaticTaskSubmissionsTable({ container, submission, limit, viewAll }) {
   const rows = toTaskSubmissionRows(submission);
+
+  const shown = previewRows(rows, (a, b) => String(a.task_id).localeCompare(b.task_id), limit);
 
   resolveContainer(container, "renderStaticTaskSubmissionsTable").innerHTML = renderStaticTable({
     // No Edit column: the button routes through the record page's task view, which a
     // preview isn't.
     columns: getTaskSubmissionColumns(),
-    rows: previewRows(rows, (a, b) => String(a.task_id).localeCompare(b.task_id), limit),
+    rows: shown,
+    noun: "task",
+    total: rows.length,
+    viewAll,
   });
 
   return rows;

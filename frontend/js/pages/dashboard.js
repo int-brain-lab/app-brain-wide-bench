@@ -81,13 +81,17 @@ const TEAM_SECTIONS = [
   },
 ];
 
+// Named because the heading's link and the table footer's "View all" have to agree, and a
+// second copy of the path is exactly how they would stop agreeing.
+const SUBMISSIONS_SECTION_HREF = "/html/submissions/submission_list.html";
+
 const BOTTOM_SECTIONS = [
   {
     id: "submissions",
     title: "Recent submissions",
     create: true,
     links: [
-      { href: "/html/submissions/submission_list.html", label: "View all", icon: getIcon("submission") },
+      { href: SUBMISSIONS_SECTION_HREF, label: "View all", icon: getIcon("submission") },
     ],
   },
   {
@@ -183,6 +187,7 @@ function renderSubmissionsSection(submissions) {
     submissions,
     showModel: true,
     limit: MAX_SUBMISSIONS,
+    viewAll: { href: SUBMISSIONS_SECTION_HREF },
   });
 }
 
@@ -199,6 +204,7 @@ function renderScoresSection(scoreRows) {
     rows: scoreRows,
     showModel: true,
     limit: MAX_SCORES,
+    viewAll: { view: "scores" },
   });
 }
 

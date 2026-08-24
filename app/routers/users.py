@@ -108,6 +108,9 @@ async def my_models(
             model,
             n_submissions=n_submissions.get(model.id, 0),
             task_suites=suites.get(model.id, []),
+            # Unconditional: the query joined on the caller's memberships, so every row
+            # here is on a team they belong to. That is what this endpoint *is*.
+            is_mine=True,
         )
         for model in models
     ]
@@ -144,6 +147,9 @@ async def my_submissions(
         SubmissionResponse.from_submission(
             submission,
             task_suites=suites.get(submission.id, []),
+            # Unconditional, as in ``my_models``: the query is already scoped to the
+            # caller's teams.
+            is_mine=True,
         )
         for submission in submissions
     ]
@@ -212,6 +218,8 @@ async def my_teams(
                 (member.role for member in team.members if member.user_id == user.id),
                 None,
             ),
+            # Unconditional, as in ``my_models``: the join is on the caller's memberships.
+            is_mine=True,
         )
         for team in teams
     ]

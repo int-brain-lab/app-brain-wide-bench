@@ -266,6 +266,26 @@ async def test_list_as_member(seeded_client, add, me):
     ]
 
 
+async def test_list_marks_which_submissions_are_mine(seeded_client, add, me):
+    """``is_mine`` follows membership of the owning team.
+
+    Every seeded submission is Brain Wide Bench's, so this is the two ends rather than a
+    mixed listing: a non-member owns none of the public rows they can read, and a member
+    owns all of them.
+    """
+    response = await seeded_client.get(submissions_url())
+
+    assert response.status_code == 200
+    assert [row["is_mine"] for row in response.json()] == [False]
+
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.get(submissions_url())
+
+    assert response.status_code == 200
+    assert all(row["is_mine"] for row in response.json())
+
+
 async def test_list_includes_submission_summary(seeded_client):
     """The list response includes the model, team and scored task-suite summary."""
     listed = {
@@ -297,7 +317,7 @@ async def test_detail_as_non_member(seeded_client):
 
     assert body["s3_key"] is None
     assert body["narrative_private"] is None
-    assert body["can_edit"] is False
+    assert body["is_mine"] is False
 
 
 async def test_detail_private_submission_is_hidden_from_non_member(seeded_client):
@@ -321,7 +341,7 @@ async def test_detail_as_member(seeded_client, add, me):
     assert body["s3_key"] is not None
     assert body["narrative_private"] == "Seed sweep, not for release."
     assert body["model"]["name"] == "mlp-baseline"
-    assert body["can_edit"] is True
+    assert body["is_mine"] is True
 
 async def test_detail_not_found(seeded_client):
     """An unknown submission id returns 404."""

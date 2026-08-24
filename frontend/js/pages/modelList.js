@@ -21,7 +21,9 @@ loadListPage({
   // this one: the viewer's own teams' models plus everyone else's public ones.
   fetch: MINE ? getMyModels : getModels,
   requiresAuth: MINE,
-  cards: buildModelCards,
+  // Only the public scope marks which rows are the viewer's: on "My models" every one of
+  // them is, so a badge on each would carry no information.
+  cards: models => buildModelCards(models, { showMine: !MINE }),
   // No id: the comparison page opens on its own reference dropdown, filled from the same
   // list this page is showing. From a single model's page the link carries its id instead
   // and that model is the reference.
@@ -30,7 +32,8 @@ loadListPage({
     label: "Compare models",
     icon: getIcon("compare"),
   }],
-  table: ({ container, rows }) => renderModelsTable({ container, models: rows }),
+  table: ({ container, rows }) =>
+    renderModelsTable({ container, models: rows, showMine: !MINE }),
   create: {
     href: "/html/models/model_create.html",
     label: "New model",

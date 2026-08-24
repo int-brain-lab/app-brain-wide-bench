@@ -33,6 +33,15 @@ class SubmissionBase(BaseModel):
     team_name: str | None = None
     model_name: str | None = None
 
+    # Whether the caller is a member of the team that owns this submission, which is what
+    # makes it theirs to edit — the same rule ``require_team_member`` enforces on PATCH. On
+    # the base rather than on ``SubmissionDetail`` so a listing carries it too: a client
+    # rendering a grid needs to mark its own rows without a request per row.
+    #
+    # A fact, never a decision: the endpoints check membership for themselves. Defaults
+    # False, so a construction that says nothing about the caller claims nothing.
+    is_mine: bool = False
+
     @classmethod
     def from_submission(cls, submission, **extra) -> "SubmissionBase":
         """Build from an ORM ``Submission`` with ``team`` and ``model`` loaded.
@@ -98,14 +107,6 @@ class SubmissionDetail(SubmissionBase):
     # Populated by ``from_submission`` via ``model_validate``, which reads the eager-loaded
     # ``Submission.model`` relationship straight off the ORM object.
     model: SubmissionModelOut | None = None
-
-    # Whether this caller may edit the submission and its tasks, which is team membership —
-    # the same rule ``require_team_member`` enforces on PATCH. Sent so the client can hide
-    # an action it would only be refused, never to decide anything.
-    #
-    # Defaults False, which is also what ``withhold_private`` leaves behind: a viewer who
-    # doesn't get the team's fields doesn't get its edit rights either.
-    can_edit: bool = False
 
     def withhold_private(self) -> "SubmissionDetail":
         """Return a copy with the team-only fields blanked, for a reader outside the team.

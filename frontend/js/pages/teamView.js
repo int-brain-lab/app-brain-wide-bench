@@ -2,7 +2,7 @@
 
 import { escapeHtml, showEmpty, showFailure, showMessage, showSuccess } from "../core/utils.js";
 import { getIcon } from "../components/icons.js";
-import { buildCount } from "../components/count.js";
+import { buildCount, buildTableCount } from "../components/count.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
 import { TEAM_FIELDS, TEAM_PANELS } from "../schemas/teamSchema.js";
 import { loadTeam, updateTeam } from "../api/teamApi.js";
@@ -124,6 +124,7 @@ function buildMemberTable(members) {
           ${members.map(buildMemberRow).join("")}
         </tbody>
       </table>
+      <div class="table-footer">${buildTableCount(members.length, members.length, "member")}</div>
     </div>
   `;
 }
@@ -308,13 +309,13 @@ loadRecordPage({
       return null;
     }
 
-    // Both halves, as on the model and submission pages: `can_edit` is team membership as
+    // Both halves, as on the model and submission pages: `is_mine` is team membership as
     // the API sees it, `signedIn` is this browser having a session at all.
     return {
       team,
       models,
       fields: TEAM_FIELDS,
-      canEdit: signedIn && team.can_edit === true,
+      canEdit: signedIn && team.is_mine === true,
     };
   },
 });

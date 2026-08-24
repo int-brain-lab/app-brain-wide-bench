@@ -14,6 +14,7 @@
 
 import { addTeamMember, removeTeamMember, updateTeamMember } from "../api/teamApi.js";
 import { searchUsers } from "../api/userApi.js";
+import { buildTableCount } from "../components/count.js";
 import { escapeHtml, initials, showEmpty } from "../core/utils.js";
 
 // The server's TeamRole. Ordered as the select shows them, most privileged first.
@@ -203,6 +204,7 @@ function createMembersSection({
             ${members.map(buildMemberRow).join("")}
           </tbody>
         </table>
+        <div class="table-footer">${buildTableCount(members.length, members.length, "member")}</div>
       </div>
     `;
   }
