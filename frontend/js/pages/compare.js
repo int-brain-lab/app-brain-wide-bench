@@ -432,7 +432,7 @@ function renderComparePage({ model, models, fixedId }) {
       <div class="column gap-md">
         <div class="row left gap-md">
           <span class="metadata">Difference from</span>
-          <span class="baseline-select">${buildSelect("baseline", options, state.baseline)}</span>
+          <span class="inline-select">${buildSelect("baseline", options, state.baseline)}</span>
         </div>
         <div data-role="diff-grid"></div>
       </div>

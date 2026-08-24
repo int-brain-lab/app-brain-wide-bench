@@ -10,6 +10,7 @@
 //   #stat-submissions #stat-models
 
 import { getLeaderboard } from "../api/leaderboardApi.js";
+import { getTasks } from "../api/taskApi.js";
 import { showFailure } from "../core/utils.js";
 import { renderStaticLeaderboardTable } from "../tables/leaderboardTable.js";
 
@@ -23,10 +24,11 @@ const PREVIEW_LIMIT = 5;
 
 // Returns every row, not the five it rendered — the count below the preview and the
 // model stat are both totals.
-function renderPreview(submissions) {
+function renderPreview(submissions, tasks) {
   const rows = renderStaticLeaderboardTable({
     container: "lb-table-preview",
     submissions,
+    tasks,
     limit: PREVIEW_LIMIT,
   });
 
@@ -54,14 +56,15 @@ function showFailedPreview(message, error) {
 
 async function loadLandingPage() {
   try {
-    const submissions = await getLeaderboard();
+    // The task table supplies the preview's columns; the leaderboard supplies its rows.
+    const [submissions, tasks] = await Promise.all([getLeaderboard(), getTasks()]);
 
-    if (!submissions) {
+    if (!submissions || !tasks) {
       showFailedPreview("Loading the leaderboard failed.");
       return;
     }
 
-    renderStats(renderPreview(submissions), submissions);
+    renderStats(renderPreview(submissions, tasks), submissions);
   } catch (err) {
     console.error("Failed to initialise the landing page:", err);
     showFailedPreview("Loading the leaderboard failed.", err);

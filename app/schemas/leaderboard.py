@@ -49,3 +49,11 @@ class LeaderboardRow(BaseModel):
 
     # Keyed by flat task id, e.g. {"ts1-reward": {...}}.
     scores: dict[str, LeaderboardScore] = {}
+
+    # Average rank on each task, against the other rows in this response — see app/ranking.py.
+    # One per task rather than one overall, because every figure the leaderboard shows is a
+    # mean over these and only the client knows which tasks it is grouping.
+    #
+    # Empty for a submission superseded by a newer one from the same model and team: those
+    # aren't ranked, since they aren't shown either.
+    ranks: dict[str, float] = {}

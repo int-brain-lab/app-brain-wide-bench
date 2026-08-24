@@ -1590,7 +1590,7 @@ COMPARISON
 
 /* .input-select is width:100%, which in a flex row beside its label would swallow the rest
    of the line. The wrapper is what gives it a size to be 100% of. */
-.baseline-select {
+.inline-select {
   flex: none;
   width: 280px;
 }
@@ -1628,6 +1628,17 @@ COMPARISON
    with no score rendered at full strength beside the ones that had one. */
 .card.disabled {
   opacity: 60%;
+}
+
+/* A rank sits beside scores in the same row, and both are numbers to two or three places.
+   The weight is what stops the reader having to check the column heading to know which
+   kind of number they are looking at. */
+.rank-value {
+  font-weight: var(--bold);
+}
+
+.tabulator .tabulator-cell.rank-cell {
+  background: var(--surface-secondary);
 }
 
 /* Which way a difference went. Green is the primary green rather than a fresh one, so the

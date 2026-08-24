@@ -1,9 +1,16 @@
 import {escapeHtml, score} from "../core/utils.js";
 import {SUITES} from "../core/suites.js";
 
+// r2 and poisson_d2 are unbounded below, so a real score can be negative — and
+// `width: -14%` is not a short bar, it is no bar at all, silently identical to "no score".
+// Clamped rather than hidden: the number beside it still reports what was measured.
+function barWidth(value) {
+  return value == null ? 0 : Math.min(100, Math.max(0, Math.round(value * 100)));
+}
+
 function buildSuiteScoreBar(suite, score, rank) {
   const hasScore = score != null;
-  const widthPct = hasScore ? Math.round(score * 100) : 0;
+  const widthPct = barWidth(score);
   const scoreText = hasScore ? score.toFixed(2) : "No score yet";
   const rankText = hasScore ? (rank == null ? "-" : `Rank #${rank}`) : "";
 
@@ -48,7 +55,7 @@ function buildSuiteScoreBars(meanScores, ranks) {
 // are in front of them.
 function buildModelScoreBar(entry, suite, totalTasks) {
   const hasScore = entry.mean != null;
-  const widthPct = hasScore ? Math.round(entry.mean * 100) : 0;
+  const widthPct = barWidth(entry.mean);
 
   const badge = entry.isSelected ? `<span class="badge sm neutral">This model</span>` : "";
 

@@ -11,9 +11,25 @@ import { apiFetch } from "./client.js";
 //
 // Returns undefined on failure rather than throwing, matching modelApi/teamApi — the
 // callers already treat a falsy result as "show the error state".
-async function getLeaderboard() {
+/**
+ * @param filters {isPretrained}. Anything left undefined is not sent, which is what "no
+ *                filter" means to the endpoint — an omitted parameter, not an empty one.
+ *
+ * The filters are the server's business rather than the table's because the ranks come back
+ * computed over whatever survives them: narrowing in the browser would leave every rank
+ * describing a field that is no longer on screen.
+ */
+async function getLeaderboard({ isPretrained } = {}) {
+  const params = new URLSearchParams();
+
+  if (isPretrained != null && isPretrained !== "") {
+    params.set("is_pretrained", isPretrained);
+  }
+
+  const query = params.size ? `?${params}` : "";
+
   try {
-    return await apiFetch("/api/leaderboard");
+    return await apiFetch(`/api/leaderboard${query}`);
   } catch (err) {
     console.error(err);
   }

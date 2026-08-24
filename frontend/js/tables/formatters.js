@@ -12,7 +12,7 @@
 
 import { escapeHtml, formatDate } from "../core/utils.js";
 import { getIcon } from "../components/icons.js";
-import { SUITES, suiteFromTask } from "../core/suites.js";
+import { SUITES } from "../core/suites.js";
 import {
   buildMetricBadgeList,
   buildRoleBadge,
@@ -39,6 +39,25 @@ function numericSorter(a, b) {
   if (b == null) return 1;
 
   return a - b;
+}
+
+// A rank column inverts both of numericSorter's assumptions: smaller is better, and absent
+// is *worst* rather than smallest — an unranked model floated to the top of an ascending
+// sort would read as leading the board. `rankOrder` is the bare comparison, so a plain sort
+// elsewhere can order by position without going through Tabulator.
+function rankOrder(a, b) {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+
+  return a - b;
+}
+
+// Tabulator applies the sort direction itself, so this is written for ascending — the only
+// direction a rank is normally read in. Clicking the header to descending does put the
+// unranked rows first, which is the honest consequence of one comparator per column.
+function rankSorter(a, b) {
+  return rankOrder(a, b);
 }
 
 // Tabulator's built-in "datetime" sorter needs luxon, which this app doesn't load. ISO 8601
@@ -209,14 +228,17 @@ function parameterFormatter(cell) {
 
 const MEDAL_CLASSES = { 1: "rank-gold", 2: "rank-silver", 3: "rank-bronze" };
 
-// Its own list because a bar needs a colour class, which the metric options don't carry.
-const SUITE_BARS = SUITES.map(suite => ({ key: suite, label: suite.toUpperCase(), cls: suite }));
-
+// A null rank is a model that hasn't placed — partial coverage on the overall figure, or no
+// score for the task being ranked. An em dash rather than an empty cell, so the row reads as
+// deliberately unranked instead of broken.
 function rankFormatter(cell) {
   const rank = cell.getValue();
+
+  if (rank == null) return `<span class="metadata">—</span>`;
+
   const medal = MEDAL_CLASSES[rank];
 
-  return medal ? `<span class="${medal}">${escapeHtml(rank)}</span>` : String(rank ?? "");
+  return medal ? `<span class="${medal}">${escapeHtml(rank)}</span>` : String(rank);
 }
 
 function modelFormatter(cell) {
@@ -230,30 +252,13 @@ function modelFormatter(cell) {
   `;
 }
 
-// Curried on the getter, not the metric: the column definition holds this formatter for the
-// life of the table, while the metric changes under it. All three suites while ranking by
-// Overall, otherwise just the suite the ranked task belongs to.
-function suiteBarsFormatter(getMetric) {
-  return cell => {
-    const row = cell.getData();
-    const metric = getMetric();
-    const bars = metric === "overall"
-      ? SUITE_BARS
-      : SUITE_BARS.filter(bar => bar.key === suiteFromTask(metric));
-
-    return `<div class="column gap-sm">${bars.map(bar => {
-      const percent = row[bar.key] == null ? 0 : Math.round(row[bar.key] * 100);
-
-      return `
-        <div class="row gap-sm">
-          <span class="metadata">${escapeHtml(bar.label)}</span>
-          <div class="bar-track">
-            <div class="bar ${escapeHtml(bar.cls)}" style="width:${percent}%"></div>
-          </div>
-        </div>
-      `;
-    }).join("")}</div>`;
-  };
+// How a rank is written wherever one appears — a suite column, a task column, the average
+// across all of them. Two decimals because these are means over recordings, so "2.00" and
+// "2.14" are a real distinction and trimming it would hide the thing the averaging is for.
+function rankValue(value) {
+  return value == null
+    ? `<span class="metadata">—</span>`
+    : `<span class="rank-value">${escapeHtml(value.toFixed(2))}</span>`;
 }
 
 
@@ -286,9 +291,9 @@ function meanSemFormatter(cell) {
   return `<span class="value">${escapeHtml(score(value.mean))}</span>${spread}`;
 }
 
-// A signed difference against the selected model. The sign is explicit on a gain — a
-// column mixing "0.04" and "-0.04" makes the reader supply the plus themselves — and
-// coloured, because which direction is better is the one thing the grid is for.
+// A signed difference against the baseline model. The sign is explicit on a gain — a column
+// mixing "0.04" and "-0.04" makes the reader supply the plus themselves — and coloured,
+// because which direction is better is the one thing the grid is for.
 function diffFormatter(cell) {
   const value = cell.getValue();
 
@@ -324,6 +329,8 @@ function taskMetricFormatter(cell) {
 export {
   score,
   numericSorter,
+  rankOrder,
+  rankSorter,
   dateSorter,
   linkFormatter,
   metadataFormatter,
@@ -344,7 +351,7 @@ export {
   parameterFormatter,
   rankFormatter,
   modelFormatter,
-  suiteBarsFormatter,
+  rankValue,
   compareScoreSorter,
   diffSorter,
   meanSemFormatter,
