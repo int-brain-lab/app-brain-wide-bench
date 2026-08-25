@@ -1,11 +1,11 @@
 // Filterable leaderboard table: a model search plus two linked selects above a Tabulator
 // grid. Rows, columns and controls only — the table plumbing is in table.js.
 //
-// Scores and ranks are grouped at different grains, deliberately. A score column is one
-// (suite, metric) group, because averaging bacc with r2 is not arithmetic anyone should
-// trust. A rank column is one whole suite, because ranks are unitless and averaging them
-// across metrics is exactly what makes a cross-metric summary possible at all. So the
-// overall view is five score columns beside three rank columns.
+// Scores and ranks are shown at different grains, deliberately. A rank column is one whole
+// suite, because ranks are unitless and a mean of them across metrics is a summary that
+// holds. A score is shown one task at a time, because a suite-level score would average
+// bacc with r2 — see core/metricGroups.js. So suite mode is three rank columns, and task
+// mode is one task's score beside its rank.
 //
 // The two linked selects are what this table has that the others don't:
 //
@@ -17,7 +17,7 @@
 // blank option, "Overall", narrows nothing and ranks across every task.
 
 import { mean } from "../core/utils.js";
-import { toMetricGroups, toSuiteGroups, toTaskOptions } from "../core/metricGroups.js";
+import { toSuiteGroups, toTaskMetrics, toTaskOptions } from "../core/metricGroups.js";
 import {
   createFilterableTable,
   matchIncludes,
@@ -33,76 +33,44 @@ import {
   rankSorter,
   rankValue,
   score,
-  scoreFormatter,
 } from "./formatters.js";
 
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────
 
-// Keyed on the (model, team) pair rather than the model alone: a model can be reassigned to
-// another team while its submissions keep the team they were made under, so one model
-// legitimately holds more than one leaderboard entry.
-//
-// Compared on `created_at` rather than trusting the payload's order, which is an ORDER BY
-// away from changing.
-function latestPerModelTeam(submissions) {
-  const latest = new Map();
-
-  for (const submission of submissions) {
-    const key = `${submission.model_id}|${submission.team_id}`;
-    const held = latest.get(key);
-
-    if (!held || Date.parse(submission.created_at) > Date.parse(held.created_at)) {
-      latest.set(key, submission);
-    }
-  }
-
-  return [...latest.values()];
-}
-
-// Every scored task becomes a field named after the task id, and every group a field named
-// after its key, so a column can bind to `ts1-choice` or to `ts1:bacc` with no reshaping —
+// Every scored task becomes a field named after the task id, and every suite a field named
+// after its key, so a column can bind to `ts1-choice` or to `ts1_rank` with no reshaping —
 // which is what lets the metric select switch between the two.
-//
-// A group's value is the mean of the tasks in it that this model was scored on, not of all
-// of them: a model that skipped one r2 task is judged on the three it attempted rather than
-// penalised for the fourth. The count travels alongside so the table can say so.
-function toLeaderboardRow(submission, groups, suites, myTeamIds) {
-  const scores = submission.scores ?? {};
+function toLeaderboardRow(standing, suites, myTeamIds) {
+  const scores = standing.scores ?? {};
 
   const row = {
-    modelId: submission.model_id,
-    teamId: submission.team_id,
-    submissionId: submission.id,
-    title: submission.model_name,
-    affiliation: submission.team_name,
+    modelId: standing.model_id,
+    teamId: standing.team_id,
+    // The newest submission behind the standing — what the row links to. The scores beside
+    // it may each come from an older one, which is why they carry their own submission id.
+    submissionId: standing.id,
+    title: standing.model_name,
+    affiliation: standing.team_name,
     // Both for the pills beside the name — see modelFormatter. Nothing filters or sorts on
     // either.
-    isPretrained: submission.is_pretrained ?? null,
+    isPretrained: standing.is_pretrained ?? null,
     // Worked out here rather than sent: /api/leaderboard has no notion of a caller, so it
     // says nothing about whose rows these are. Ids are compared as strings because one
     // side is JSON and the other may not be.
-    isMine: myTeamIds.has(String(submission.team_id)),
-    createdAt: submission.created_at,
+    isMine: myTeamIds.has(String(standing.team_id)),
+    createdAt: standing.created_at,
+    nSubmissions: standing.n_submissions ?? 0,
   };
 
   for (const [taskId, entry] of Object.entries(scores)) {
     row[taskId] = entry.mean;
   }
 
-  // The server ranked this submission against the others in the same response — see
+  // The server ranked this standing against the others in the same response — see
   // app/ranking.py. One figure per task, because every column here is a mean over some
   // subset of them and only this side knows which subset.
-  row.taskRanks = submission.ranks ?? {};
-
-  for (const group of groups) {
-    const values = group.taskIds
-      .map(taskId => row[taskId])
-      .filter(value => value != null);
-
-    row[group.key] = mean(values);
-    row[`${group.key}/n`] = values.length;
-  }
+  row.taskRanks = standing.ranks ?? {};
 
   for (const suite of suites) {
     row[suite.key] = mean(
@@ -114,19 +82,16 @@ function toLeaderboardRow(submission, groups, suites, myTeamIds) {
 }
 
 /**
- * @param submissions the GET /api/leaderboard payload.
- * @param groups      from toMetricGroups — the (suite, metric) score columns.
+ * @param standings   the GET /api/leaderboard payload — already one entry per model.
  * @param suites      from toSuiteGroups — the per-suite rank columns.
  * @param myTeamIds   Set of the viewer's own team ids, as strings. Empty for a signed-out
  *                    reader, who owns none of the board.
- * @returns one row per (model, team), ranked by mean rank.
+ * @returns one row per model, ranked by mean rank.
  */
-function toLeaderboardRows(submissions, groups, suites, myTeamIds = new Set()) {
-  const rows = latestPerModelTeam(submissions).map(submission =>
-    toLeaderboardRow(submission, groups, suites, myTeamIds),
-  );
+function toLeaderboardRows(standings, suites, myTeamIds = new Set()) {
+  const rows = standings.map(standing => toLeaderboardRow(standing, suites, myTeamIds));
 
-  assignMeanRank(rows, groups);
+  assignMeanRank(rows, suites);
   assignPositions(rows, row => row.meanRank, { ascending: true });
 
   // Sorted before it leaves, because Tabulator's initial sort on `meanRank` is a no-op
@@ -144,8 +109,9 @@ const EPSILON = 1e-10;
  * Standard competition ranking (1224) by `valueOf`. Ties share a rank and the next is
  * skipped; a row with no value ranks last.
  *
- * Returns a Map rather than writing to the rows, because it is called once per group as
- * well as once for the leaderboard position, and only the last of those belongs on the row.
+ * Returns a Map rather than writing to the rows, so the caller decides what the position
+ * it produced is called — assignPositions writes it as `rank`, and re-runs it whenever the
+ * metric select changes what the board is ranked by.
  */
 function competitionRanks(rows, valueOf, { ascending = false } = {}) {
   const missing = ascending ? Infinity : -Infinity;
@@ -175,33 +141,34 @@ function competitionRanks(rows, valueOf, { ascending = false } = {}) {
 }
 
 /**
- * The cross-group figure: the mean of the server's per-task ranks. A mean of ranks rather
- * than of scores, because ranks are unitless and the group columns are not comparable with
- * each other — which is the whole reason the columns were split by metric in the first
- * place. Over tasks rather than over group means, matching what the benchmark's own
- * `print_rank_table` calls "overall".
+ * The cross-suite figure: the mean of the server's per-task ranks. A mean of ranks rather
+ * than of scores, because ranks are unitless and the metrics behind them are not comparable
+ * with each other. Over tasks rather than over the suite means, matching what the
+ * benchmark's own `print_rank_table` calls "overall".
  *
- * Only a model scored in *every* group gets one. Averaging over "the groups you entered"
- * makes entering fewer of them strictly easier: a model ranked first in its single group
- * scores 1.00 and outranks one placed second across all five. On the current board that is
- * not an edge case — the TS1, TS2 and TS3 entrants are disjoint cohorts, so a cross-group
+ * Only a model scored in *every suite* gets one. Averaging over "the suites you entered"
+ * makes entering fewer of them strictly easier: a model ranked first in its single suite
+ * scores 1.00 and outranks one placed second across all three. On the current board that is
+ * not an edge case — the TS1, TS2 and TS3 entrants are disjoint cohorts, so a cross-suite
  * mean has no shared comparison underneath it at all.
  *
- * `groupsScored` counts groups the model has a *score* in, not a rank: a task nobody else
+ * `suitesScored` counts suites the model has a *score* in, not a rank: a task nobody else
  * entered still produces a rank of 1, and coverage is about what was attempted.
  */
-function assignMeanRank(rows, groups) {
+function assignMeanRank(rows, suites) {
   for (const row of rows) {
     const ranks = Object.values(row.taskRanks).filter(rank => rank != null);
 
-    row.groupsScored = groups.filter(group => row[group.key] != null).length;
+    row.suitesScored = suites.filter(
+      suite => suite.taskIds.some(taskId => row[taskId] != null),
+    ).length;
 
     // Two figures, deliberately. `meanRank` is the claim — it exists only where the model
-    // entered every group, and it is what the column shows and the position is drawn from.
+    // entered every suite, and it is what the column shows and the position is drawn from.
     // `partialRank` is never shown and never ranked; it exists so that unranked rows have
     // something better than insertion order to sit in. Today that is the whole board.
     row.partialRank = mean(ranks);
-    row.meanRank = row.groupsScored === groups.length ? row.partialRank : null;
+    row.meanRank = row.suitesScored === suites.length ? row.partialRank : null;
   }
 }
 
@@ -221,12 +188,12 @@ function assignPositions(rows, valueOf, options) {
 }
 
 // Position first; then, for the rows that share one — every unranked row — breadth, and
-// then how they placed in the groups they did enter. Neither tiebreak is a ranking claim,
+// then how they placed in the suites they did enter. Neither tiebreak is a ranking claim,
 // they are what keeps a table of unranked models from being in arbitrary order.
 function byPosition(a, b) {
   if (a.rank !== b.rank) return rankOrder(a.rank, b.rank);
 
-  if (a.groupsScored !== b.groupsScored) return (b.groupsScored ?? 0) - (a.groupsScored ?? 0);
+  if (a.suitesScored !== b.suitesScored) return (b.suitesScored ?? 0) - (a.suitesScored ?? 0);
 
   return rankOrder(a.partialRank, b.partialRank);
 }
@@ -239,8 +206,8 @@ const GROUPINGS = [
   { value: "task", label: "Individual tasks" },
 ];
 
-// Suites rather than the five score groups: what this select picks is what the board is
-// *ranked* by, and a rank exists per suite. Labelled with the bare suite — the "rank" in
+// What this select picks is what the board is *ranked* by, and a rank exists per suite.
+// Labelled with the bare suite — the "rank" in
 // the column heading is what says these are ranks, and repeating it here would only make
 // the option list wordier than the thing it names.
 //
@@ -254,8 +221,8 @@ function suiteMetrics(suites) {
   ];
 }
 
-function metricsFor(grouping, groups, suites) {
-  return grouping === "task" ? toTaskOptions(groups) : suiteMetrics(suites);
+function metricsFor(grouping, suites) {
+  return grouping === "task" ? toTaskOptions(suites) : suiteMetrics(suites);
 }
 
 // A suite's own rank field, or a task id — the two things `metric` can name.
@@ -266,15 +233,15 @@ function rankFieldFor(metric, suites) {
 
 // ─── COLUMNS ────────────────────────────────────────────────────────────────
 
-// One column per group, all of them visible at once — five numbers fit where eleven task
-// columns would not, and unlike the old per-suite trio each one is a mean of a single
-// metric and so is a number the reader can actually compare down the column.
+// Suite mode is the three rank columns and nothing else: a mean rank is the only summary a
+// suite has, so the numbers a reader compares down the board are these. The scores behind
+// them are one metric select away, per task, where they are comparable.
 //
 // `score` is a synthetic field no row has, used only in task mode where there is no column
 // for the chosen task. Its `field` never changes, which is deliberate and not an oversight:
 // updateColumnDefinition finds a column *by its current field*, so pointing it at the live
 // metric would rename the field out from under the next lookup.
-function getLeaderboardColumns(groups, suites, getMetric) {
+function getLeaderboardColumns(suites, getMetric) {
   return [
     {
       title: "#",
@@ -321,17 +288,6 @@ function getLeaderboardColumns(groups, suites, getMetric) {
       headerHozAlign: "right",
     },
 
-    // ── suite mode: the scores, at the grain a mean of them is honest ──
-    ...groups.map(group => ({
-      title: group.label,
-      field: group.key,
-      formatter: scoreFormatter,
-      sorter: numericSorter,
-      width: 120,
-      hozAlign: "right",
-      headerHozAlign: "right",
-    })),
-
     // ── suite mode: the ranks, at the grain a mean of them means something ──
     // Which suites a model entered reads straight off these three: a dash is a suite it
     // didn't entered, which is also why the coverage count no longer needs its own column.
@@ -348,8 +304,8 @@ function getLeaderboardColumns(groups, suites, getMetric) {
   ];
 }
 
-// The three suite ranks and nothing else: a preview has no room for eight score columns,
-// and the ranks are the summary those columns break down.
+// The same three suite ranks the full table shows, minus the sorters and the widths a
+// static preview has no use for.
 function getLeaderboardPreviewColumns(suites) {
   return [
     { title: "#", field: "rank", formatter: rankFormatter },
@@ -400,24 +356,24 @@ function getLeaderboardControls(suites) {
 
 /**
  * @param container    element, or the id of one. Its contents are replaced.
- * @param submissions  the GET /api/leaderboard payload.
+ * @param standings    the GET /api/leaderboard payload.
  * @param tasks        the GET /api/tasks payload — the columns come from it.
  * @param myTeamIds    Set of the viewer's own team ids, as strings, for the "Yours" pill.
  *                     Omit for no pill — see toLeaderboardRows.
  * @returns the Tabulator instance.
  */
-function renderLeaderboardTable({ container, submissions, tasks, myTeamIds }) {
-  const groups = toMetricGroups(tasks);
+function renderLeaderboardTable({ container, standings, tasks, myTeamIds }) {
   const suites = toSuiteGroups(tasks);
-  const rows = toLeaderboardRows(submissions, groups, suites, myTeamIds);
+  const metrics = toTaskMetrics(tasks);
+  const rows = toLeaderboardRows(standings, suites, myTeamIds);
 
   // Held per call rather than at module scope, so two of these on one page can't fight over
-  // it. "" is "all groups", which the rows, columns and initialSort below already agree with.
+  // it. "" is "overall", which the rows, columns and initialSort below already agree with.
   let metric = "";
 
-  // Re-ranks and re-sorts. `metric` is a real field in both modes now — a group key or a
-  // task id — so the sort can name it directly; only task mode needs the synthetic column,
-  // because there is no per-task column to sort on.
+  // Re-ranks and re-sorts. `metric` is a real field in both modes — a suite's rank field or
+  // a task id — so the sort can name it directly; only task mode needs the synthetic
+  // columns, because there is no per-task column to sort on.
   function applyMetric(table, next) {
     metric = next ?? "";
 
@@ -434,11 +390,15 @@ function renderLeaderboardTable({ container, submissions, tasks, myTeamIds }) {
 
     assignPositions(rows, positionOf, { ascending: true });
 
-    table.updateColumnDefinition("score", { title: isTask ? metric : "Score" });
+    // The metric rides along in the heading, since a bare task id doesn't say what its
+    // number is measured in and suite mode no longer has a column that does. A task the
+    // table doesn't know the metric for keeps the bare id rather than an empty bracket.
+    const scoreTitle = !isTask ? "Score" : metrics[metric] ? `${metric} (${metrics[metric]})` : metric;
 
-    // Suite mode is the scores and the ranks side by side; task mode swaps both sets for the
-    // one task's own pair.
-    for (const column of [...groups, ...suites]) {
+    table.updateColumnDefinition("score", { title: scoreTitle });
+
+    // Task mode swaps the suite ranks for the one task's own score and rank.
+    for (const column of suites) {
       if (isTask) table.hideColumn(column.key);
       else table.showColumn(column.key);
     }
@@ -458,7 +418,7 @@ function renderLeaderboardTable({ container, submissions, tasks, myTeamIds }) {
   return createFilterableTable({
     container,
     rows,
-    columns: getLeaderboardColumns(groups, suites, () => metric),
+    columns: getLeaderboardColumns(suites, () => metric),
     controls: getLeaderboardControls(suites),
     noun: "model",
     layout: "fitColumns",
@@ -474,7 +434,7 @@ function renderLeaderboardTable({ container, submissions, tasks, myTeamIds }) {
       if (name === "grouping") {
         // setControlOptions returns the value it settled on, so the columns and the ranking
         // follow the swap without re-reading the select.
-        applyMetric(api.table, api.setControlOptions("metric", metricsFor(value, groups, suites)));
+        applyMetric(api.table, api.setControlOptions("metric", metricsFor(value, suites)));
       }
     },
   });
@@ -489,7 +449,7 @@ function renderLeaderboardTable({ container, submissions, tasks, myTeamIds }) {
  * toLeaderboardRows assigned, the only order a preview without a metric selector has.
  *
  * @param container   element, or the id of one. Its contents are replaced.
- * @param submissions as renderLeaderboardTable.
+ * @param standings   as renderLeaderboardTable.
  * @param tasks       as renderLeaderboardTable.
  * @param limit       how many rows to show. Omit for all of them.
  * @param viewAll     as renderStaticTable — where the footer's "View all" link goes.
@@ -500,15 +460,14 @@ function renderLeaderboardTable({ container, submissions, tasks, myTeamIds }) {
  */
 function renderStaticLeaderboardTable({
   container,
-  submissions,
+  standings,
   tasks,
   limit,
   viewAll,
   myTeamIds,
 }) {
-  const groups = toMetricGroups(tasks);
   const suites = toSuiteGroups(tasks);
-  const rows = toLeaderboardRows(submissions, groups, suites, myTeamIds);
+  const rows = toLeaderboardRows(standings, suites, myTeamIds);
 
   const shown = previewRows(rows, byPosition, limit);
 

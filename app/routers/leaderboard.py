@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_session
 from app.models import Model, Submission, SubmissionStatus, Task, TaskSubmission
-from app.ranking import latest_per_model_team, rank_submissions
+from app.ranking import rank_standings, standings
 from app.schemas.leaderboard import LeaderboardRow, LeaderboardScore
 
 router = APIRouter(prefix="/api/leaderboard", tags=["leaderboard"])
@@ -18,7 +18,7 @@ async def leaderboard(
     is_pretrained: bool | None = None,
     session: AsyncSession = Depends(get_session),
 ) -> list[LeaderboardRow]:
-    """Return all public, completed submissions for the leaderboard.
+    """Return the standing of every model with public, completed work.
 
     The one endpoint with no notion of a caller: it publishes finished, public work and
     nothing else, so it takes no user and withholds nothing. Two callers asking the same
@@ -28,8 +28,10 @@ async def leaderboard(
     reader's own intersects ``team_id`` against their own teams itself — one request for
     the board, one for the memberships — rather than making this response per-caller.
 
-    Each row carries per-task primary-metric means so the frontend can build one sortable
-    column per metric group, and the rank it earned on each task.
+    One row per model, carrying its newest score for each task and the rank that score
+    earned. The collapse happens here rather than in the client because it is what the
+    ranking is computed over: a model competes as where it currently stands, not as its
+    latest upload — see app/ranking.py.
 
     ``is_pretrained`` narrows to models that are, or are not, pretrained. It narrows the
     *field*, not just the view: ranks are computed over whatever survives it, so a model's
@@ -47,7 +49,6 @@ async def leaderboard(
             selectinload(Submission.team),
             selectinload(Submission.model),
         )
-        .order_by(Submission.created_at.desc())
     )
 
     # ``has`` rather than a join: ``Model`` is already being loaded for the row's name, and
@@ -57,31 +58,30 @@ async def leaderboard(
 
     submissions = list((await session.execute(query)).scalars().all())
 
-    # Ranked over the contenders rather than over every row: a model's superseded runs would
-    # otherwise compete against its current one. They stay in the response — the client is
-    # what collapses them — but they carry no rank.
+    rows = standings(submissions)
     tasks = (await session.execute(select(Task))).scalars().all()
-    ranks = rank_submissions(latest_per_model_team(submissions), tasks)
+    ranks = rank_standings(rows, tasks)
 
     return [
         LeaderboardRow(
-            id=submission.id,
-            label=submission.label,
-            team_id=submission.team_id,
-            team_name=submission.team.name,
-            model_id=submission.model_id,
-            model_name=submission.model.name,
+            id=row.latest.id,
+            label=row.latest.label,
+            # The team off the newest submission rather than off the standing: whose model
+            # this is belongs to the model, and every submission of it agrees.
+            team_id=row.latest.team_id,
+            team_name=row.latest.team.name,
+            model_id=row.model_id,
+            model_name=row.latest.model.name,
             # Off the already-loaded ``model`` relationship — the same one supplying the
             # name above, so this costs no extra query.
-            is_pretrained=submission.model.is_pretrained,
-            created_at=submission.created_at,
-            # A task with no score yet contributes no column.
+            is_pretrained=row.latest.model.is_pretrained,
+            created_at=row.latest.created_at,
+            n_submissions=row.n_submissions,
             scores={
-                task.task_id: LeaderboardScore.from_score(task.score)
-                for task in submission.task_submissions
-                if task.score is not None
+                task_id: LeaderboardScore.from_entry(entry)
+                for task_id, entry in row.entries.items()
             },
-            ranks=ranks.get(str(submission.id), {}),
+            ranks=ranks.get(row.label, {}),
         )
-        for submission in submissions
+        for row in rows
     ]

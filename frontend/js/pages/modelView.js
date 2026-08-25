@@ -363,6 +363,8 @@ loadRecordPage({
       return null;
     }
 
+    console.log(model)
+
     return {
       model,
       fields,

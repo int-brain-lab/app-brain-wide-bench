@@ -149,11 +149,11 @@ async function loadLeaderboardPage() {
 
       showMessage(sectionBody("body"), "Loading scores…");
 
-      const submissions = await getLeaderboard(filters);
+      const standings = await getLeaderboard(filters);
 
       if (token !== latest) return;
 
-      if (!submissions) {
+      if (!standings) {
         showFailure(sectionBody("body"), "Loading the leaderboard failed.");
         return;
       }
@@ -161,7 +161,7 @@ async function loadLeaderboardPage() {
       // An empty payload isn't a failure, but why it is empty differs: nothing scored yet is
       // a fact about the benchmark, and nothing matching is a fact about the filter. Saying
       // the wrong one sends the reader looking in the wrong place.
-      if (submissions.length === 0) {
+      if (standings.length === 0) {
         showEmpty(
           sectionBody("body"),
           filters.isPretrained
@@ -173,7 +173,7 @@ async function loadLeaderboardPage() {
 
       table = renderLeaderboardTable({
         container: sectionBody("body"),
-        submissions,
+        standings,
         tasks,
         myTeamIds,
       });

@@ -2,9 +2,9 @@ import { apiFetch } from "./client.js";
 
 // ─── API ────────────────────────────────────────────────────────────────────
 
-// The public leaderboard: every public, completed submission with its per-task
-// primary-metric means. One entry per submission, not per model — the grouping into one
-// row per (model, team) is leaderboardTable.js's job.
+// The public leaderboard: one entry per model, carrying its newest public score for each
+// task and the rank it earned. The collapsing is the server's, because it is what the
+// ranks are computed over — see app/ranking.py.
 //
 // No auth: this is the one endpoint the app serves to anonymous visitors, which is also
 // why every formatter downstream escapes what it interpolates.

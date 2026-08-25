@@ -16,10 +16,12 @@ from app.auth import (
     require_team_member,
 )
 from app.database import get_session
+from app.ranking import Standing, latest_entries, place_standings, standings
 from app.routers.submissions import visible_submissions
 from app.models import (
     Model,
     Submission,
+    SubmissionStatus,
     Task,
     TaskScore,
     TaskSubmission,
@@ -29,8 +31,12 @@ from app.models import (
 from app.schemas.models import (
     ModelCreate,
     ModelDetail,
+    ModelRanking,
     ModelResponse,
     ModelUpdate,
+    RankingSide,
+    TaskEntryRef,
+    TaskEntrySides,
 )
 
 router = APIRouter(prefix="/api/models", tags=["models"])
@@ -315,6 +321,103 @@ async def get_model(
     Raises: 404 - Not found if the model doesn't exist, or has nothing the caller may see
     """
     return await _load_model_detail(model_id, user, session)
+
+
+@router.get("/{model_id}/ranking", response_model=ModelRanking)
+async def get_model_ranking(
+    model_id: uuid.UUID,
+    user: User | None = Depends(get_current_user_optional),
+    session: AsyncSession = Depends(get_session),
+) -> ModelRanking:
+    """Where a model stands, publicly and with its private work counted.
+
+    Two rankings against one field. The field is every *other* model's public standing —
+    other teams' private work is not ours to rank against — so the competitors are
+    identical in both and the only thing that moves is this model's own entry. The
+    difference between the two is therefore exactly what publishing would change.
+
+    Each side takes the model's newest score for every task, from whichever submission
+    holds it: the public side from its public submissions, the private side from all of
+    them. ``tasks`` names the entry each side used, so a client can say which of its rows
+    are carrying which ranking.
+
+    Only completed submissions count, on either side — an attempt still being scored has
+    no result to rank.
+
+    ``private`` is omitted for a caller who is not on the model's team.
+
+    Raises: 404 - Not found if the model doesn't exist, or has nothing the caller may see
+    """
+    model = await _get_model(
+        model_id,
+        session,
+        options=[
+            selectinload(Model.submissions)
+            .selectinload(Submission.task_submissions)
+            .selectinload(TaskSubmission.score),
+        ],
+    )
+
+    member = user is not None and await is_team_member(user.id, model.team_id, session)
+
+    # The same rule as the model detail: a model with nothing public is not readable by a
+    # non-member at all, rather than readable with an empty ranking.
+    if not member and not any(submission.is_public for submission in model.submissions):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Model not found")
+
+    mine = [s for s in model.submissions if s.status == SubmissionStatus.done]
+
+    # The model's own submissions are left out: its standing is built separately, below,
+    # and a model must not appear in the field it is being placed against.
+    others = (
+        await session.execute(
+            select(Submission)
+            .where(
+                Submission.is_public.is_(True),
+                Submission.status == SubmissionStatus.done,
+                Submission.model_id != model_id,
+            )
+            .options(
+                selectinload(Submission.task_submissions).selectinload(TaskSubmission.score)
+            )
+        )
+    ).scalars().all()
+
+    field = standings(others)
+    tasks = (await session.execute(select(Task))).scalars().all()
+
+    def side(label: str, submissions: list[Submission]) -> tuple[RankingSide, dict[str, TaskSubmission]]:
+        """Place ``submissions`` as one standing against the shared field.
+
+        ``label`` is only how the standing's own result is found again in what
+        ``place_standings`` returns. A word rather than the model id: the field labels its
+        standings by model, and two entries sharing a label would silently merge their
+        scores rather than raise.
+        """
+        standing = Standing(label=label, entries=latest_entries(submissions))
+        placings = place_standings([*field, standing], tasks)[label]
+
+        return RankingSide.from_placings(placings), standing.entries
+
+    public, public_entries = side("public", [s for s in mine if s.is_public])
+    private, private_entries = side("private", mine) if member else (None, {})
+
+    def entry(entries: dict[str, TaskSubmission], task_id: str) -> TaskEntryRef | None:
+        """The entry that side used for ``task_id``, or nothing where it has no score for it."""
+        return TaskEntryRef.model_validate(entries[task_id]) if task_id in entries else None
+
+    return ModelRanking(
+        model_id=model.id,
+        public=public,
+        private=private,
+        tasks={
+            task_id: TaskEntrySides(
+                public=entry(public_entries, task_id),
+                private=entry(private_entries, task_id),
+            )
+            for task_id in sorted({*public_entries, *private_entries})
+        },
+    )
 
 
 @router.patch("/{model_id}", response_model=ModelDetail)
