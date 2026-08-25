@@ -63,7 +63,6 @@ async def submit(add, model_id, label, scores, *, is_public, created_at):
              ranking used.
     """
     submission = Submission(
-        team_id=MY_TEAM,
         model_id=model_id,
         label=label,
         s3_key=f"submissions/{label}.zip",

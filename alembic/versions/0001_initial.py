@@ -89,7 +89,6 @@ def upgrade() -> None:
     )
     op.create_table('submissions',
     sa.Column('id', sa.Uuid(), nullable=False),
-    sa.Column('team_id', sa.Uuid(), nullable=False),
     sa.Column('model_id', sa.Uuid(), nullable=False),
     sa.Column('label', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('s3_key', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
@@ -100,7 +99,6 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.ForeignKeyConstraint(['model_id'], ['models.id'], ),
-    sa.ForeignKeyConstraint(['team_id'], ['teams.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index('uq_submissions_model_id_lower_label', 'submissions', ['model_id', sa.literal_column('lower(label)')], unique=True)

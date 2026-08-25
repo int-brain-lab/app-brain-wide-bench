@@ -469,7 +469,6 @@ async def test_update_refuses_a_move_that_collides(seeded_client, add, me):
         UserTeam(user_id=me, team_id=MY_TEAM),
         Submission(
             id=uuid.uuid4(),
-            team_id=MY_TEAM,
             model_id=MODELS["ssl-transformer"],
             label="mlp-ts1-baseline",
             s3_key="k",

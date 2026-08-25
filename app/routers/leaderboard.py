@@ -46,8 +46,7 @@ async def leaderboard(
         .where(Submission.is_public.is_(True), Submission.status == SubmissionStatus.done)
         .options(
             selectinload(Submission.task_submissions).selectinload(TaskSubmission.score),
-            selectinload(Submission.team),
-            selectinload(Submission.model),
+            selectinload(Submission.model).selectinload(Model.team),
         )
     )
 
@@ -66,10 +65,9 @@ async def leaderboard(
         LeaderboardRow(
             id=row.latest.id,
             label=row.latest.label,
-            # The team off the newest submission rather than off the standing: whose model
-            # this is belongs to the model, and every submission of it agrees.
-            team_id=row.latest.team_id,
-            team_name=row.latest.team.name,
+            # Off the model, which is where a submission's team lives.
+            team_id=row.latest.model.team_id,
+            team_name=row.latest.model.team.name,
             model_id=row.model_id,
             model_name=row.latest.model.name,
             # Off the already-loaded ``model`` relationship — the same one supplying the

@@ -82,7 +82,6 @@ async def test_a_row_is_a_standing_across_submissions(seeded_client, add):
     it has one and the older score everywhere else. Which is which is on the score.
     """
     newer = Submission(
-        team_id=MY_TEAM,
         model_id=MODELS["mlp-baseline"],
         label="mlp-ts1-v2",
         s3_key="submissions/v2.zip",
@@ -167,7 +166,6 @@ async def test_an_unanswered_pretrained_flag_matches_neither_value(seeded_client
 
     await add(
         Submission(
-            team_id=MY_TEAM,
             model_id=model,
             label="mystery-run",
             s3_key="submissions/mystery.zip",

@@ -255,7 +255,6 @@ class Team(SQLModel, table=True):
 
     members: list["UserTeam"] = Relationship(back_populates="team")
     models: list["Model"] = Relationship(back_populates="team")
-    submissions: list["Submission"] = Relationship(back_populates="team")
 
 
 class User(SQLModel, table=True):
@@ -371,7 +370,11 @@ class Submission(SQLModel, table=True):
     )
 
     id: uuid.UUID = _uuid()
-    team_id: uuid.UUID = Field(foreign_key="teams.id")
+
+    # No team of its own: a submission belongs to a model, and the model to a team. A
+    # column here would be a second copy of that answer, free to disagree with the first
+    # the moment a model is reassigned — so whose submission this is reads through
+    # ``model.team_id``, and reassignment carries the submissions by construction.
     model_id: uuid.UUID = Field(foreign_key="models.id")
     label: str  # human-readable run name, e.g. "mlp-ts1-baseline"
     s3_key: str
@@ -382,7 +385,6 @@ class Submission(SQLModel, table=True):
     created_at: datetime | None = _ts()
     updated_at: datetime | None = _updated_ts()
 
-    team: Team | None = Relationship(back_populates="submissions")
     model: Model | None = Relationship(back_populates="submissions")
     user_links: list["SubmissionUser"] = Relationship(
         back_populates="submission",

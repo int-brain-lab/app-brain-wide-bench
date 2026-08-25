@@ -61,16 +61,16 @@ class TaskSubmissionResponse(TaskSubmissionOut):
 
     @classmethod
     def from_task_submission(cls, task_submission) -> "TaskSubmissionResponse":
-        """Build from an ORM ``TaskSubmission`` with ``submission`` → team/model loaded."""
+        """Build from an ORM ``TaskSubmission`` with ``submission`` → model → team loaded."""
         submission = task_submission.submission
         return cls.model_validate(task_submission).model_copy(
             update={
                 "model_id": submission.model_id,
-                "team_id": submission.team_id,
+                "team_id": submission.model.team_id,
                 # A submission's human-readable name is its ``label``.
                 "submission_name": submission.label,
                 "model_name": submission.model.name,
-                "team_name": submission.team.name,
+                "team_name": submission.model.team.name,
             }
         )
 

@@ -25,11 +25,16 @@ class SubmissionBase(BaseModel):
     id: uuid.UUID
     label: str
     status: SubmissionStatus
-    team_id: uuid.UUID
     model_id: uuid.UUID
     created_at: datetime
     updated_at: datetime | None = None
     is_public: bool
+
+    # All three live on the ``model`` relationship rather than on the submission row —
+    # a submission's team is its model's — so ``model_validate`` can't populate them and
+    # ``from_submission`` fills them in. Optional here for that reason only; every
+    # response carries them.
+    team_id: uuid.UUID | None = None
     team_name: str | None = None
     model_name: str | None = None
 
@@ -44,7 +49,7 @@ class SubmissionBase(BaseModel):
 
     @classmethod
     def from_submission(cls, submission, **extra) -> "SubmissionBase":
-        """Build from an ORM ``Submission`` with ``team`` and ``model`` loaded.
+        """Build from an ORM ``Submission`` with ``model`` and its ``team`` loaded.
 
         Validated against ``cls`` rather than ``SubmissionBase``, so a subclass picks up its
         own fields off the ORM object too — validating against the base drops ``s3_key`` and
@@ -55,7 +60,8 @@ class SubmissionBase(BaseModel):
         """
         return cls.model_validate(submission).model_copy(
             update={
-                "team_name": submission.team.name,
+                "team_id": submission.model.team_id,
+                "team_name": submission.model.team.name,
                 "model_name": submission.model.name,
                 **extra,
             }

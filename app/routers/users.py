@@ -10,7 +10,7 @@ from app.database import get_session
 from app.models import Model, Team, User, UserTeam, Submission, TaskSubmission
 
 from app.routers.models import submission_count_per_model, suites_per_model
-from app.routers.submissions import suites_per_submission
+from app.routers.submissions import submissions_of_teams, suites_per_submission
 from app.schemas.models import ModelResponse
 from app.schemas.submissions import SubmissionResponse
 from app.schemas.tasksubmission import TaskSubmissionResponse
@@ -98,7 +98,7 @@ async def my_models(
     # Not ``visible_submissions``: that one answers "may the caller see this", and here
     # every row already belongs to the caller's own team. The count is of everything on
     # their models, private included — which is what the docstring above promises.
-    mine = Submission.model_id.in_(select(Model.id).where(Model.team_id.in_(list(my_team_ids))))
+    mine = submissions_of_teams(my_team_ids)
 
     n_submissions = await submission_count_per_model(mine, session)
     suites = await suites_per_model(mine, session)
@@ -132,8 +132,8 @@ async def my_submissions(
         (
             await session.execute(
                 select(Submission)
-                .options(selectinload(Submission.team), selectinload(Submission.model))
-                .where(Submission.team_id.in_(list(my_team_ids)))
+                .options(selectinload(Submission.model).selectinload(Model.team))
+                .where(submissions_of_teams(my_team_ids))
                 .order_by(Submission.created_at.desc())
             )
         )
@@ -172,11 +172,12 @@ async def my_task_submissions(
                 select(TaskSubmission)
                 .options(
                     selectinload(TaskSubmission.score),
-                    selectinload(TaskSubmission.submission).selectinload(Submission.model),
-                    selectinload(TaskSubmission.submission).selectinload(Submission.team),
+                    selectinload(TaskSubmission.submission)
+                    .selectinload(Submission.model)
+                    .selectinload(Model.team),
                 )
                 .join(Submission, Submission.id == TaskSubmission.submission_id)
-                .where(Submission.team_id.in_(list(my_team_ids)))
+                .where(submissions_of_teams(my_team_ids))
                 .order_by(Submission.created_at.desc(), TaskSubmission.task_id)
             )
         )
@@ -199,7 +200,10 @@ async def my_teams(
     result = await session.execute(
         select(Team)
         .options(
-            selectinload(Team.members), selectinload(Team.models), selectinload(Team.submissions)
+            selectinload(Team.members),
+            # Submissions hang off the models rather than off the team, so the count comes
+            # through them — one extra load, and the same rows it counted before.
+            selectinload(Team.models).selectinload(Model.submissions),
         )
         .join(UserTeam, UserTeam.team_id == Team.id)
         .where(UserTeam.user_id == user.id)
@@ -211,7 +215,7 @@ async def my_teams(
             team,
             n_members=len(team.members),
             n_models=len(team.models),
-            n_submissions=len(team.submissions),
+            n_submissions=sum(len(model.submissions) for model in team.models),
             # Every team here is one the caller is in, and its members are already
             # loaded for the count — so their role is in hand, no second query.
             role=next(

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from typing import Any, Sequence
+from typing import Any, Iterable, Sequence
 from collections import Counter
 
 from app.auth import (
@@ -46,6 +46,19 @@ router = APIRouter(prefix="/api/submissions", tags=["submissions"])
 # ── Per-submission aggregates ──────────────────────────────────────────────────────
 
 
+def submissions_of_teams(team_ids: Iterable[uuid.UUID]) -> ColumnElement[bool]:
+    """Return an expression that is True for submissions belonging to ``team_ids``.
+
+    Through the model, because that is the only place a submission's team is recorded —
+    the row itself names a model, and the model names the team. One helper rather than the
+    subquery written out at each call site, so "whose submission is this" is answered the
+    same way everywhere.
+    """
+    return Submission.model_id.in_(
+        select(Model.id).where(Model.team_id.in_(list(team_ids)))
+    )
+
+
 async def visible_submissions(
     user: User | None,
     session: AsyncSession,
@@ -59,10 +72,7 @@ async def visible_submissions(
 
     my_team_ids = await member_team_ids(user.id, session)
 
-    return or_(
-        public_submission,
-        Submission.team_id.in_(list(my_team_ids)),
-    )
+    return or_(public_submission, submissions_of_teams(my_team_ids))
 
 
 async def suites_per_submission(
@@ -107,8 +117,7 @@ async def _get_submission(
             select(Submission)
             .options(
                 selectinload(Submission.user_links),
-                selectinload(Submission.team),
-                selectinload(Submission.model),
+                selectinload(Submission.model).selectinload(Model.team),
                 *options,
             )
             .where(Submission.id == submission_id)
@@ -136,7 +145,7 @@ async def _get_submission_as_member(
     """
 
     submission = await _get_submission(submission_id, session, options=options)
-    await require_team_member(user_id, submission.team_id, session)
+    await require_team_member(user_id, submission.model.team_id, session)
 
     return submission
 
@@ -183,7 +192,7 @@ async def _get_submission_as_viewer(
     submission = await _get_submission(submission_id, session, options=options)
 
     if not submission.is_public:
-        await require_team_member(user_id, submission.team_id, session)
+        await require_team_member(user_id, submission.model.team_id, session)
 
     return submission
 
@@ -288,7 +297,7 @@ async def _load_submission_detail(
 
     detail = SubmissionDetail.from_submission(submission)
 
-    if await is_team_member(user_id, submission.team_id, session):
+    if await is_team_member(user_id, submission.model.team_id, session):
         return detail.model_copy(update={"is_mine": True})
 
     return detail.withhold_private()
@@ -311,10 +320,9 @@ async def presign(
     Raises: 403 - Forbidden if the user is not linked to the submission
     """
 
-    # Get the team id from the model.
-    team_id = await _get_team_from_model(body.model_id, session)
-
-    await require_team_member(user.id, team_id, session)
+    # Permission lives on the model's team, which is also the submission's — it just
+    # isn't written down twice.
+    await require_team_member(user.id, await _get_team_from_model(body.model_id, session), session)
     await _validate_task_ids([task.task_id for task in body.tasks], session)
 
     label = await _check_valid_submission_label(body.label, body.model_id, session)
@@ -323,7 +331,6 @@ async def presign(
     submission_id = uuid.uuid4()
     submission = Submission(
         id=submission_id,
-        team_id=team_id,
         model_id=body.model_id,
         label=label,
         is_public=body.is_public,
@@ -396,7 +403,7 @@ async def list_submissions(
         (
             await session.execute(
                 select(Submission)
-                .options(selectinload(Submission.team), selectinload(Submission.model))
+                .options(selectinload(Submission.model).selectinload(Model.team))
                 .where(visible)
                 .order_by(Submission.created_at.desc())
             )
@@ -414,7 +421,7 @@ async def list_submissions(
         SubmissionResponse.from_submission(
             submission,
             task_suites=suites.get(submission.id, []),
-            is_mine=submission.team_id in my_team_ids,
+            is_mine=submission.model.team_id in my_team_ids,
         )
         for submission in submissions
     ]
@@ -454,7 +461,8 @@ async def update_submission(
     The only fields that can be updated are specified by SubmissionUpdate. If any other
     fields are given it raises with a 422 response.
 
-    If the model_id is updated, the team_id is checked and updated accordingly.
+    Moving it to another model needs membership of that model's team as well; nothing
+    else changes, since the team is the model's rather than the submission's own.
 
     Raises: 404 - Not found if the submission doesn't exist
     Raises: 403 - Forbidden if the user is not a member of the submission's team
@@ -465,8 +473,8 @@ async def update_submission(
 
     updates = body.model_dump(exclude_unset=True)
 
-    # Reassignment is handled separately because the team follows the model and needs
-    # its own permission check on the destination team.
+    # Reassignment is handled separately because it needs its own permission check on the
+    # destination model's team — which is the submission's team the moment it moves.
     new_model_id = updates.pop("model_id", None)
     new_label = updates.pop("label", None)
 
@@ -474,11 +482,12 @@ async def update_submission(
     # during the autoflush that the label query triggers, turning a clean 409 into an
     # IntegrityError raised from inside a SELECT.
     model_id = new_model_id if new_model_id is not None else submission.model_id
-    team_id = None
+    moved = new_model_id is not None and new_model_id != submission.model_id
 
-    if new_model_id is not None and new_model_id != submission.model_id:
-        team_id = await _get_team_from_model(new_model_id, session)
-        await require_team_member(user.id, team_id, session)
+    if moved:
+        await require_team_member(
+            user.id, await _get_team_from_model(new_model_id, session), session
+        )
 
     # A move alone can collide, without any relabelling: the destination model may already
     # have a submission by this label. So the check runs whenever either half changes.
@@ -491,9 +500,8 @@ async def update_submission(
             exclude_id=submission.id,
         )
 
-    if team_id is not None:
+    if moved:
         submission.model_id = new_model_id
-        submission.team_id = team_id
     if label is not None:
         submission.label = label
 
