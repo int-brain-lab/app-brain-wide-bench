@@ -23,14 +23,18 @@ function buildSuiteBadgeList(suites, size="") {
 
 
 // The metric a score is measured in. Same shape as buildSuiteBadgeList, and shared for the
-// same reason: it appears as a column of its own on one grid and folded into the task label
-// on another, and the two had already drifted a size apart.
-function buildMetricBadgeList(metrics, size="") {
-  const badges = metrics
-    .map(metric => `<span class="badge ${size} metric">${escapeHtml(metric)}</span>`)
-    .join("");
+// same reason: it appears as a column of its own on one grid and folded into another cell
+// elsewhere, and the copies had already drifted a size apart.
+//
+// One badge and a list of them are separate calls because the list is a flex row, which is
+// a block: a caller putting a single badge *beside* something on one line needs the badge
+// without the row around it.
+function buildMetricBadge(metric, size="") {
+  return `<span class="badge ${size} metric">${escapeHtml(metric)}</span>`;
+}
 
-  return `<span class="row left gap-sm">${badges}</span>`;
+function buildMetricBadgeList(metrics, size="") {
+  return `<span class="row left gap-sm">${metrics.map(metric => buildMetricBadge(metric, size)).join("")}</span>`;
 }
 
 
@@ -116,6 +120,7 @@ function buildPretrainedBadge(isPretrained, size = "") {
 
 export {
   buildSuiteBadgeList,
+  buildMetricBadge,
   buildMetricBadgeList,
   buildStatusBadge,
   buildSuiteCoverageBadges,

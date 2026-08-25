@@ -27,6 +27,20 @@ async function loadModel(modelId) {
   return await apiFetch(`/api/models/${modelId}`);
 }
 
+// Where a model places against the public field, and where it would place with its
+// private work counted — see GET /api/models/{id}/ranking.
+//
+// Undefined on failure rather than throwing, matching leaderboardApi: this feeds one tile
+// beside a record the page has already loaded, and losing the ranking shouldn't take the
+// record down with it.
+async function getModelRanking(modelId) {
+  try {
+    return await apiFetch(`/api/models/${modelId}/ranking`);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 async function updateModel(modelId, patch) {
 
   return await apiFetch(`/api/models/${modelId}`, {
@@ -45,6 +59,7 @@ async function createModel(state) {
 export {
   getModels,
   getMyModels,
+  getModelRanking,
   loadModel,
   updateModel,
   createModel };

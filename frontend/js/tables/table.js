@@ -215,7 +215,27 @@ function renderStaticTable({ columns, rows, noun, total = rows.length, viewAll }
  * @param initialFilter  Tabulator initialFilter, optional — for a grid filtered by a
  *                       control that lives outside it, so the filter is in place before
  *                       the first render rather than applied to a half-built table.
+ * @param index          the row field Tabulator identifies a row by, for a caller that
+ *                       later selects or deselects one by value. Defaults to Tabulator's
+ *                       own "id", which most of these rows have.
  * @param paginationSize rows per page.
+ * @param onRowClick     optional (rowData, {event, element}) => void, on every row click.
+ *                       The element is the row's own, for a caller that marks which one is
+ *                       open; the event is there to be read, since a row holding a link has
+ *                       two meanings for one click.
+ * @param selection      optional {max, onChange} — makes rows pickable by clicking them,
+ *                       highlighted rather than ticked, at most `max` at
+ *                       a time, and calls `onChange(rows)` with the selected row data
+ *                       whenever that set changes. What is picked is said by the row's own
+ *                       highlight — see `.tabulator-selected` in style.css — rather than by
+ *                       a column of checkboxes beside it.
+ *
+ *                       `claimLinks: true` gives the whole row to picking, links included.
+ *                       For a table building something out of what is picked — a
+ *                       comparison — where following a link would throw the half-built
+ *                       thing away. Off by default: a table that picks one row at a time to
+ *                       show it below has no such thing to lose, and a link that looks live
+ *                       and isn't reads as a bug.
  * @param caller         name used in error messages.
  * @returns the Tabulator instance, so a caller can replaceData() on it later.
  */
@@ -228,7 +248,10 @@ function createFilterableTable({
   initialSort,
   initialFilter,
   paginationSize = 10,
+  index,
   onControlChange,
+  onRowClick,
+  selection,
   caller = "createFilterableTable",
 }) {
   if (typeof Tabulator === "undefined") {
@@ -276,6 +299,8 @@ function createFilterableTable({
   const table = new Tabulator(root.querySelector("[data-role='grid']"), {
     data: rows,
 
+    ...(index ? { index } : {}),
+
     layout: "fitColumns",
 
     // Only page when there is a second page to go to, otherwise Tabulator renders a lone
@@ -298,7 +323,16 @@ function createFilterableTable({
     ...(initialSort ? { initialSort } : {}),
 
     ...(initialFilter ? { initialFilter } : {}),
+
+    // Tabulator 6's name for it — `selectable` is silently ignored, which reads as
+    // selection simply not working rather than as a bad option.
+    ...(selection ? { selectableRows: selection.max ?? true } : {}),
   });
+
+  // What the cursor keys off: a row that can be picked says so under the pointer. Set on
+  // every mount rather than only when selecting, so a container that held a picking table
+  // and now holds a plain one doesn't go on claiming its rows do something.
+  root.dataset.rowsSelectable = selection ? "true" : "false";
 
   // Tabulator 6 dropped callbacks-as-options, so these are bound rather than passed above.
   // A `renderComplete:` key in the constructor is discarded in silence — OptionsList reads
@@ -313,6 +347,28 @@ function createFilterableTable({
     setCount();
     globalThis.lucide?.createIcons?.();
   });
+
+  // The row data rather than Tabulator's row components: everything downstream — the cards,
+  // the chart — works on the same plain objects the table was given, and a component would
+  // tie them to a table that re-creates them on every filter.
+  if (selection) {
+    table.on("rowSelectionChanged", data => selection.onChange(data));
+
+    // There is no checkbox column: the row itself is the control, and the largest target in
+    // most rows is a link to the thing the row is about. Where the caller asks for it, a
+    // click on one picks the row rather than leaving the page — Tabulator's own row-click
+    // selection runs either way, and this only cancels the navigation that would follow it.
+    // Bound to the instance, so it goes when the table is rebuilt without a selection.
+    if (selection.claimLinks) {
+      table.on("rowClick", event => {
+        if (event.target.closest("a")) event.preventDefault();
+      });
+    }
+  }
+
+  if (onRowClick) {
+    table.on("rowClick", (event, row) => onRowClick(row.getData(), { event, element: row.getElement() }));
+  }
 
   // For a control whose choices depend on another control's value — the leaderboard's
   // metric list, which is the suites or the tasks depending on the grouping. The previous

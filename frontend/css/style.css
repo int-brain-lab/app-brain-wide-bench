@@ -92,6 +92,7 @@ a {
 
   /* Font sizes */
   font-size: 16px;
+  --font-xxs: 0.7em;
   --font-xs: 0.75rem;
   --font-sm: 0.875rem;
   --font-md: 1rem;
@@ -550,6 +551,32 @@ GRIDS, COLUMNS AND ROWS
   gap: var(--gap-md);
 }
 
+/* One narrow column beside a wide one — a summary next to the table it summarises.
+   `minmax(0, ...)` on both so a wide child (a table, a Tabulator grid) is clipped by its
+   column rather than widening it. */
+.section-row.uneven {
+  grid-auto-flow: row;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+
+/* The chain that carries the row's height down to the card, so two sections sharing a row
+   end level. .page-section is already a flex column, so the body takes the height left
+   under the heading and the card takes the body. Without the middle step,
+   .page-section's `justify-content: space-between` pushes the body to the bottom of the
+   row instead of growing it. Scoped to .section-row, so an ordinary section body stays a
+   plain block — and .align-start still opts out, since a section sized to its content has
+   no free height for the body to claim. */
+.section-row > .page-section > .section-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.section-row > .page-section > .section-body > .card {
+  flex: 1;
+}
+
 
 
 
@@ -633,6 +660,222 @@ CARDS
   right: 16px;
   bottom: 16px;
 }
+
+/* The model page's ranking section. One row per figure — badge, the two standings, and
+   what publishing would do to them — divided rather than boxed, so four rows read as one
+   list. The card's own padding moves onto the rows, which is what lets a divider run the
+   full width. */
+.rank-list {
+  padding: 0;
+}
+
+.rank-row {
+  padding: 12px 16px;
+}
+
+.rank-row + .rank-row {
+  border-top: 1px solid var(--border-color);
+}
+
+/* Fixed at both ends, so every row's chips start and finish in the same place. */
+.rank-badge {
+  width: 72px;
+  flex: none;
+}
+
+.rank-chips {
+  flex: 1;
+}
+
+.rank-end {
+  flex: none;
+  text-align: right;
+}
+
+/* The two standings. Both read as one line of text rather than as labels, so the weight
+   comes off .badge and the pair can be scanned across. */
+.rank-chip {
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+  border-color: var(--border-color);
+  font-weight: normal;
+}
+
+/* The side that isn't public yet, in the one colour on the row that isn't a suite's. */
+.rank-chip.private {
+  background: var(--ts2-light);
+  color: var(--ts2);
+  border-color: transparent;
+}
+
+/* A card standing for one series on a chart: the colour is set inline, since it is the one
+   the palette handed that selection, and the card is only the place it is shown. */
+.series-card {
+  border-left: 4px solid var(--border-color);
+}
+
+.series-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+
+/* A responsive canvas measures its parent, so the parent needs a height of its own —
+   without one they measure each other and the chart collapses to nothing. */
+.chart-box {
+  position: relative;
+  width: 100%;
+}
+
+/* One panel of a faceted chart. The gap is small on purpose: the panels share an axis and
+   are read as one figure, and a wide gap would make them look like separate charts. */
+.chart-facet + .chart-facet {
+  margin-top: 8px;
+}
+
+/* Small multiples: one panel per score, three across. Fixed rather than `auto-fit` so the
+   six a comparison holds are always two even rows — a wrapping count leaves a row of one
+   at some widths, which reads as a panel that didn't belong with the others.
+
+   `minmax(0, 1fr)` and not `1fr`: a canvas measures its column, and an `auto` minimum lets
+   it measure itself instead and grow on every redraw. */
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gap-md);
+}
+
+/* Inside the grid the panels are separate figures, so the stacking margin would only
+   double the gap. */
+.chart-grid .chart-facet + .chart-facet {
+  margin-top: 0;
+}
+
+/* Facets side by side: one panel per metric, read across rather than down — see
+   charts/compareChart.js. `auto-fit` here where .chart-grid above is fixed at three,
+   because the count is however many metrics a suite turns out to have, and two of them
+   should span the width rather than leave a third of it empty. The 320px floor is where a
+   panel stops being readable, and below it they wrap rather than shrink further. */
+.chart-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--gap-md);
+}
+
+.chart-row .chart-facet + .chart-facet {
+  margin-top: 0;
+}
+
+/* The row whose breakdown is open below the board. Outside compare mode nothing is
+   selected, so there is no highlight of Tabulator's own to borrow.
+
+   On the cells, because a Tabulator row is painted by them — see `.tabulator-selected`
+   further down, where the same rule applies for the same reason. */
+.tabulator .tabulator-row.row-open .tabulator-cell {
+  background: var(--surface-secondary);
+}
+
+/* The heatmap: one row per score, one cell per recording. A grid rather than a table so the
+   cells share one track sizing — every row's columns line up with the header's without the
+   browser measuring their contents, which are empty. */
+.heat-row {
+  display: grid;
+  grid-template-columns: 200px repeat(var(--heat-columns), minmax(0, 1fr));
+  gap: 2px;
+  align-items: center;
+}
+
+.heat-row + .heat-row {
+  margin-top: 2px;
+}
+
+/* The gap between cells is the surface showing through, which is what keeps two dark
+   neighbours from reading as one block. */
+.heat-cell {
+  height: 20px;
+  border-radius: 2px;
+}
+
+/* Not measured here, which is a different answer from measured and worst — so it is the
+   surface with an outline rather than the palest step of the ramp. */
+.heat-empty {
+  border: 1px solid var(--border-color);
+  background: var(--surface);
+}
+
+.heat-label {
+  padding-right: var(--gap-md);
+  overflow: hidden;
+}
+
+/* Rotated, because a region name under a 30px cell fits no other way. */
+.heat-column {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  justify-self: center;
+  white-space: nowrap;
+}
+
+/* The key's swatches are cells, so they need a width the grid isn't giving them here. */
+.heat-key .heat-cell {
+  width: 20px;
+}
+
+.heatmap + .heatmap {
+  margin-top: var(--gap-lg);
+}
+
+/* A comparison of attributes: what is being compared down the rows, a fixed set of columns
+   describing them. A column every row answers the same way recedes, so what is left
+   standing is the difference — the only thing that makes six rows of near-identical
+   metadata readable. */
+.comparison-grid th[scope="row"] {
+  text-align: left;
+  font-weight: normal;
+}
+
+.comparison-grid td.agrees,
+.comparison-grid th.agrees {
+  color: var(--text-muted);
+}
+
+.comparison-grid th.differs {
+  font-weight: var(--bold);
+}
+
+/* The score table's "used in ranking" cell: the same two sides as the chips above, in the
+   same two colours, at the size of the text they sit beside. */
+.rank-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.rank-icon.public {
+  color: var(--text-muted);
+}
+
+.rank-icon.private {
+  color: var(--ts2);
+}
+
+/* How far publishing would move the model, in places. Red for a fall, and the arrow is
+   what says which — the number alone is the same either way. */
+.rank-mover {
+  font-weight: var(--bold);
+}
+
+.rank-mover.up {
+  color: var(--primary);
+}
+
+.rank-mover.down {
+  color: var(--danger);
+}
+
 
 .stat-card {
   display: flex;
@@ -1144,6 +1387,11 @@ BADGES
   font-size: var(--font-xs);
 }
 
+.badge.xs {
+  padding: 1px 4px;
+  font-size: var(--font-xxs);
+}
+
 /* Task badges */
 .badge.ts1 {
   background: var(--ts1-light);
@@ -1310,6 +1558,40 @@ table {
 .table tr:hover,
 .tabulator .tabulator-row:hover {
   background: var(--surface-secondary);
+}
+
+/* Everything below paints the *cells* rather than the row, and that is the whole trick: the
+   `.tabulator-cell` rule above gives every cell an opaque `--surface` background, so a
+   colour set on `.tabulator-row` is drawn and then covered by the row's own cells. The rule
+   just above is Tabulator's hover, kept for the hand-written `.table` beside it; for a
+   Tabulator grid it never shows.
+
+   Where a click picks the row rather than following a link — see `rowsSelectable` in
+   tables/table.js — the pointer and the hover wash are what the checkbox column used to
+   say. Scoped to those tables: elsewhere a row is not a control and shouldn't act like one. */
+[data-rows-selectable="true"] .tabulator .tabulator-row {
+  cursor: pointer;
+}
+
+[data-rows-selectable="true"] .tabulator .tabulator-row:hover .tabulator-cell {
+  background: var(--surface-secondary);
+}
+
+/* A row picked for a comparison. There is no checkbox column beside it, so this highlight
+   is the whole of the feedback — a wash and an edge, because a wash alone is a shade off
+   the hover state and a reader working down a striped table loses it.
+
+   After the hover rules on purpose: they match with the same weight, so hovering a picked
+   row would otherwise wash the picking away. */
+.tabulator .tabulator-row.tabulator-selected .tabulator-cell,
+[data-rows-selectable="true"] .tabulator .tabulator-row.tabulator-selected:hover .tabulator-cell {
+  background: var(--primary-light);
+}
+
+/* The edge, on the first cell rather than as an inset shadow on the row — which the cells
+   would cover, exactly as they cover the row's background. */
+.tabulator .tabulator-row.tabulator-selected .tabulator-cell:first-child {
+  box-shadow: inset 3px 0 0 var(--primary);
 }
 
 /* Cells all carry a border-bottom (above), which on the final row doubles up with

@@ -8,7 +8,7 @@ import { isAuthenticated } from "../api/client.js";
 import { getIcon } from "../components/icons.js";
 import { showGate } from "./gate.js";
 import { applyShell } from "./shell.js";
-import { showEmpty, showFailure } from "../core/utils.js";
+import { escapeHtml, showEmpty, showFailure } from "../core/utils.js";
 import {
   appendCreateCard,
   clearCreateRow,
@@ -24,6 +24,7 @@ import {
 
 const CARDS = "view-cards";
 const TABLE = "view-table";
+const COMPARE = "list-compare";
 
 const CARDS_ACTION = {
   id: CARDS,
@@ -39,10 +40,15 @@ const TABLE_ACTION = {
 
 // The create control has its own container rather than living in `#list`, which Tabulator
 // owns in table view.
-function buildList() {
+function buildList(compare) {
   return `
     <div id="list"></div>
     <div id="create-row"></div>
+    ${compare ? `
+      <section class="page-section" id="compare-section" hidden>
+        <div class="row"><h2 class="section-title">${escapeHtml(compare.title)}</h2></div>
+        <div class="section-body" id="compare-body"></div>
+      </section>` : ""}
   `;
 }
 
@@ -52,6 +58,9 @@ function getElements() {
     create: document.getElementById("create-row"),
     cardsButton: document.getElementById(CARDS),
     tableButton: document.getElementById(TABLE),
+    compareButton: document.getElementById(COMPARE),
+    compareSection: document.getElementById("compare-section"),
+    compareBody: document.getElementById("compare-body"),
   };
 }
 
@@ -76,12 +85,13 @@ function renderCards(items, elements, cards, create) {
   clearCreateRow(elements.create);
 }
 
-function renderTable(items, elements, table, create) {
+function renderTable(items, elements, table, create, selection) {
   elements.list.className = "";
 
   const tableInstance = table({
     container: elements.list,
     rows: items,
+    selection,
   });
 
   // Tabulator owns the list container, so the create control lives below it.
@@ -131,6 +141,13 @@ async function loadListPage({
   // the comparison page. Before the view toggle, which is about the list itself rather
   // than about going anywhere.
   actions = [],
+  // Turns the list into something a reader can pick from: a button in the header, ticks in
+  // the table, and whatever `create` builds underneath it. The list page owns the mode and
+  // the selection; what a pick *means* is the caller's — see modelList.js.
+  //
+  //   { title, label, max, create({ container, onDrop }), toSeed(row) }
+  //
+  compare = null,
   maxCards = 6,
   // False for a list the API serves to anyone. Such a page is one URL for both audiences:
   // no gate, the public shell when signed out, and no create affordance.
@@ -144,9 +161,56 @@ async function loadListPage({
   // the sign-in state is known. Declared out here because renderView closes over it.
   let create = null;
 
+  // Comparing is a mode of the table view: cards have no ticks, so entering it is also what
+  // switches the view. The widget is built once and kept, since it holds what it has
+  // already fetched.
+  let comparing = false;
+  let comparison = null;
+
   function destroyTable() {
     tableInstance?.destroy?.();
     tableInstance = null;
+  }
+
+  // Built on the first switch into compare mode and kept: it holds whatever it has already
+  // fetched, which rebuilding per selection would throw away.
+  function comparisonFor(elements) {
+    comparison ??= compare.create({
+      container: elements.compareBody,
+      onDrop: key => tableInstance?.deselectRow(key),
+    });
+
+    return comparison;
+  }
+
+  function selectionFor(elements) {
+    return {
+      max: compare.max,
+      // The row is the control while comparing, so a click on the name in it picks the row
+      // rather than leaving the page and the half-built comparison with it.
+      claimLinks: true,
+      onChange: async rows => {
+        const overflow = await comparisonFor(elements).show(rows.map(compare.toSeed));
+
+        // Tabulator caps selection by click but refuses the extra one silently; handing it
+        // back is what keeps the ticks and the comparison saying the same thing.
+        for (const key of overflow) tableInstance?.deselectRow(key);
+      },
+    };
+  }
+
+  function setComparing(next, elements, items) {
+    comparing = next;
+
+    elements.compareButton.classList.toggle("primary-inv", comparing);
+    elements.compareSection.hidden = !comparing;
+
+    // The table is rebuilt either way: whether its rows can be picked is a constructor
+    // option, and Tabulator reads those once.
+    renderView(elements, TABLE, items);
+
+    if (comparing) comparisonFor(elements).clear();
+    else comparison?.clear();
   }
 
   function renderView(elements, viewId, items) {
@@ -159,6 +223,7 @@ async function loadListPage({
         elements,
         table,
         create,
+        comparing ? selectionFor(elements) : null,
       );
     } else {
       renderCards(
@@ -191,9 +256,12 @@ async function loadListPage({
       buildPage({
         header: buildHeader([
           ...actions,
+          // Before the view toggle: it is what the reader came to do, where the toggle is
+          // how they want to look at the list while doing it.
+          ...(compare ? [{ id: COMPARE, label: compare.label, icon: getIcon("compare") }] : []),
           ...(table ? [CARDS_ACTION, TABLE_ACTION] : []),
         ]),
-        body: buildList(),
+        body: buildList(compare),
       }),
     );
 
@@ -224,9 +292,15 @@ async function loadListPage({
       elements.tableButton,
     ]) {
       button?.addEventListener("click", () => {
-        renderView(elements, button.id, items);
+        // Leaving the table leaves the mode with it: there is nothing to tick on a card.
+        if (comparing && button.id === CARDS) setComparing(false, elements, items);
+        else renderView(elements, button.id, items);
       });
     }
+
+    elements.compareButton?.addEventListener("click", () => {
+      setComparing(!comparing, elements, items);
+    });
   } catch (error) {
     console.error(`Failed to load the ${noun} list:`, error);
 

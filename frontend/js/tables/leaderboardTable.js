@@ -67,6 +67,11 @@ function toLeaderboardRow(standing, suites, myTeamIds) {
     row[taskId] = entry.mean;
   }
 
+  // The scores themselves as well as their means: each says which entry it came from, which
+  // is what lets a reader compare this row's score on one task against another row's — see
+  // the comparison the page mounts under the board.
+  row.scores = scores;
+
   // The server ranked this standing against the others in the same response — see
   // app/ranking.py. One figure per task, because every column here is a mean over some
   // subset of them and only this side knows which subset.
@@ -360,9 +365,16 @@ function getLeaderboardControls(suites) {
  * @param tasks        the GET /api/tasks payload — the columns come from it.
  * @param myTeamIds    Set of the viewer's own team ids, as strings, for the "Yours" pill.
  *                     Omit for no pill — see toLeaderboardRows.
+ * @param selection    optional {max, onChange}. `onChange(rows, metric)` fires with the
+ *                     selected rows and whatever the metric select is on, since what a
+ *                     selection *means* depends on it: a task id makes the rows comparable,
+ *                     a suite or "Overall" doesn't.
+ * @param onRowClick   optional (row, metric, {event, element}) => void. The metric comes
+ *                     along for the same reason it does on `selection`: a row means one
+ *                     score only when the board is showing one task.
  * @returns the Tabulator instance.
  */
-function renderLeaderboardTable({ container, standings, tasks, myTeamIds }) {
+function renderLeaderboardTable({ container, standings, tasks, myTeamIds, selection, onRowClick }) {
   const suites = toSuiteGroups(tasks);
   const metrics = toTaskMetrics(tasks);
   const rows = toLeaderboardRows(standings, suites, myTeamIds);
@@ -408,6 +420,11 @@ function renderLeaderboardTable({ container, standings, tasks, myTeamIds }) {
       else table.hideColumn(column);
     }
 
+    // A tick means something in both modes, but not the same thing: on a task it picks
+    // scores to compare, on a suite it picks models. Either way what was ticked under the
+    // old metric was ticked for a question nobody is asking any more.
+    if (selection) table.deselectRow();
+
     // Ordered by the position, not by the column that produced it. Sorting on the score
     // would put the rows out of order against their own `#`: on ts1's r2 tasks, CEBRA
     // outranks NDT despite the lower mean, because it wins more of the individual
@@ -423,7 +440,22 @@ function renderLeaderboardTable({ container, standings, tasks, myTeamIds }) {
     noun: "model",
     layout: "fitColumns",
     initialSort: [{ column: "rank", dir: "asc" }],
+    // A row is a standing, and the newest submission behind it is the only id it carries.
+    index: "submissionId",
     caller: "renderLeaderboardTable",
+
+    ...(onRowClick ? { onRowClick: (row, context) => onRowClick(row, metric, context) } : {}),
+
+    ...(selection
+      ? {
+          selection: {
+            max: selection.max,
+            // The metric rides along because the rows alone don't say what they are
+            // selected *for* — see the parameter's note.
+            onChange: rows => selection.onChange(rows, metric),
+          },
+        }
+      : {}),
 
     onControlChange: (name, value, api) => {
       if (name === "metric") {

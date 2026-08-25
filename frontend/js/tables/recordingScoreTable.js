@@ -324,4 +324,63 @@ function describeRecordingScores(recordings) {
 }
 
 
-export { renderRecordingScoresTable, describeRecordingScores, summariseMetrics };
+// ─── FOR A CHART ────────────────────────────────────────────────────────────
+//
+// The same two questions the table answers — what runs down the rows, and what metrics
+// were measured — asked by something that draws rather than tabulates. They live here
+// because the answers depend on the suite's shape, which is this module's subject; the
+// chart is then only about drawing.
+
+/**
+ * The metrics a caller may choose between for one score.
+ *
+ * Suffixes in the region layout, where the full name carries the region too — a TS3 score
+ * measures three metrics on eleven regions, not thirty-three metrics.
+ */
+function recordingMetricNames(recordings) {
+  return rowMode(recordings) === "region" ? metricSuffixes(recordings) : metricNames(recordings);
+}
+
+/**
+ * One point per row of the table, for `metric`.
+ *
+ * @returns [{ key, label, mean, sem }] — `key` identifies the point across scores so two
+ *          series line up on the same recording, and `label` is what an axis shows.
+ */
+function toRecordingPoints(recordings, metric) {
+  const mode = rowMode(recordings);
+
+  if (mode === "region") {
+    return toRegionRows(recordings).map(row => ({
+      key: row.region,
+      label: row.region,
+      mean: row[`${metric}_mean`] ?? null,
+      sem: row[`${metric}_sem`] ?? null,
+    }));
+  }
+
+  if (mode === "recording") {
+    return toRecordingRows(recordings).map(row => ({
+      key: row.recording_id,
+      // Recording ids are uuids, so an axis gets the head of one and the tooltip the whole
+      // thing — 29 full uuids across an axis is unreadable at any width.
+      label: String(row.recording_id).slice(0, 8),
+      mean: row[`${metric}_mean`] ?? null,
+      sem: row[`${metric}_sem`] ?? null,
+    }));
+  }
+
+  // The fallback shape has one row *per metric*, so a chosen metric is a single point.
+  return toMetricRows(recordings)
+    .filter(row => row.metric === metric)
+    .map(row => ({ key: row.metric, label: row.metric, mean: row.mean, sem: row.sem }));
+}
+
+
+export {
+  renderRecordingScoresTable,
+  describeRecordingScores,
+  recordingMetricNames,
+  summariseMetrics,
+  toRecordingPoints,
+};

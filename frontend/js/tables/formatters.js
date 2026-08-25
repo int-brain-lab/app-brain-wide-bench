@@ -11,9 +11,10 @@
 // would work in one renderer and not the other.
 
 import { escapeHtml, formatDate } from "../core/utils.js";
-import { getIcon } from "../components/icons.js";
+import { buildIcon, getIcon } from "../components/icons.js";
 import { SUITES } from "../core/suites.js";
 import {
+  buildMetricBadge,
   buildMetricBadgeList,
   buildMineBadge,
   buildPretrainedBadge,
@@ -165,7 +166,7 @@ function scoreFormatter(cell) {
 // go, so both render as the plain name — the same markup taskNameFormatter gives.
 function taskScoreLinkFormatter(cell) {
   const row = cell.getData();
-  const name = escapeHtml(cell.getValue());
+  const name = escapeHtml(cell.getValue().slice(4));
 
   if (row.mean_score == null || row.submission_id == null) {
     return `<span class="label">${name}</span>`;
@@ -181,7 +182,7 @@ function taskScoreLinkFormatter(cell) {
 }
 
 function taskNameFormatter(cell) {
-  return `<span class="label">${escapeHtml(cell.getValue())}</span>`;
+  return `<span class="label">${escapeHtml(cell.getValue().slice(4))}</span>`;
 }
 
 
@@ -213,7 +214,7 @@ function taskLinkAttributes(row) {
 function taskLinkFormatter(cell) {
   const row = cell.getData();
 
-  return `<a ${taskLinkAttributes(row)}>${escapeHtml(row.task_id)}</a>`;
+  return `<a ${taskLinkAttributes(row)}>${escapeHtml(row.task_id.slice(4))}</a>`;
 }
 
 function editFormatter(cell) {
@@ -247,14 +248,39 @@ const MEDAL_CLASSES = { 1: "rank-gold", 2: "rank-silver", 3: "rank-bronze" };
 // A null rank is a model that hasn't placed — partial coverage on the overall figure, or no
 // score for the task being ranked. An em dash rather than an empty cell, so the row reads as
 // deliberately unranked instead of broken.
-function rankFormatter(cell) {
-  const rank = cell.getValue();
-
+//
+// Cell-free, because a position is written the same way wherever it appears and the model
+// page's rank tile is not a table.
+function rankBadge(rank) {
   if (rank == null) return `<span class="metadata">—</span>`;
 
   const medal = MEDAL_CLASSES[rank];
 
   return medal ? `<span class="${medal}">${escapeHtml(rank)}</span>` : String(rank);
+}
+
+function rankFormatter(cell) {
+  return rankBadge(cell.getValue());
+}
+
+// Which of the two rankings this score is currently carrying. The app's own visibility
+// icons, so the eye means the same thing here as it does on a submission's badge, and the
+// title is what carries the wording a column this narrow has no room for.
+//
+// A score that has been superseded for its task carries neither, and reads as a dash
+// rather than as an empty cell: "not counted" is an answer, not a missing value.
+function rankedFormatter(cell) {
+  const used = cell.getValue();
+
+  const icons = [
+    used?.public ? buildIcon("public", { className: "rank-icon public", title: "Counted in the public ranking" }) : "",
+    used?.private ? buildIcon("private", { className: "rank-icon private", title: "Counted in the private ranking" }) : "",
+  ].filter(Boolean);
+
+  if (!icons.length) return `<span class="metadata">—</span>`;
+
+  // Two icons abutting read as one state; the word is what makes them two.
+  return `<span class="row left gap-sm">${icons.join(`<span class="metadata">and</span>`)}</span>`;
 }
 
 // The leaderboard's model cell: name over affiliation, with its pills beside the name.
@@ -336,8 +362,21 @@ function meanSemFormatter(cell) {
 // sorts on the number rather than on the spread printed beside it; `semField` names the
 // other half, which the recording breakdown spells per metric ("bacc_sem") rather than
 // plain "sem".
-function scoreSemFormatter(semField) {
-  return cell => buildMeanSem(cell.getValue(), cell.getData()[semField]);
+//
+// `metricField` puts the metric after the spread, for a grid where it has no column of its
+// own: a score and the thing it measures are one fact, and read together they need no
+// second column and no second glance. The pair keeps its own wrapper so the badge sits
+// beside "0.612 ± 0.014" rather than between the two halves of it.
+function scoreSemFormatter(semField, { metricField = null } = {}) {
+  return cell => {
+    const row = cell.getData();
+    const pair = buildMeanSem(cell.getValue(), row[semField]);
+    const metric = metricField ? row[metricField] : null;
+
+    if (!metric) return pair;
+
+    return `<span class="row left gap-sm"><span>${pair}</span>${buildMetricBadge(metric, "sm")}</span>`;
+  };
 }
 
 // A signed difference against the baseline model. The sign is explicit on a gain — a column
@@ -352,6 +391,29 @@ function diffFormatter(cell) {
   const sign = value.diff > 0 ? "+" : "";
 
   return `<span class="${direction}">${sign}${escapeHtml(score(value.diff))}</span>`;
+}
+
+/**
+ * The task with the suite it belongs to, for a grid where the suite has no column of its
+ * own — the same trade taskMetricFormatter makes below, and the same placement: under the
+ * name rather than beside it, because the ids run to twenty-five characters and a badge on
+ * the same line would set the column's width from the longest pair rather than the longest
+ * name.
+ *
+ * @param inner the formatter for the name itself, since a task name is a link on some grids
+ *              and plain text on others — see taskScoreLinkFormatter.
+ */
+function taskSuiteFormatter(inner) {
+  return cell => {
+    const suite = cell.getData().suite;
+
+    return `
+      <span class="row gap-md left">
+        ${suite ? buildSuiteBadgeList([suite], "sm") : ""}
+        ${inner(cell)}
+      </span>
+    `;
+  };
 }
 
 // The task with the metric it is scored in, for a grid where the metric has no column of
@@ -392,12 +454,15 @@ export {
   scoreFormatter,
   taskNameFormatter,
   taskScoreLinkFormatter,
+  taskSuiteFormatter,
   roleBadgeFormatter,
   statusFormatter,
   taskLinkAttributes,
   taskLinkFormatter,
   editFormatter,
   parameterFormatter,
+  rankBadge,
+  rankedFormatter,
   rankFormatter,
   modelFormatter,
   rankValue,

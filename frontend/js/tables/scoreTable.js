@@ -15,11 +15,12 @@ import {
 } from "./table.js";
 import {
   linkFormatter,
-  metricsBadgeFormatter,
+  taskNameFormatter,
   numericSorter,
+  rankedFormatter,
   scoreSemFormatter,
-  suiteBadgeFormatter,
   taskScoreLinkFormatter,
+  taskSuiteFormatter,
 } from "./formatters.js";
 
 
@@ -77,7 +78,16 @@ function toScoreResultRows(results) {
 
 // `showSubmission` off drops the Submission column, for a caller already scoped to one
 // submission — there it would repeat the page's own heading down every row.
-function getScoreColumns({ showSubmission = true, showModel = false } = {}) {
+//
+// `showRanking` adds the column saying which rankings each score is carrying. Off by
+// default: it needs rows stamped by markRankedRows, which only a page that has fetched the
+// model's ranking can do.
+function getScoreColumns({
+  showSubmission = true,
+  showModel = false,
+  showRanking = false,
+  showTaskLink = true,
+} = {}) {
   const modelColumn = showModel
     ? [{
         title: "Model",
@@ -96,38 +106,53 @@ function getScoreColumns({ showSubmission = true, showModel = false } = {}) {
       }]
     : [];
 
+  // Last: it is provenance for the score to its left rather than a fact about the task.
+  // Unsorted, because the order it would impose — carrying both, one, neither — is the one
+  // the reader is already scanning for.
+  const rankingColumn = showRanking
+    ? [{
+        title: "Used in ranking",
+        field: "ranked",
+        formatter: rankedFormatter,
+        headerSort: false,
+        width: 170,
+      }]
+    : [];
+
   return [
     {
       // The task name is the way in to the per-recording, per-metric breakdown of its score
       // — see taskScoreLinkFormatter. An unscored row has nothing behind it and stays plain.
+      //
+      // Plain text where the caller draws that breakdown itself: a link away would be a
+      // second answer to the question the row is already answering in place.
+      //
+      // The suite rides under the name rather than in a column of its own: it is a fact
+      // about the task, derived from its id (see toScoreRow), so a column would have
+      // repeated a prefix already on screen down a hundred-pixel band of its own. `suite`
+      // stays a field on the row either way, which is what the select above filters on.
       title: "Task",
       field: "task_name",
-      formatter: taskScoreLinkFormatter,
+      formatter: taskSuiteFormatter(showTaskLink ? taskScoreLinkFormatter : taskNameFormatter),
       widthGrow: 2,
     },
     ...modelColumn,
-    {
-      title: "Suite",
-      field: "suite",
-      formatter: suiteBadgeFormatter,
-      width: 100,
-    },
     ...submissionColumn,
     {
-      // Mean and sem in one cell — see scoreSemFormatter. The field stays `mean_score` so
-      // the sort is on the number, not on the spread printed beside it.
+      // Mean, sem and the metric all three in one cell — see scoreSemFormatter. The field
+      // stays `mean_score` so the sort is on the number, not on the spread or the badge
+      // printed beside it.
+      //
+      // The metric belongs here rather than in a column because a score without it is not
+      // a figure a reader can use: 0.61 is good bacc and poor r2, and the two used to sit
+      // at opposite ends of the row.
       title: "Score",
       field: "mean_score",
-      formatter: scoreSemFormatter("sem"),
+      formatter: scoreSemFormatter("sem", { metricField: "metric" }),
       sorter: numericSorter,
-      width: 150,
+      width: 220,
     },
-    {
-      title: "Metric",
-      field: "metric",
-      formatter: metricsBadgeFormatter,
-      headerSort: false,
-    },
+    ...rankingColumn,
   ];
 }
 
@@ -135,7 +160,9 @@ function getScoreColumns({ showSubmission = true, showModel = false } = {}) {
 // ─── CONTROLS ───────────────────────────────────────────────────────────────
 
 // `suite` is a single value per row here, not the array the submission and model tables
-// carry, so it matches with matchEquals rather than matchInArray.
+// carry, so it matches with matchEquals rather than matchInArray. It and `metric` are
+// filters without columns: both moved into other cells as badges, and a filter on a field
+// the reader can see is still a filter on something visible.
 function getScoreControls(rows, { showSubmission = true, showModel = false } = {}) {
   const modelControl = showModel
     ? [{
@@ -171,6 +198,17 @@ function getScoreControls(rows, { showSubmission = true, showModel = false } = {
       options: SUITE_OPTIONS,
       match: matchEquals("suite"),
     },
+    {
+      // From the rows rather than a fixed list: which metrics appear depends on which tasks
+      // were scored, and an option that hides every row would be the only thing it could
+      // do. Unscored rows carry no metric and so contribute none — optionsFromRows drops
+      // nulls — which also means choosing any metric narrows to scored rows.
+      type: "select",
+      name: "metric",
+      placeholder: "All metrics",
+      options: optionsFromRows(rows, "metric"),
+      match: matchEquals("metric"),
+    },
     ...modelControl,
     ...submissionControl,
   ];
@@ -186,6 +224,11 @@ function getScoreControls(rows, { showSubmission = true, showModel = false } = {
  * @param showSubmission  keep the Submission column and its filter. Pass false when
  *                    every row belongs to the same submission.
  * @param showModel   add the Model column and its filter. For rows spanning models.
+ * @param showRanking add the "Used in ranking" column. Rows must be stamped by
+ *                    markRankedRows first — see getScoreColumns.
+ * @param selection   as createFilterableTable. What is picked is shown by highlighting the
+ *                    row, one or several, rather than by a column of checkboxes.
+ * @param showTaskLink false to render the task name as plain text; see getScoreColumns.
  * @returns the Tabulator instance.
  */
 function renderTaskScoresTable({
@@ -193,8 +236,11 @@ function renderTaskScoresTable({
   rows,
   showSubmission = true,
   showModel = false,
+  showRanking = false,
+  showTaskLink = true,
+  selection,
 }) {
-  const shown = { showSubmission, showModel };
+  const shown = { showSubmission, showModel, showRanking, showTaskLink };
 
   return createFilterableTable({
     container,
@@ -203,6 +249,7 @@ function renderTaskScoresTable({
     controls: getScoreControls(rows, shown),
     noun: "task",
     initialSort: [{ column: "mean_score", dir: "desc" }],
+    selection,
     caller: "renderTaskScoresTable",
   });
 }
@@ -218,6 +265,7 @@ function renderTaskScoresTable({
  * @param rows        as renderTaskScoresTable.
  * @param showSubmission  as renderTaskScoresTable.
  * @param showModel   as renderTaskScoresTable.
+ * @param showRanking as renderTaskScoresTable.
  * @param limit       how many rows to show. Omit for all of them.
  * @param viewAll     as renderStaticTable — where the footer's "View all" link goes.
  * @returns every row it was given, not just the slice it rendered. The total is already
@@ -228,13 +276,14 @@ function renderStaticTaskScoresTable({
   rows,
   showSubmission = true,
   showModel = false,
+  showRanking = false,
   limit,
   viewAll,
 }) {
   const shown = previewRows(rows, (a, b) => numericSorter(b.mean_score, a.mean_score), limit);
 
   resolveContainer(container, "renderStaticTaskScoresTable").innerHTML = renderStaticTable({
-    columns: getScoreColumns({ showSubmission, showModel }),
+    columns: getScoreColumns({ showSubmission, showModel, showRanking }),
     rows: shown,
     noun: "task",
     total: rows.length,

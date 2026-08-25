@@ -430,6 +430,7 @@ function buildGroupCards(groups, state, fields, render) {
 export {
   REQUIRED_MARKER,
   buildDisplayFields,
+  displayValue,
   buildFields,
   buildGroupCards,
 };

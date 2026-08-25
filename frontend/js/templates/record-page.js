@@ -92,12 +92,22 @@ function buildAction(action) {
   `;
 }
 
-function buildActions(actions) {
-  const markup = actions
-    .map(buildAction)
-    .join("");
+function buildActionRow(actions) {
+  return `<div class="row right gap-md">${actions.map(buildAction).join("")}</div>`;
+}
 
-  return `<div class="row right gap-md">${markup}</div>`;
+/**
+ * @param actions a list of actions, or a list of *lists* — one row each, stacked and right
+ *                aligned under the heading.
+ *
+ * Rows because a header with three actions reads as a long line pushing the title around,
+ * and the grouping says something: what the reader can do to the record, apart from what
+ * the record can be compared against.
+ */
+function buildActions(actions) {
+  if (!Array.isArray(actions[0])) return buildActionRow(actions);
+
+  return `<span class="column gap-md">${actions.map(buildActionRow).join("")}</span>`;
 }
 
 function buildHeader(actions = []) {

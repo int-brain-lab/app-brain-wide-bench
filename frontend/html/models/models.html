@@ -32,6 +32,10 @@
     </div>
 
   <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
+  <!-- Chart.js as a UMD global, matching how Tabulator and lucide are loaded: the task-score
+       explorer plots a comparison here, and charts/chart.js says which script is missing if
+       it isn't there. -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
   <script type="module" src="/js/nav/navTop.js"></script>

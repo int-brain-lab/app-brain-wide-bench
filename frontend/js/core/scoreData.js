@@ -6,7 +6,9 @@
 //
 // Two app-wide rules live here, both deliberate:
 //
-//   1. Scores come from the *latest* submission, never the best across submissions.
+//   1. A task's score is the *latest* one submitted for it, never the best — and latest per
+//      task, so a model whose ts1 run and ts2 run were separate submissions reads whole.
+//      The same rule the server ranks on, so a page can put a score beside its rank.
 //   2. A missing score is `null`, not `0` — including the overall mean. `mean` returns null
 //      for an empty list rather than dividing by zero, and getMeanScores drops nulls before
 //      averaging so an unattempted suite doesn't drag the overall figure down.
@@ -19,25 +21,9 @@ import { suiteFromTask } from "./suites.js";
 
 // ─── LATEST ─────────────────────────────────────────────────────────────────
 
-// TODO THIS IS INCORRECT WE DON"T WANT JUST THE LATEST SUBMISSION WE WANT THE LATEST FOR EACH TASK
-function latestSubmission(submissions) {
-  return submissions.reduce((latest, submission) => {
-    if (!latest) return submission;
-
-    return Date.parse(submission.created_at ?? 0) > Date.parse(latest.created_at ?? 0)
-      ? submission
-      : latest;
-  }, null);
-}
-
-// The same "latest, not best" rule as above, applied per task rather than per submission:
-// each task takes its score from the newest submission that scored it. A model whose ts1
-// run and ts2 run were separate submissions is then read whole, which latestSubmission
-// cannot do — see its TODO.
-//
-// Callers of latestSubmission are deliberately left on it: collapsing a *submission* into
-// one figure per suite and collapsing a *model* into one figure per task are different
-// questions, and only the second one is asked here.
+// Each task takes its score from the newest submission that scored it, so a model is read
+// as where it currently stands rather than as its most recent upload — the same collapse
+// app/ranking.py does before ranking, which is what lets a rank sit beside a score here.
 function latestScoresByTask(submissions) {
   const latest = new Map();
 
@@ -74,18 +60,16 @@ function latestScoresByTask(submissions) {
 // { ts1: { "ts1-reward": 0.42, … }, ts2: { … } } — nested so callers can have either the
 // per-task detail or, via getMeanScores, one figure per suite.
 function scoresBySuite(submissions) {
-  const latest = latestSubmission(submissions ?? []);
   const scores = {};
 
-  for (const { task_id, score } of latest?.task_submissions ?? []) {
-    const value = score?.primary_metric_mean;
-    const suite = suiteFromTask(task_id);
+  for (const [taskId, { mean }] of Object.entries(latestScoresByTask(submissions))) {
+    const suite = suiteFromTask(taskId);
 
     // An id naming no known suite is skipped rather than bucketed. Without this it would
     // key the result under the string "null" and show up as a fourth suite downstream.
-    if (value == null || suite === null) continue;
+    if (mean == null || suite === null) continue;
 
-    (scores[suite] ??= {})[task_id] = value;
+    (scores[suite] ??= {})[taskId] = mean;
   }
 
   return scores;
@@ -110,7 +94,6 @@ function countTasks(suiteScores) {
 
 
 export {
-  latestSubmission,
   latestScoresByTask,
   scoresBySuite,
   getMeanScores,

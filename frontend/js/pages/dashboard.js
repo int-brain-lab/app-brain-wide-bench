@@ -10,11 +10,8 @@ import { getMyModels } from "../api/modelApi.js";
 import { getMyTaskSubmissions} from "../api/taskSubmissionApi.js";
 import { showEmpty } from "../core/utils.js";
 import { renderStaticSubmissionsTable } from "../tables/submissionTable.js";
-import {
-  renderStaticTaskScoresTable,
-  renderTaskScoresTable,
-  toScoreResultRows,
-} from "../tables/scoreTable.js";
+import { renderStaticTaskScoresTable, toScoreResultRows } from "../tables/scoreTable.js";
+import { renderTaskScoreExplorer } from "../widgets/taskScoreExplorer.js";
 import { buildCount } from "../components/count.js";
 import { buildModelCards } from "../cards/modelCards.js";
 import { buildStatCards } from "../cards/statCards.js";
@@ -272,11 +269,10 @@ function renderScoresView({ models, scoreRows }) {
     return;
   }
 
-  return renderTaskScoresTable({
+  return renderTaskScoreExplorer({
     container: sectionBody("body"),
     rows: scoreRows,
     showModel: true,
-    showSubmission: true,
   });
 }
 

@@ -4,8 +4,13 @@
 // what sits behind that number: one row per recording, one column pair per metric. Reached
 // by clicking the task name (taskScoreLinkFormatter), and deep-linkable as
 // `?id=<submission>&view=score&score=<task submission>`.
+//
+// The breakdown is fetched here rather than read off the submission: a submission nests one
+// entry per task, and carrying every entry's per-recording detail would mean a page that
+// shows ten means downloading ten breakdowns to draw one of them.
 
-import { showEmpty, showFailure } from "../core/utils.js";
+import { showEmpty, showFailure, showMessage } from "../core/utils.js";
+import { loadTaskSubmission } from "../api/taskSubmissionApi.js";
 import { getIcon } from "../components/icons.js";
 import { buildStatCards } from "../cards/statCards.js";
 import { buildSuiteBadgeList } from "../components/badges.js";
@@ -33,8 +38,8 @@ const BACK = {
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
 
-function getRecordings(taskSubmission) {
-  return taskSubmission.score?.metrics?.recordings ?? [];
+function getRecordings(detailed) {
+  return detailed?.score?.metrics?.recordings ?? [];
 }
 
 // One card per metric — bacc, f1, ap for ts1-reward — each aggregated across recordings by
@@ -46,8 +51,7 @@ function getRecordings(taskSubmission) {
 // Nothing for TS3, whose rows are brain regions rather than recordings: a mean down that
 // column would be a mean over regions, and its "macro" row already is exactly that — so the
 // cards would either duplicate that row or, by including it, double-count it.
-function getStatistics(taskSubmission) {
-  const recordings = getRecordings(taskSubmission);
+function getStatistics(recordings) {
 
   if (describeRecordingScores(recordings).mode !== "recording") return [];
 
@@ -74,7 +78,7 @@ function getBadges(taskSubmission) {
 
 // ─── VIEW ────────────────────────────────────────────────────────────────────
 
-function renderScoreBreakdownView({ submission, score: taskSubmissionId }) {
+async function renderScoreBreakdownView({ submission, score: taskSubmissionId }) {
   renderPage(
     buildPage({
       back: BACK,
@@ -106,9 +110,18 @@ function renderScoreBreakdownView({ submission, score: taskSubmissionId }) {
     return;
   }
 
-  sectionBody("stats").innerHTML = buildStatCards(getStatistics(taskSubmission));
+  showMessage(sectionBody("body"), "Loading the breakdown…");
 
-  const recordings = getRecordings(taskSubmission);
+  let detailed = null;
+
+  try {
+    detailed = await loadTaskSubmission(submission.id, taskSubmissionId);
+  } catch (error) {
+    showFailure(sectionBody("body"), "Loading the breakdown failed.", error);
+    return;
+  }
+
+  const recordings = getRecordings(detailed);
 
   // A score with a mean but no per-recording detail: every score written by app/tasks/score.py
   // carries it, but one loaded from an older fixture has `metrics` null.
@@ -116,6 +129,8 @@ function renderScoreBreakdownView({ submission, score: taskSubmissionId }) {
     showEmpty(sectionBody("body"), "No per-recording breakdown was stored for this score.");
     return;
   }
+
+  sectionBody("stats").innerHTML = buildStatCards(getStatistics(recordings));
 
   return renderRecordingScoresTable({ container: sectionBody("body"), recordings });
 }

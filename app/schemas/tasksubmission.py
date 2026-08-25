@@ -13,16 +13,32 @@ from app.models import (
 
 
 class TaskScoreOut(BaseModel):
-    """Score for one task."""
+    """Score for one task: the figure a table shows, and nothing behind it.
+
+    No ``metrics``. The per-recording breakdown is tens of kilobytes a score, and this
+    shape is what every listing nests — a model with ten scored tasks, a dashboard with
+    sixty-seven — so carrying it here means sending megabytes of detail for rows nobody has
+    opened. It is on ``TaskScoreDetail``, which is asked for one score at a time.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
     n_seeds: int
     primary_metric_mean: float
     primary_metric_sem: float | None = None
-    metrics: dict | None = None
 
     primary_metric: Metric
+
+
+class TaskScoreDetail(TaskScoreOut):
+    """A score with the breakdown behind it — one entry per recording, per metric.
+
+    ``{"recordings": [{"recording_id", "label", "metrics": {name: {mean, sem, n}}}]}``, as
+    the scorers wrote it. What every per-recording table and plot is drawn from, and the
+    reason to ask for a single task submission by id.
+    """
+
+    metrics: dict | None = None
 
 
 class TaskSubmissionOut(BaseModel):
@@ -91,7 +107,12 @@ class TaskMetadata(BaseModel):
 
 
 class TaskSubmissionDetail(TaskSubmissionOut, TaskMetadata):
-    """Detailed task submission information for GET /api/submissions/{id}/tasks/{task_submission_id}``"""
+    """Detailed task submission information for GET /api/submissions/{id}/tasks/{task_submission_id}``
+
+    The one shape that carries the per-recording breakdown — see TaskScoreDetail.
+    """
+
+    score: TaskScoreDetail | None = None
 
 
 class TaskSubmissionCreate(TaskMetadata):

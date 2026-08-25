@@ -23,8 +23,11 @@
 //   models       who to compare against — at most five, all of which have that suite
 //   metric       narrow every section below to one metric
 //   overview     one bar per model, best first
-//   breakdown    every task, mean ± sem, models across the top
-//   differences  the same grid against a baseline the reader picks
+//   breakdown    every task, as a plot or as a grid of mean ± sem, models across the top
+//   differences  the same again, against a baseline the reader picks
+//
+// The last two each carry their own plot-or-grid toggle: a reader comparing shapes in one is
+// often reading numbers off the other.
 
 import { escapeHtml, refreshIcons, showEmpty, showMessage } from "../core/utils.js";
 import { getIcon } from "../components/icons.js";
@@ -37,6 +40,8 @@ import { getModels, loadModel } from "../api/modelApi.js";
 import { loadPage } from "../templates/page-loader.js";
 import { MAX_SELECTED, renderModelPicker } from "../widgets/modelPicker.js";
 import { applyMetricFilter, renderCompareTable, showNoComparison } from "../tables/compareTable.js";
+import { renderCompareCharts, renderDiffCharts } from "../charts/compareChart.js";
+import { buildViewToggle } from "../components/viewToggle.js";
 import {
   compareMetrics,
   compareModels,
@@ -281,6 +286,24 @@ function renderComparePage({ model, models, fixedId }) {
     releaseGrid("differences");
   }
 
+  // How each of the two score sections is being read, and the charts drawn where it is the
+  // plot. The plot leads, as it does in the widget the leaderboard and the models list
+  // mount — the question is which model is ahead and by how much, and a grid of "mean ±
+  // sem" answers that slowly.
+  let views = { breakdown: "plot", differences: "plot" };
+  let charts = { breakdown: [], differences: [] };
+
+  // Chart.js keeps the same kind of registry Tabulator does, so an instance whose container
+  // is about to be rewritten has to be told or it outlives the render.
+  function releaseCharts(name) {
+    charts[name].forEach(chart => chart?.destroy?.());
+    charts[name] = [];
+  }
+
+  function releaseAllCharts() {
+    for (const name of Object.keys(charts)) releaseCharts(name);
+  }
+
   // What the last fetch produced, so changing the metric or the baseline can redraw without
   // going back to the API — the scores are already here, only the arithmetic over them
   // changes.
@@ -382,9 +405,13 @@ function renderComparePage({ model, models, fixedId }) {
       writeSelection(state);
 
       // Filtered in place, not rebuilt: the grids are already mounted with these rows, and
-      // rebuilding them would throw away whatever column the reader had sorted by.
-      applyMetricFilter(grids.breakdown, state.metric);
-      applyMetricFilter(grids.differences, state.metric);
+      // rebuilding them would throw away whatever column the reader had sorted by. A plot
+      // has no rows to filter — its panels *are* the metrics — so it is drawn again.
+      if (views.breakdown === "plot") renderBreakdown();
+      else applyMetricFilter(grids.breakdown, state.metric);
+
+      if (views.differences === "plot") renderDifferences();
+      else applyMetricFilter(grids.differences, state.metric);
 
       renderOverview();
     });
@@ -404,20 +431,64 @@ function renderComparePage({ model, models, fixedId }) {
     });
   }
 
+  // Listeners go on the buttons rather than on the section, which survives the render that
+  // replaced them and would collect one listener per pass.
+  function attachViewToggle(container, section, redraw) {
+    for (const button of container.querySelectorAll(`[data-role='${section}-view']`)) {
+      button.addEventListener("click", () => {
+        if (button.dataset.view === views[section]) return;
+
+        views[section] = button.dataset.view;
+        redraw();
+      });
+    }
+  }
+
   function renderBreakdown() {
     const { entries, tasks } = results;
+    const container = sectionBody("breakdown");
 
     releaseGrid("breakdown");
+    releaseCharts("breakdown");
 
-    grids.breakdown = tasks.length
-      ? renderCompareTable({
-          container: sectionBody("breakdown"),
-          rows: toScoreRows(entries, tasks),
-          models: compareModels(entries),
-          metric: state.metric,
-          mode: "score",
-        })
-      : showNoComparison(sectionBody("breakdown"), "No scored tasks on this suite.");
+    if (!tasks.length) {
+      grids.breakdown = showNoComparison(container, "No scored tasks on this suite.");
+
+      return;
+    }
+
+    // The toggle above whichever view is open, and both rebuilt together: the buttons carry
+    // which one that is.
+    container.innerHTML =
+      buildViewToggle({ active: views.breakdown, role: "breakdown-view" }) +
+      `<div data-role="breakdown-body"></div>`;
+
+    refreshIcons();
+    attachViewToggle(container, "breakdown", renderBreakdown);
+
+    const body = container.querySelector("[data-role='breakdown-body']");
+
+    if (views.breakdown === "plot") {
+      // Faceted by metric rather than filtered to one, so the metric select narrows the
+      // plot by narrowing what it is drawn over. The grid does the same thing as a row
+      // filter, which is why only this path has to be told about it.
+      charts.breakdown = renderCompareCharts({
+        container: body,
+        entries,
+        tasks: tasksForMetric(tasks, state.metric),
+        charts: charts.breakdown,
+      });
+
+      return;
+    }
+
+    grids.breakdown = renderCompareTable({
+      container: body,
+      rows: toScoreRows(entries, tasks),
+      models: compareModels(entries),
+      metric: state.metric,
+      mode: "score",
+    });
   }
 
   // The one section with a control of its own. The reference, the suite, the models and the
@@ -430,11 +501,14 @@ function renderComparePage({ model, models, fixedId }) {
     // and the grid sit flush against each other.
     return `
       <div class="column gap-md">
-        <div class="row left gap-md">
-          <span class="metadata">Difference from</span>
-          <span class="inline-select">${buildSelect("baseline", options, state.baseline)}</span>
+        <div class="row">
+          <div class="row left gap-md">
+            <span class="metadata">Difference from</span>
+            <span class="inline-select">${buildSelect("baseline", options, state.baseline)}</span>
+          </div>
+          ${buildViewToggle({ active: views.differences, role: "differences-view" })}
         </div>
-        <div data-role="diff-grid"></div>
+        <div data-role="diff-body"></div>
       </div>
     `;
   }
@@ -444,6 +518,7 @@ function renderComparePage({ model, models, fixedId }) {
     const container = sectionBody("differences");
 
     releaseGrid("differences");
+    releaseCharts("differences");
 
     // A baseline named in the URL, or left over from a model that has since been unticked,
     // falls back to the reference — the only model guaranteed to be in every comparison.
@@ -461,6 +536,9 @@ function renderComparePage({ model, models, fixedId }) {
 
     container.innerHTML = buildBaselineBar(entries);
 
+    refreshIcons();
+    attachViewToggle(container, "differences", renderDifferences);
+
     container.querySelector("[data-role='baseline']").addEventListener("change", event => {
       state.baseline = event.target.value;
       writeSelection(state);
@@ -470,8 +548,22 @@ function renderComparePage({ model, models, fixedId }) {
       renderDifferences();
     });
 
+    const body = container.querySelector("[data-role='diff-body']");
+
+    if (views.differences === "plot") {
+      charts.differences = renderDiffCharts({
+        container: body,
+        entries,
+        tasks: tasksForMetric(tasks, state.metric),
+        baselineId: state.baseline,
+        charts: charts.differences,
+      });
+
+      return;
+    }
+
     grids.differences = renderCompareTable({
-      container: container.querySelector("[data-role='diff-grid']"),
+      container: body,
       rows: toDiffRows(entries, tasks, state.baseline),
       models: compareModels(entries, { exclude: state.baseline }),
       metric: state.metric,
@@ -483,6 +575,7 @@ function renderComparePage({ model, models, fixedId }) {
     const token = ++latestRender;
 
     releaseGrids();
+    releaseAllCharts();
 
     for (const id of RESULT_SECTIONS) {
       showMessage(sectionBody(id), "Loading scores…");
@@ -539,6 +632,7 @@ function renderComparePage({ model, models, fixedId }) {
   // nothing to say, so they are hidden rather than left standing empty under their titles.
   function renderIntro(message) {
     releaseGrids();
+    releaseAllCharts();
 
     showSections([...CONTROL_SECTIONS, ...RESULT_SECTIONS], false);
     showSections(["intro"], true);

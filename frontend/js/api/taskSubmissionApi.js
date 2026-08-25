@@ -16,6 +16,13 @@ async function updateTaskSubmissions(submissionId, taskSubmissionIds, updates) {
   });
 }
 
+// The methodology fields are only on the detail response — a task submission embedded in
+// a model or a submission carries its id, task and score and nothing else. Fetched per
+// selection rather than widening every listing that nests tasks.
+async function loadTaskSubmission(submissionId, taskSubmissionId) {
+  return await apiFetch(`/api/submissions/${submissionId}/tasks/${taskSubmissionId}`);
+}
+
 async function getMyTaskSubmissions() {
   return await apiFetch("/api/users/me/task-submissions");
 }
@@ -25,6 +32,7 @@ async function getMyTaskSubmissions() {
 
 
 export {
+  loadTaskSubmission,
   updateTaskSubmissions,
   getMyTaskSubmissions
 };

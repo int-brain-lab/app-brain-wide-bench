@@ -125,13 +125,14 @@ function getModelControls(rows) {
  * @param showMine  mark the rows on the viewer's own teams — see getModelColumns.
  * @returns the Tabulator instance.
  */
-function renderModelsTable({ container, models, showMine = false }) {
+function renderModelsTable({ container, models, showMine = false, selection }) {
   const rows = toModelRows(models);
 
   return createFilterableTable({
     container,
     rows,
     columns: getModelColumns({ showMine }),
+    selection,
     controls: getModelControls(rows),
     noun: "model",
     initialSort: [

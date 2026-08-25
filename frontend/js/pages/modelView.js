@@ -8,8 +8,7 @@ import { sortSuites } from "../tables/formatters.js";
 import { buildDisplayFields } from "../forms/fields.js";
 import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
 import { loadModelFields, loadModelMeta, MODEL_PANELS } from "../schemas/modelSchema.js";
-import { loadModel, updateModel } from "../api/modelApi.js";
-import { buildSuiteScoreBars } from "../components/bars.js";
+import { getModelRanking, loadModel, updateModel } from "../api/modelApi.js";
 import {
   renderStaticSubmissionsTable,
   renderSubmissionsTable,
@@ -20,7 +19,10 @@ import {
   scoresBySuite,
 } from "../core/scoreData.js";
 import { appendCreateCard } from "../cards/createCard.js";
-import { renderTaskScoresTable, toScoreRows } from "../tables/scoreTable.js";
+import { buildRankCard } from "../cards/rankCard.js";
+import { markRankedRows } from "../core/rankData.js";
+import { renderStaticTaskScoresTable, toScoreRows } from "../tables/scoreTable.js";
+import { renderTaskScoreExplorer } from "../widgets/taskScoreExplorer.js";
 import { loadRecordPage } from "../templates/record-loader.js";
 import {
   buildBody,
@@ -43,19 +45,16 @@ import { buildStatCards } from "../cards/statCards.js";
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
 const MAX_SUBMISSIONS = 3;
-
-// TODO: Replace with ranks calculated from the leaderboard.
-const RANKS = {
-  ts1: 1,
-  ts2: 3,
-  ts3: 8,
-  overall: 3,
-};
+const MAX_SCORES = 5;
 
 const DASHBOARD_SECTIONS = [
   {
+    id: "ranking",
+    title: "Best Rank",
+  },
+  {
     id: "scores",
-    title: "Task Suites",
+    title: "Task scores",
     // view: "scores",
     // linkIcon: getIcon("model"),
     // linkText: "View task scores",
@@ -153,6 +152,7 @@ function getCompareAction(model) {
     href: `/html/models/compare.html?id=${encodeURIComponent(model.id)}`,
     label: "Compare",
     icon: getIcon("compare"),
+    className: "primary",
   };
 }
 
@@ -171,18 +171,46 @@ function renderStatsSection(statistics) {
   sectionBody("stats").innerHTML = buildStatCards(statistics);
 }
 
-function renderScoresSection(meanScores) {
-  sectionBody("scores").innerHTML = buildSuiteScoreBars(
-    meanScores,
-    RANKS,
-  );
+// Above the suite bars rather than beside the counts: it is the same question they answer
+// — how is this model doing — at the coarsest grain, and the bars underneath break it down.
+//
+// The submit link only for a member: a suite this model has never entered is an invitation
+// to its own team and a dead end for anyone else.
+function renderRankingSection(ranking, model, canEdit) {
+  sectionBody("ranking").innerHTML = buildRankCard(ranking, {
+    submitHref: canEdit ? getSubmissionLink(model).href : null,
+  });
+}
+
+// The same table the scores view draws, static and cut to a preview: the ranking beside it
+// answers "how does this model place", and this answers "on what" — which is a list of
+// tasks rather than a summary of suites.
+function renderScoresSection(submissions, ranking) {
+  const container = sectionBody("scores");
+  const rows = markRankedRows(toScoreRows(submissions), ranking);
+
+  if (!rows.length) {
+    showEmpty(container, "No scores yet.");
+    return;
+  }
+
+  renderStaticTaskScoresTable({
+    container,
+    rows,
+    // No Submission column: the preview shares its row with the ranking card, and the
+    // width is better spent on the task than on which run scored it. The full view, one
+    // click away in the footer, still says.
+    showSubmission: false,
+    showRanking: true,
+    limit: MAX_SCORES,
+    viewAll: { view: "scores" },
+  });
 }
 
 function renderDetailsSection(model, fields) {
-  const fieldColumns = [
-    ["team_name", "temporal_context_s"],
-    ["created_at", "link_code"],
-  ];
+  const fieldColumns = [[
+    "team_name", "link_code", "is_pretrained", "created_at",
+  ]];
 
   const columns = fieldColumns
     .map(
@@ -198,7 +226,7 @@ function renderDetailsSection(model, fields) {
     <div class="card corner-link">
       <!-- grid-2, not .row: .row is space-between, which pins the second column to the
            card's right edge instead of starting it at the halfway mark. -->
-      <div class="grid-2">
+      <div>
         ${columns}
       </div>
 
@@ -228,29 +256,55 @@ function renderSubmissionsSection(submissions) {
 // ─── VIEWS ───────────────────────────────────────────────────────────────────
 
 function renderDashboardView(context, router) {
-  const { model, fields, dashboardData, canEdit } = context;
+  const { model, fields, dashboardData, ranking, canEdit } = context;
   const { submissions, meanScores, taskCount } = dashboardData;
-  const statistics = getStatistics(
-    submissions,
-    meanScores,
-    taskCount,
-  );
+  const statistics = getStatistics(submissions, meanScores, taskCount);
+
+
+  const ROW1 = [
+      {
+    id: "ranking",
+    title: "Ranking",
+  },
+  {
+    id: "scores",
+    title: "Task scores",
+  },
+  ]
+  const row1 = `<div class="section-row">${buildSections(ROW1)}</div>`
+
+  const ROW2 = [
+    {
+    id: "details",
+    title: "Model details",
+  },
+  {
+    id: "submissions",
+    title: "Recent submissions",
+  },
+  ]
+
+  console.log(ROW2)
+  const row2 = `<div class="section-row uneven">${buildSections(ROW2)}</div>`
+
+
 
   renderPage(
     buildPage({
       header: buildHeader(
         canEdit
-          ? [getCompareAction(model), getCreateAction(model), EDIT_ACTION]
+          ? [[getCompareAction(model)], [EDIT_ACTION, getCreateAction(model)]]
           : [getCompareAction(model)],
       ),
-      body: buildStats() + buildSections(DASHBOARD_SECTIONS),
+      body: buildStats() + buildSections(ROW1) + row2,
     }),
   );
 
   renderHeader(model.name, getSubtitle(model), getBadges(model));
 
   renderStatsSection(statistics);
-  renderScoresSection(meanScores);
+  renderRankingSection(ranking, model, canEdit);
+  renderScoresSection(submissions, ranking);
   renderDetailsSection(model, fields);
   renderSubmissionsSection(submissions);
 
@@ -313,7 +367,7 @@ function renderSubmissionsView({ model }) {
   });
 }
 
-function renderScoresView({ model }) {
+function renderScoresView({ model, ranking }) {
   renderPage(
     buildPage({
       back: BACK,
@@ -324,11 +378,11 @@ function renderScoresView({ model }) {
 
   renderHeader(model.name, getSubtitle(model));
 
-  return renderTaskScoresTable({
+  return renderTaskScoreExplorer({
     container: sectionBody("body"),
-    rows: toScoreRows(model.submissions ?? []),
+    rows: markRankedRows(toScoreRows(model.submissions ?? []), ranking),
     showModel: false,
-    showSubmission: true,
+    showRanking: true,
   });
 }
 
@@ -350,13 +404,16 @@ loadRecordPage({
   requiresAuth: false,
 
   load: async (modelId, { signedIn }) => {
-    const [model, fields] = await Promise.all([
+    const [model, fields, ranking] = await Promise.all([
       loadModel(modelId),
       // loadModelFields fills the Team select from /api/users/me/teams, which a signed-out
       // reader can't fetch and doesn't need: a display row renders the stored value, not an
       // option's label. loadModelMeta is the rest of it — the help text, which the display
       // rows show too, from /api/meta, which is public.
       signedIn ? loadModelFields() : loadModelMeta(),
+      // Alongside the model rather than after it: it is a second read of the same record,
+      // and the dashboard draws both at once.
+      getModelRanking(modelId),
     ]);
     console.log(fields)
     if (!model) {
@@ -374,6 +431,7 @@ loadRecordPage({
       // this a signed-out visitor would be offered edit controls locally.
       canEdit: signedIn && model.is_mine === true,
       dashboardData: getDashboardData(model),
+      ranking,
     };
   },
 });
