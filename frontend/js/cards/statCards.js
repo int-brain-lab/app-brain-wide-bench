@@ -5,7 +5,6 @@
 
 import { escapeHtml } from "../core/utils.js";
 
-
 function buildStatCard([label, value, icon]) {
   return `
     <div class="stat-card gap-sm">
@@ -18,9 +17,7 @@ function buildStatCard([label, value, icon]) {
 }
 
 function buildStatCards(statistics) {
-  return statistics
-    .map(buildStatCard).join("");
+  return statistics.map(buildStatCard).join("");
 }
-
 
 export { buildStatCards };

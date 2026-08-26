@@ -14,7 +14,6 @@ import { showEmpty } from "../core/utils.js";
 // window slides, so the current page is always in it.
 const MAX_PAGE_BUTTONS = 5;
 
-
 // ─── PAGER ──────────────────────────────────────────────────────────────────
 
 // The window of page numbers around the current page, clamped to both ends so a page near
@@ -29,7 +28,11 @@ function pageWindow(page, pageCount) {
   return Array.from({ length: span }, (_, offset) => first + offset);
 }
 
-function buildPageButton(label, page, { active = false, disabled = false } = {}) {
+function buildPageButton(
+  label,
+  page,
+  { active = false, disabled = false } = {},
+) {
   return `
     <button
       type="button"
@@ -49,13 +52,15 @@ function buildPager(page, pageCount) {
   return `
     <div class="row right gap-xs" data-role="pager">
       ${buildPageButton("‹", page - 1, { disabled: page === 1 })}
-      ${pageWindow(page, pageCount).map(number =>
-        buildPageButton(number, number, { active: number === page })).join("")}
+      ${pageWindow(page, pageCount)
+        .map((number) =>
+          buildPageButton(number, number, { active: number === page }),
+        )
+        .join("")}
       ${buildPageButton("›", page + 1, { disabled: page === pageCount })}
     </div>
   `;
 }
-
 
 // ─── GRID ───────────────────────────────────────────────────────────────────
 
@@ -121,7 +126,7 @@ function renderCardGrid({
   pageSize = 8,
   onPage,
   selection = null,
-  keyOf = row => row.id,
+  keyOf = (row) => row.id,
 }) {
   container.className = "column gap-md";
   container.replaceChildren();
@@ -159,14 +164,16 @@ function renderCardGrid({
   // Both listeners go on elements this render just created, not on `container` — which is
   // the same element every time and would collect a handler per render, each closed over the
   // rows and the page it was drawn with.
-  container.querySelector("[data-role='pager']")?.addEventListener("click", event => {
-    const button = event.target.closest("[data-page]");
+  container
+    .querySelector("[data-role='pager']")
+    ?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-page]");
 
-    if (button) onPage?.(Number(button.dataset.page));
-  });
+      if (button) onPage?.(Number(button.dataset.page));
+    });
 
   if (selection) {
-    grid.addEventListener("click", event => {
+    grid.addEventListener("click", (event) => {
       const card = event.target.closest(".card[data-key]");
       if (!card) return;
 
@@ -179,7 +186,8 @@ function renderCardGrid({
 
       // Refused rather than swapped: silently dropping someone's first pick to make room for
       // their sixth is worse than doing nothing.
-      if (!selection.keys.has(key) && selection.keys.size >= selection.max) return;
+      if (!selection.keys.has(key) && selection.keys.size >= selection.max)
+        return;
 
       selection.onToggle(key);
     });
@@ -189,6 +197,5 @@ function renderCardGrid({
 
   return current;
 }
-
 
 export { markCardSelection, renderCardGrid };

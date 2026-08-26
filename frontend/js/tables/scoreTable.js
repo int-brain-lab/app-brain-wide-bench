@@ -23,7 +23,6 @@ import {
   taskSuiteFormatter,
 } from "./formatters.js";
 
-
 // ─── ROWS ───────────────────────────────────────────────────────────────────
 
 // A task submission read through GET /api/users/me/task-submissions already names the
@@ -31,8 +30,8 @@ import {
 // detail is nested inside that context instead. Lifting the nested shape into the flat one
 // leaves a single row builder for both.
 function flattenSubmissions(submissions) {
-  return submissions.flatMap(submission =>
-    (submission.task_submissions ?? []).map(taskSubmission => ({
+  return submissions.flatMap((submission) =>
+    (submission.task_submissions ?? []).map((taskSubmission) => ({
       ...taskSubmission,
       submission_id: submission.id,
       submission_name: submission.label,
@@ -40,7 +39,7 @@ function flattenSubmissions(submissions) {
       // models attaches them itself before calling in.
       model_id: submission.model_id,
       model_name: submission.model_name,
-    }))
+    })),
   );
 }
 
@@ -73,7 +72,6 @@ function toScoreResultRows(results) {
   return (results ?? []).map(toScoreRow);
 }
 
-
 // ─── COLUMNS ────────────────────────────────────────────────────────────────
 
 // `showSubmission` off drops the Submission column, for a caller already scoped to one
@@ -89,34 +87,48 @@ function getScoreColumns({
   showTaskLink = true,
 } = {}) {
   const modelColumn = showModel
-    ? [{
-        title: "Model",
-        field: "model_name",
-        formatter: linkFormatter("/html/models/models.html", "model_name", "model_id"),
-        widthGrow: 2,
-      }]
+    ? [
+        {
+          title: "Model",
+          field: "model_name",
+          formatter: linkFormatter(
+            "/html/models/models.html",
+            "model_name",
+            "model_id",
+          ),
+          widthGrow: 2,
+        },
+      ]
     : [];
 
   const submissionColumn = showSubmission
-    ? [{
-        title: "Submission",
-        field: "submission_label",
-        formatter: linkFormatter("/html/submissions/submissions.html", "submission_label", "submission_id"),
-        widthGrow: 2,
-      }]
+    ? [
+        {
+          title: "Submission",
+          field: "submission_label",
+          formatter: linkFormatter(
+            "/html/submissions/submissions.html",
+            "submission_label",
+            "submission_id",
+          ),
+          widthGrow: 2,
+        },
+      ]
     : [];
 
   // Last: it is provenance for the score to its left rather than a fact about the task.
   // Unsorted, because the order it would impose — carrying both, one, neither — is the one
   // the reader is already scanning for.
   const rankingColumn = showRanking
-    ? [{
-        title: "Used in ranking",
-        field: "ranked",
-        formatter: rankedFormatter,
-        headerSort: false,
-        width: 170,
-      }]
+    ? [
+        {
+          title: "Used in ranking",
+          field: "ranked",
+          formatter: rankedFormatter,
+          headerSort: false,
+          width: 170,
+        },
+      ]
     : [];
 
   return [
@@ -133,7 +145,9 @@ function getScoreColumns({
       // stays a field on the row either way, which is what the select above filters on.
       title: "Task",
       field: "task_name",
-      formatter: taskSuiteFormatter(showTaskLink ? taskScoreLinkFormatter : taskNameFormatter),
+      formatter: taskSuiteFormatter(
+        showTaskLink ? taskScoreLinkFormatter : taskNameFormatter,
+      ),
       widthGrow: 2,
     },
     ...modelColumn,
@@ -156,32 +170,38 @@ function getScoreColumns({
   ];
 }
 
-
 // ─── CONTROLS ───────────────────────────────────────────────────────────────
 
 // `suite` is a single value per row here, not the array the submission and model tables
 // carry, so it matches with matchEquals rather than matchInArray. It and `metric` are
 // filters without columns: both moved into other cells as badges, and a filter on a field
 // the reader can see is still a filter on something visible.
-function getScoreControls(rows, { showSubmission = true, showModel = false } = {}) {
+function getScoreControls(
+  rows,
+  { showSubmission = true, showModel = false } = {},
+) {
   const modelControl = showModel
-    ? [{
-        type: "select",
-        name: "model_name",
-        placeholder: "All models",
-        options: optionsFromRows(rows, "model_name"),
-        match: matchEquals("model_name"),
-      }]
+    ? [
+        {
+          type: "select",
+          name: "model_name",
+          placeholder: "All models",
+          options: optionsFromRows(rows, "model_name"),
+          match: matchEquals("model_name"),
+        },
+      ]
     : [];
 
   const submissionControl = showSubmission
-    ? [{
-        type: "select",
-        name: "submission_label",
-        placeholder: "All submissions",
-        options: optionsFromRows(rows, "submission_label"),
-        match: matchEquals("submission_label"),
-      }]
+    ? [
+        {
+          type: "select",
+          name: "submission_label",
+          placeholder: "All submissions",
+          options: optionsFromRows(rows, "submission_label"),
+          match: matchEquals("submission_label"),
+        },
+      ]
     : [];
 
   return [
@@ -213,7 +233,6 @@ function getScoreControls(rows, { showSubmission = true, showModel = false } = {
     ...submissionControl,
   ];
 }
-
 
 // ─── TABLE ──────────────────────────────────────────────────────────────────
 
@@ -254,7 +273,6 @@ function renderTaskScoresTable({
   });
 }
 
-
 // ─── STATIC TABLE ───────────────────────────────────────────────────────────
 
 /**
@@ -280,19 +298,23 @@ function renderStaticTaskScoresTable({
   limit,
   viewAll,
 }) {
-  const shown = previewRows(rows, (a, b) => numericSorter(b.mean_score, a.mean_score), limit);
+  const shown = previewRows(
+    rows,
+    (a, b) => numericSorter(b.mean_score, a.mean_score),
+    limit,
+  );
 
-  resolveContainer(container, "renderStaticTaskScoresTable").innerHTML = renderStaticTable({
-    columns: getScoreColumns({ showSubmission, showModel, showRanking }),
-    rows: shown,
-    noun: "task",
-    total: rows.length,
-    viewAll,
-  });
+  resolveContainer(container, "renderStaticTaskScoresTable").innerHTML =
+    renderStaticTable({
+      columns: getScoreColumns({ showSubmission, showModel, showRanking }),
+      rows: shown,
+      noun: "task",
+      total: rows.length,
+      viewAll,
+    });
 
   return rows;
 }
-
 
 export {
   renderTaskScoresTable,

@@ -27,7 +27,7 @@ function loadRecordPage({
   return loadPage({
     ...page,
 
-    render: context =>
+    render: (context) =>
       createRecordRouter({
         views,
         context,
@@ -38,6 +38,5 @@ function loadRecordPage({
       }).start(),
   });
 }
-
 
 export { loadRecordPage };

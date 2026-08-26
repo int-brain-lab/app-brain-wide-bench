@@ -1,39 +1,36 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Brain-Wide Bench - Teams</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css"
+    />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Brain-Wide Bench - Teams</title>
-  <link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css">
-  <link rel="stylesheet" href="/css/style.css">
-</head>
-
-<body data-scope="all">
-
+  <body data-scope="all">
     <!-- Every team, which anyone may see: `data-scope` is what tells teamList.js to list
          them all rather than the viewer's own. The markup is the public shell — what a
          visitor should see, painted before any script runs — and shell.js swaps in the
          sidebar for a signed-in reader. -->
     <div class="main">
-
       <nav class="nav" id="top-nav"></nav>
 
       <aside class="sidebar" id="side-nav" hidden></aside>
 
       <div class="content">
-
         <div id="container"></div>
-
       </div>
     </div>
 
-  <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
-  <script type="module" src="/js/nav/navTop.js"></script>
-  <script type="module" src="/js/nav/navSide.js"></script>
-  <script type="module" src="/js/pages/teamList.js"></script>
-
-</body>
+    <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
+    <script type="module" src="/js/nav/navTop.js"></script>
+    <script type="module" src="/js/nav/navSide.js"></script>
+    <script type="module" src="/js/pages/teamList.js"></script>
+  </body>
 </html>

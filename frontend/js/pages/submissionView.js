@@ -8,8 +8,15 @@ import {
   buildVisibleBadge,
 } from "../components/badges.js";
 import { buildDisplayFields } from "../forms/fields.js";
-import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
-import { loadSubmissionFields, loadSubmissionMeta, SUBMISSION_PANELS } from "../schemas/submissionSchema.js";
+import {
+  attachEditLink,
+  attachRecordEditor,
+} from "../templates/record-editor.js";
+import {
+  loadSubmissionFields,
+  loadSubmissionMeta,
+  SUBMISSION_PANELS,
+} from "../schemas/submissionSchema.js";
 import { loadSubmission, updateSubmission } from "../api/submissionApi.js";
 import {
   renderStaticTaskSubmissionsTable,
@@ -82,7 +89,6 @@ const BACK = {
   view: "dashboard",
 };
 
-
 // ─── DATA ────────────────────────────────────────────────────────────────────
 
 function getStatistics(submission, taskSubmissions) {
@@ -90,7 +96,11 @@ function getStatistics(submission, taskSubmissions) {
     ["tasks", taskSubmissions.length, getIcon("task")],
     ["task suites", suitesFromSubmission(submission).length, getIcon("suite")],
     // TODO PLACEHOLDER FOR NOW
-    ["scored suites", suitesFromSubmission(submission).length, getIcon("score")],
+    [
+      "scored suites",
+      suitesFromSubmission(submission).length,
+      getIcon("score"),
+    ],
   ];
 }
 
@@ -117,11 +127,14 @@ function getSubtitle(submission) {
   return [
     { text: submission.model_name, icon: getIcon("model") },
     { text: submission.team_name, icon: getIcon("team") },
-    { text: submission.created_at ? `Created ${formatDate(submission.created_at)}` : null, icon: getIcon("created") },
-  ].filter(entry => entry.text);
-
+    {
+      text: submission.created_at
+        ? `Created ${formatDate(submission.created_at)}`
+        : null,
+      icon: getIcon("created"),
+    },
+  ].filter((entry) => entry.text);
 }
-
 
 // ─── DASHBOARD SECTIONS ──────────────────────────────────────────────────────
 
@@ -148,12 +161,12 @@ function renderScoresSection(submission) {
 }
 
 function renderDetailsSection(submission, fields) {
-  const keys = SUMMARY_KEYS.filter(key => key in fields);
+  const keys = SUMMARY_KEYS.filter((key) => key in fields);
   const midpoint = Math.ceil(keys.length / 2);
 
   const columns = [keys.slice(0, midpoint), keys.slice(midpoint)]
     .map(
-      fieldNames => `
+      (fieldNames) => `
         <span class="column gap-md">
           ${buildDisplayFields(fieldNames, submission, fields)}
         </span>
@@ -205,7 +218,11 @@ function renderDashboardView(context, router) {
     }),
   );
 
-  renderHeader(submission.label, getSubtitle(submission), getBadges(submission));
+  renderHeader(
+    submission.label,
+    getSubtitle(submission),
+    getBadges(submission),
+  );
 
   renderStatsSection(getStatistics(submission, taskSubmissions));
   renderScoresSection(submission);
@@ -216,7 +233,13 @@ function renderDashboardView(context, router) {
   if (canEdit) attachEditLink(router);
 }
 
-function renderDetailsView({ submission, fields, canEdit, edit = false, created = false }) {
+function renderDetailsView({
+  submission,
+  fields,
+  canEdit,
+  edit = false,
+  created = false,
+}) {
   renderPage(
     buildPage({
       back: BACK,
@@ -240,8 +263,8 @@ function renderDetailsView({ submission, fields, canEdit, edit = false, created 
     record: submission,
     fields,
     panels: SUBMISSION_PANELS,
-    save: draft => updateSubmission(submission.id, draft),
-    renderTitle: saved => renderHeader(saved.label, getSubtitle(saved)),
+    save: (draft) => updateSubmission(submission.id, draft),
+    renderTitle: (saved) => renderHeader(saved.label, getSubtitle(saved)),
     edit,
   });
 }

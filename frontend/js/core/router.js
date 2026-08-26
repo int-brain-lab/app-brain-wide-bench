@@ -53,7 +53,9 @@ function createRecordRouter({
     const current = new URLSearchParams(location.search);
 
     return Object.fromEntries(
-      viewParams.filter(param => current.has(param)).map(param => [param, current.get(param)]),
+      viewParams
+        .filter((param) => current.has(param))
+        .map((param) => [param, current.get(param)]),
     );
   }
 
@@ -63,7 +65,10 @@ function createRecordRouter({
     // Optional call, not a bare one: `.destroy()` comes from Tabulator 6 docs and has never
     // been run here. A wrong name should leak, not throw and kill navigation.
     if (typeof mounted.destroy !== "function") {
-      console.warn("Record view returned a handle with no destroy(); it will leak.", mounted);
+      console.warn(
+        "Record view returned a handle with no destroy(); it will leak.",
+        mounted,
+      );
     }
 
     mounted.destroy?.();
@@ -96,7 +101,7 @@ function createRecordRouter({
 
   function attach() {
     // Attaches all items in the page that have a data-view attribute. The attribute's value is the view name to navigate to.
-    container.addEventListener("click", event => {
+    container.addEventListener("click", (event) => {
       const link = event.target.closest("[data-view]");
 
       // The `contains` check matters: private pages carry `<body data-view="private">`, so
@@ -116,8 +121,8 @@ function createRecordRouter({
       // `data-view="task"` — so a table cell can route without any domain glue.
       const extra = Object.fromEntries(
         viewParams
-          .filter(param => link.dataset[param] != null)
-          .map(param => [param, link.dataset[param]]),
+          .filter((param) => link.dataset[param] != null)
+          .map((param) => [param, link.dataset[param]]),
       );
 
       goTo(link.dataset.view, extra);
@@ -125,7 +130,9 @@ function createRecordRouter({
 
     // No pushState here — pushing on a popstate adds an entry per press and the page
     // becomes impossible to leave.
-    addEventListener("popstate", () => showView(viewFromUrl(), paramsFromUrl()));
+    addEventListener("popstate", () =>
+      showView(viewFromUrl(), paramsFromUrl()),
+    );
   }
 
   // Read once at boot and deleted from the URL, so a flag can't ride along to a later view
@@ -161,6 +168,5 @@ function createRecordRouter({
 
   return router;
 }
-
 
 export { createRecordRouter };

@@ -42,11 +42,10 @@ async function getModelRanking(modelId) {
 }
 
 async function updateModel(modelId, patch) {
-
   return await apiFetch(`/api/models/${modelId}`, {
-      method: "PATCH",
-      body: JSON.stringify(buildModelPayload(patch)),
-    });
+    method: "PATCH",
+    body: JSON.stringify(buildModelPayload(patch)),
+  });
 }
 
 async function createModel(state) {
@@ -62,4 +61,5 @@ export {
   getModelRanking,
   loadModel,
   updateModel,
-  createModel };
+  createModel,
+};

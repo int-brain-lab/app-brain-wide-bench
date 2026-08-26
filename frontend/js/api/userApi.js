@@ -2,7 +2,7 @@ import { apiFetch } from "./client.js";
 
 // ─── PAYLOADS ────────────────────────────────────────────────────────────────
 function buildUserPayload(state) {
-    return {
+  return {
     ...state,
     label: state.username?.label?.trim(),
   };
@@ -11,7 +11,7 @@ function buildUserPayload(state) {
 // ─── API ────────────────────────────────────────────────────────────────────
 
 async function loadMe() {
-    return await apiFetch("/api/users/me");
+  return await apiFetch("/api/users/me");
 }
 
 async function updateMe(patch) {
@@ -20,7 +20,6 @@ async function updateMe(patch) {
     body: JSON.stringify(buildUserPayload(patch)),
   });
 }
-
 
 // Find a user by their exact email, for the member picker. Exact and email-only by
 // design: a substring lookup would let any signed-in user walk the directory, and
@@ -40,6 +39,5 @@ async function searchUsers(query, limit = 10) {
     return [];
   }
 }
-
 
 export { loadMe, updateMe, searchUsers };

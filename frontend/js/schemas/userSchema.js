@@ -47,7 +47,6 @@ const USER_FIELDS = {
   },
 };
 
-
 // The panel split is the editable/not split: panel 1 is what PATCH /api/users/me accepts,
 // panel 2 is what the sign-in provider supplies. Naming that in the layout saves the page
 // explaining per row why four of the six have no input.

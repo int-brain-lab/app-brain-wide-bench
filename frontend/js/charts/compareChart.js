@@ -28,7 +28,6 @@ import { seriesStyle } from "./palette.js";
 import { renderFacetPlots } from "./facetPlot.js";
 import { suiteFromTask } from "../core/suites.js";
 
-
 // Every task on screen carries the suite the comparison is scoped to — "ts1-choice",
 // "ts1-licking_rate" — so the axis shows the part that differs. The tooltip still names the
 // task in full, which is where the key rather than the label is read.
@@ -57,33 +56,37 @@ function metricOf(task) {
 function toSeries(entries, tasks, { axisTitle, valueOf, skip = null }) {
   const metrics = [...new Set(tasks.map(metricOf))];
 
-  return metrics.flatMap(metric => {
-    const taskIds = tasks.filter(task => metricOf(task) === metric).map(task => task.taskId);
+  return metrics.flatMap((metric) => {
+    const taskIds = tasks
+      .filter((task) => metricOf(task) === metric)
+      .map((task) => task.taskId);
 
-    return entries
-      // Colour and shape by the model's position, which toCompareEntries has already put in
-      // the order the grid's columns use — so a model is the same mark in every panel, in
-      // both charts, and the same column throughout.
-      .map((entry, index) => ({ entry, style: seriesStyle(index) }))
-      .filter(({ entry }) => entry.modelId !== skip)
-      .map(({ entry, style }) => ({
-        ...style,
-        label: entry.modelName,
-        metric: axisTitle(metric),
-        group: metric,
-        points: taskIds.map(taskId => {
-          const value = valueOf(entry, taskId);
+    return (
+      entries
+        // Colour and shape by the model's position, which toCompareEntries has already put in
+        // the order the grid's columns use — so a model is the same mark in every panel, in
+        // both charts, and the same column throughout.
+        .map((entry, index) => ({ entry, style: seriesStyle(index) }))
+        .filter(({ entry }) => entry.modelId !== skip)
+        .map(({ entry, style }) => ({
+          ...style,
+          label: entry.modelName,
+          metric: axisTitle(metric),
+          group: metric,
+          points: taskIds.map((taskId) => {
+            const value = valueOf(entry, taskId);
 
-          return {
-            key: taskId,
-            label: taskLabel(taskId),
-            // Nothing to show is a gap rather than a zero, exactly as the grids leave the
-            // cell "—" rather than printing a number they don't have.
-            mean: value?.mean ?? null,
-            sem: value?.sem ?? null,
-          };
-        }),
-      }));
+            return {
+              key: taskId,
+              label: taskLabel(taskId),
+              // Nothing to show is a gap rather than a zero, exactly as the grids leave the
+              // cell "—" rather than printing a number they don't have.
+              mean: value?.mean ?? null,
+              sem: value?.sem ?? null,
+            };
+          }),
+        }))
+    );
   });
 }
 
@@ -115,7 +118,7 @@ function renderCompareCharts({ container, entries, tasks, charts = [] }) {
     ...PLOT,
     container,
     entries: toSeries(entries, tasks, {
-      axisTitle: metric => metric,
+      axisTitle: (metric) => metric,
       valueOf: (entry, taskId) => entry.tasks[taskId] ?? null,
     }),
     charts,
@@ -135,15 +138,21 @@ function renderCompareCharts({ container, entries, tasks, charts = [] }) {
  * @param baselineId the model everything is measured against, which gets no series of its
  *                   own: it would be a row of zeros.
  */
-function renderDiffCharts({ container, entries, tasks, baselineId, charts = [] }) {
-  const baseline = entries.find(entry => entry.modelId === baselineId);
+function renderDiffCharts({
+  container,
+  entries,
+  tasks,
+  baselineId,
+  charts = [],
+}) {
+  const baseline = entries.find((entry) => entry.modelId === baselineId);
 
   return renderFacetPlots({
     ...PLOT,
     container,
     entries: baseline
       ? toSeries(entries, tasks, {
-          axisTitle: metric => `Δ ${metric}`,
+          axisTitle: (metric) => `Δ ${metric}`,
           skip: baselineId,
           valueOf: (entry, taskId) => {
             const other = entry.tasks[taskId];
@@ -152,7 +161,9 @@ function renderDiffCharts({ container, entries, tasks, baselineId, charts = [] }
             // A task only one of the two scored has no difference to state — the same rule
             // toDiffRows applies, and for the same reason: a number in one grid and "—" in
             // the other would read as a gap of exactly that size.
-            return other && against ? { mean: other.mean - against.mean, sem: null } : null;
+            return other && against
+              ? { mean: other.mean - against.mean, sem: null }
+              : null;
           },
         })
       : [],
@@ -160,6 +171,5 @@ function renderDiffCharts({ container, entries, tasks, baselineId, charts = [] }
     caller: "renderDiffCharts",
   });
 }
-
 
 export { renderCompareCharts, renderDiffCharts };

@@ -22,7 +22,6 @@ function optionsFor(field, meta) {
   }));
 }
 
-
 /**
  * Fill `fields` from the meta document, in place.
  *
@@ -40,7 +39,7 @@ function optionsFor(field, meta) {
  *                "task_submission". Omitted for a schema the API has no descriptions for.
  */
 function applyFieldMeta(fields, meta, record) {
-  const descriptions = record ? meta.fields[record] ?? {} : {};
+  const descriptions = record ? (meta.fields[record] ?? {}) : {};
 
   for (const [key, field] of Object.entries(fields)) {
     // `??=` so a schema may still spell out its own options — `is_pretrained` is [true,
@@ -56,6 +55,5 @@ function applyFieldMeta(fields, meta, record) {
 
   return fields;
 }
-
 
 export { applyFieldMeta };

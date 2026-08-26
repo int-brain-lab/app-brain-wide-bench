@@ -22,7 +22,6 @@ import {
   taskMetricFormatter,
 } from "./formatters.js";
 
-
 // ─── COLUMNS ────────────────────────────────────────────────────────────────
 
 // The model name over its team, with the page's own model badged so it can be picked out of
@@ -36,7 +35,9 @@ import {
 // Tabulator inserts this as HTML, and model and team names are user-supplied, so both are
 // escaped.
 function modelHeader({ modelName, teamName, isSelected }) {
-  const badge = isSelected ? `<span class="badge sm neutral">This model</span>` : "";
+  const badge = isSelected
+    ? `<span class="badge sm neutral">This model</span>`
+    : "";
 
   return `
     <span class="column gap-xs right">
@@ -66,7 +67,7 @@ function getCompareColumns(models, { formatter, sorter }) {
       // window still overflow the minWidths below and scroll.
       frozen: true,
     },
-    ...models.map(model => ({
+    ...models.map((model) => ({
       title: modelHeader(model),
       // The header is markup, so Tabulator has to be told not to escape it.
       titleFormatter: "html",
@@ -87,7 +88,6 @@ function getCompareColumns(models, { formatter, sorter }) {
   ];
 }
 
-
 // ─── TABLE ──────────────────────────────────────────────────────────────────
 
 /**
@@ -99,10 +99,17 @@ function getCompareColumns(models, { formatter, sorter }) {
  * @param mode      "score" for mean ± sem cells, "diff" for signed differences.
  * @returns the Tabulator instance, so the page can destroy it on the next render.
  */
-function renderCompareTable({ container, rows, models, metric = "", mode = "score" }) {
-  const cells = mode === "diff"
-    ? { formatter: diffFormatter, sorter: diffSorter }
-    : { formatter: meanSemFormatter, sorter: compareScoreSorter };
+function renderCompareTable({
+  container,
+  rows,
+  models,
+  metric = "",
+  mode = "score",
+}) {
+  const cells =
+    mode === "diff"
+      ? { formatter: diffFormatter, sorter: diffSorter }
+      : { formatter: meanSemFormatter, sorter: compareScoreSorter };
 
   return createFilterableTable({
     container,
@@ -117,7 +124,9 @@ function renderCompareTable({ container, rows, models, metric = "", mode = "scor
     // squeeze past readability, once the minimums no longer fit.
     layout: "fitColumns",
 
-    ...(metric ? { initialFilter: [{ field: "metric", type: "=", value: metric }] } : {}),
+    ...(metric
+      ? { initialFilter: [{ field: "metric", type: "=", value: metric }] }
+      : {}),
 
     // A suite is a dozen tasks at most, so a pager would only ever show "1".
     paginationSize: rows.length + 1,
@@ -153,9 +162,4 @@ function showNoComparison(container, message) {
   return null;
 }
 
-
-export {
-  renderCompareTable,
-  applyMetricFilter,
-  showNoComparison,
-};
+export { renderCompareTable, applyMetricFilter, showNoComparison };

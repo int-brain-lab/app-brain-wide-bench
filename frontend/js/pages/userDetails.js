@@ -22,10 +22,6 @@ import {
   showPageError,
 } from "../templates/record-page.js";
 
-const DESCRIPTION =
-  "Your profile details. Name and affiliation are yours to change; the rest comes from "
-  + "your sign-in provider.";
-
 // ─── EDITOR ──────────────────────────────────────────────────────────────────
 
 function attachEditor(user) {
@@ -34,7 +30,7 @@ function attachEditor(user) {
     record: user,
     fields: USER_FIELDS,
     panels: USER_PANELS,
-    save: draft => updateMe(draft),
+    save: (draft) => updateMe(draft),
 
     onSaved: async () => {
       showSuccess(pageMessage(), "Details successfully saved.");

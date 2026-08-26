@@ -13,18 +13,19 @@
 
 import { escapeHtml } from "../core/utils.js";
 
-
 // A cell is a value to compare and, optionally, the markup to show instead of it — a
 // select, a badge. The value is what decides whether the column agrees, so a control still
 // counts as its current setting.
 function cellHtml(cell) {
   if (cell?.html) return cell.html;
 
-  return cell?.value == null || cell.value === "" ? "—" : escapeHtml(cell.value);
+  return cell?.value == null || cell.value === ""
+    ? "—"
+    : escapeHtml(cell.value);
 }
 
 function columnAgrees(key, rows) {
-  return new Set(rows.map(row => row.cells[key]?.value ?? "")).size <= 1;
+  return new Set(rows.map((row) => row.cells[key]?.value ?? "")).size <= 1;
 }
 
 /**
@@ -35,20 +36,34 @@ function columnAgrees(key, rows) {
  * @param className extra classes on the wrapper, for a caller with its own column widths.
  */
 function buildComparisonGrid({ columns, rows, className = "" }) {
-  const state = new Map(columns.map(column => [column.key, columnAgrees(column.key, rows) ? "agrees" : "differs"]));
+  const state = new Map(
+    columns.map((column) => [
+      column.key,
+      columnAgrees(column.key, rows) ? "agrees" : "differs",
+    ]),
+  );
 
   const headers = columns
-    .map(column => `<th scope="col" class="${state.get(column.key)}">${escapeHtml(column.label)}</th>`)
+    .map(
+      (column) =>
+        `<th scope="col" class="${state.get(column.key)}">${escapeHtml(column.label)}</th>`,
+    )
     .join("");
 
   const body = rows
-    .map(row => `
+    .map(
+      (row) => `
       <tr>
         <th scope="row">${row.header}</th>
-        ${columns.map(column => `
+        ${columns
+          .map(
+            (column) => `
           <td class="${state.get(column.key)}">${cellHtml(row.cells[column.key])}</td>
-        `).join("")}
-      </tr>`)
+        `,
+          )
+          .join("")}
+      </tr>`,
+    )
     .join("");
 
   return `
@@ -59,6 +74,5 @@ function buildComparisonGrid({ columns, rows, className = "" }) {
       </table>
     </div>`;
 }
-
 
 export { buildComparisonGrid };

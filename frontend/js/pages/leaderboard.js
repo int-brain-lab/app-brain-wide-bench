@@ -22,11 +22,20 @@ import { getLeaderboard } from "../api/leaderboardApi.js";
 import { getTasks } from "../api/taskApi.js";
 import { getMyTeams } from "../api/teamApi.js";
 import { renderLeaderboardTable } from "../tables/leaderboardTable.js";
-import { MAX_COMPARED, createTaskComparison } from "../widgets/taskComparison.js";
+import {
+  MAX_COMPARED,
+  createTaskComparison,
+} from "../widgets/taskComparison.js";
 import { createTaskBreakdown } from "../widgets/taskBreakdown.js";
 import { createModelComparison } from "../widgets/modelComparison.js";
 import { loadPage } from "../templates/page-loader.js";
-import { escapeHtml, refreshIcons, showEmpty, showFailure, showMessage } from "../core/utils.js";
+import {
+  escapeHtml,
+  refreshIcons,
+  showEmpty,
+  showFailure,
+  showMessage,
+} from "../core/utils.js";
 import { getIcon } from "../components/icons.js";
 import {
   buildBody,
@@ -38,11 +47,11 @@ import {
   sectionBody,
 } from "../templates/record-page.js";
 
-
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
 const TITLE = "Leaderboard";
-const DESCRIPTION = "Public, completed submissions scored against held-out test data.";
+const DESCRIPTION =
+  "Public, completed submissions scored against held-out test data.";
 
 const PRETRAINED_PARAM = "pretrained";
 
@@ -58,13 +67,16 @@ const PRETRAINED_OPTIONS = [
   { value: "false", label: "Not pretrained" },
 ];
 
-
 // ─── FILTER ─────────────────────────────────────────────────────────────────
 
 function readFilters() {
   const value = new URLSearchParams(location.search).get(PRETRAINED_PARAM);
 
-  return { isPretrained: PRETRAINED_OPTIONS.some(o => o.value === value) ? value : "" };
+  return {
+    isPretrained: PRETRAINED_OPTIONS.some((o) => o.value === value)
+      ? value
+      : "",
+  };
 }
 
 // replaceState, not pushState: working a dropdown shouldn't build a stack of history
@@ -75,17 +87,21 @@ function writeFilters({ isPretrained }) {
   if (isPretrained) params.set(PRETRAINED_PARAM, isPretrained);
   else params.delete(PRETRAINED_PARAM);
 
-  history.replaceState(history.state, "", params.size ? `?${params}` : location.pathname);
+  history.replaceState(
+    history.state,
+    "",
+    params.size ? `?${params}` : location.pathname,
+  );
 }
 
 function buildFilterBar(selected, comparing) {
-  const options = PRETRAINED_OPTIONS
-    .map(option => `
+  const options = PRETRAINED_OPTIONS.map(
+    (option) => `
       <option value="${escapeHtml(option.value)}" ${option.value === selected ? "selected" : ""}>
         ${escapeHtml(option.label)}
       </option>
-    `)
-    .join("");
+    `,
+  ).join("");
 
   // The filter on the left, the mode on the right: one narrows the board, the other changes
   // what a click on a row does, and they are different kinds of control.
@@ -104,7 +120,6 @@ function buildFilterBar(selected, comparing) {
     </div>
   `;
 }
-
 
 // ─── INITIALISATION ─────────────────────────────────────────────────────────
 
@@ -152,7 +167,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   // Two elements per pane, because a widget's empty state un-hides the element it draws
   // into — see renderMessage. The one the page hides therefore can't be one a widget owns.
   sectionBody("compare").innerHTML = PANES.map(
-    name => `<div data-pane="${name}" hidden><div></div></div>`,
+    (name) => `<div data-pane="${name}" hidden><div></div></div>`,
   ).join("");
 
   function pane(name) {
@@ -201,7 +216,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     prompt: `Select up to ${MAX_COMPARED} rows to compare their scores on this task.`,
     // Guarded: Tabulator reads a missing index as "no argument" and deselects every row, so
     // a key this map has not seen would untick the board rather than one row.
-    onDrop: key => rowOf.has(key) && table?.deselectRow(rowOf.get(key)),
+    onDrop: (key) => rowOf.has(key) && table?.deselectRow(rowOf.get(key)),
   });
 
   // One per pane: comparing is a mode, the two comparisons are what the metric select
@@ -210,7 +225,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
 
   const models = createModelComparison({
     container: paneBody("models"),
-    onDrop: key => table?.deselectRow(key),
+    onDrop: (key) => table?.deselectRow(key),
   });
 
   // Which row is open, marked on the row itself: outside compare mode nothing is selected,
@@ -231,19 +246,21 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   function toSeed(row, taskId) {
     const score = row.scores?.[taskId];
 
-    return score && {
-      key: score.task_submission_id,
-      taskId,
-      submissionId: score.submission_id,
-      modelName: row.title,
-      metric: score.metric,
-    };
+    return (
+      score && {
+        key: score.task_submission_id,
+        taskId,
+        submissionId: score.submission_id,
+        modelName: row.title,
+        metric: score.metric,
+      }
+    );
   }
 
   // Which of the two comparisons a tick is for. The metric select decides: a task makes a
   // row one score, and anything coarser — a suite, or Overall — makes it a whole model.
   function taskFor(metric) {
-    return tasks.some(task => task.id === metric) ? metric : null;
+    return tasks.some((task) => task.id === metric) ? metric : null;
   }
 
   // A board row names a model and carries none of its specification, which is what the
@@ -296,7 +313,6 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
 
     rowOf.clear();
 
-
     const seeds = [];
 
     for (const row of rows) {
@@ -337,7 +353,9 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   // The metric select belongs to the table's filter bar, so the page reads it back rather
   // than keeping a second copy that could disagree with the control on screen.
   function currentMetric() {
-    return sectionBody("body").querySelector("[data-filter='metric']")?.value ?? "";
+    return (
+      sectionBody("body").querySelector("[data-filter='metric']")?.value ?? ""
+    );
   }
 
   function mountTable() {
@@ -361,7 +379,13 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
       // comparison, and the rest of the time it opens the row's breakdown underneath. Both
       // bound at once would be two answers to one click.
       ...(comparing
-        ? { selection: { max: MAX_COMPARED, onChange: onSelection, claimLinks: true } }
+        ? {
+            selection: {
+              max: MAX_COMPARED,
+              onChange: onSelection,
+              claimLinks: true,
+            },
+          }
         : { onRowClick }),
     });
   }
@@ -369,7 +393,10 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   function setMode(next) {
     comparing = next;
 
-    sectionBody("filters").innerHTML = buildFilterBar(filters.isPretrained, comparing);
+    sectionBody("filters").innerHTML = buildFilterBar(
+      filters.isPretrained,
+      comparing,
+    );
     refreshIcons();
 
     if (standings?.length) mountTable();
@@ -417,7 +444,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
 
   // Delegated, because the bar is rewritten whenever the mode changes and the button in
   // it is what changes.
-  sectionBody("filters").addEventListener("input", event => {
+  sectionBody("filters").addEventListener("input", (event) => {
     const pretrained = event.target.closest("[data-role='pretrained']");
 
     if (!pretrained) return;
@@ -427,13 +454,12 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     renderBoard();
   });
 
-  sectionBody("filters").addEventListener("click", event => {
+  sectionBody("filters").addEventListener("click", (event) => {
     if (event.target.closest("[data-role='mode']")) setMode(!comparing);
   });
 
   return renderBoard();
 }
-
 
 loadPage({
   noun: "leaderboard",
@@ -456,7 +482,12 @@ loadPage({
       signedIn ? getMyTeams() : [],
     ]);
 
-    return tasks && { tasks, myTeamIds: new Set((teams ?? []).map(team => String(team.id))) };
+    return (
+      tasks && {
+        tasks,
+        myTeamIds: new Set((teams ?? []).map((team) => String(team.id))),
+      }
+    );
   },
 
   render: renderLeaderboardPage,

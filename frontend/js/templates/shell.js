@@ -32,5 +32,4 @@ function applyShell(signedIn) {
   if (sidebar) sidebar.hidden = false;
 }
 
-
 export { applyShell };

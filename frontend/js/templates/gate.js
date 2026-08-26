@@ -14,7 +14,6 @@
 import { escapeHtml } from "../core/utils.js";
 import { login } from "../api/client.js";
 
-
 /**
  * @param elements  an object with a `gate` property — the #gate element.
  * @param signedIn  true to show the page, false to show the gate instead.
@@ -47,7 +46,6 @@ function showGate(signedIn) {
   }
 }
 
-
 /**
  * The gate's card, rendered into a container rather than over the whole page — for a record
  * that a signed-out visitor may simply not be allowed to see, where the page itself loaded
@@ -66,8 +64,9 @@ function showSignInPrompt(container, message) {
     </div>
   `;
 
-  container.querySelector("[data-role='login']").addEventListener("click", () => login());
+  container
+    .querySelector("[data-role='login']")
+    .addEventListener("click", () => login());
 }
-
 
 export { showGate, showSignInPrompt };

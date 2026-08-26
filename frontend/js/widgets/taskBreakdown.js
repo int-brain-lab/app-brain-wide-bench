@@ -9,7 +9,11 @@
 // the figure a table shows and nothing behind it.
 
 import { escapeHtml, refreshIcons, showEmpty } from "../core/utils.js";
-import { PLOT_TABLE_VIEWS, buildViewToggle, viewFromClick } from "../components/viewToggle.js";
+import {
+  PLOT_TABLE_VIEWS,
+  buildViewToggle,
+  viewFromClick,
+} from "../components/viewToggle.js";
 import { resolveContainer } from "../tables/table.js";
 import {
   recordingMetricNames,
@@ -18,9 +22,11 @@ import {
 import { renderRecordingCharts } from "../charts/recordingChart.js";
 import { SERIES_INK } from "../charts/palette.js";
 import { buildDisplayFields } from "../forms/fields.js";
-import { loadTaskFields, trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
+import {
+  loadTaskFields,
+  trainingFieldKeys,
+} from "../schemas/taskSubmissionSchema.js";
 import { loadTaskSubmission } from "../api/taskSubmissionApi.js";
-
 
 // The two ways to read one score: the shape of it, or the numbers — the same pair the model
 // comparison offers, and drawn by the same component. The plot leads because the question a
@@ -32,7 +38,6 @@ import { loadTaskSubmission } from "../api/taskSubmissionApi.js";
 // score usually wants them for the next.
 const DEFAULT_VIEW = PLOT_TABLE_VIEWS[0].value;
 
-
 /**
  * @param container element, or the id of one. Its contents are replaced.
  * @param prompt    what to say with nothing open.
@@ -40,7 +45,10 @@ const DEFAULT_VIEW = PLOT_TABLE_VIEWS[0].value;
  * @returns { show(seed), clear() }. `seed` is `{ key, taskId, submissionId, submissionLabel,
  *          modelName }` — what a listing already knows.
  */
-function createTaskBreakdown({ container, prompt = "Select a task score to see how it was measured." }) {
+function createTaskBreakdown({
+  container,
+  prompt = "Select a task score to see how it was measured.",
+}) {
   const root = resolveContainer(container, "createTaskBreakdown");
 
   let seed = null;
@@ -54,7 +62,7 @@ function createTaskBreakdown({ container, prompt = "Select a task score to see h
   // to be rewritten has to be told: otherwise it goes on answering resizes from a detached
   // element and the next chart on that canvas throws.
   function clearCharts() {
-    charts.forEach(chart => chart?.destroy?.());
+    charts.forEach((chart) => chart?.destroy?.());
     charts = [];
   }
 
@@ -62,7 +70,7 @@ function createTaskBreakdown({ container, prompt = "Select a task score to see h
   // result measured several ways rather than several results, so one colour throughout and
   // no legend — the axis names the metric and the heading names the score.
   function toMetricSeries() {
-    return recordingMetricNames(recordings).map(metric => ({
+    return recordingMetricNames(recordings).map((metric) => ({
       key: metric,
       colour: SERIES_INK,
       label: seed.taskId,
@@ -166,7 +174,7 @@ function createTaskBreakdown({ container, prompt = "Select a task score to see h
 
   // Delegated, because the view is rewritten on every change and the buttons in it are what
   // changes: they carry which one is active, so the toggle is part of what is re-rendered.
-  root.addEventListener("click", event => {
+  root.addEventListener("click", (event) => {
     const chosen = viewFromClick(event, "breakdown-view");
 
     if (chosen && chosen !== view) {
@@ -179,6 +187,5 @@ function createTaskBreakdown({ container, prompt = "Select a task score to see h
 
   return { show, clear };
 }
-
 
 export { createTaskBreakdown };

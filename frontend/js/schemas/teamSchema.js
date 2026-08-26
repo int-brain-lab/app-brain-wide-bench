@@ -37,10 +37,6 @@ const TEAM_FIELDS = {
   },
 };
 
-
-const TEAM_PANELS = [
-  { panel: 1, title: "Team" },
-];
-
+const TEAM_PANELS = [{ panel: 1, title: "Team" }];
 
 export { TEAM_FIELDS, TEAM_PANELS };

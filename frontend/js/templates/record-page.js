@@ -66,29 +66,24 @@ function buildAction(action) {
     return action.html;
   }
 
-  const {
-    id,
-    label,
-    icon,
-    href,
-    className = "",
-    hidden = false,
-  } = action;
+  const { id, label, icon, href, className = "", hidden = false } = action;
 
-  const classes = ["btn", className, "with-icon"]
-    .filter(Boolean)
-    .join(" ");
+  const classes = ["btn", className, "with-icon"].filter(Boolean).join(" ");
 
-  // Either an `id` for the page to wire — Edit, Save, Cancel — or an `href` for an action
-  // that is simply a link, like "New submission". Both are already anchors, so the two look
-  // the same in the header whichever they are.
-  const target = href ? ` href="${escapeHtml(href)}"` : ` id="${id}"`;
+  if (href) {
+    return `
+      <a class="${classes}" href="${escapeHtml(href)}"${hidden ? " hidden" : ""}>
+        <i class="btn-icon" data-lucide="${escapeHtml(icon)}"></i>
+        ${escapeHtml(label)}
+      </a>
+    `;
+  }
 
   return `
-    <a class="${classes}"${target}${hidden ? " hidden" : ""}>
-      <i class="btn-icon" data-lucide="${icon}"></i>
-      ${label}
-    </a>
+    <button type="button" class="${classes}" id="${escapeHtml(id)}"${hidden ? " hidden" : ""}>
+      <i class="btn-icon" data-lucide="${escapeHtml(icon)}"></i>
+      ${escapeHtml(label)}
+    </button>
   `;
 }
 
@@ -123,19 +118,20 @@ function buildHeader(actions = []) {
   `;
 }
 
-
 function buildSubtitle(subtitles) {
   const items = subtitles
     // Drops the separator too, which is the point: an entry with no text would otherwise
     // leave a dangling "·" and a floating icon. It is also what keeps an empty description
     // hidden, now that renderHeader turns "" into a part rather than handling it apart.
-    .filter(part => part?.text)
-    .map(({ text, icon }) => `
+    .filter((part) => part?.text)
+    .map(
+      ({ text, icon }) => `
       <span class="row left gap-sm">
         ${icon ? `<i class="field-icon" data-lucide="${escapeHtml(icon)}"></i>` : ""}
         <span>${escapeHtml(text)}</span>
       </span>
-    `)
+    `,
+    )
     .join("<span>·</span>");
 
   return items ? `<span class="row left gap-md">${items}</span>` : "";
@@ -147,10 +143,12 @@ function buildSubtitle(subtitles) {
 function buildBadges(badges) {
   const items = badges.filter(Boolean);
 
-  return items.length ? `<span class="row left gap-md">${items.join("")}</span>` : "";
+  return items.length
+    ? `<span class="row left gap-md">${items.join("")}</span>`
+    : "";
 }
 
-function buildBackLink({text, view}) {
+function buildBackLink({ text, view }) {
   return `
     <a
       class="link un"
@@ -163,11 +161,7 @@ function buildBackLink({text, view}) {
   `;
 }
 
-function buildSectionLink({
-  view,
-  linkIcon,
-  linkText,
-}) {
+function buildSectionLink({ view, linkIcon, linkText }) {
   return `
     <a
       class="btn with-icon"
@@ -184,15 +178,8 @@ function buildSectionLink({
 //   return `<a class="link" href="#" data-view="${view}">${linkText} -></a>`;
 // }
 
-function buildLink({
-  href,
-  label,
-  icon,
-  className = "",
-}) {
-  const classes = ["btn", className, "with-icon"]
-    .filter(Boolean)
-    .join(" ");
+function buildLink({ href, label, icon, className = "" }) {
+  const classes = ["btn", className, "with-icon"].filter(Boolean).join(" ");
 
   return `
     <a class="${classes}" href="${href}">
@@ -213,9 +200,7 @@ function buildSection({
   create = false,
 }) {
   const actions = [
-    ...(view
-      ? [buildSectionLink({ view, linkIcon, linkText })]
-      : []),
+    ...(view ? [buildSectionLink({ view, linkIcon, linkText })] : []),
     ...links.map(buildLink),
   ];
 
@@ -233,9 +218,7 @@ function buildSection({
     `
     : "";
 
-  const createRow = create
-    ? `<div id="section-${id}-create"></div>`
-    : "";
+  const createRow = create ? `<div id="section-${id}-create"></div>` : "";
 
   // `section-body` always, whatever the caller asked for: it is what a layout keys off to
   // reach the content — see `.section-row` in style.css, which stretches two sections that
@@ -296,11 +279,7 @@ function buildFormFooter({ cancelHref, submitLabel }) {
 // the user just did — a save, a create — and a form or a record long enough to scroll would
 // hide it anywhere lower. A view reporting something about one section writes to that
 // section instead, not here.
-function buildPage({
-  back = null,
-  header = "",
-  body = "",
-}) {
+function buildPage({ back = null, header = "", body = "" }) {
   return `
     ${back ? buildBackLink(back) : ""}
     ${header}
@@ -321,12 +300,13 @@ function renderPage(html) {
 }
 
 /**
- * @param title       the record's name.
- * @param description a plain string, or [{ text, icon }] for a subtitle with icons.
- * @param badges      [markup] for the row between the two — a run of suite badges, a
- *                    visibility icon. Markup per entry rather than one shape, because what
- *                    goes there is whatever the record has to say about itself. Omitted,
- *                    empty, or all-empty entries leave the row hidden.
+ * @param {string} title the record's name.
+ * @param {string|Array<{text: string, icon?: string}>} description a plain string, or
+ *        [{ text, icon }] for a subtitle with icons.
+ * @param {string[]} badges markup entries for the row between the two — a run of suite
+ *        badges, a visibility icon. Markup per entry rather than one shape, because what
+ *        goes there is whatever the record has to say about itself. Omitted, empty, or
+ *        all-empty entries leave the row hidden.
  */
 function renderHeader(title, description = "", badges = []) {
   const titleElement = document.getElementById(TITLE_ID);
@@ -341,9 +321,10 @@ function renderHeader(title, description = "", badges = []) {
   badgesElement.innerHTML = badgeRow;
   badgesElement.hidden = !badgeRow;
 
-  const subtitle = typeof description === "string"
-    ? escapeHtml(description)
-    : buildSubtitle(description);
+  const subtitle =
+    typeof description === "string"
+      ? escapeHtml(description)
+      : buildSubtitle(description);
 
   descriptionElement.innerHTML = subtitle;
   descriptionElement.hidden = !subtitle;

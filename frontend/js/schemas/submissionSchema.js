@@ -1,7 +1,6 @@
 import { getMeta } from "../api/metaApi.js";
-import {getMyModels} from "../api/modelApi.js";
+import { getMyModels } from "../api/modelApi.js";
 import { applyFieldMeta } from "./fieldMeta.js";
-
 
 const SUBMISSION_FIELDS = {
   id: {
@@ -91,16 +90,12 @@ const SUBMISSION_FIELDS = {
     input: "textarea",
     panel: 2,
   },
-
 };
-
 
 const SUBMISSION_PANELS = [
   { panel: 1, title: "Model", columns: 2 },
   { panel: 2, title: "Information", columns: 1 },
 ];
-
-
 
 // The help text, from /api/meta. Split out from loadSubmissionFields because a signed-out
 // reader of a public submission sees the same description rows and cannot fetch the models
@@ -108,7 +103,6 @@ const SUBMISSION_PANELS = [
 async function loadSubmissionMeta() {
   return applyFieldMeta(SUBMISSION_FIELDS, await getMeta(), "submission");
 }
-
 
 // The above plus the Model select, whose options are the caller's own models — per-user
 // data, so a separate fetch rather than part of the meta document.
@@ -118,11 +112,18 @@ async function loadSubmissionFields() {
   if (SUBMISSION_FIELDS.model_id.options === null) {
     const models = await getMyModels();
 
-    SUBMISSION_FIELDS.model_id.options = models.map(model => ({ value: model.id, label: model.name }));
+    SUBMISSION_FIELDS.model_id.options = models.map((model) => ({
+      value: model.id,
+      label: model.name,
+    }));
   }
 
   return SUBMISSION_FIELDS;
 }
 
-
-export { SUBMISSION_FIELDS, loadSubmissionFields, loadSubmissionMeta, SUBMISSION_PANELS };
+export {
+  SUBMISSION_FIELDS,
+  loadSubmissionFields,
+  loadSubmissionMeta,
+  SUBMISSION_PANELS,
+};

@@ -21,5 +21,4 @@ function buildTableCount(shown, total, noun) {
   return `Showing ${shown} out of ${buildCount(total, noun)}`;
 }
 
-
 export { buildCount, buildTableCount };

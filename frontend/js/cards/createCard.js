@@ -18,7 +18,6 @@
 import { escapeHtml } from "../core/utils.js";
 import { getIcon } from "../components/icons.js";
 
-
 function buildMarkup({ href, label }, extraClass = "") {
   return `
     <a class="create-card ${extraClass}" href="${escapeHtml(href)}">
@@ -61,6 +60,5 @@ function renderCreateRow(container, options) {
 function clearCreateRow(container) {
   container.replaceChildren();
 }
-
 
 export { appendCreateCard, renderCreateRow, clearCreateRow };

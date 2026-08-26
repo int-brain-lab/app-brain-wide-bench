@@ -9,7 +9,6 @@ import { apiFetch } from "./client.js";
 // server accepts is the schema's business, so the caller shapes the body with
 // taskPayload() rather than this module reaching into TASK_FIELDS.
 async function updateTaskSubmissions(submissionId, taskSubmissionIds, updates) {
-
   return await apiFetch(`/api/submissions/${submissionId}/tasks`, {
     method: "PATCH",
     body: JSON.stringify({ task_submission_ids: taskSubmissionIds, updates }),
@@ -20,19 +19,13 @@ async function updateTaskSubmissions(submissionId, taskSubmissionIds, updates) {
 // a model or a submission carries its id, task and score and nothing else. Fetched per
 // selection rather than widening every listing that nests tasks.
 async function loadTaskSubmission(submissionId, taskSubmissionId) {
-  return await apiFetch(`/api/submissions/${submissionId}/tasks/${taskSubmissionId}`);
+  return await apiFetch(
+    `/api/submissions/${submissionId}/tasks/${taskSubmissionId}`,
+  );
 }
 
 async function getMyTaskSubmissions() {
   return await apiFetch("/api/users/me/task-submissions");
 }
 
-
-
-
-
-export {
-  loadTaskSubmission,
-  updateTaskSubmissions,
-  getMyTaskSubmissions
-};
+export { loadTaskSubmission, updateTaskSubmissions, getMyTaskSubmissions };

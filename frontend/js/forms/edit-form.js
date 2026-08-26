@@ -49,8 +49,10 @@ function sameValue(a, b) {
     const left = [...(a ?? [])].sort();
     const right = [...(b ?? [])].sort();
 
-    return left.length === right.length
-      && left.every((value, index) => value === right[index]);
+    return (
+      left.length === right.length &&
+      left.every((value, index) => value === right[index])
+    );
   }
 
   return (a ?? null) === (b ?? null);
@@ -66,11 +68,10 @@ function sameValue(a, b) {
 function changedFields(draft, record, fields) {
   return Object.fromEntries(
     Object.keys(fields)
-      .filter(key => key in draft && !sameValue(draft[key], record[key]))
-      .map(key => [key, draft[key]]),
+      .filter((key) => key in draft && !sameValue(draft[key], record[key]))
+      .map((key) => [key, draft[key]]),
   );
 }
-
 
 function Editor({
   container,
@@ -99,24 +100,28 @@ function Editor({
     fields,
     getState: () => draft,
 
-    sections: [{
-      container,
+    sections: [
+      {
+        container,
 
-      // Record merged with draft, not the draft alone: createFieldState drops every
-      // `editable: false` key, so read-only context rows would render as "—". Display
-      // only — the draft is still what gets saved.
-      draw: state => {
-        const values = { ...record, ...state };
+        // Record merged with draft, not the draft alone: createFieldState drops every
+        // `editable: false` key, so read-only context rows would render as "—". Display
+        // only — the draft is still what gets saved.
+        draw: (state) => {
+          const values = { ...record, ...state };
 
-        return groups
-          ? buildGroupCards(groups(), values, fields, buildFields)
-          : buildFields(keys(), values, fields);
+          return groups
+            ? buildGroupCards(groups(), values, fields, buildFields)
+            : buildFields(keys(), values, fields);
+        },
       },
-    }],
+    ],
 
     onChange: (key, value, cleared) => {
       if (cleared.length) {
-        onCleared?.(cleared.map(clearedKey => fields[clearedKey].label).join(", "));
+        onCleared?.(
+          cleared.map((clearedKey) => fields[clearedKey].label).join(", "),
+        );
       }
     },
   });

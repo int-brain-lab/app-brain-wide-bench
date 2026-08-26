@@ -21,7 +21,6 @@ import {
 // ts3 names its metrics `<brain region>/<metric>` — "TH/f1-score", "macro/precision".
 const REGION_SEPARATOR = "/";
 
-
 // ─── SHAPE ──────────────────────────────────────────────────────────────────
 
 // First-seen order across every entry rather than the keys of the first one: the scorers
@@ -53,11 +52,12 @@ function metricNames(recordings) {
  *                follow no convention still renders something readable.
  */
 function rowMode(recordings) {
-  if ((recordings ?? []).some(recording => recording.recording_id)) return "recording";
+  if ((recordings ?? []).some((recording) => recording.recording_id))
+    return "recording";
 
   const names = metricNames(recordings);
 
-  return names.length && names.every(name => name.includes(REGION_SEPARATOR))
+  return names.length && names.every((name) => name.includes(REGION_SEPARATOR))
     ? "region"
     : "metric";
 }
@@ -67,7 +67,6 @@ function splitMetric(name) {
 
   return [name.slice(0, at), name.slice(at + 1)];
 }
-
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────
 
@@ -81,7 +80,7 @@ function withSeeds(row, stats) {
 // One row per recording, each metric flattened into the `<name>_mean` / `<name>_sem` pair
 // the columns read.
 function toRecordingRows(recordings) {
-  return (recordings ?? []).map(recording => {
+  return (recordings ?? []).map((recording) => {
     const row = {
       recording_id: recording.recording_id ?? null,
       label: recording.label ?? null,
@@ -121,7 +120,7 @@ function toRegionRows(recordings) {
 
 // The fallback shape: metric down the rows, one column each for mean and SEM.
 function toMetricRows(recordings) {
-  return (recordings ?? []).flatMap(recording =>
+  return (recordings ?? []).flatMap((recording) =>
     Object.entries(recording.metrics ?? {}).map(([name, stats]) => ({
       metric: name,
       mean: stats?.mean ?? null,
@@ -145,7 +144,6 @@ function metricSuffixes(recordings) {
   return suffixes;
 }
 
-
 // ─── AGGREGATION ────────────────────────────────────────────────────────────
 
 // One entry per metric, aggregated across recordings the same way the scorers aggregate the
@@ -161,8 +159,8 @@ function metricSuffixes(recordings) {
 // figures for the metrics the score carries no summary for.
 function summariseMetric(recordings, name) {
   const means = (recordings ?? [])
-    .map(recording => recording.metrics?.[name]?.mean)
-    .filter(value => value != null);
+    .map((recording) => recording.metrics?.[name]?.mean)
+    .filter((value) => value != null);
 
   const n = means.length;
 
@@ -172,7 +170,8 @@ function summariseMetric(recordings, name) {
 
   if (n === 1) return { name, mean, sem: null, n };
 
-  const variance = means.reduce((total, value) => total + (value - mean) ** 2, 0) / (n - 1);
+  const variance =
+    means.reduce((total, value) => total + (value - mean) ** 2, 0) / (n - 1);
 
   return { name, mean, sem: Math.sqrt(variance) / Math.sqrt(n), n };
 }
@@ -180,9 +179,10 @@ function summariseMetric(recordings, name) {
 // In the same first-seen order the columns use, so the cards above the table and the column
 // pairs below it read left to right in step.
 function summariseMetrics(recordings) {
-  return metricNames(recordings).map(name => summariseMetric(recordings, name));
+  return metricNames(recordings).map((name) =>
+    summariseMetric(recordings, name),
+  );
 }
-
 
 // ─── COLUMNS ────────────────────────────────────────────────────────────────
 
@@ -194,7 +194,7 @@ const SEED_COLUMN = {
 };
 
 function labelFormatter(field) {
-  return cell => {
+  return (cell) => {
     const row = cell.getData();
     const value = row[field] ?? row.label;
 
@@ -206,7 +206,7 @@ function labelFormatter(field) {
 // the scorer output does, so a column can be matched back to a metric name without a lookup
 // table — the `_mean`/`_sem` fields behind it keep those names too.
 function metricColumns(names) {
-  return names.map(name => ({
+  return names.map((name) => ({
     title: name,
     field: `${name}_mean`,
     formatter: scoreSemFormatter(`${name}_sem`),
@@ -248,7 +248,6 @@ function metricRowColumns() {
   ];
 }
 
-
 // ─── LAYOUTS ────────────────────────────────────────────────────────────────
 
 // Everything that differs between the three row dimensions, in one place, so adding a suite
@@ -259,14 +258,16 @@ const LAYOUTS = {
     searchField: "recording_id",
     searchPlaceholder: "Search recordings...",
     rows: toRecordingRows,
-    columns: recordings => keyedColumns("Recording", "recording_id", metricNames(recordings)),
+    columns: (recordings) =>
+      keyedColumns("Recording", "recording_id", metricNames(recordings)),
   },
   region: {
     noun: "region",
     searchField: "region",
     searchPlaceholder: "Search regions...",
     rows: toRegionRows,
-    columns: recordings => keyedColumns("Region", "region", metricSuffixes(recordings)),
+    columns: (recordings) =>
+      keyedColumns("Region", "region", metricSuffixes(recordings)),
   },
   metric: {
     noun: "metric",
@@ -278,7 +279,6 @@ const LAYOUTS = {
     initialSort: [{ column: "mean", dir: "desc" }],
   },
 };
-
 
 // ─── TABLE ──────────────────────────────────────────────────────────────────
 
@@ -320,9 +320,12 @@ function renderRecordingScoresTable({ container, recordings }) {
 function describeRecordingScores(recordings) {
   const mode = rowMode(recordings);
 
-  return { mode, noun: LAYOUTS[mode].noun, count: LAYOUTS[mode].rows(recordings).length };
+  return {
+    mode,
+    noun: LAYOUTS[mode].noun,
+    count: LAYOUTS[mode].rows(recordings).length,
+  };
 }
-
 
 // ─── FOR A CHART ────────────────────────────────────────────────────────────
 //
@@ -338,7 +341,9 @@ function describeRecordingScores(recordings) {
  * measures three metrics on eleven regions, not thirty-three metrics.
  */
 function recordingMetricNames(recordings) {
-  return rowMode(recordings) === "region" ? metricSuffixes(recordings) : metricNames(recordings);
+  return rowMode(recordings) === "region"
+    ? metricSuffixes(recordings)
+    : metricNames(recordings);
 }
 
 /**
@@ -351,7 +356,7 @@ function toRecordingPoints(recordings, metric) {
   const mode = rowMode(recordings);
 
   if (mode === "region") {
-    return toRegionRows(recordings).map(row => ({
+    return toRegionRows(recordings).map((row) => ({
       key: row.region,
       label: row.region,
       mean: row[`${metric}_mean`] ?? null,
@@ -360,7 +365,7 @@ function toRecordingPoints(recordings, metric) {
   }
 
   if (mode === "recording") {
-    return toRecordingRows(recordings).map(row => ({
+    return toRecordingRows(recordings).map((row) => ({
       key: row.recording_id,
       // Recording ids are uuids, so an axis gets the head of one and the tooltip the whole
       // thing — 29 full uuids across an axis is unreadable at any width.
@@ -372,10 +377,14 @@ function toRecordingPoints(recordings, metric) {
 
   // The fallback shape has one row *per metric*, so a chosen metric is a single point.
   return toMetricRows(recordings)
-    .filter(row => row.metric === metric)
-    .map(row => ({ key: row.metric, label: row.metric, mean: row.mean, sem: row.sem }));
+    .filter((row) => row.metric === metric)
+    .map((row) => ({
+      key: row.metric,
+      label: row.metric,
+      mean: row.mean,
+      sem: row.sem,
+    }));
 }
-
 
 export {
   renderRecordingScoresTable,

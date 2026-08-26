@@ -22,15 +22,15 @@ import {
   optionsFromRows,
 } from "../components/filters.js";
 
-
 // ─── CONTAINER ──────────────────────────────────────────────────────────────
 
 // `caller` only shapes the error message: a bad id is the likeliest mistake at a mount
 // site, and "no such container" beats the TypeError that writing to null would give.
 function resolveContainer(container, caller) {
-  const element = typeof container === "string"
-    ? document.getElementById(container)
-    : container;
+  const element =
+    typeof container === "string"
+      ? document.getElementById(container)
+      : container;
 
   if (!element) {
     throw new Error(`${caller}: no such container "${container}"`);
@@ -38,7 +38,6 @@ function resolveContainer(container, caller) {
 
   return element;
 }
-
 
 // ─── STATIC TABLE ───────────────────────────────────────────────────────────
 
@@ -102,29 +101,42 @@ function previewRows(rows, compare, limit) {
  *                section heading above the table. Omit for no link.
  * @returns an HTML string; the caller does its own DOM write.
  */
-function renderStaticTable({ columns, rows, noun, total = rows.length, viewAll }) {
+function renderStaticTable({
+  columns,
+  rows,
+  noun,
+  total = rows.length,
+  viewAll,
+}) {
   return `
     <div class="table">
       <table>
         <thead>
-          <tr>${columns.map(column => `<th>${escapeHtml(column.title)}</th>`).join("")}</tr>
+          <tr>${columns.map((column) => `<th>${escapeHtml(column.title)}</th>`).join("")}</tr>
         </thead>
         <tbody>
-          ${rows.map(row => `
-            <tr>${columns.map(column => `<td>${staticCellHtml(column, row)}</td>`).join("")}</tr>
-          `).join("")}
+          ${rows
+            .map(
+              (row) => `
+            <tr>${columns.map((column) => `<td>${staticCellHtml(column, row)}</td>`).join("")}</tr>
+          `,
+            )
+            .join("")}
         </tbody>
       </table>
-      ${noun ? `
+      ${
+        noun
+          ? `
         <div class="table-footer">
           <span>${buildTableCount(rows.length, total, noun)}</span>
           ${buildViewAllLink(noun, viewAll)}
         </div>
-      ` : ""}
+      `
+          : ""
+      }
     </div>
   `;
 }
-
 
 // ─── FILTERABLE TABLE ───────────────────────────────────────────────────────
 
@@ -187,7 +199,9 @@ function createFilterableTable({
   caller = "createFilterableTable",
 }) {
   if (typeof Tabulator === "undefined") {
-    throw new Error(`${caller}: Tabulator is not loaded — add its <script> and <link> to the page.`);
+    throw new Error(
+      `${caller}: Tabulator is not loaded — add its <script> and <link> to the page.`,
+    );
   }
 
   const root = resolveContainer(container, caller);
@@ -208,7 +222,11 @@ function createFilterableTable({
     const count = root.querySelector("[data-role='count']");
     if (!count) return;
 
-    count.textContent = buildTableCount(table.getDataCount("display"), rows.length, noun);
+    count.textContent = buildTableCount(
+      table.getDataCount("display"),
+      rows.length,
+      noun,
+    );
   }
 
   // The bar's markup is already in `root`; this is the state behind it. Applying a change
@@ -295,7 +313,8 @@ function createFilterableTable({
     // page, which keeps it across a filter and across the switch to cards — needs what
     // changed, not what Tabulator currently has selected.
     table.on("rowSelectionChanged", (data, _rows, selected, deselected) =>
-      selection.onChange(data, { selected, deselected }));
+      selection.onChange(data, { selected, deselected }),
+    );
 
     // There is no checkbox column: the row itself is the control, and the largest target in
     // most rows is a link to the thing the row is about. Where the caller asks for it, a
@@ -303,19 +322,20 @@ function createFilterableTable({
     // selection runs either way, and this only cancels the navigation that would follow it.
     // Bound to the instance, so it goes when the table is rebuilt without a selection.
     if (selection.claimLinks) {
-      table.on("rowClick", event => {
+      table.on("rowClick", (event) => {
         if (event.target.closest("a")) event.preventDefault();
       });
     }
   }
 
   if (onRowClick) {
-    table.on("rowClick", (event, row) => onRowClick(row.getData(), { event, element: row.getElement() }));
+    table.on("rowClick", (event, row) =>
+      onRowClick(row.getData(), { event, element: row.getElement() }),
+    );
   }
 
   return table;
 }
-
 
 // TODO: the matchers and SUITE_OPTIONS are re-exported only so the tables beside this one
 // keep their existing imports. They belong to components/filters.js now — move each table

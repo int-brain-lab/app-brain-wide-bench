@@ -45,7 +45,9 @@ function toSuiteGroups(tasks) {
   // SUITES order rather than alphabetical, so the columns read ts1, ts2, ts3 the way every
   // other suite list in the app does. A suite the constant doesn't know sorts last rather
   // than being dropped.
-  return [...suites.values()].sort((a, b) => SUITES.indexOf(a.suite) - SUITES.indexOf(b.suite));
+  return [...suites.values()].sort(
+    (a, b) => SUITES.indexOf(a.suite) - SUITES.indexOf(b.suite),
+  );
 }
 
 // `{ taskId: metric }` — what a single task's score column is measured in, so the header can
@@ -54,21 +56,18 @@ function toSuiteGroups(tasks) {
 function toTaskMetrics(tasks) {
   return Object.fromEntries(
     (tasks ?? [])
-      .filter(task => task.id && task.primary_metric)
-      .map(task => [task.id, task.primary_metric]),
+      .filter((task) => task.id && task.primary_metric)
+      .map((task) => [task.id, task.primary_metric]),
   );
 }
 
 // Every task, ordered by suite and then by id, for a control that lists tasks individually.
 function toTaskOptions(suites) {
-  return suites.flatMap(suite =>
-    [...suite.taskIds].sort().map(taskId => ({ value: taskId, label: taskId })),
+  return suites.flatMap((suite) =>
+    [...suite.taskIds]
+      .sort()
+      .map((taskId) => ({ value: taskId, label: taskId })),
   );
 }
 
-
-export {
-  toSuiteGroups,
-  toTaskMetrics,
-  toTaskOptions,
-};
+export { toSuiteGroups, toTaskMetrics, toTaskOptions };

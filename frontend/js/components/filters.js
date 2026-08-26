@@ -11,12 +11,14 @@
 import { escapeHtml } from "../core/utils.js";
 import { SUITES } from "../core/suites.js";
 
-
 // ─── MATCHERS ───────────────────────────────────────────────────────────────
 
 // Hardcoded from SUITES rather than derived from the rows, so an option doesn't disappear
 // exactly when nothing on the page covers that suite.
-const SUITE_OPTIONS = SUITES.map(suite => ({ value: suite, label: suite.toUpperCase() }));
+const SUITE_OPTIONS = SUITES.map((suite) => ({
+  value: suite,
+  label: suite.toUpperCase(),
+}));
 
 // Each of these builds a control's `match`. They are only ever called with a non-empty
 // value — createFilterState skips a blank control — so none has to treat "" as
@@ -24,7 +26,9 @@ const SUITE_OPTIONS = SUITES.map(suite => ({ value: suite, label: suite.toUpperC
 
 function matchIncludes(field) {
   return (row, value) =>
-    String(row[field] ?? "").toLowerCase().includes(value.toLowerCase());
+    String(row[field] ?? "")
+      .toLowerCase()
+      .includes(value.toLowerCase());
 }
 
 function matchEquals(field) {
@@ -39,18 +43,27 @@ function matchInArray(field) {
 // fixed server-side enum should stay hardcoded instead, so an option doesn't vanish
 // exactly when a user has no rows carrying that value.
 function optionsFromRows(rows, field) {
-  return [...new Set(rows.map(row => row[field]).filter(value => value != null && value !== ""))]
+  return [
+    ...new Set(
+      rows
+        .map((row) => row[field])
+        .filter((value) => value != null && value !== ""),
+    ),
+  ]
     .sort((a, b) => String(a).localeCompare(String(b)))
-    .map(value => ({ value, label: value }));
+    .map((value) => ({ value, label: value }));
 }
-
 
 // ─── BAR ────────────────────────────────────────────────────────────────────
 
 function buildOptions(control) {
-  return control.options.map(option => `
+  return control.options
+    .map(
+      (option) => `
     <option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>
-  `).join("");
+  `,
+    )
+    .join("");
 }
 
 // The blank first option doubles as the control's label, so an unset filter reads as
@@ -86,11 +99,10 @@ function buildFilterBar(controls) {
 
   return `
     <div class="${layout}">
-      ${controls.map(control => control.type === "select" ? buildSelect(control) : buildSearch(control)).join("")}
+      ${controls.map((control) => (control.type === "select" ? buildSelect(control) : buildSearch(control))).join("")}
     </div>
   `;
 }
-
 
 // ─── STATE ──────────────────────────────────────────────────────────────────
 
@@ -112,15 +124,19 @@ function createFilterState({ controls, root, onChange }) {
   // Scoped to this call, so two bars on one page can't fight over one set of values. A
   // `required` select starts on its first option to match the markup buildSelect emits for
   // it, rather than saying "no filter" while the visible select shows a choice.
-  const values = Object.fromEntries(controls.map(control => [
-    control.name,
-    control.required && control.options?.length ? String(control.options[0].value) : "",
-  ]));
+  const values = Object.fromEntries(
+    controls.map((control) => [
+      control.name,
+      control.required && control.options?.length
+        ? String(control.options[0].value)
+        : "",
+    ]),
+  );
 
   // A blank control is skipped rather than matched, so "All statuses" means "don't narrow"
   // instead of "status equals empty string".
   function matches(row) {
-    return controls.every(control => {
+    return controls.every((control) => {
       const value = values[control.name].trim();
       return !value || control.match(row, value);
     });
@@ -131,7 +147,7 @@ function createFilterState({ controls, root, onChange }) {
   // value is dropped rather than preserved: the point of swapping the options is that the
   // old one may no longer exist, and a stale value would filter against a field no row has.
   function setControlOptions(name, options, selected) {
-    const control = controls.find(candidate => candidate.name === name);
+    const control = controls.find((candidate) => candidate.name === name);
     const select = root.querySelector(`select[data-filter="${name}"]`);
     if (!control || !select) return;
 
@@ -141,7 +157,9 @@ function createFilterState({ controls, root, onChange }) {
       ${buildOptions(control)}
     `;
 
-    const value = selected ?? (control.required && options.length ? String(options[0].value) : "");
+    const value =
+      selected ??
+      (control.required && options.length ? String(options[0].value) : "");
 
     select.value = value;
     values[name] = value;
@@ -151,7 +169,7 @@ function createFilterState({ controls, root, onChange }) {
 
   // Delegated, and on `input` rather than `change`: a <select> fires both, while a text
   // input only fires `change` on blur, leaving the list stale until the user clicks away.
-  root.addEventListener("input", event => {
+  root.addEventListener("input", (event) => {
     const control = event.target.closest("[data-filter]");
     if (!control) return;
 
@@ -162,7 +180,6 @@ function createFilterState({ controls, root, onChange }) {
 
   return { matches, setControlOptions };
 }
-
 
 export {
   SUITE_OPTIONS,

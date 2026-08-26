@@ -31,7 +31,6 @@ function isFilled(value) {
   return true;
 }
 
-
 /**
  * @param container     Element — the fieldsets are rendered into it. The only part of the
  *                      document this form knows about.
@@ -66,15 +65,12 @@ function createPanelForm({
   onCleared,
   onRefresh,
 }) {
-
   const state = createFieldState(fields);
 
-  const panelsByNumber = new Map(
-    panels.map(panel => [panel.panel, panel]),
-  );
+  const panelsByNumber = new Map(panels.map((panel) => [panel.panel, panel]));
 
   // A panel with its own build function is a component's, and must not be re-rendered.
-  const renderedPanels = panels.filter(panel => !panel.build);
+  const renderedPanels = panels.filter((panel) => !panel.build);
 
   let panelElements = new Map();
 
@@ -97,27 +93,25 @@ function createPanelForm({
   function isPanelComplete(panelNumber) {
     const panel = panelsByNumber.get(panelNumber);
 
-    return requiredKeys(panelNumber).every(key => isFilled(state[key]))
-      && (panel?.complete?.() ?? true);
+    return (
+      requiredKeys(panelNumber).every((key) => isFilled(state[key])) &&
+      (panel?.complete?.() ?? true)
+    );
   }
 
   // A panel opens when every preceding panel is complete.
   function isPanelOpen(panelNumber) {
     return panels
-      .filter(panel => panel.panel < panelNumber)
-      .every(panel => isPanelComplete(panel.panel));
+      .filter((panel) => panel.panel < panelNumber)
+      .every((panel) => isPanelComplete(panel.panel));
   }
 
   // Group descriptors, not markup — hence not a `build*` name, which here means HTML.
   function groupsFor(panel) {
-    return panelGroups(
-      fields,
-      [panel],
-      {
-        editableOnly: true,
-        columns: 1,
-      },
-    );
+    return panelGroups(fields, [panel], {
+      editableOnly: true,
+      columns: 1,
+    });
   }
 
   function initialise() {
@@ -133,7 +127,7 @@ function createPanelForm({
 
     // Held so later lookups don't go back to the DOM.
     panelElements = new Map(
-      [...container.querySelectorAll("[data-panel]")].map(element => [
+      [...container.querySelectorAll("[data-panel]")].map((element) => [
         Number(element.dataset.panel),
         element,
       ]),
@@ -144,15 +138,11 @@ function createPanelForm({
       getState: () => state,
 
       sections: renderedPanels
-        .filter(panel => getPanel(panel.panel))
-        .map(panel => ({
+        .filter((panel) => getPanel(panel.panel))
+        .map((panel) => ({
           container: getPanel(panel.panel),
-          draw: values => buildGroupCards(
-            groupsFor(panel),
-            values,
-            fields,
-            buildFields,
-          ),
+          draw: (values) =>
+            buildGroupCards(groupsFor(panel), values, fields, buildFields),
         })),
 
       onChange: async (key, value, cleared) => {
@@ -179,9 +169,7 @@ function createPanelForm({
   }
 
   function isComplete() {
-    return panels.every(panel =>
-      isPanelComplete(panel.panel),
-    );
+    return panels.every((panel) => isPanelComplete(panel.panel));
   }
 
   function refresh() {
@@ -195,11 +183,7 @@ function createPanelForm({
   // with an empty string when nothing was cleared, which is how the owner knows to drop a
   // message left from an earlier change.
   function handleFieldChange(cleared) {
-    onCleared?.(
-      cleared
-        .map(key => fields[key].label)
-        .join(", "),
-    );
+    onCleared?.(cleared.map((key) => fields[key].label).join(", "));
 
     refresh();
   }

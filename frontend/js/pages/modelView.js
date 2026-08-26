@@ -2,26 +2,36 @@
 
 import { formatDate, showEmpty, showSuccess } from "../core/utils.js";
 import { getIcon } from "../components/icons.js";
-import { buildPretrainedBadge, buildSuiteBadgeList, buildVisibleBadge } from "../components/badges.js";
+import {
+  buildPretrainedBadge,
+  buildSuiteBadgeList,
+  buildVisibleBadge,
+} from "../components/badges.js";
 import { suitesFromSubmission } from "../core/suites.js";
 import { sortSuites } from "../tables/formatters.js";
 import { buildDisplayFields } from "../forms/fields.js";
-import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
-import { loadModelFields, loadModelMeta, MODEL_PANELS } from "../schemas/modelSchema.js";
+import {
+  attachEditLink,
+  attachRecordEditor,
+} from "../templates/record-editor.js";
+import {
+  loadModelFields,
+  loadModelMeta,
+  MODEL_PANELS,
+} from "../schemas/modelSchema.js";
 import { getModelRanking, loadModel, updateModel } from "../api/modelApi.js";
 import {
   renderStaticSubmissionsTable,
   renderSubmissionsTable,
 } from "../tables/submissionTable.js";
-import {
-  countTasks,
-  getMeanScores,
-  scoresBySuite,
-} from "../core/scoreData.js";
+import { countTasks, getMeanScores, scoresBySuite } from "../core/scoreData.js";
 import { appendCreateCard } from "../cards/createCard.js";
 import { buildRankCard } from "../cards/rankCard.js";
 import { markRankedRows } from "../core/rankData.js";
-import { renderStaticTaskScoresTable, toScoreRows } from "../tables/scoreTable.js";
+import {
+  renderStaticTaskScoresTable,
+  toScoreRows,
+} from "../tables/scoreTable.js";
 import { renderTaskScoreExplorer } from "../widgets/taskScoreExplorer.js";
 import { loadRecordPage } from "../templates/record-loader.js";
 import {
@@ -46,34 +56,6 @@ import { buildStatCards } from "../cards/statCards.js";
 
 const MAX_SUBMISSIONS = 3;
 const MAX_SCORES = 5;
-
-const DASHBOARD_SECTIONS = [
-  {
-    id: "ranking",
-    title: "Best Rank",
-  },
-  {
-    id: "scores",
-    title: "Task scores",
-    // view: "scores",
-    // linkIcon: getIcon("model"),
-    // linkText: "View task scores",
-  },
-  {
-    id: "details",
-    title: "Model details",
-    // view: "details",
-    // linkIcon: getIcon("details"),
-    // linkText: "View model details",
-  },
-  {
-    id: "submissions",
-    title: "Recent submissions",
-    // view: "submissions",
-    // linkIcon: getIcon("submission"),
-    // linkText: "View all submissions",
-  },
-];
 
 const BACK = {
   text: "← Back to dashboard",
@@ -112,7 +94,9 @@ function getDashboardData(model) {
 // visible to a stranger at all.
 function getBadges(model) {
   const submissions = model.submissions ?? [];
-  const suites = sortSuites([...new Set(submissions.flatMap(suitesFromSubmission))]);
+  const suites = sortSuites([
+    ...new Set(submissions.flatMap(suitesFromSubmission)),
+  ]);
   const isPublic = submissions.some(({ is_public }) => is_public);
 
   // Pretraining is a fact about the model, so it sits with the suites; visibility is about
@@ -127,10 +111,12 @@ function getBadges(model) {
 function getSubtitle(model) {
   return [
     { text: model.team_name, icon: getIcon("team") },
-    { text: model.created_at ? `Created ${formatDate(model.created_at)}` : null, icon: getIcon("created") },
-  ].filter(entry => entry.text);
+    {
+      text: model.created_at ? `Created ${formatDate(model.created_at)}` : null,
+      icon: getIcon("created"),
+    },
+  ].filter((entry) => entry.text);
 }
-
 
 // Beside Edit rather than under the submissions list: it belongs to the model, not to the
 // three rows the dashboard happens to show, and a member is as likely to want it before
@@ -208,13 +194,13 @@ function renderScoresSection(submissions, ranking) {
 }
 
 function renderDetailsSection(model, fields) {
-  const fieldColumns = [[
-    "team_name", "link_code", "is_pretrained", "created_at",
-  ]];
+  const fieldColumns = [
+    ["team_name", "link_code", "is_pretrained", "created_at"],
+  ];
 
   const columns = fieldColumns
     .map(
-      fieldNames => `
+      (fieldNames) => `
         <span class="column gap-md">
           ${buildDisplayFields(fieldNames, model, fields)}
         </span>
@@ -260,34 +246,28 @@ function renderDashboardView(context, router) {
   const { submissions, meanScores, taskCount } = dashboardData;
   const statistics = getStatistics(submissions, meanScores, taskCount);
 
-
   const ROW1 = [
-      {
-    id: "ranking",
-    title: "Ranking",
-  },
-  {
-    id: "scores",
-    title: "Task scores",
-  },
-  ]
-  const row1 = `<div class="section-row">${buildSections(ROW1)}</div>`
-
+    {
+      id: "ranking",
+      title: "Ranking",
+    },
+    {
+      id: "scores",
+      title: "Task scores",
+    },
+  ];
   const ROW2 = [
     {
-    id: "details",
-    title: "Model details",
-  },
-  {
-    id: "submissions",
-    title: "Recent submissions",
-  },
-  ]
+      id: "details",
+      title: "Model details",
+    },
+    {
+      id: "submissions",
+      title: "Recent submissions",
+    },
+  ];
 
-  console.log(ROW2)
-  const row2 = `<div class="section-row uneven">${buildSections(ROW2)}</div>`
-
-
+  const row2 = `<div class="section-row uneven">${buildSections(ROW2)}</div>`;
 
   renderPage(
     buildPage({
@@ -312,12 +292,20 @@ function renderDashboardView(context, router) {
   if (canEdit) attachEditLink(router);
 }
 
-function renderDetailsView({ model, fields, canEdit, edit = false, created = false })  {
+function renderDetailsView({
+  model,
+  fields,
+  canEdit,
+  edit = false,
+  created = false,
+}) {
   renderPage(
     buildPage({
       back: BACK,
       header: buildHeader(canEdit ? EDIT_ACTIONS : []),
-      body: buildBody() + (created ? buildSection({ id: POST_CREATE_SECTION }) : ""),
+      body:
+        buildBody() +
+        (created ? buildSection({ id: POST_CREATE_SECTION }) : ""),
     }),
   );
 
@@ -344,8 +332,8 @@ function renderDetailsView({ model, fields, canEdit, edit = false, created = fal
     record: model,
     fields,
     panels: MODEL_PANELS,
-    save: draft => updateModel(model.id, draft),
-    renderTitle: saved => renderHeader(saved.name, getSubtitle(saved)),
+    save: (draft) => updateModel(model.id, draft),
+    renderTitle: (saved) => renderHeader(saved.name, getSubtitle(saved)),
     edit,
   });
 }
@@ -415,12 +403,10 @@ loadRecordPage({
       // and the dashboard draws both at once.
       getModelRanking(modelId),
     ]);
-    console.log(fields)
+
     if (!model) {
       return null;
     }
-
-    console.log(model)
 
     return {
       model,

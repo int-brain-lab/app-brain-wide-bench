@@ -21,11 +21,10 @@ import { renderTaskScoresTable } from "../tables/scoreTable.js";
 import { MAX_COMPARED, createTaskComparison } from "./taskComparison.js";
 import { createTaskBreakdown } from "./taskBreakdown.js";
 
-
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
-const BROWSE_PROMPT = "Select a task score in the table to see how it was measured.";
-
+const BROWSE_PROMPT =
+  "Select a task score in the table to see how it was measured.";
 
 // ─── DATA ───────────────────────────────────────────────────────────────────
 
@@ -41,7 +40,6 @@ function toSeed(row) {
     metric: row.metric,
   };
 }
-
 
 // ─── MARKUP ─────────────────────────────────────────────────────────────────
 
@@ -64,7 +62,6 @@ function buildShell() {
     </div>`;
 }
 
-
 // ─── WIDGET ─────────────────────────────────────────────────────────────────
 
 /**
@@ -74,7 +71,12 @@ function buildShell() {
  * @param showRanking add the "Used in ranking" column. Rows must be stamped first.
  * @returns nothing: the widget owns its table, and there is no second caller to hand it to.
  */
-function renderTaskScoreExplorer({ container, rows, showModel = false, showRanking = false }) {
+function renderTaskScoreExplorer({
+  container,
+  rows,
+  showModel = false,
+  showRanking = false,
+}) {
   const root = resolveContainer(container, "renderTaskScoreExplorer");
 
   root.innerHTML = buildShell();
@@ -92,7 +94,10 @@ function renderTaskScoreExplorer({ container, rows, showModel = false, showRanki
   let comparison = null;
 
   function breakdownFor() {
-    breakdown ??= createTaskBreakdown({ container: detail, prompt: BROWSE_PROMPT });
+    breakdown ??= createTaskBreakdown({
+      container: detail,
+      prompt: BROWSE_PROMPT,
+    });
 
     return breakdown;
   }
@@ -102,7 +107,7 @@ function renderTaskScoreExplorer({ container, rows, showModel = false, showRanki
   function comparisonFor() {
     comparison ??= createTaskComparison({
       container: detail,
-      onDrop: key => table?.deselectRow(key),
+      onDrop: (key) => table?.deselectRow(key),
     });
 
     return comparison;
@@ -162,12 +167,11 @@ function renderTaskScoreExplorer({ container, rows, showModel = false, showRanki
     (comparing ? comparisonFor() : breakdownFor()).clear();
   }
 
-  toolbar.addEventListener("click", event => {
+  toolbar.addEventListener("click", (event) => {
     if (event.target.closest("[data-role='mode']")) setMode(!comparing);
   });
 
   setMode(false);
 }
-
 
 export { renderTaskScoreExplorer };

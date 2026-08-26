@@ -1,14 +1,26 @@
 // Team record page — dashboard and details for one team.
 
-import { escapeHtml, showEmpty, showFailure, showMessage, showSuccess } from "../core/utils.js";
+import {
+  escapeHtml,
+  showEmpty,
+  showFailure,
+  showMessage,
+  showSuccess,
+} from "../core/utils.js";
 import { getIcon } from "../components/icons.js";
 import { buildCount, buildTableCount } from "../components/count.js";
-import { attachEditLink, attachRecordEditor } from "../templates/record-editor.js";
+import {
+  attachEditLink,
+  attachRecordEditor,
+} from "../templates/record-editor.js";
 import { TEAM_FIELDS, TEAM_PANELS } from "../schemas/teamSchema.js";
 import { loadTeam, updateTeam } from "../api/teamApi.js";
 import { getModels } from "../api/modelApi.js";
 import { renderStaticModelsTable } from "../tables/modelTable.js";
-import { buildMembersPanel, createMembersSection } from "../widgets/teamMembers.js";
+import {
+  buildMembersPanel,
+  createMembersSection,
+} from "../widgets/teamMembers.js";
 import { appendCreateCard } from "../cards/createCard.js";
 import { buildStatCards } from "../cards/statCards.js";
 import { buildRoleBadge } from "../components/badges.js";
@@ -92,9 +104,9 @@ function isOwner(team) {
 
 function getSubtitle(team) {
   return [
-    {text: buildCount(team.n_members, "member"), icon: getIcon("member")},
-    {text: buildCount(team.n_models, "model"), icon: getIcon("model")},
-  ].filter(entry => entry.text);
+    { text: buildCount(team.n_members, "member"), icon: getIcon("member") },
+    { text: buildCount(team.n_models, "model"), icon: getIcon("model") },
+  ].filter((entry) => entry.text);
 }
 
 // ─── MARKUP ──────────────────────────────────────────────────────────────────
@@ -144,7 +156,12 @@ function renderModelsSection(models) {
     return;
   }
 
-  renderStaticModelsTable({ container, models, showTeam: false, limit: MAX_MODELS });
+  renderStaticModelsTable({
+    container,
+    models,
+    showTeam: false,
+    limit: MAX_MODELS,
+  });
 }
 
 // Only reached for a member — the section itself isn't built for anyone else, since the
@@ -170,7 +187,9 @@ function renderDashboardView(context, router) {
       header: buildHeader(canEdit ? [CREATE_TEAM_ACTION, EDIT_ACTION] : []),
       body:
         buildStats() +
-        buildSections(canEdit ? [MODELS_SECTION, MEMBERS_SECTION] : [MODELS_SECTION]),
+        buildSections(
+          canEdit ? [MODELS_SECTION, MEMBERS_SECTION] : [MODELS_SECTION],
+        ),
     }),
   );
 
@@ -188,14 +207,22 @@ function renderDashboardView(context, router) {
   // Manage members means the same thing as Edit, so it opens the editor too. Without
   // stopPropagation the router's own delegated handler would also see this click and
   // navigate a second time, landing read-only.
-  document.querySelector("[data-view='details']").addEventListener("click", event => {
-    event.preventDefault();
-    event.stopPropagation();
-    router.goTo("details", { edit: true });
-  });
+  document
+    .querySelector("[data-view='details']")
+    .addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      router.goTo("details", { edit: true });
+    });
 }
 
-function renderDetailsView({ team, fields, canEdit, edit = false, created = false }) {
+function renderDetailsView({
+  team,
+  fields,
+  canEdit,
+  edit = false,
+  created = false,
+}) {
   renderPage(
     buildPage({
       back: BACK,
@@ -228,9 +255,10 @@ function renderDetailsView({ team, fields, canEdit, edit = false, created = fals
 
   const members = createMembersSection({
     getTeam: () => team,
-    onMessage: (message, failed) => (failed
-      ? showFailure(pageMessage(), message)
-      : showMessage(pageMessage(), message)),
+    onMessage: (message, failed) =>
+      failed
+        ? showFailure(pageMessage(), message)
+        : showMessage(pageMessage(), message),
   });
 
   members.render();
@@ -245,13 +273,13 @@ function renderDetailsView({ team, fields, canEdit, edit = false, created = fals
     fields,
     panels: TEAM_PANELS,
     edit,
-    renderTitle: saved => renderHeader(saved.name, getSubtitle(saved)),
+    renderTitle: (saved) => renderHeader(saved.name, getSubtitle(saved)),
 
     onEdit: () => members.setEditing(isOwner(team)),
 
     // Members first, then the rename: PATCH answers with the full TeamDetail, so doing it
     // last means the response already reflects the membership changes.
-    save: async draft => {
+    save: async (draft) => {
       failedMembers = await members.apply();
 
       return updateTeam(team.id, draft);

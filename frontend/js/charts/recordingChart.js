@@ -11,11 +11,19 @@
 // engine keys its axes on.
 
 import { resolveContainer } from "../tables/table.js";
-import { describeRecordingScores, toRecordingPoints } from "../tables/recordingScoreTable.js";
+import {
+  describeRecordingScores,
+  toRecordingPoints,
+} from "../tables/recordingScoreTable.js";
 import { score } from "../core/utils.js";
 import { buildHeatmap } from "./heatmap.js";
-import { panelAxes, panelKey, panelRanges, renderFacetPlots, toPanels } from "./facetPlot.js";
-
+import {
+  panelAxes,
+  panelKey,
+  panelRanges,
+  renderFacetPlots,
+  toPanels,
+} from "./facetPlot.js";
 
 // What a score's points run down: recordings for TS1 and TS2, brain regions for TS3, and
 // bare metric names for a score whose shape follows neither convention. Two scores share an
@@ -31,13 +39,12 @@ function dimensionOf(entry) {
  *                selected score.
  */
 function toPointEntries(entries) {
-  return entries.map(entry => ({
+  return entries.map((entry) => ({
     ...entry,
     group: dimensionOf(entry),
     points: toRecordingPoints(entry.recordings, entry.metric),
   }));
 }
-
 
 /**
  * @param container element, or the id of one. Its contents are replaced.
@@ -72,7 +79,6 @@ function renderRecordingCharts({
   });
 }
 
-
 // ─── HEATMAP ────────────────────────────────────────────────────────────────
 
 /**
@@ -101,31 +107,39 @@ function renderRecordingHeatmaps({ container, entries }) {
   root.innerHTML = blocks
     .map(([metric, members]) => {
       const labels = axes.get(members[0].group) ?? [];
-      const points = members.map(entry => new Map(entry.points.map(point => [point.key, point])));
+      const points = members.map(
+        (entry) => new Map(entry.points.map((point) => [point.key, point])),
+      );
 
       // Read off the points rather than the keys: a recording id is a uuid, and the axis
       // shows the head of one — see toRecordingPoints.
       const shortLabels = new Map(
-        points.flatMap(byKey => [...byKey.values()].map(point => [point.key, point.label])),
+        points.flatMap((byKey) =>
+          [...byKey.values()].map((point) => [point.key, point.label]),
+        ),
       );
 
       return buildHeatmap({
         title: metric,
         range: ranges.get(panelKey(members[0])) ?? { min: 0, max: 1 },
-        format: value => score(value),
+        format: (value) => score(value),
         // Uuids are unreadable at a cell's width; a region name is the point of the row.
         labels: members[0].group !== "recording",
-        columns: labels.map(key => ({ key, label: shortLabels.get(key) ?? key })),
+        columns: labels.map((key) => ({
+          key,
+          label: shortLabels.get(key) ?? key,
+        })),
         rows: members.map((entry, index) => ({
           label: entry.label,
-          cells: labels.map(key => {
+          cells: labels.map((key) => {
             const point = points[index].get(key);
 
             return {
               value: point?.mean ?? null,
-              title: point?.mean == null
-                ? `${key} — not measured`
-                : `${key} · ${score(point.mean)}${point.sem == null ? "" : ` ± ${score(point.sem)}`}`,
+              title:
+                point?.mean == null
+                  ? `${key} — not measured`
+                  : `${key} · ${score(point.mean)}${point.sem == null ? "" : ` ± ${score(point.sem)}`}`,
             };
           }),
         })),
@@ -133,6 +147,5 @@ function renderRecordingHeatmaps({ container, entries }) {
     })
     .join("");
 }
-
 
 export { renderRecordingCharts, renderRecordingHeatmaps };

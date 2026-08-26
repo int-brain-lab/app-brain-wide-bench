@@ -7,12 +7,15 @@ import { getIcon } from "../components/icons.js";
 import { loadMe } from "../api/userApi.js";
 import { getMySubmissions } from "../api/submissionApi.js";
 import { getMyModels } from "../api/modelApi.js";
-import { getMyTaskSubmissions} from "../api/taskSubmissionApi.js";
+import { getMyTaskSubmissions } from "../api/taskSubmissionApi.js";
 import { showEmpty } from "../core/utils.js";
 import { renderStaticSubmissionsTable } from "../tables/submissionTable.js";
 import { toModelRows } from "../tables/modelTable.js";
 import { toTeamRows } from "../tables/teamTable.js";
-import { renderStaticTaskScoresTable, toScoreResultRows } from "../tables/scoreTable.js";
+import {
+  renderStaticTaskScoresTable,
+  toScoreResultRows,
+} from "../tables/scoreTable.js";
 import { renderTaskScoreExplorer } from "../widgets/taskScoreExplorer.js";
 import { buildCount } from "../components/count.js";
 import { buildModelCards } from "../cards/modelCards.js";
@@ -31,7 +34,6 @@ import {
   sectionBody,
   sectionCreate,
 } from "../templates/record-page.js";
-
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
@@ -67,7 +69,11 @@ const TEAM_SECTIONS = [
     title: "Teams",
     create: true,
     links: [
-      { href: "/html/teams/team_list.html", label: "View all", icon: getIcon("team") },
+      {
+        href: "/html/teams/team_list.html",
+        label: "View all",
+        icon: getIcon("team"),
+      },
     ],
   },
   {
@@ -75,7 +81,11 @@ const TEAM_SECTIONS = [
     title: "Models",
     create: true,
     links: [
-      { href: "/html/models/model_list.html", label: "View all", icon: getIcon("model") },
+      {
+        href: "/html/models/model_list.html",
+        label: "View all",
+        icon: getIcon("model"),
+      },
     ],
   },
 ];
@@ -90,7 +100,11 @@ const BOTTOM_SECTIONS = [
     title: "Recent submissions",
     create: true,
     links: [
-      { href: SUBMISSIONS_SECTION_HREF, label: "View all", icon: getIcon("submission") },
+      {
+        href: SUBMISSIONS_SECTION_HREF,
+        label: "View all",
+        icon: getIcon("submission"),
+      },
     ],
   },
   {
@@ -153,7 +167,9 @@ function renderTeamsSection(teams) {
   }
 
   container.className = "column gap-md";
-  container.innerHTML = buildTeamCards(toTeamRows(teams.slice(0, MAX_TEAM_CARDS)));
+  container.innerHTML = buildTeamCards(
+    toTeamRows(teams.slice(0, MAX_TEAM_CARDS)),
+  );
 }
 
 function renderModelsSection(models) {
@@ -168,7 +184,9 @@ function renderModelsSection(models) {
     return;
   }
 
-  container.innerHTML = buildModelCards(toModelRows(models.slice(0, MAX_MODEL_CARDS)));
+  container.innerHTML = buildModelCards(
+    toModelRows(models.slice(0, MAX_MODEL_CARDS)),
+  );
 }
 
 function renderSubmissionsSection(submissions) {
@@ -293,8 +311,14 @@ loadRecordPage({
   // Score rows are built once here, not per view — both views render the same rows, and
   // the scores view is reached without a reload.
   load: async () => {
-    const [ models, taskSubmissions, submissions, teams, user] =
-      await Promise.all([getMyModels(), getMyTaskSubmissions(), getMySubmissions(), getMyTeams(), loadMe()]);
+    const [models, taskSubmissions, submissions, teams, user] =
+      await Promise.all([
+        getMyModels(),
+        getMyTaskSubmissions(),
+        getMySubmissions(),
+        getMyTeams(),
+        loadMe(),
+      ]);
 
     return {
       user,

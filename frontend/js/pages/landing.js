@@ -13,11 +13,9 @@ import { getTasks } from "../api/taskApi.js";
 import { showFailure } from "../core/utils.js";
 import { renderStaticLeaderboardTable } from "../tables/leaderboardTable.js";
 
-
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
 const PREVIEW_LIMIT = 5;
-
 
 // ─── RENDERING ──────────────────────────────────────────────────────────────
 
@@ -50,13 +48,15 @@ function showFailedPreview(message, error) {
   showFailure(document.getElementById("lb-table-preview"), message, error);
 }
 
-
 // ─── INITIALISATION ─────────────────────────────────────────────────────────
 
 async function loadLandingPage() {
   try {
     // The task table supplies the preview's columns; the leaderboard supplies its rows.
-    const [standings, tasks] = await Promise.all([getLeaderboard(), getTasks()]);
+    const [standings, tasks] = await Promise.all([
+      getLeaderboard(),
+      getTasks(),
+    ]);
 
     if (!standings || !tasks) {
       showFailedPreview("Loading the leaderboard failed.");

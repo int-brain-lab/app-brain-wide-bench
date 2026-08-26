@@ -36,7 +36,10 @@ import { latestScoresByTask } from "../core/scoreData.js";
 import { getModels, loadModel } from "../api/modelApi.js";
 import { loadPage } from "../templates/page-loader.js";
 import { renderModelsTable } from "../tables/modelTable.js";
-import { MAX_MODELS, createModelComparison } from "../widgets/modelComparison.js";
+import {
+  MAX_MODELS,
+  createModelComparison,
+} from "../widgets/modelComparison.js";
 import {
   buildHeader,
   buildPage,
@@ -47,13 +50,13 @@ import {
   sectionBody,
 } from "../templates/record-page.js";
 
-
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
 const MODEL_PAGE = "/html/models/models.html";
 
 const PICK_TITLE = "Compare models";
-const PICK_DESCRIPTION = "Pick a reference model, then the others to measure it against.";
+const PICK_DESCRIPTION =
+  "Pick a reference model, then the others to measure it against.";
 
 // `with` rather than `models`: it reads as the sentence the URL is making, and `models` is
 // already what the page's own model list is called.
@@ -69,7 +72,6 @@ const CONTROL_SECTIONS = ["suite"];
 // One short of the widget's own cap, because the reference is the fifth: the comparison
 // holds MAX_MODELS in total and this page's reference is always one of them.
 const MAX_COMPARATORS = MAX_MODELS - 1;
-
 
 // ─── URL STATE ───────────────────────────────────────────────────────────────
 
@@ -109,7 +111,6 @@ function writeSelection({ ref, suite, withIds }) {
   history.replaceState(history.state, "", `?${params}`);
 }
 
-
 // ─── DATA ────────────────────────────────────────────────────────────────────
 
 // From the model's own scores rather than the list endpoint's `task_suites`, so the
@@ -128,12 +129,14 @@ function suitesOf(model) {
 // has a score, and a reference with nothing on it can only produce an apology.
 function referenceOptions(models) {
   return models
-    .filter(candidate => candidate.task_suites?.length)
-    .map(candidate => ({
+    .filter((candidate) => candidate.task_suites?.length)
+    .map((candidate) => ({
       value: candidate.id,
       // The team disambiguates two models with the same name, which is allowed across
       // teams — the uniqueness rule is per team.
-      label: candidate.team_name ? `${candidate.name} — ${candidate.team_name}` : candidate.name,
+      label: candidate.team_name
+        ? `${candidate.name} — ${candidate.team_name}`
+        : candidate.name,
     }));
 }
 
@@ -148,11 +151,11 @@ function referenceOptions(models) {
  */
 function modelsOnSuite(models, referenceId, suite) {
   return models.filter(
-    candidate =>
-      candidate.id === referenceId || (candidate.task_suites ?? []).includes(suite),
+    (candidate) =>
+      candidate.id === referenceId ||
+      (candidate.task_suites ?? []).includes(suite),
   );
 }
-
 
 // ─── MARKUP ──────────────────────────────────────────────────────────────────
 
@@ -164,11 +167,13 @@ function modelsOnSuite(models, referenceId, suite) {
  */
 function buildSelect(role, options, selected, blank = null) {
   const items = options
-    .map(option => `
+    .map(
+      (option) => `
       <option value="${escapeHtml(option.value)}" ${option.value === selected ? "selected" : ""}>
         ${escapeHtml(option.label)}
       </option>
-    `)
+    `,
+    )
     .join("");
 
   // Nothing to choose between: a reference scored on one suite.
@@ -185,10 +190,12 @@ function buildSelect(role, options, selected, blank = null) {
 function getSubtitle(model, suite) {
   return [
     { text: model.team_name, icon: getIcon("team") },
-    { text: suite ? `Comparing on ${suite.toUpperCase()}` : null, icon: getIcon("suite") },
-  ].filter(entry => entry.text);
+    {
+      text: suite ? `Comparing on ${suite.toUpperCase()}` : null,
+      icon: getIcon("suite"),
+    },
+  ].filter((entry) => entry.text);
 }
-
 
 // ─── PAGE ────────────────────────────────────────────────────────────────────
 
@@ -200,20 +207,26 @@ function renderComparePage({ model, models, fixedId }) {
   renderPage(
     buildPage({
       // Only one way back, and only when there is somewhere to go back to.
-      header: buildHeader(model
-        ? [{
-            href: `${MODEL_PAGE}?id=${encodeURIComponent(model.id)}`,
-            label: "Back to model",
-            icon: getIcon("model"),
-          }]
-        : []),
+      header: buildHeader(
+        model
+          ? [
+              {
+                href: `${MODEL_PAGE}?id=${encodeURIComponent(model.id)}`,
+                label: "Back to model",
+                icon: getIcon("model"),
+              },
+            ]
+          : [],
+      ),
 
       // The two controls share a row: together they are one question — which model, on
       // which suite. `align-start` because a section may grow a line and .page-section's
       // space-between would otherwise push the other to the bottom of a stretched cell.
       body:
         `<div class="section-row align-start">${buildSections([
-          ...(selectable ? [{ id: "reference", title: "Reference model" }] : []),
+          ...(selectable
+            ? [{ id: "reference", title: "Reference model" }]
+            : []),
           { id: "suite", title: "Task suite" },
         ])}</div>` +
         // Untitled: it holds whatever is standing in for the page — "choose a model" — and
@@ -256,7 +269,7 @@ function renderComparePage({ model, models, fixedId }) {
   // back rather than acting on it.
   const comparison = createModelComparison({
     container: sectionBody("comparison"),
-    onDrop: key => table?.deselectRow(key),
+    onDrop: (key) => table?.deselectRow(key),
   });
 
   function showSections(ids, shown) {
@@ -272,13 +285,12 @@ function renderComparePage({ model, models, fixedId }) {
   function pruneSelection(withIds) {
     const allowed = new Set(
       modelsOnSuite(models, reference?.id, state.suite)
-        .filter(candidate => candidate.id !== reference?.id)
-        .map(candidate => candidate.id),
+        .filter((candidate) => candidate.id !== reference?.id)
+        .map((candidate) => candidate.id),
     );
 
-    return withIds.filter(id => allowed.has(id)).slice(0, MAX_COMPARATORS);
+    return withIds.filter((id) => allowed.has(id)).slice(0, MAX_COMPARATORS);
   }
-
 
   // ─── SECTIONS ──────────────────────────────────────────────────────────────
 
@@ -292,9 +304,11 @@ function renderComparePage({ model, models, fixedId }) {
       "Choose a model…",
     );
 
-    container.querySelector("[data-role='reference']").addEventListener("change", event => {
-      useReference(event.target.value);
-    });
+    container
+      .querySelector("[data-role='reference']")
+      .addEventListener("change", (event) => {
+        useReference(event.target.value);
+      });
   }
 
   function renderSuite() {
@@ -302,21 +316,23 @@ function renderComparePage({ model, models, fixedId }) {
 
     container.innerHTML = buildSelect(
       "suite",
-      suites.map(suite => ({ value: suite, label: suite.toUpperCase() })),
+      suites.map((suite) => ({ value: suite, label: suite.toUpperCase() })),
       state.suite,
     );
 
-    container.querySelector("[data-role='suite']").addEventListener("change", event => {
-      state.suite = event.target.value;
+    container
+      .querySelector("[data-role='suite']")
+      .addEventListener("change", (event) => {
+        state.suite = event.target.value;
 
-      // A comparator chosen for the old suite may not have the new one. Pruned here rather
-      // than left to the table, so the URL stays honest about what is being compared.
-      state.withIds = pruneSelection(state.withIds);
+        // A comparator chosen for the old suite may not have the new one. Pruned here rather
+        // than left to the table, so the URL stays honest about what is being compared.
+        state.withIds = pruneSelection(state.withIds);
 
-      writeSelection(state);
-      renderTitle();
-      renderModels();
-    });
+        writeSelection(state);
+        renderTitle();
+        renderModels();
+      });
   }
 
   // What the reader picks from, and what says what is picked: one row per model scored on
@@ -358,11 +374,11 @@ function renderComparePage({ model, models, fixedId }) {
   // so this is a filter rather than a lookup.
   function toSeeds(rows) {
     const ordered = [
-      ...rows.filter(row => row.id === reference.id),
-      ...rows.filter(row => row.id !== reference.id),
+      ...rows.filter((row) => row.id === reference.id),
+      ...rows.filter((row) => row.id !== reference.id),
     ];
 
-    return ordered.map(row => ({
+    return ordered.map((row) => ({
       key: row.id,
       modelId: row.id,
       name: row.name,
@@ -375,7 +391,9 @@ function renderComparePage({ model, models, fixedId }) {
   // which is a fair thing to want. It comes back on the next load, since the URL carries it
   // as the page's own id rather than as one of the comparators.
   async function onSelection(rows) {
-    state.withIds = rows.filter(row => row.id !== reference.id).map(row => row.id);
+    state.withIds = rows
+      .filter((row) => row.id !== reference.id)
+      .map((row) => row.id);
     writeSelection(state);
 
     const overflow = await comparison.show(toSeeds(rows), state.suite);
@@ -384,7 +402,6 @@ function renderComparePage({ model, models, fixedId }) {
     // is what keeps the highlighted rows and the comparison saying the same thing.
     for (const key of overflow) table?.deselectRow(key);
   }
-
 
   // ─── REFERENCE ─────────────────────────────────────────────────────────────
 
@@ -397,11 +414,9 @@ function renderComparePage({ model, models, fixedId }) {
       return;
     }
 
-    renderHeader(
-      reference.name,
-      getSubtitle(reference, state.suite),
-      [buildSuiteBadgeList(suites)],
-    );
+    renderHeader(reference.name, getSubtitle(reference, state.suite), [
+      buildSuiteBadgeList(suites),
+    ]);
   }
 
   // Nothing chosen, or nothing to show for what was: the controls and the results have
@@ -438,7 +453,7 @@ function renderComparePage({ model, models, fixedId }) {
     // whole page. Said once here rather than in each of the sections behind it.
     renderIntro("Loading model…");
 
-    const next = await detailFor(id).catch(error => {
+    const next = await detailFor(id).catch((error) => {
       console.error(`Could not load model ${id}:`, error);
       return null;
     });
@@ -461,7 +476,9 @@ function renderComparePage({ model, models, fixedId }) {
     renderTitle();
 
     if (!suites.length) {
-      renderIntro(`${next.name} has no scored tasks yet, so there is nothing to compare.`);
+      renderIntro(
+        `${next.name} has no scored tasks yet, so there is nothing to compare.`,
+      );
       return;
     }
 
@@ -472,7 +489,6 @@ function renderComparePage({ model, models, fixedId }) {
     renderModels();
   }
 
-
   // ─── START ─────────────────────────────────────────────────────────────────
 
   if (selectable) renderReference();
@@ -481,7 +497,6 @@ function renderComparePage({ model, models, fixedId }) {
   // `ref` from a copied link must not quietly redirect the page to a different model.
   return useReference(fixedId ?? (selectable ? state.ref : ""));
 }
-
 
 // ─── LOAD ────────────────────────────────────────────────────────────────────
 

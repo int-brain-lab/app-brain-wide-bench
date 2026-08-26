@@ -7,13 +7,14 @@
 // This component owns its markup and event listeners. `buildUploadPanel()` creates the
 // markup; `createUploadSection()` is then called once that markup is in the DOM.
 
-import { clearMessage, escapeHtml, formatBytes, showFailure } from "../core/utils.js";
-import { REQUIRED_MARKER } from "../forms/fields.js";
 import {
-  inferTasks,
-  listZipEntries,
-} from "../core/zip.js";
-
+  clearMessage,
+  escapeHtml,
+  formatBytes,
+  showFailure,
+} from "../core/utils.js";
+import { REQUIRED_MARKER } from "../forms/fields.js";
+import { inferTasks, listZipEntries } from "../core/zip.js";
 
 // ─── BUILDERS ────────────────────────────────────────────────────────────────
 
@@ -63,7 +64,7 @@ function buildUploadPanel() {
 function buildDetectedTasks(taskIds, isKnownTask) {
   const pills = taskIds
     .map(
-      taskId => `
+      (taskId) => `
         <span class="badge ${isKnownTask(taskId) ? "success" : "error"}">
           ${escapeHtml(taskId)}
         </span>
@@ -87,7 +88,6 @@ function buildDetectedTasks(taskIds, isKnownTask) {
   `;
 }
 
-
 // ─── DOM ─────────────────────────────────────────────────────────────────────
 
 function getElements() {
@@ -103,14 +103,11 @@ function getElements() {
   };
 }
 
-
 // ─── FILE HANDLING ───────────────────────────────────────────────────────────
 
 function isValidZip(file) {
   return file?.name.toLowerCase().endsWith(".zip");
 }
-
-
 
 // ─── CONTROLLER ───────────────────────────────────────────────────────────
 /**
@@ -118,10 +115,7 @@ function isValidZip(file) {
  * @param onFile    Called with `(file, taskIds)` when a file is selected,
  *                  or `(null, [])` when it is removed.
  */
-function createUploadSection({
-  knownTasks,
-  onFile,
-}) {
+function createUploadSection({ knownTasks, onFile }) {
   const elements = getElements();
 
   function isKnownTask(taskId) {
@@ -133,10 +127,7 @@ function createUploadSection({
   function renderDetectedTasks(taskIds) {
     elements.taskInfo.hidden = false;
     elements.taskInfo.className = "card";
-    elements.taskInfo.innerHTML = buildDetectedTasks(
-      taskIds,
-      isKnownTask,
-    );
+    elements.taskInfo.innerHTML = buildDetectedTasks(taskIds, isKnownTask);
   }
 
   function showSelectedFile(file) {
@@ -161,7 +152,10 @@ function createUploadSection({
 
   async function processFile(file) {
     if (!isValidZip(file)) {
-      showFailure(elements.fileMessage, `${file?.name ?? "That file"} is not a .zip file.`);
+      showFailure(
+        elements.fileMessage,
+        `${file?.name ?? "That file"} is not a .zip file.`,
+      );
       return;
     }
 
@@ -225,45 +219,24 @@ function createUploadSection({
   }
 
   function attach() {
-    elements.fileInput.addEventListener(
-      "change",
-      handleFileChange,
-    );
+    elements.fileInput.addEventListener("change", handleFileChange);
 
-    elements.dropzone.addEventListener(
-      "drop",
-      handleDrop,
-    );
+    elements.dropzone.addEventListener("drop", handleDrop);
 
-    elements.dropzone.addEventListener(
-      "click",
-      handleDropzoneClick,
-    );
+    elements.dropzone.addEventListener("click", handleDropzoneClick);
 
-    elements.fileRemove.addEventListener(
-      "click",
-      removeFile,
-    );
+    elements.fileRemove.addEventListener("click", removeFile);
 
     for (const eventName of ["dragenter", "dragover"]) {
-      elements.dropzone.addEventListener(
-        eventName,
-        handleDragEnter,
-      );
+      elements.dropzone.addEventListener(eventName, handleDragEnter);
     }
 
     for (const eventName of ["dragleave", "dragend", "drop"]) {
-      elements.dropzone.addEventListener(
-        eventName,
-        handleDragLeave,
-      );
+      elements.dropzone.addEventListener(eventName, handleDragLeave);
     }
   }
 
   return { attach };
 }
 
-export {
-  buildUploadPanel,
-  createUploadSection,
-};
+export { buildUploadPanel, createUploadSection };

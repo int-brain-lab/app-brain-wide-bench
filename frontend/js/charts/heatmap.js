@@ -10,7 +10,6 @@
 import { escapeHtml } from "../core/utils.js";
 import { SEQUENTIAL } from "./palette.js";
 
-
 // The bucket a value falls in, as an index into the ramp. Discrete rather than a continuous
 // gradient: five steps a reader can match against a key beat a smooth wash they can only
 // guess at, and the legend then has something to show.
@@ -23,7 +22,10 @@ function bucketOf(value, { min, max }) {
 
   const fraction = (value - min) / (max - min);
 
-  return Math.min(SEQUENTIAL.length - 1, Math.max(0, Math.floor(fraction * SEQUENTIAL.length)));
+  return Math.min(
+    SEQUENTIAL.length - 1,
+    Math.max(0, Math.floor(fraction * SEQUENTIAL.length)),
+  );
 }
 
 function buildCell(cell, range) {
@@ -31,7 +33,8 @@ function buildCell(cell, range) {
 
   // An absent value is a hole rather than the bottom of the ramp: "not measured here" and
   // "measured, and worst" are different answers and must not share a colour.
-  if (bucket == null) return `<span class="heat-cell heat-empty" title="${escapeHtml(cell?.title ?? "")}"></span>`;
+  if (bucket == null)
+    return `<span class="heat-cell heat-empty" title="${escapeHtml(cell?.title ?? "")}"></span>`;
 
   return `
     <span
@@ -44,9 +47,9 @@ function buildCell(cell, range) {
 // Low to high, with the bounds written out: the ramp says which end is which, and the
 // numbers say what the ends are.
 function buildKey(range, format) {
-  const swatches = SEQUENTIAL
-    .map(colour => `<span class="heat-cell" style="background:${colour}"></span>`)
-    .join("");
+  const swatches = SEQUENTIAL.map(
+    (colour) => `<span class="heat-cell" style="background:${colour}"></span>`,
+  ).join("");
 
   return `
     <span class="row left gap-sm metadata heat-key">
@@ -67,24 +70,33 @@ function buildKey(range, format) {
  * @param format  how a bound is written in the key.
  * @param labels  false to leave the column labels off, for an axis of unreadable ids.
  */
-function buildHeatmap({ columns, rows, range, title, format = value => String(value), labels = true }) {
+function buildHeatmap({
+  columns,
+  rows,
+  range,
+  title,
+  format = (value) => String(value),
+  labels = true,
+}) {
   const header = labels
     ? `
       <div class="heat-row heat-header" style="--heat-columns:${columns.length}">
         <span class="heat-label"></span>
-        ${columns.map(column => `<span class="heat-column">${escapeHtml(column.label)}</span>`).join("")}
+        ${columns.map((column) => `<span class="heat-column">${escapeHtml(column.label)}</span>`).join("")}
       </div>`
     : "";
 
   const body = rows
-    .map(row => `
+    .map(
+      (row) => `
       <div class="heat-row" style="--heat-columns:${columns.length}">
         <span class="heat-label column gap-xs">
           <span class="label">${escapeHtml(row.label)}</span>
           ${row.sublabel ? `<span class="metadata">${escapeHtml(row.sublabel)}</span>` : ""}
         </span>
-        ${row.cells.map(cell => buildCell(cell, range)).join("")}
-      </div>`)
+        ${row.cells.map((cell) => buildCell(cell, range)).join("")}
+      </div>`,
+    )
     .join("");
 
   return `
@@ -97,6 +109,5 @@ function buildHeatmap({ columns, rows, range, title, format = value => String(va
       ${body}
     </div>`;
 }
-
 
 export { buildHeatmap };

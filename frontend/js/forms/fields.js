@@ -14,7 +14,6 @@ import { installFieldHelp } from "../components/fieldHelp.js";
 import { escapeHtml, formatDate } from "../core/utils.js";
 import { disabledOptionValues, isDisabled, isHelpPinned } from "./form.js";
 
-
 // Positioning a help popover so it stays on screen needs measurements, so it is document
 // work and lives in its own module. Asked for here because this is the module that emits the
 // popovers: a page that renders no fields loads neither, and a page that renders fields
@@ -22,13 +21,11 @@ import { disabledOptionValues, isDisabled, isHelpPinned } from "./form.js";
 // even load the nav.
 installFieldHelp();
 
-
 function toArray(value) {
   if (Array.isArray(value)) return value;
   if (value == null) return [];
   return [value];
 }
-
 
 // ─── HELP TEXT ──────────────────────────────────────────────────────────────
 
@@ -76,7 +73,6 @@ function buildHelp(key, text, { label = "", pinnable = false } = {}) {
   `;
 }
 
-
 // The pinned copy of the same text, as a block between the label and the control. Always
 // rendered when there is text to show and hidden until pinned, so the click listener has an
 // element to reveal without knowing how to build one — and so a re-render of an already
@@ -92,7 +88,6 @@ function buildHelpText(key, text) {
   return `<p class="field-help-inline" ${attributes}>${escapeHtml(text)}</p>`;
 }
 
-
 // A label and its "?" as one row. Returns the label untouched when there is nothing to
 // explain, so a field with no description renders exactly the markup it did before.
 function withHelp(labelHtml, helpHtml) {
@@ -100,7 +95,6 @@ function withHelp(labelHtml, helpHtml) {
 
   return `<span class="field-label-row row left gap-sm">${labelHtml}${helpHtml}</span>`;
 }
-
 
 // What the "?" says for a field whose options are described too — a select or a
 // checkbox-list. The option descriptions join the field's own, so one "?" in the header
@@ -110,15 +104,18 @@ function withHelp(labelHtml, helpHtml) {
 // checkbox-list could have had one per row, and did, but a column of "?"s beside the boxes
 // is noise where a single pinned block reads as one explanation.
 function optionsHelpText(field) {
-  const described = (field.options ?? []).filter(option => option?.description);
+  const described = (field.options ?? []).filter(
+    (option) => option?.description,
+  );
 
   if (!described.length) return field.description ?? "";
 
-  const options = described.map(({ label, value, description }) => `${label ?? value} — ${description}`);
+  const options = described.map(
+    ({ label, value, description }) => `${label ?? value} — ${description}`,
+  );
 
   return [field.description, ...options].filter(Boolean).join("\n\n");
 }
-
 
 // ─── DISPLAY ────────────────────────────────────────────────────────────────
 
@@ -138,7 +135,6 @@ function fullRowClass(field) {
   return field.fullRow || field.input === "textarea" ? " span-all" : "";
 }
 
-
 // `icon` is a Lucide name, and the `<i>` is a placeholder — whatever injects this markup
 // has to run createIcons() afterwards. The row/gap utilities go on only when there is an
 // icon to space, so `.field-label` keeps its default layout everywhere else.
@@ -146,19 +142,24 @@ function buildFieldLabel(key, field) {
   const help = buildHelp(key, field.description, { label: field.label });
 
   if (!field.icon) {
-    return withHelp(`<label class="field-label">${escapeHtml(field.label)}</label>`, help);
+    return withHelp(
+      `<label class="field-label">${escapeHtml(field.label)}</label>`,
+      help,
+    );
   }
 
-  return withHelp(`
+  return withHelp(
+    `
     <label class="field-label row left gap-xs">
       <i class="field-icon" data-lucide="${escapeHtml(field.icon)}"></i>
       ${escapeHtml(field.label)}
     </label>
-  `, help);
+  `,
+    help,
+  );
 }
 
-
-function buildDisplayField(key, state, fields, inline=false) {
+function buildDisplayField(key, state, fields, inline = false) {
   const field = fields[key];
   const value = displayValue(field, state[key]);
 
@@ -179,7 +180,6 @@ function buildDisplayField(key, state, fields, inline=false) {
   `;
 }
 
-
 // ─── INPUTS ─────────────────────────────────────────────────────────────────
 
 // Shown on inputs only, never on a display row — a read-only value can't be filled in.
@@ -192,12 +192,19 @@ const REQUIRED_MARKER = `<span class="required-marker" aria-hidden="true">*</spa
 // Returns the label row *and* the pinned help block, in that order, because every caller
 // puts the result immediately before its control — which is exactly where the pinned text
 // belongs, with no caller needing to place it.
-function buildInputLabel(key, field, { htmlFor = true, help = field.description } = {}) {
-  const labelRow = withHelp(`
+function buildInputLabel(
+  key,
+  field,
+  { htmlFor = true, help = field.description } = {},
+) {
+  const labelRow = withHelp(
+    `
     <label class="field-label"${htmlFor ? ` for="${escapeHtml(key)}"` : ""}>
       ${escapeHtml(field.label)}${field.required ? REQUIRED_MARKER : ""}
     </label>
-  `, buildHelp(key, help, { label: field.label, pinnable: true }));
+  `,
+    buildHelp(key, help, { label: field.label, pinnable: true }),
+  );
 
   return labelRow + buildHelpText(key, help);
 }
@@ -224,7 +231,6 @@ function buildTextareaField(key, state, fields) {
   `;
 }
 
-
 // Used for text, url and number
 function buildInputField(key, state, fields) {
   const value = state[key];
@@ -245,7 +251,6 @@ function buildInputField(key, state, fields) {
     </div>
   `;
 }
-
 
 // Options are either scalars, where the value is its own label, or {value, label} pairs —
 // a team, whose id is sent but whose name is shown.
@@ -275,20 +280,23 @@ function buildSelectField(key, state, fields) {
           ${escapeHtml(field.placeholder ?? "Select an option...")}
         </option>
 
-        ${options.map(({ value: optionValue, label: optionLabel }) => `
+        ${options
+          .map(
+            ({ value: optionValue, label: optionLabel }) => `
           <option
             value="${escapeHtml(optionValue)}"
             ${String(optionValue) === String(value) ? "selected" : ""}
             ${disabledOptions.includes(optionValue) ? "disabled" : ""}>
             ${escapeHtml(optionLabel)}
           </option>
-        `).join("")}
+        `,
+          )
+          .join("")}
 
       </select>
     </div>
   `;
 }
-
 
 // Through normalizeOption like a select's, because an options list off /api/meta is
 // {value, label, description} objects — it used to be bare strings, and the `disabledWhen`
@@ -308,7 +316,9 @@ function buildCheckboxListField(key, state, fields) {
       ${buildInputLabel(key, field, { htmlFor: false, help: optionsHelpText(field) })}
 
       <div class="column gap-sm">
-        ${options.map(({ value: optionValue, label: optionLabel }) => `
+        ${options
+          .map(
+            ({ value: optionValue, label: optionLabel }) => `
           <label class="value row left gap-sm">
             <input
               class="field-checkbox"
@@ -319,12 +329,13 @@ function buildCheckboxListField(key, state, fields) {
               ${fieldDisabled || disabledOptions.includes(optionValue) ? "disabled" : ""}>
             ${escapeHtml(optionLabel)}
           </label>
-        `).join("")}
+        `,
+          )
+          .join("")}
       </div>
     </div>
   `;
 }
-
 
 function buildCheckboxField(key, state, fields) {
   const value = Boolean(state[key]);
@@ -344,7 +355,6 @@ function buildCheckboxField(key, state, fields) {
     </div>
   `;
 }
-
 
 function buildField(key, state, fields) {
   const field = fields[key];
@@ -371,24 +381,19 @@ function buildField(key, state, fields) {
   }
 }
 
-
 // ─── RUNS OF FIELDS ─────────────────────────────────────────────────────────
 
 // Both take (keys, state, fields, inline), so either can be buildGroupCards' renderer.
 
 function buildFields(keys, state, fields) {
+  return keys.map((key) => buildField(key, state, fields)).join("");
+}
+
+function buildDisplayFields(keys, state, fields, inline = false) {
   return keys
-    .map(key => buildField(key, state, fields))
+    .map((key) => buildDisplayField(key, state, fields, inline))
     .join("");
 }
-
-
-function buildDisplayFields(keys, state, fields, inline=false) {
-    return keys
-    .map(key => buildDisplayField(key, state, fields, inline))
-    .join("");
-}
-
 
 // ─── CARDS AND GRIDS ────────────────────────────────────────────────────────
 
@@ -396,14 +401,12 @@ function buildDisplayFields(keys, state, fields, inline=false) {
 // than emitting a class style.css has no rule for.
 const GRID_CLASS = { 2: "grid-2", 3: "grid-3", 4: "grid-4" };
 
-
 // Fields arrive as a flat run of siblings, so the container decides how they flow: one
 // column needs no wrapper, more than one needs a grid.
 function wrapColumns(html, columns) {
   const gridClass = GRID_CLASS[columns];
   return gridClass ? `<div class="${gridClass}">${html}</div>` : html;
 }
-
 
 // One card per group, so a read-only view and its edit form share one layout definition.
 //
@@ -416,16 +419,19 @@ function wrapColumns(html, columns) {
 function buildGroupCards(groups, state, fields, render) {
   return `
     <div class="column gap-lg">
-      ${groups.map(group => `
+      ${groups
+        .map(
+          (group) => `
         <div class="card column gap-md">
           ${group.title ? `<p class="title muted">${escapeHtml(group.title)}</p>` : ""}
           ${wrapColumns(render(group.keys, state, fields, group.inline), group.columns)}
         </div>
-      `).join("")}
+      `,
+        )
+        .join("")}
     </div>
   `;
 }
-
 
 export {
   REQUIRED_MARKER,

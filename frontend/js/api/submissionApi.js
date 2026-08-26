@@ -1,6 +1,5 @@
 import { apiFetch } from "./client.js";
 
-
 // ─── PAYLOADS ────────────────────────────────────────────────────────────────────
 
 function buildSubmissionPayload(state) {
@@ -20,19 +19,16 @@ function buildPresignPayload(state, taskSection) {
 // ─── API ────────────────────────────────────────────────────────────────────
 
 async function getSubmissions() {
-  return await  apiFetch(`/api/submissions`);
+  return await apiFetch(`/api/submissions`);
 }
-
 
 async function getMySubmissions() {
   return await apiFetch(`/api/users/me/submissions`);
 }
 
-
 async function loadSubmission(submissionId) {
   return await apiFetch(`/api/submissions/${submissionId}`);
 }
-
 
 async function updateSubmission(submissionId, patch) {
   return await apiFetch(`/api/submissions/${submissionId}`, {
@@ -41,14 +37,12 @@ async function updateSubmission(submissionId, patch) {
   });
 }
 
-
 async function presignSubmission(state, taskSection) {
   return await apiFetch("/api/submissions/presign", {
     method: "POST",
     body: JSON.stringify(buildPresignPayload(state, taskSection)),
   });
 }
-
 
 async function createSubmission(submissionId) {
   return await apiFetch(`/api/submissions/${submissionId}/submit`, {
@@ -83,5 +77,5 @@ export {
   updateSubmission,
   presignSubmission,
   uploadToPresignedUrl,
-  createSubmission
+  createSubmission,
 };

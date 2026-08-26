@@ -23,13 +23,11 @@ import {
   buildSuiteBadgeList,
 } from "../components/badges.js";
 
-
 // ─── VALUES ─────────────────────────────────────────────────────────────────
 
 function score(value) {
   return value == null ? "—" : value.toFixed(3);
 }
-
 
 // ─── SORTERS ────────────────────────────────────────────────────────────────
 
@@ -73,13 +71,12 @@ function dateSorter(a, b) {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-
 // ─── GENERAL ────────────────────────────────────────────────────────────────
 
 // Curried on the page rather than taking a full href, so a caller can't pass an unencoded
 // id — it always goes through encodeURIComponent here.
 function linkFormatter(page, labelField, idField = "id") {
-  return cell => {
+  return (cell) => {
     const row = cell.getData();
 
     return `<a href="${page}?id=${encodeURIComponent(row[idField])}">${escapeHtml(row[labelField])}</a>`;
@@ -98,7 +95,7 @@ function linkFormatter(page, labelField, idField = "id") {
 function modelNameFormatter(page, { showMine = false } = {}) {
   const link = linkFormatter(page, "name");
 
-  return cell => {
+  return (cell) => {
     const row = cell.getData();
     const badges = [
       buildPretrainedBadge(row.is_pretrained, "sm"),
@@ -117,7 +114,6 @@ function dateFormatter(cell) {
   return `<span class="metadata">${escapeHtml(formatDate(cell.getValue()))}</span>`;
 }
 
-
 // ─── SUITES ─────────────────────────────────────────────────────────────────
 
 function suiteBadgesFormatter(cell) {
@@ -134,9 +130,8 @@ function suiteBadgeFormatter(cell) {
 
 // SUITES order rather than discovery order, so the badges line up down the column.
 function sortSuites(suites) {
-  return SUITES.filter(suite => suites.includes(suite));
+  return SUITES.filter((suite) => suites.includes(suite));
 }
-
 
 // ─── METRICS AND SCORES ─────────────────────────────────────────────────────
 
@@ -172,7 +167,11 @@ function taskScoreLinkFormatter(cell) {
     return `<span class="label">${name}</span>`;
   }
 
-  const query = new URLSearchParams({ id: row.submission_id, view: "score", score: row.id });
+  const query = new URLSearchParams({
+    id: row.submission_id,
+    view: "score",
+    score: row.id,
+  });
 
   return `
     <a href="/html/submissions/submissions.html?${query}"
@@ -185,13 +184,11 @@ function taskNameFormatter(cell) {
   return `<span class="label">${escapeHtml(cell.getValue().slice(4))}</span>`;
 }
 
-
 // ─── SUBMISSIONS ────────────────────────────────────────────────────────────
 
 function statusFormatter(cell) {
   return buildStatusBadge(cell.getValue(), "sm");
 }
-
 
 // ─── TEAMS ──────────────────────────────────────────────────────────────────
 
@@ -200,7 +197,6 @@ function statusFormatter(cell) {
 function roleBadgeFormatter(cell) {
   return buildRoleBadge(cell.getValue(), "sm") || "—";
 }
-
 
 // ─── TASK SUBMISSIONS ───────────────────────────────────────────────────────
 
@@ -240,7 +236,6 @@ function parameterFormatter(cell) {
     : `<span class="metadata">${escapeHtml(value)}</span>`;
 }
 
-
 // ─── LEADERBOARD ────────────────────────────────────────────────────────────
 
 const MEDAL_CLASSES = { 1: "rank-gold", 2: "rank-silver", 3: "rank-bronze" };
@@ -256,7 +251,9 @@ function rankBadge(rank) {
 
   const medal = MEDAL_CLASSES[rank];
 
-  return medal ? `<span class="${medal}">${escapeHtml(rank)}</span>` : String(rank);
+  return medal
+    ? `<span class="${medal}">${escapeHtml(rank)}</span>`
+    : String(rank);
 }
 
 function rankFormatter(cell) {
@@ -273,8 +270,18 @@ function rankedFormatter(cell) {
   const used = cell.getValue();
 
   const icons = [
-    used?.public ? buildIcon("public", { className: "rank-icon public", title: "Counted in the public ranking" }) : "",
-    used?.private ? buildIcon("private", { className: "rank-icon private", title: "Counted in the private ranking" }) : "",
+    used?.public
+      ? buildIcon("public", {
+          className: "rank-icon public",
+          title: "Counted in the public ranking",
+        })
+      : "",
+    used?.private
+      ? buildIcon("private", {
+          className: "rank-icon private",
+          title: "Counted in the private ranking",
+        })
+      : "",
   ].filter(Boolean);
 
   if (!icons.length) return `<span class="metadata">—</span>`;
@@ -319,7 +326,6 @@ function rankValue(value) {
     : `<span class="rank-value">${escapeHtml(value.toFixed(2))}</span>`;
 }
 
-
 // ─── COMPARISON ─────────────────────────────────────────────────────────────
 
 // The comparison grids put a whole { mean, sem, metric } object in each task cell rather
@@ -343,9 +349,10 @@ function diffSorter(a, b) {
 function buildMeanSem(mean, sem) {
   if (mean == null) return `<span class="metadata">—</span>`;
 
-  const spread = sem == null
-    ? ""
-    : ` <span class="metadata">± ${escapeHtml(score(sem))}</span>`;
+  const spread =
+    sem == null
+      ? ""
+      : ` <span class="metadata">± ${escapeHtml(score(sem))}</span>`;
 
   return `<span class="value">${escapeHtml(score(mean))}</span>${spread}`;
 }
@@ -368,7 +375,7 @@ function meanSemFormatter(cell) {
 // second column and no second glance. The pair keeps its own wrapper so the badge sits
 // beside "0.612 ± 0.014" rather than between the two halves of it.
 function scoreSemFormatter(semField, { metricField = null } = {}) {
-  return cell => {
+  return (cell) => {
     const row = cell.getData();
     const pair = buildMeanSem(cell.getValue(), row[semField]);
     const metric = metricField ? row[metricField] : null;
@@ -387,7 +394,8 @@ function diffFormatter(cell) {
 
   if (value?.diff == null) return `<span class="metadata">—</span>`;
 
-  const direction = value.diff > 0 ? "diff-up" : value.diff < 0 ? "diff-down" : "diff-flat";
+  const direction =
+    value.diff > 0 ? "diff-up" : value.diff < 0 ? "diff-down" : "diff-flat";
   const sign = value.diff > 0 ? "+" : "";
 
   return `<span class="${direction}">${sign}${escapeHtml(score(value.diff))}</span>`;
@@ -404,7 +412,7 @@ function diffFormatter(cell) {
  *              and plain text on others — see taskScoreLinkFormatter.
  */
 function taskSuiteFormatter(inner) {
-  return cell => {
+  return (cell) => {
     const suite = cell.getData().suite;
 
     return `
@@ -435,7 +443,6 @@ function taskMetricFormatter(cell) {
     </span>
   `;
 }
-
 
 export {
   score,

@@ -10,11 +10,13 @@
 
 // The keys declared on one panel. `editableOnly` defaults to true — the edit forms that ask
 // this want inputs; a read-only view passes false to keep `editable: false` rows as well.
-function fieldsForPanel(fields, panel, editableOnly=true) {
-  return Object.keys(fields)
-    .filter(key => fields[key].panel === panel && (!editableOnly || fields[key].editable !== false));
+function fieldsForPanel(fields, panel, editableOnly = true) {
+  return Object.keys(fields).filter(
+    (key) =>
+      fields[key].panel === panel &&
+      (!editableOnly || fields[key].editable !== false),
+  );
 }
-
 
 // Builds the groups buildGroupCards draws, from a panel layout — declared alongside the
 // schema it describes as [{panel, title, inline, columns}].
@@ -35,9 +37,8 @@ function panelGroups(fields, panels, { editableOnly = false, columns } = {}) {
       columns: columns ?? panelColumns,
       keys: fieldsForPanel(fields, panel, editableOnly),
     }))
-    .filter(group => group.keys.length);
+    .filter((group) => group.keys.length);
 }
-
 
 // Build a working copy of the editable fields, seeded from `source` (e.g. a
 // fetched record, for editing) or field defaults (for creating). Arrays are
@@ -53,13 +54,8 @@ function createFieldState(fields, source = {}) {
       .map(([key, field]) => {
         const value = source[key] ?? field.default ?? null;
         return [key, Array.isArray(value) ? [...value] : value];
-      })
+      }),
   );
 }
 
-
-export {
-  createFieldState,
-  fieldsForPanel,
-  panelGroups,
-};
+export { createFieldState, fieldsForPanel, panelGroups };

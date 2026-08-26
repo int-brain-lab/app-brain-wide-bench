@@ -12,7 +12,11 @@
 // The page provides #member-search, #member-results and #member-list; #member-add is
 // optional and wraps the lookup where a page needs to hide it outside edit mode.
 
-import { addTeamMember, removeTeamMember, updateTeamMember } from "../api/teamApi.js";
+import {
+  addTeamMember,
+  removeTeamMember,
+  updateTeamMember,
+} from "../api/teamApi.js";
 import { searchUsers } from "../api/userApi.js";
 import { buildTableCount } from "../components/count.js";
 import { escapeHtml, initials, showEmpty } from "../core/utils.js";
@@ -74,11 +78,7 @@ function getElements() {
  * team_members.html since folded into the details page. With no caller left it was two
  * unreachable branches and an `onChanged` hook nobody passed.
  */
-function createMembersSection({
-  getTeam,
-  onMessage,
-  canRemove = () => true,
-}) {
+function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
   const elements = getElements();
 
   const pendingAdds = new Map();
@@ -100,14 +100,10 @@ function createMembersSection({
 
   function getEffectiveMembers() {
     const current = (getTeam().members ?? []).filter(
-      member => !pendingRemoves.has(member.id),
+      (member) => !pendingRemoves.has(member.id),
     );
 
     return [...current, ...pendingAdds.values()];
-  }
-
-  function hasChanges() {
-    return pendingAdds.size > 0 || pendingRemoves.size > 0 || pendingRoles.size > 0;
   }
 
   // ─── RENDERING ────────────────────────────────────────────────────────────
@@ -125,10 +121,11 @@ function createMembersSection({
     // removal.
     const settable =
       editing &&
-      (pendingAdds.has(member.email) || (getTeam().id != null && canRemove(member)));
+      (pendingAdds.has(member.email) ||
+        (getTeam().id != null && canRemove(member)));
 
     const options = ROLES.map(
-      role =>
+      (role) =>
         `<option value="${role}"${role === selected ? " selected" : ""}>${role}</option>`,
     ).join("");
 
@@ -245,10 +242,10 @@ function createMembersSection({
 
   function renderSearchResults(users) {
     const existingIds = new Set(
-      getEffectiveMembers().map(member => member.id),
+      getEffectiveMembers().map((member) => member.id),
     );
 
-    const available = users.filter(user => !existingIds.has(user.id));
+    const available = users.filter((user) => !existingIds.has(user.id));
 
     if (available.length === 0) {
       clearSearchResults();
@@ -395,7 +392,7 @@ function createMembersSection({
 
   elements.search.addEventListener("change", handleSearch);
 
-  elements.results.addEventListener("click", event => {
+  elements.results.addEventListener("click", (event) => {
     const button = event.target.closest(".add-member");
 
     if (!button) {
@@ -412,7 +409,7 @@ function createMembersSection({
     });
   });
 
-  elements.list.addEventListener("change", event => {
+  elements.list.addEventListener("change", (event) => {
     const select = event.target.closest(".member-role");
 
     if (!select) {
@@ -422,17 +419,14 @@ function createMembersSection({
     setMemberRole(select.dataset.email, select.dataset.userId, select.value);
   });
 
-  elements.list.addEventListener("click", event => {
+  elements.list.addEventListener("click", (event) => {
     const button = event.target.closest(".member-remove");
 
     if (!button) {
       return;
     }
 
-    removeMember(
-      button.dataset.userId,
-      button.dataset.email,
-    );
+    removeMember(button.dataset.userId, button.dataset.email);
   });
 
   return {
@@ -444,4 +438,3 @@ function createMembersSection({
 }
 
 export { buildMembersPanel, createMembersSection };
-

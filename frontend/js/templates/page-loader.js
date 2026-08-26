@@ -49,7 +49,9 @@ async function loadPage({
       applyShell(signedIn);
     }
 
-    const id = requiresId ? new URLSearchParams(location.search).get("id") : null;
+    const id = requiresId
+      ? new URLSearchParams(location.search).get("id")
+      : null;
 
     if (requiresId && !id) {
       showPageError(`No ${noun} id in the URL.`);
@@ -59,7 +61,11 @@ async function loadPage({
     const context = await load(id, { signedIn });
 
     if (!context) {
-      showPageError(requiresId ? `Could not load ${noun} ${id}.` : `Could not load your ${noun}.`);
+      showPageError(
+        requiresId
+          ? `Could not load ${noun} ${id}.`
+          : `Could not load your ${noun}.`,
+      );
       return;
     }
 
@@ -75,13 +81,15 @@ async function loadPage({
     // in it, not a broken page — and signing in is what would change the answer, since a
     // team member sees their own team's private records at the same URL.
     if (error.status === 404 && !requiresAuth) {
-      showSignInPrompt(pageContainer(), `This ${noun} is not public. Sign in if you have access to it.`);
+      showSignInPrompt(
+        pageContainer(),
+        `This ${noun} is not public. Sign in if you have access to it.`,
+      );
       return;
     }
 
     showPageError(`The ${noun} page could not be loaded.`, error);
   }
 }
-
 
 export { loadPage };

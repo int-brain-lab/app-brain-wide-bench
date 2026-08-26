@@ -37,7 +37,7 @@ function suiteSiblings(submission, taskSubmission) {
   const suite = suiteFromTask(taskSubmission.task_id);
 
   return (submission.task_submissions ?? []).filter(
-    sibling => suiteFromTask(sibling.task_id) === suite,
+    (sibling) => suiteFromTask(sibling.task_id) === suite,
   );
 }
 
@@ -46,7 +46,9 @@ function suiteSiblings(submission, taskSubmission) {
 // than only into the edited record.
 function mergeUpdated(submission, updated) {
   for (const row of updated) {
-    const existing = (submission.task_submissions ?? []).find(task => task.id === row.id);
+    const existing = (submission.task_submissions ?? []).find(
+      (task) => task.id === row.id,
+    );
 
     if (existing) Object.assign(existing, row);
   }
@@ -64,19 +66,31 @@ function buildApplyToSuite() {
 }
 
 const APPLY_TO_SUITE_ACTION = {
-  html: buildApplyToSuite()
-}
+  html: buildApplyToSuite(),
+};
 
 function getSubtitle(submission, taskSubmission) {
-  return [suiteLabel(taskSubmission.task_id), submission.label, submission.team_name]
+  return [
+    suiteLabel(taskSubmission.task_id),
+    submission.label,
+    submission.team_name,
+  ]
     .filter(Boolean)
     .join(" · ");
 }
 
 // ─── VIEW ────────────────────────────────────────────────────────────────────
 
-function renderTaskView({ submission, taskFields, task, canEdit, edit = false }) {
-  const taskSubmission = (submission.task_submissions ?? []).find(row => row.id === task);
+function renderTaskView({
+  submission,
+  taskFields,
+  task,
+  canEdit,
+  edit = false,
+}) {
+  const taskSubmission = (submission.task_submissions ?? []).find(
+    (row) => row.id === task,
+  );
 
   renderPage(
     buildPage({
@@ -93,7 +107,10 @@ function renderTaskView({ submission, taskFields, task, canEdit, edit = false })
   // Reachable by editing the URL, and by a Back into a task that a later save removed.
   if (!taskSubmission) {
     renderHeader(submission.label, submission.team_name ?? "");
-    showFailure(sectionBody("body"), "That task is not part of this submission.");
+    showFailure(
+      sectionBody("body"),
+      "That task is not part of this submission.",
+    );
     return;
   }
 
@@ -144,16 +161,16 @@ function renderTaskView({ submission, taskFields, task, canEdit, edit = false })
 
     // One bulk request for both the single-task and suite-wide cases, so the server stays
     // responsible for applying it atomically.
-    save: async draft => {
+    save: async (draft) => {
       const targets = applyToSuiteInput.checked ? siblings : [taskSubmission];
 
       updated = await updateTaskSubmissions(
         submission.id,
-        targets.map(target => target.id),
+        targets.map((target) => target.id),
         taskPayload(draft),
       );
 
-      return updated.find(row => row.id === taskSubmission.id) ?? updated[0];
+      return updated.find((row) => row.id === taskSubmission.id) ?? updated[0];
     },
 
     onSaved: () => {
@@ -161,7 +178,7 @@ function renderTaskView({ submission, taskFields, task, canEdit, edit = false })
       showApplyToSuite(false);
 
       // Names what the server reported it changed, not what the page asked for.
-      const names = updated.map(row => row.task_id).sort();
+      const names = updated.map((row) => row.task_id).sort();
 
       showSuccess(
         pageMessage(),
@@ -176,6 +193,5 @@ function renderTaskView({ submission, taskFields, task, canEdit, edit = false })
     onCancel: () => showApplyToSuite(false),
   });
 }
-
 
 export { renderTaskView };

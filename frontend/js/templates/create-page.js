@@ -46,7 +46,7 @@ function renderChrome({ noun, header, backTo }) {
           <div class="column gap-lg" id="${PANELS_ID}"></div>
           ${buildFormFooter({
             cancelHref: backTo.href ?? "",
-            submitLabel: `Create ${noun}`
+            submitLabel: `Create ${noun}`,
           })}
         </div>
       `,
@@ -60,7 +60,6 @@ function renderChrome({ noun, header, backTo }) {
 
   return document.getElementById(PANELS_ID);
 }
-
 
 /**
  * @param noun      The object being created, e.g "model" or "team". Labels the header, the
@@ -129,12 +128,13 @@ async function loadCreatePage({
 
       // `form` is read when the handler runs, long after this closure is made.
       onChange: onChange
-        ? (key, value, cleared) => onChange(key, value, cleared, { form, context })
+        ? (key, value, cleared) =>
+            onChange(key, value, cleared, { form, context })
         : undefined,
 
       // Called on every change, with an empty string when nothing was cleared — which is
       // the moment to drop a message left over from the change before.
-      onCleared: labels => {
+      onCleared: (labels) => {
         if (labels) {
           showWarning(pageMessage(), CLEARED_MESSAGE, labels);
         } else {
@@ -142,7 +142,7 @@ async function loadCreatePage({
         }
       },
 
-      onRefresh: complete => {
+      onRefresh: (complete) => {
         submitButton().disabled = !complete;
       },
     });
@@ -190,6 +190,5 @@ async function loadCreatePage({
     return null;
   }
 }
-
 
 export { loadCreatePage };

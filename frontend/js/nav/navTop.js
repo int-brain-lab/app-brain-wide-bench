@@ -1,4 +1,4 @@
-import { escapeHtml, initials} from "../core/utils.js";
+import { escapeHtml, initials } from "../core/utils.js";
 import { apiFetch, isAuthenticated, login, logout } from "../api/client.js";
 
 // ─── CONSTANTS ─────────────────────────────────────────────────────────────
@@ -16,11 +16,13 @@ const HOME_HREF = "/index.html";
 const NAV_ITEMS = [
   { label: "Leaderboard", href: "/html/leaderboard/leaderboard.html" },
   { label: "Models", href: "/html/models/model_list_public.html" },
-  { label: "Submissions", href: "/html/submissions/submission_list_public.html" },
+  {
+    label: "Submissions",
+    href: "/html/submissions/submission_list_public.html",
+  },
   { label: "Teams", href: "/html/teams/team_list_public.html" },
   { label: "My dashboard", href: DASHBOARD_HREF },
 ];
-
 
 // ─── API ────────────────────────────────────────────────────────────────────
 
@@ -31,20 +33,17 @@ async function loadCurrentUser() {
     }
 
     return await apiFetch("/api/users/me");
-
   } catch (err) {
     console.error(err);
     return null;
   }
 }
 
-
 // ─── DOM ────────────────────────────────────────────────────────────────────
 
 function topNav() {
   return document.getElementById("top-nav");
 }
-
 
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 
@@ -56,7 +55,6 @@ function currentPage() {
 
   return path === "/" ? "/index.html" : path;
 }
-
 
 // ─── RENDERING ──────────────────────────────────────────────────────────────
 
@@ -99,16 +97,16 @@ function renderNavItem(item, page) {
 function renderNavLinks(page) {
   return `
     <nav class="nav-links">
-      ${NAV_ITEMS.map(item => renderNavItem(item, page)).join("")}
+      ${NAV_ITEMS.map((item) => renderNavItem(item, page)).join("")}
     </nav>
   `;
 }
 
 function renderLoginButton() {
   return `
-    <a class="btn primary" id="login-btn">
+    <button type="button" class="btn primary" id="login-btn">
       Sign in
-    </a>
+    </button>
   `;
 }
 
@@ -123,9 +121,9 @@ function renderUserMenu(user) {
       ${escapeHtml(initials(name))}
     </span>
 
-    <a class="btn" id="logout-btn">
+    <button type="button" class="btn" id="logout-btn">
       Sign out
-    </a>
+    </button>
   `;
 }
 
@@ -134,13 +132,10 @@ async function renderAuthSection() {
 
   return `
     <div class="nav-auth">
-      ${user
-        ? renderUserMenu(user)
-        : renderLoginButton()}
+      ${user ? renderUserMenu(user) : renderLoginButton()}
     </div>
   `;
 }
-
 
 // ─── EVENTS ─────────────────────────────────────────────────────────────────
 
@@ -156,14 +151,12 @@ function attachNavEvents() {
     ?.addEventListener("click", () => logout());
 }
 
-
 // ─── INITIALISATION ─────────────────────────────────────────────────────────
 
 async function initialiseNav() {
   const nav = topNav();
 
   if (!nav) {
-
     return;
   }
 

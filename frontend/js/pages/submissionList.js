@@ -29,7 +29,12 @@ loadListPage({
   // Spans models, so the Model column earns its place here where it doesn't on a model's
   // own submissions table.
   table: ({ container, rows }) =>
-    renderSubmissionsTable({ container, rows, showModel: true, showFilters: false }),
+    renderSubmissionsTable({
+      container,
+      rows,
+      showModel: true,
+      showFilters: false,
+    }),
   create: {
     href: "/html/submissions/submission_create.html",
     label: "New submission",

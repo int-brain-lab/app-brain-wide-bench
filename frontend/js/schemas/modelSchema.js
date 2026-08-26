@@ -115,7 +115,6 @@ const MODEL_FIELDS = {
   },
 };
 
-
 // How the panels above are titled and laid out. Lives here, next to the `panel`
 // numbers it names, so the details view and its edit form can't drift apart —
 // both build their cards from this one list via panelGroups().
@@ -132,9 +131,6 @@ const MODEL_PANELS = [
   { panel: 3, title: "Model specification", columns: 2 },
 ];
 
-
-
-
 // The enum options and the help text, from /api/meta. Split out from loadModelFields
 // because every reader needs it and not every reader is signed in: the details cards show
 // the same descriptions as the edit form, and a signed-out visitor reading a public model
@@ -142,7 +138,6 @@ const MODEL_PANELS = [
 async function loadModelMeta() {
   return applyFieldMeta(MODEL_FIELDS, await getMeta(), "model");
 }
-
 
 // The above plus the Team select, whose options are the caller's own teams — per-user data,
 // so it stays a separate fetch rather than joining the meta document.
@@ -154,11 +149,13 @@ async function loadModelFields() {
   if (MODEL_FIELDS.team_id.options === null) {
     const teams = await getMyTeams();
 
-    MODEL_FIELDS.team_id.options = teams.map(team => ({ value: team.id, label: team.name }));
+    MODEL_FIELDS.team_id.options = teams.map((team) => ({
+      value: team.id,
+      label: team.name,
+    }));
   }
 
   return MODEL_FIELDS;
 }
-
 
 export { MODEL_FIELDS, MODEL_PANELS, loadModelFields, loadModelMeta };

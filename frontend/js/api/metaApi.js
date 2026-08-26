@@ -31,5 +31,4 @@ async function getMeta() {
   return cached;
 }
 
-
 export { getMeta };

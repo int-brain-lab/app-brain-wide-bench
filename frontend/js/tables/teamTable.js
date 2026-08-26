@@ -13,7 +13,6 @@ import {
 } from "./table.js";
 import { linkFormatter, roleBadgeFormatter } from "./formatters.js";
 
-
 // ─── ROWS ───────────────────────────────────────────────────────────────────
 
 function toTeamRow(team) {
@@ -32,7 +31,6 @@ function toTeamRow(team) {
 function toTeamRows(teams) {
   return teams.map(toTeamRow);
 }
-
 
 // ─── COLUMNS ────────────────────────────────────────────────────────────────
 
@@ -68,7 +66,6 @@ function getTeamColumns() {
   ];
 }
 
-
 // ─── CONTROLS ───────────────────────────────────────────────────────────────
 
 // Roles come from the rows rather than a fixed list: on the public list most teams carry
@@ -91,7 +88,6 @@ function getTeamControls(rows) {
   ];
 }
 
-
 // ─── TABLE ──────────────────────────────────────────────────────────────────
 
 /**
@@ -103,7 +99,12 @@ function getTeamControls(rows) {
  *                  its own over both its views — see templates/list-page.js.
  * @returns the Tabulator instance.
  */
-function renderTeamsTable({ container, teams, rows = toTeamRows(teams), showFilters = true }) {
+function renderTeamsTable({
+  container,
+  teams,
+  rows = toTeamRows(teams),
+  showFilters = true,
+}) {
   return createFilterableTable({
     container,
     rows,
@@ -114,6 +115,5 @@ function renderTeamsTable({ container, teams, rows = toTeamRows(teams), showFilt
     caller: "renderTeamsTable",
   });
 }
-
 
 export { getTeamControls, renderTeamsTable, toTeamRows };

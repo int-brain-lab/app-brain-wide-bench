@@ -50,10 +50,12 @@ function latestScoresByTask(submissions) {
   }
 
   return Object.fromEntries(
-    [...latest].map(([taskId, { mean, sem, metric }]) => [taskId, { mean, sem, metric }]),
+    [...latest].map(([taskId, { mean, sem, metric }]) => [
+      taskId,
+      { mean, sem, metric },
+    ]),
   );
 }
-
 
 // ─── AGGREGATION ────────────────────────────────────────────────────────────
 
@@ -62,7 +64,9 @@ function latestScoresByTask(submissions) {
 function scoresBySuite(submissions) {
   const scores = {};
 
-  for (const [taskId, { mean }] of Object.entries(latestScoresByTask(submissions))) {
+  for (const [taskId, { mean }] of Object.entries(
+    latestScoresByTask(submissions),
+  )) {
     const suite = suiteFromTask(taskId);
 
     // An id naming no known suite is skipped rather than bucketed. Without this it would
@@ -79,23 +83,23 @@ function scoresBySuite(submissions) {
 // of every task — so a suite with one scored task counts as much as a suite with twenty.
 function getMeanScores(suiteScores) {
   const means = Object.fromEntries(
-    Object.entries(suiteScores).map(([suite, tasks]) => [suite, mean(Object.values(tasks))]),
+    Object.entries(suiteScores).map(([suite, tasks]) => [
+      suite,
+      mean(Object.values(tasks)),
+    ]),
   );
 
-  means.overall = mean(Object.values(means).filter(value => value != null));
+  means.overall = mean(Object.values(means).filter((value) => value != null));
 
   return means;
 }
 
 // Total number of scored tasks across every suite.
 function countTasks(suiteScores) {
-  return Object.values(suiteScores).reduce((total, tasks) => total + Object.keys(tasks).length, 0);
+  return Object.values(suiteScores).reduce(
+    (total, tasks) => total + Object.keys(tasks).length,
+    0,
+  );
 }
 
-
-export {
-  latestScoresByTask,
-  scoresBySuite,
-  getMeanScores,
-  countTasks
-};
+export { latestScoresByTask, scoresBySuite, getMeanScores, countTasks };

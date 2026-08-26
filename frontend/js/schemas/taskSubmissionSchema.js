@@ -40,7 +40,7 @@ const TASK_FIELDS = {
     enum: "modality",
     // Spikes is the baseline input (not "extra"); the suite's own
     // supervision target can't be used as an input either.
-    disabledOptionsWhen: state => {
+    disabledOptionsWhen: (state) => {
       // Spikes is a default input modality for all tasks
       const disabled = ["spikes"];
       const suite = suiteFromTask(state.task_id);
@@ -57,7 +57,7 @@ const TASK_FIELDS = {
     input: "select",
     panel: 1,
     enum: "training_paradigm",
-    disabledOptionsWhen: state => {
+    disabledOptionsWhen: (state) => {
       const model = state.model;
 
       // Pretrained is false → rule out TSS/TSU, only single-session is an option
@@ -72,7 +72,9 @@ const TASK_FIELDS = {
       const suite = suiteFromTask(state.task_id);
       const outputModality = suiteOutputModality[suite];
       const inputMatches = model.pretrained_in_modalities?.includes("spikes");
-      const outputMatches = outputModality && model.pretrained_out_modalities?.includes(outputModality);
+      const outputMatches =
+        outputModality &&
+        model.pretrained_out_modalities?.includes(outputModality);
       if (!inputMatches || !outputMatches) {
         disabled.push("TSS");
       }
@@ -86,7 +88,7 @@ const TASK_FIELDS = {
     input: "select",
     panel: 1,
     enum: "supervision_regime",
-    disabledOptionsWhen: state => {
+    disabledOptionsWhen: (state) => {
       const disabled = new Set();
 
       // Pretrained is false -> rule out zero-shot
@@ -96,12 +98,12 @@ const TASK_FIELDS = {
 
       // For inductive calibration, only zero-shot is an option.
       if (state.calibration === "inductive") {
-        ["few_shot", "full", "other"].forEach(option => disabled.add(option));
+        ["few_shot", "full", "other"].forEach((option) => disabled.add(option));
       }
 
       // For ts3, only zero-shot is an option
       if (suiteFromTask(state.task_id) === "ts3") {
-        ["few_shot", "full", "other"].forEach(option => disabled.add(option));
+        ["few_shot", "full", "other"].forEach((option) => disabled.add(option));
       }
 
       return [...disabled];
@@ -114,7 +116,8 @@ const TASK_FIELDS = {
     panel: 1,
     enum: "calibration",
     // Single-session models are always transductive (trained from scratch).
-    disabledOptionsWhen: state => (state.model?.is_pretrained ? [] : ["inductive"]),
+    disabledOptionsWhen: (state) =>
+      state.model?.is_pretrained ? [] : ["inductive"],
   },
 
   finetuning_strategy: {
@@ -123,10 +126,9 @@ const TASK_FIELDS = {
     panel: 1,
     enum: "finetuning_strategy",
     // Field disabled when pretrained is false
-    disabledWhen: state => !state.model?.is_pretrained,
+    disabledWhen: (state) => !state.model?.is_pretrained,
   },
 };
-
 
 // Fill the options and the help text from /api/meta, and take the suite output modalities
 // while we are there. Every caller awaits this before rendering — see suiteOutputModality.
@@ -141,7 +143,10 @@ async function loadTaskFields() {
   const meta = await getMeta();
 
   suiteOutputModality = Object.fromEntries(
-    Object.entries(meta.suites).map(([suite, { output_modality }]) => [suite, output_modality]),
+    Object.entries(meta.suites).map(([suite, { output_modality }]) => [
+      suite,
+      output_modality,
+    ]),
   );
 
   return applyFieldMeta(TASK_FIELDS, meta, "task_submission");
@@ -161,14 +166,18 @@ function trainingFieldKeys() {
 // which was a circular import between the two.
 function taskPayload(state) {
   return Object.fromEntries(
-    trainingFieldKeys().map(key => [key, state[key]]),
+    trainingFieldKeys().map((key) => [key, state[key]]),
   );
 }
 
 // One card, since every editable task field is methodology. Declared anyway so the
 // task editor builds its layout the same way the model and submission ones do.
-const TASK_PANELS = [
-  { panel: 1, title: "Methodology", columns: 2 },
-];
+const TASK_PANELS = [{ panel: 1, title: "Methodology", columns: 2 }];
 
-export { TASK_FIELDS, TASK_PANELS, loadTaskFields, taskPayload, trainingFieldKeys };
+export {
+  TASK_FIELDS,
+  TASK_PANELS,
+  loadTaskFields,
+  taskPayload,
+  trainingFieldKeys,
+};

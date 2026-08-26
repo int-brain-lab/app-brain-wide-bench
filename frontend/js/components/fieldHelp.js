@@ -24,13 +24,11 @@ let active = null;
 
 let installed = false;
 
-
 function clamp(value, min, max) {
   // `max` before `min` so a box wider than the viewport pins to the left edge and overflows
   // right, rather than the other way about.
   return Math.max(min, Math.min(value, max));
 }
-
 
 function place(trigger) {
   const box = trigger.nextElementSibling;
@@ -57,7 +55,6 @@ function place(trigger) {
   box.style.top = `${clamp(anchor.top, MARGIN, window.innerHeight - height - MARGIN)}px`;
 }
 
-
 function show(event) {
   const trigger = event.target?.closest?.(".field-help-trigger");
 
@@ -67,13 +64,11 @@ function show(event) {
   place(trigger);
 }
 
-
 function hide(event) {
   if (event.target?.closest?.(".field-help-trigger") === active) {
     active = null;
   }
 }
-
 
 /**
  * Install the listeners, once per page.
@@ -97,9 +92,11 @@ function installFieldHelp() {
   document.addEventListener("focusout", hide);
 
   // Capture, because a scroll on an inner region doesn't bubble to the window.
-  window.addEventListener("scroll", () => active && place(active), { capture: true, passive: true });
+  window.addEventListener("scroll", () => active && place(active), {
+    capture: true,
+    passive: true,
+  });
   window.addEventListener("resize", () => active && place(active));
 }
-
 
 export { installFieldHelp };

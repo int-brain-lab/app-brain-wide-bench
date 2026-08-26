@@ -22,15 +22,15 @@ import { mean } from "./utils.js";
 import { suiteFromTask } from "./suites.js";
 import { latestScoresByTask } from "./scoreData.js";
 
-
 // ─── ENTRIES ────────────────────────────────────────────────────────────────
 
 // One model, reduced to its scores on a single suite. `model` is a ModelDetail — the
 // GET /api/models/{id} payload, whose submissions carry the task scores.
 function toCompareEntry(model, suite) {
   const tasks = Object.fromEntries(
-    Object.entries(latestScoresByTask(model.submissions))
-      .filter(([taskId]) => suiteFromTask(taskId) === suite),
+    Object.entries(latestScoresByTask(model.submissions)).filter(
+      ([taskId]) => suiteFromTask(taskId) === suite,
+    ),
   );
 
   return {
@@ -39,7 +39,7 @@ function toCompareEntry(model, suite) {
     teamName: model.team_name ?? null,
     // { "ts1-choice": { mean, sem, metric }, … }
     tasks,
-    mean: mean(Object.values(tasks).map(task => task.mean)),
+    mean: mean(Object.values(tasks).map((task) => task.mean)),
     scored: Object.keys(tasks).length,
   };
 }
@@ -56,8 +56,8 @@ function toCompareEntry(model, suite) {
  */
 function toCompareEntries(models, suite, selectedId) {
   const entries = models
-    .map(model => toCompareEntry(model, suite))
-    .map(entry => ({ ...entry, isSelected: entry.modelId === selectedId }));
+    .map((model) => toCompareEntry(model, suite))
+    .map((entry) => ({ ...entry, isSelected: entry.modelId === selectedId }));
 
   return entries.sort((a, b) => {
     if (a.isSelected !== b.isSelected) return a.isSelected ? -1 : 1;
@@ -65,7 +65,6 @@ function toCompareEntries(models, suite, selectedId) {
     return (b.mean ?? -Infinity) - (a.mean ?? -Infinity);
   });
 }
-
 
 // ─── TASKS ──────────────────────────────────────────────────────────────────
 
@@ -95,11 +94,10 @@ function compareTasks(entries) {
 // For the metric select above each grid. From the tasks on screen, not the Metric enum: an
 // option that hides every column would be the only thing it could do.
 function compareMetrics(tasks) {
-  return [...new Set(tasks.map(task => task.metric).filter(Boolean))]
+  return [...new Set(tasks.map((task) => task.metric).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b))
-    .map(metric => ({ value: metric, label: metric }));
+    .map((metric) => ({ value: metric, label: metric }));
 }
-
 
 /**
  * The same entries restricted to one metric: each model's tasks narrowed to the ones
@@ -113,7 +111,7 @@ function compareMetrics(tasks) {
 function entriesForMetric(entries, metric) {
   if (!metric) return entries;
 
-  return entries.map(entry => {
+  return entries.map((entry) => {
     const tasks = Object.fromEntries(
       Object.entries(entry.tasks).filter(([, task]) => task.metric === metric),
     );
@@ -121,7 +119,7 @@ function entriesForMetric(entries, metric) {
     return {
       ...entry,
       tasks,
-      mean: mean(Object.values(tasks).map(task => task.mean)),
+      mean: mean(Object.values(tasks).map((task) => task.mean)),
       scored: Object.keys(tasks).length,
     };
   });
@@ -130,9 +128,8 @@ function entriesForMetric(entries, metric) {
 // Its counterpart for the task list, so the overview's "3/3 tasks" counts the same set the
 // mean beside it was taken over.
 function tasksForMetric(tasks, metric) {
-  return metric ? tasks.filter(task => task.metric === metric) : tasks;
+  return metric ? tasks.filter((task) => task.metric === metric) : tasks;
 }
-
 
 // ─── COLUMNS ────────────────────────────────────────────────────────────────
 
@@ -146,7 +143,7 @@ function tasksForMetric(tasks, metric) {
  */
 function compareModels(entries, { exclude = null } = {}) {
   return entries
-    .filter(entry => entry.modelId !== exclude)
+    .filter((entry) => entry.modelId !== exclude)
     .map(({ modelId, modelName, teamName, mean, scored, isSelected }) => ({
       modelId,
       modelName,
@@ -156,7 +153,6 @@ function compareModels(entries, { exclude = null } = {}) {
       isSelected,
     }));
 }
-
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────
 
@@ -191,11 +187,11 @@ function toScoreRows(entries, tasks) {
  * exactly that size.
  */
 function toDiffRows(entries, tasks, baselineId) {
-  const baseline = entries.find(entry => entry.modelId === baselineId);
+  const baseline = entries.find((entry) => entry.modelId === baselineId);
 
   if (!baseline) return [];
 
-  const others = entries.filter(entry => entry.modelId !== baselineId);
+  const others = entries.filter((entry) => entry.modelId !== baselineId);
 
   return tasks.map(({ taskId, metric }) => {
     const row = { taskId, metric };
@@ -204,13 +200,13 @@ function toDiffRows(entries, tasks, baselineId) {
     for (const entry of others) {
       const other = entry.tasks[taskId];
 
-      row[entry.modelId] = other && against ? { diff: other.mean - against.mean } : null;
+      row[entry.modelId] =
+        other && against ? { diff: other.mean - against.mean } : null;
     }
 
     return row;
   });
 }
-
 
 export {
   toCompareEntries,

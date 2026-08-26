@@ -4,9 +4,12 @@
 // so that the cards, the filters above them and the table beside them all read one shape.
 
 import { escapeHtml, formatDate } from "../core/utils.js";
-import {buildMineBadge, buildPretrainedBadge, buildSuiteBadgeList, buildVisibleBadge} from "../components/badges.js";
+import {
+  buildMineBadge,
+  buildPretrainedBadge,
+  buildSuiteBadgeList,
+} from "../components/badges.js";
 import { buildCount } from "../components/count.js";
-
 
 // `showMine` on marks the cards on the viewer's own teams, for the public listing that
 // mixes them with everyone else's. Off by default, so the dashboard and "My models" — where
@@ -39,10 +42,7 @@ function buildModelCard(model, { showMine = false } = {}) {
 }
 
 function buildModelCards(models, options) {
-  return models
-    .map(model => buildModelCard(model, options))
-    .join("");
+  return models.map((model) => buildModelCard(model, options)).join("");
 }
-
 
 export { buildModelCards };

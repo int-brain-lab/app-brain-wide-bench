@@ -12,7 +12,12 @@
 // apply-to-suite checkbox to reveal. Those arrive as hooks that run *after* the standard
 // behaviour, so a view adds to it rather than restating it.
 
-import { clearMessage, showFailure, showSuccess, showWarning } from "../core/utils.js";
+import {
+  clearMessage,
+  showFailure,
+  showSuccess,
+  showWarning,
+} from "../core/utils.js";
 import { CLEARED_MESSAGE } from "../forms/form.js";
 import { panelGroups } from "../schemas/schema.js";
 import { Editor } from "../forms/edit-form.js";
@@ -23,7 +28,6 @@ import {
   renderDetails,
   sectionBody,
 } from "./record-page.js";
-
 
 /**
  * @param noun         What is being edited — "model", "team". Names it in the card that
@@ -66,7 +70,6 @@ import {
 function capitalise(noun) {
   return noun.charAt(0).toUpperCase() + noun.slice(1);
 }
-
 
 function attachRecordEditor({
   noun = "record",
@@ -112,14 +115,16 @@ function attachRecordEditor({
     context,
     onEdit,
 
-    onCleared: onCleared ?? (labels => {
-      showWarning(pageMessage(), CLEARED_MESSAGE, labels);
-    }),
+    onCleared:
+      onCleared ??
+      ((labels) => {
+        showWarning(pageMessage(), CLEARED_MESSAGE, labels);
+      }),
 
     // The standard report goes up first and the rows are redrawn before the hook runs, so a
     // view with something better to say — which tasks a task edit actually changed — writes
     // over it while looking at the saved record.
-    onSaved: saved => {
+    onSaved: (saved) => {
       showSuccess(pageMessage(), `${capitalise(noun)} successfully saved.`);
       renderTitle?.(saved);
       renderRows(saved);
@@ -133,7 +138,8 @@ function attachRecordEditor({
       onCancel?.();
     },
 
-    onError: error => showFailure(pageMessage(), `Saving ${noun} failed.`, error),
+    onError: (error) =>
+      showFailure(pageMessage(), `Saving ${noun} failed.`, error),
   });
 
   editor.attach();
@@ -145,7 +151,6 @@ function attachRecordEditor({
   return editor;
 }
 
-
 // A dashboard view offers Edit as well, but as a way *into* the details view, where the
 // editor lives — there is nothing on a dashboard to save. Same button and the same id, so
 // the jump belongs here beside the editor rather than being written out per view, which is
@@ -155,6 +160,5 @@ function attachEditLink(router, view = "details") {
     router.goTo(view, { edit: true });
   });
 }
-
 
 export { attachEditLink, attachRecordEditor };

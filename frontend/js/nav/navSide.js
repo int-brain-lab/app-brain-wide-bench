@@ -1,4 +1,4 @@
-import { initials} from "../core/utils.js";
+import { initials } from "../core/utils.js";
 import { getIcon } from "../components/icons.js";
 import { apiFetch, isAuthenticated, logout } from "../api/client.js";
 import { renderLogo } from "./navTop.js";
@@ -8,18 +8,54 @@ import { renderLogo } from "./navTop.js";
 // counterparts below list the same domains unscoped, and the labels are what tells them
 // apart in a rail where both appear.
 const MAIN_NAV_ITEMS = [
-  { label: "My dashboard", href: "/html/dashboard/dashboard.html", icon: getIcon("dashboard") },
-  { label: "My models", href: "/html/models/model_list.html", icon: getIcon("model") },
-  { label: "My submissions", href: "/html/submissions/submission_list.html", icon: getIcon("submission") },
-  { label: "My teams", href: "/html/teams/team_list.html", icon: getIcon("team") },
-  { label: "My settings", href: "/html/users/user_details.html", icon: getIcon("settings") },
+  {
+    label: "My dashboard",
+    href: "/html/dashboard/dashboard.html",
+    icon: getIcon("dashboard"),
+  },
+  {
+    label: "My models",
+    href: "/html/models/model_list.html",
+    icon: getIcon("model"),
+  },
+  {
+    label: "My submissions",
+    href: "/html/submissions/submission_list.html",
+    icon: getIcon("submission"),
+  },
+  {
+    label: "My teams",
+    href: "/html/teams/team_list.html",
+    icon: getIcon("team"),
+  },
+  {
+    label: "My settings",
+    href: "/html/users/user_details.html",
+    icon: getIcon("settings"),
+  },
 ];
 
 const PUBLIC_NAV_ITEMS = [
-  { label: "Leaderboard", href: "/html/leaderboard/leaderboard.html", icon: getIcon("leaderboard") },
-  { label: "All models", href: "/html/models/model_list_public.html", icon: getIcon("model") },
-  { label: "All submissions", href: "/html/submissions/submission_list_public.html", icon: getIcon("submission") },
-  { label: "All teams", href: "/html/teams/team_list_public.html", icon: getIcon("team") },
+  {
+    label: "Leaderboard",
+    href: "/html/leaderboard/leaderboard.html",
+    icon: getIcon("leaderboard"),
+  },
+  {
+    label: "All models",
+    href: "/html/models/model_list_public.html",
+    icon: getIcon("model"),
+  },
+  {
+    label: "All submissions",
+    href: "/html/submissions/submission_list_public.html",
+    icon: getIcon("submission"),
+  },
+  {
+    label: "All teams",
+    href: "/html/teams/team_list_public.html",
+    icon: getIcon("team"),
+  },
   { label: "Home", href: "/index.html", icon: getIcon("home") },
 ];
 
@@ -32,20 +68,17 @@ async function loadCurrentUser() {
     }
 
     return await apiFetch("/api/users/me");
-
   } catch (err) {
     console.error(err);
     return null;
   }
 }
 
-
 // ─── DOM ────────────────────────────────────────────────────────────────────
 
 function sidebar() {
   return document.getElementById("side-nav");
 }
-
 
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 
@@ -57,7 +90,6 @@ function currentPage() {
 
   return path === "/" ? "/index.html" : path;
 }
-
 
 // ─── RENDERING ──────────────────────────────────────────────────────────────
 
@@ -73,9 +105,7 @@ function renderSidebarItem(item, page) {
 }
 
 function renderSidebarItems(items, page) {
-  return items
-    .map(item => renderSidebarItem(item, page))
-    .join("");
+  return items.map((item) => renderSidebarItem(item, page)).join("");
 }
 
 function renderSidebar() {
@@ -99,14 +129,11 @@ function renderSidebar() {
     <div class="sidebar-bottom">
       <div class="row left gap-md">
         <div class="user-logo" id="user-initials">—</div>
-        <a class="btn primary" id="sidebar-logout">Sign out</a>
+        <button type="button" class="btn primary" id="sidebar-logout">Sign out</button>
       </div>
     </div>
   `;
 }
-
-
-
 
 // ─── USER ───────────────────────────────────────────────────────────────────
 
@@ -127,7 +154,6 @@ async function fillSidebarUser() {
   }
 }
 
-
 // ─── INITIALISATION ─────────────────────────────────────────────────────────
 
 async function initialiseSidebar() {
@@ -146,8 +172,7 @@ async function initialiseSidebar() {
 
   await fillSidebarUser();
 
-  lucide.createIcons();
-
+  globalThis.lucide?.createIcons?.();
 }
 
 initialiseSidebar();

@@ -17,7 +17,11 @@
 // blank option, "Overall", narrows nothing and ranks across every task.
 
 import { mean } from "../core/utils.js";
-import { toSuiteGroups, toTaskMetrics, toTaskOptions } from "../core/metricGroups.js";
+import {
+  toSuiteGroups,
+  toTaskMetrics,
+  toTaskOptions,
+} from "../core/metricGroups.js";
 import {
   createFilterableTable,
   matchIncludes,
@@ -34,7 +38,6 @@ import {
   rankValue,
   score,
 } from "./formatters.js";
-
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────
 
@@ -79,7 +82,9 @@ function toLeaderboardRow(standing, suites, myTeamIds) {
 
   for (const suite of suites) {
     row[suite.key] = mean(
-      suite.taskIds.map(taskId => row.taskRanks[taskId]).filter(value => value != null),
+      suite.taskIds
+        .map((taskId) => row.taskRanks[taskId])
+        .filter((value) => value != null),
     );
   }
 
@@ -94,17 +99,18 @@ function toLeaderboardRow(standing, suites, myTeamIds) {
  * @returns one row per model, ranked by mean rank.
  */
 function toLeaderboardRows(standings, suites, myTeamIds = new Set()) {
-  const rows = standings.map(standing => toLeaderboardRow(standing, suites, myTeamIds));
+  const rows = standings.map((standing) =>
+    toLeaderboardRow(standing, suites, myTeamIds),
+  );
 
   assignMeanRank(rows, suites);
-  assignPositions(rows, row => row.meanRank, { ascending: true });
+  assignPositions(rows, (row) => row.meanRank, { ascending: true });
 
   // Sorted before it leaves, because Tabulator's initial sort on `meanRank` is a no-op
   // while every row is unranked — a stable sort of all-equal keys is the order it was
   // handed. Which is this one.
   return rows.sort(byPosition);
 }
-
 
 // ─── RANKING ────────────────────────────────────────────────────────────────
 
@@ -134,10 +140,11 @@ function competitionRanks(rows, valueOf, { ascending = false } = {}) {
 
     // Guarded on null: `Math.abs(null - null) < EPSILON` is true, which would tie every
     // unscored row to the last scored one instead of ranking them last together.
-    const tied = previous
-      && valueOf(row) != null
-      && valueOf(previous) != null
-      && Math.abs(valueOf(row) - valueOf(previous)) < EPSILON;
+    const tied =
+      previous &&
+      valueOf(row) != null &&
+      valueOf(previous) != null &&
+      Math.abs(valueOf(row) - valueOf(previous)) < EPSILON;
 
     ranks.set(row, tied ? ranks.get(previous) : index + 1);
   });
@@ -162,10 +169,10 @@ function competitionRanks(rows, valueOf, { ascending = false } = {}) {
  */
 function assignMeanRank(rows, suites) {
   for (const row of rows) {
-    const ranks = Object.values(row.taskRanks).filter(rank => rank != null);
+    const ranks = Object.values(row.taskRanks).filter((rank) => rank != null);
 
-    row.suitesScored = suites.filter(
-      suite => suite.taskIds.some(taskId => row[taskId] != null),
+    row.suitesScored = suites.filter((suite) =>
+      suite.taskIds.some((taskId) => row[taskId] != null),
     ).length;
 
     // Two figures, deliberately. `meanRank` is the claim — it exists only where the model
@@ -184,7 +191,7 @@ function assignMeanRank(rows, suites) {
 // is a model with partial coverage, which hasn't placed below the others so much as not
 // competed against them.
 function assignPositions(rows, valueOf, options) {
-  const ranked = rows.filter(row => valueOf(row) != null);
+  const ranked = rows.filter((row) => valueOf(row) != null);
   const ranks = competitionRanks(ranked, valueOf, options);
 
   for (const row of rows) {
@@ -198,11 +205,11 @@ function assignPositions(rows, valueOf, options) {
 function byPosition(a, b) {
   if (a.rank !== b.rank) return rankOrder(a.rank, b.rank);
 
-  if (a.suitesScored !== b.suitesScored) return (b.suitesScored ?? 0) - (a.suitesScored ?? 0);
+  if (a.suitesScored !== b.suitesScored)
+    return (b.suitesScored ?? 0) - (a.suitesScored ?? 0);
 
   return rankOrder(a.partialRank, b.partialRank);
 }
-
 
 // ─── METRICS ────────────────────────────────────────────────────────────────
 
@@ -222,7 +229,10 @@ const GROUPINGS = [
 function suiteMetrics(suites) {
   return [
     { value: "", label: "Overall" },
-    ...suites.map(suite => ({ value: suite.suite, label: suite.suite.toUpperCase() })),
+    ...suites.map((suite) => ({
+      value: suite.suite,
+      label: suite.suite.toUpperCase(),
+    })),
   ];
 }
 
@@ -232,9 +242,8 @@ function metricsFor(grouping, suites) {
 
 // A suite's own rank field, or a task id — the two things `metric` can name.
 function rankFieldFor(metric, suites) {
-  return suites.find(suite => suite.suite === metric)?.key ?? null;
+  return suites.find((suite) => suite.suite === metric)?.key ?? null;
 }
-
 
 // ─── COLUMNS ────────────────────────────────────────────────────────────────
 
@@ -273,7 +282,7 @@ function getLeaderboardColumns(suites, getMetric) {
     {
       title: "Score",
       field: "score",
-      formatter: cell => score(cell.getData()[getMetric()]),
+      formatter: (cell) => score(cell.getData()[getMetric()]),
       sorter: (a, b, aRow, bRow) =>
         numericSorter(aRow.getData()[getMetric()], bRow.getData()[getMetric()]),
       hozAlign: "right",
@@ -283,9 +292,12 @@ function getLeaderboardColumns(suites, getMetric) {
     {
       title: "Rank",
       field: "taskRank",
-      formatter: cell => rankValue(cell.getData().taskRanks?.[getMetric()]),
+      formatter: (cell) => rankValue(cell.getData().taskRanks?.[getMetric()]),
       sorter: (a, b, aRow, bRow) =>
-        rankOrder(aRow.getData().taskRanks?.[getMetric()], bRow.getData().taskRanks?.[getMetric()]),
+        rankOrder(
+          aRow.getData().taskRanks?.[getMetric()],
+          bRow.getData().taskRanks?.[getMetric()],
+        ),
       hozAlign: "right",
       headerHozAlign: "right",
     },
@@ -293,10 +305,10 @@ function getLeaderboardColumns(suites, getMetric) {
     // ── suite mode: the ranks, at the grain a mean of them means something ──
     // Which suites a model entered reads straight off these three: a dash is a suite it
     // didn't entered, which is also why the coverage count no longer needs its own column.
-    ...suites.map(suite => ({
+    ...suites.map((suite) => ({
       title: suite.label,
       field: suite.key,
-      formatter: cell => rankValue(cell.getValue()),
+      formatter: (cell) => rankValue(cell.getValue()),
       sorter: rankSorter,
       hozAlign: "right",
       headerHozAlign: "right",
@@ -311,14 +323,13 @@ function getLeaderboardPreviewColumns(suites) {
   return [
     { title: "#", field: "rank", formatter: rankFormatter },
     { title: "Model", field: "title", formatter: modelFormatter },
-    ...suites.map(suite => ({
+    ...suites.map((suite) => ({
       title: suite.label,
       field: suite.key,
-      formatter: cell => rankValue(cell.getValue()),
+      formatter: (cell) => rankValue(cell.getValue()),
     })),
   ];
 }
-
 
 // ─── CONTROLS ───────────────────────────────────────────────────────────────
 
@@ -347,11 +358,11 @@ function getLeaderboardControls(suites) {
       // The value is a suite or a task id, and either way what it narrows to is models that
       // earned a rank for it. Blank — "Overall" — never reaches here: createFilterableTable
       // skips an empty control.
-      match: (row, value) => (row[`${value}_rank`] ?? row.taskRanks[value]) != null,
+      match: (row, value) =>
+        (row[`${value}_rank`] ?? row.taskRanks[value]) != null,
     },
   ];
 }
-
 
 // ─── TABLE ──────────────────────────────────────────────────────────────────
 
@@ -370,7 +381,14 @@ function getLeaderboardControls(suites) {
  *                     score only when the board is showing one task.
  * @returns the Tabulator instance.
  */
-function renderLeaderboardTable({ container, standings, tasks, myTeamIds, selection, onRowClick }) {
+function renderLeaderboardTable({
+  container,
+  standings,
+  tasks,
+  myTeamIds,
+  selection,
+  onRowClick,
+}) {
   const suites = toSuiteGroups(tasks);
   const metrics = toTaskMetrics(tasks);
   const rows = toLeaderboardRows(standings, suites, myTeamIds);
@@ -391,17 +409,21 @@ function renderLeaderboardTable({ container, standings, tasks, myTeamIds, select
     // Every position is drawn from a rank, so every one of them is ascending: the mean
     // across all tasks, a suite's mean, or the server's figure for a single task.
     const positionOf = isTask
-      ? row => row.taskRanks[metric]
+      ? (row) => row.taskRanks[metric]
       : rankField
-        ? row => row[rankField]
-        : row => row.meanRank;
+        ? (row) => row[rankField]
+        : (row) => row.meanRank;
 
     assignPositions(rows, positionOf, { ascending: true });
 
     // The metric rides along in the heading, since a bare task id doesn't say what its
     // number is measured in and suite mode no longer has a column that does. A task the
     // table doesn't know the metric for keeps the bare id rather than an empty bracket.
-    const scoreTitle = !isTask ? "Score" : metrics[metric] ? `${metric} (${metrics[metric]})` : metric;
+    const scoreTitle = !isTask
+      ? "Score"
+      : metrics[metric]
+        ? `${metric} (${metrics[metric]})`
+        : metric;
 
     table.updateColumnDefinition("score", { title: scoreTitle });
 
@@ -440,7 +462,9 @@ function renderLeaderboardTable({ container, standings, tasks, myTeamIds, select
     index: "submissionId",
     caller: "renderLeaderboardTable",
 
-    ...(onRowClick ? { onRowClick: (row, context) => onRowClick(row, metric, context) } : {}),
+    ...(onRowClick
+      ? { onRowClick: (row, context) => onRowClick(row, metric, context) }
+      : {}),
 
     ...(selection
       ? {
@@ -448,7 +472,7 @@ function renderLeaderboardTable({ container, standings, tasks, myTeamIds, select
             max: selection.max,
             // The metric rides along because the rows alone don't say what they are
             // selected *for* — see the parameter's note.
-            onChange: rows => selection.onChange(rows, metric),
+            onChange: (rows) => selection.onChange(rows, metric),
           },
         }
       : {}),
@@ -462,12 +486,14 @@ function renderLeaderboardTable({ container, standings, tasks, myTeamIds, select
       if (name === "grouping") {
         // setControlOptions returns the value it settled on, so the columns and the ranking
         // follow the swap without re-reading the select.
-        applyMetric(api.table, api.setControlOptions("metric", metricsFor(value, suites)));
+        applyMetric(
+          api.table,
+          api.setControlOptions("metric", metricsFor(value, suites)),
+        );
       }
     },
   });
 }
-
 
 // ─── STATIC TABLE ───────────────────────────────────────────────────────────
 
@@ -499,19 +525,16 @@ function renderStaticLeaderboardTable({
 
   const shown = previewRows(rows, byPosition, limit);
 
-  resolveContainer(container, "renderStaticLeaderboardTable").innerHTML = renderStaticTable({
-    columns: getLeaderboardPreviewColumns(suites),
-    rows: shown,
-    noun: "model",
-    total: rows.length,
-    viewAll,
-  });
+  resolveContainer(container, "renderStaticLeaderboardTable").innerHTML =
+    renderStaticTable({
+      columns: getLeaderboardPreviewColumns(suites),
+      rows: shown,
+      noun: "model",
+      total: rows.length,
+      viewAll,
+    });
 
   return rows;
 }
 
-
-export {
-  renderLeaderboardTable,
-  renderStaticLeaderboardTable,
-};
+export { renderLeaderboardTable, renderStaticLeaderboardTable };

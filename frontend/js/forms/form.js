@@ -11,7 +11,6 @@
 
 import { refreshIcons } from "../core/utils.js";
 
-
 // ─── SCHEMA RULES ───────────────────────────────────────────────────────────
 
 // What every form says when a change invalidated values the user had already chosen. One
@@ -60,15 +59,13 @@ function toggleHelpPin(key) {
   return pinnedHelp.has(key);
 }
 
-
 // A schema with no such rule draws the same fields for every state it can hold, which is
 // what lets `handleChange` know a redraw would change nothing.
 function hasDependentFields(fields) {
   return Object.values(fields).some(
-    field => field.disabledWhen || field.disabledOptionsWhen,
+    (field) => field.disabledWhen || field.disabledOptionsWhen,
   );
 }
-
 
 // ─── VALUES ─────────────────────────────────────────────────────────────────
 
@@ -106,7 +103,9 @@ function revalidateFields(state, fields) {
 
     // A checkbox-list drops just the now-invalid values, not the whole selection.
     if (Array.isArray(state[key])) {
-      const filtered = state[key].filter(value => !disabledOptions.includes(value));
+      const filtered = state[key].filter(
+        (value) => !disabledOptions.includes(value),
+      );
       if (filtered.length !== state[key].length) {
         cleared.push(key);
       }
@@ -124,9 +123,10 @@ function revalidateFields(state, fields) {
 // excluded from the result: it was deliberately set, not silently cleared.
 function setFieldValue(state, fields, key, value) {
   state[key] = value;
-  return revalidateFields(state, fields).filter(clearedKey => clearedKey !== key);
+  return revalidateFields(state, fields).filter(
+    (clearedKey) => clearedKey !== key,
+  );
 }
-
 
 // ─── READING CONTROLS ───────────────────────────────────────────────────────
 
@@ -134,8 +134,8 @@ function getFieldValue(field, key, input, container) {
   switch (field.input) {
     case "checkbox-list":
       return Array.from(
-        container.querySelectorAll(`[data-field="${key}"]:checked`)
-      ).map(box => box.value);
+        container.querySelectorAll(`[data-field="${key}"]:checked`),
+      ).map((box) => box.value);
 
     case "checkbox":
       return input.checked;
@@ -145,12 +145,11 @@ function getFieldValue(field, key, input, container) {
   }
 }
 
-
 // Writes through setFieldValue, so a change can't land without the rest of the schema being
 // revalidated against it. One delegated listener on `container`, which is why it survives
 // every re-render of the fields inside it.
 function attachFieldEvents(container, getState, fields, onFieldChange) {
-  container.addEventListener("change", event => {
+  container.addEventListener("change", (event) => {
     const state = getState();
 
     // Nothing is being edited — the editor between Save and the next Edit click.
@@ -180,7 +179,7 @@ function attachFieldEvents(container, getState, fields, onFieldChange) {
   //
   // Both the Set and the DOM are updated, so nothing has to re-render to show the change,
   // and a later re-render of its own accord still comes back pinned.
-  container.addEventListener("click", event => {
+  container.addEventListener("click", (event) => {
     const trigger = event.target.closest("[data-help-for]");
 
     if (!trigger || !container.contains(trigger)) return;
@@ -197,7 +196,6 @@ function attachFieldEvents(container, getState, fields, onFieldChange) {
   });
 }
 
-
 // Re-rendering replaces the inputs, destroying whichever had focus. Text inputs are safe —
 // `change` fires on blur — but a select or checkbox fires it while still focused, which is
 // exactly when a dependent-field redraw happens: without this, choosing from a dropdown
@@ -207,7 +205,9 @@ function attachFieldEvents(container, getState, fields, onFieldChange) {
 // focusable descendant stands in.
 function withPreservedFocus(container, render) {
   const active = document.activeElement;
-  const key = container.contains(active) ? active.closest("[data-field]")?.dataset.field : null;
+  const key = container.contains(active)
+    ? active.closest("[data-field]")?.dataset.field
+    : null;
 
   render();
 
@@ -223,7 +223,6 @@ function withPreservedFocus(container, render) {
 
   control?.focus();
 }
-
 
 // ─── THE FORM ───────────────────────────────────────────────────────────────
 
@@ -245,12 +244,7 @@ function withPreservedFocus(container, render) {
  *                  written, revalidated and — if the schema called for it — redrawn. A
  *                  handler that mutates the state has to call `render` again itself.
  */
-function createFieldForm({
-  fields,
-  getState,
-  sections,
-  onChange,
-}) {
+function createFieldForm({ fields, getState, sections, onChange }) {
   const hasDependencies = hasDependentFields(fields);
 
   function render() {
@@ -296,7 +290,6 @@ function createFieldForm({
 
   return { attach, render };
 }
-
 
 // `getFieldValue` and `parseFieldValue` stay private: reading a control is only correct as
 // part of writing the state through setFieldValue, which attachFieldEvents does.

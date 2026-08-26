@@ -52,12 +52,13 @@ function getRecordings(detailed) {
 // column would be a mean over regions, and its "macro" row already is exactly that — so the
 // cards would either duplicate that row or, by including it, double-count it.
 function getStatistics(recordings) {
-
   if (describeRecordingScores(recordings).mode !== "recording") return [];
 
-  return summariseMetrics(recordings).map(metric => [
+  return summariseMetrics(recordings).map((metric) => [
     metric.name,
-    metric.sem == null ? score(metric.mean) : `${score(metric.mean)} ± ${score(metric.sem)}`,
+    metric.sem == null
+      ? score(metric.mean)
+      : `${score(metric.mean)} ± ${score(metric.sem)}`,
     getIcon("score"),
   ]);
 }
@@ -67,7 +68,7 @@ function getSubtitle(submission, taskSubmission) {
     { text: taskSubmission.score?.primary_metric, icon: getIcon("score") },
     { text: submission.label, icon: getIcon("submission") },
     { text: submission.model_name, icon: getIcon("model") },
-  ].filter(entry => entry.text);
+  ].filter((entry) => entry.text);
 }
 
 function getBadges(taskSubmission) {
@@ -78,7 +79,10 @@ function getBadges(taskSubmission) {
 
 // ─── VIEW ────────────────────────────────────────────────────────────────────
 
-async function renderScoreBreakdownView({ submission, score: taskSubmissionId }) {
+async function renderScoreBreakdownView({
+  submission,
+  score: taskSubmissionId,
+}) {
   renderPage(
     buildPage({
       back: BACK,
@@ -88,14 +92,17 @@ async function renderScoreBreakdownView({ submission, score: taskSubmissionId })
   );
 
   const taskSubmission = (submission.task_submissions ?? []).find(
-    row => row.id === taskSubmissionId,
+    (row) => row.id === taskSubmissionId,
   );
 
   // Both reachable by editing the URL, and the second by a Back into a task whose score a
   // later re-scoring removed.
   if (!taskSubmission) {
     renderHeader(submission.label, submission.team_name ?? "");
-    showFailure(sectionBody("body"), "That task is not part of this submission.");
+    showFailure(
+      sectionBody("body"),
+      "That task is not part of this submission.",
+    );
     return;
   }
 
@@ -126,14 +133,19 @@ async function renderScoreBreakdownView({ submission, score: taskSubmissionId })
   // A score with a mean but no per-recording detail: every score written by app/tasks/score.py
   // carries it, but one loaded from an older fixture has `metrics` null.
   if (!recordings.length) {
-    showEmpty(sectionBody("body"), "No per-recording breakdown was stored for this score.");
+    showEmpty(
+      sectionBody("body"),
+      "No per-recording breakdown was stored for this score.",
+    );
     return;
   }
 
   sectionBody("stats").innerHTML = buildStatCards(getStatistics(recordings));
 
-  return renderRecordingScoresTable({ container: sectionBody("body"), recordings });
+  return renderRecordingScoresTable({
+    container: sectionBody("body"),
+    recordings,
+  });
 }
-
 
 export { renderScoreBreakdownView };

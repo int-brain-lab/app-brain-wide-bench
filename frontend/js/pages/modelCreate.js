@@ -11,20 +11,18 @@ import { loadModelFields } from "../schemas/modelSchema.js";
 import { createModel } from "../api/modelApi.js";
 import { loadCreatePage } from "../templates/create-page.js";
 
-
-
 const MODEL_PANELS = [
   {
     panel: 1,
-    title: "1. Choose a model name and the team it belongs to"
+    title: "1. Choose a model name and the team it belongs to",
   },
   {
     panel: 2,
-    title: "2. Add links to your models"
+    title: "2. Add links to your models",
   },
   {
     panel: 3,
-    title: "3. Describe your model parameters"
+    title: "3. Describe your model parameters",
   },
 ];
 
@@ -36,11 +34,10 @@ async function submitModel(state) {
   return `/html/models/models.html?id=${encodeURIComponent(model.id)}&view=details&created`;
 }
 
-
 loadCreatePage({
   noun: "model",
   backTo: { href: "/html/models/model_list.html", text: "← Back to models" },
   panels: MODEL_PANELS,
   fields: () => loadModelFields(),
-  submit: state => submitModel(state),
+  submit: (state) => submitModel(state),
 });

@@ -56,11 +56,15 @@ function buildList(compare) {
     <div id="filters"></div>
     <div id="list"></div>
     <div id="create-row"></div>
-    ${compare ? `
+    ${
+      compare
+        ? `
       <section class="page-section" id="compare-section" hidden>
         <div class="row"><h2 class="section-title">${escapeHtml(compare.title)}</h2></div>
         <div class="section-body" id="compare-body"></div>
-      </section>` : ""}
+      </section>`
+        : ""
+    }
   `;
 }
 
@@ -78,14 +82,8 @@ function getElements() {
 }
 
 function setActiveView(activeId, elements) {
-  for (const button of [
-    elements.cardsButton,
-    elements.tableButton,
-  ]) {
-    button?.classList.toggle(
-      "primary-inv",
-      button.id === activeId,
-    );
+  for (const button of [elements.cardsButton, elements.tableButton]) {
+    button?.classList.toggle("primary-inv", button.id === activeId);
   }
 }
 
@@ -99,10 +97,7 @@ function renderEmptyState(elements, create, noun) {
     showEmpty(elements.list, `No public ${noun} yet.`);
   }
 
-  for (const button of [
-    elements.cardsButton,
-    elements.tableButton,
-  ]) {
+  for (const button of [elements.cardsButton, elements.tableButton]) {
     if (button) {
       button.hidden = true;
     }
@@ -123,7 +118,7 @@ function loadListPage({
   // Maps the records the fetch returned to the row shape everything else here works in: the
   // cards render from it, the filters match against it, and the table is built from it. One
   // shape rather than two is what lets one filter bar serve both views.
-  toRows = records => records,
+  toRows = (records) => records,
   table = null,
   create: createLink,
   description = "",
@@ -191,14 +186,16 @@ function loadListPage({
   function comparisonFor() {
     comparison ??= compare.create({
       container: elements.compareBody,
-      onDrop: key => drop(key),
+      onDrop: (key) => drop(key),
     });
 
     return comparison;
   }
 
   async function updateComparison() {
-    const overflow = await comparisonFor().show([...picked].map(key => seeds.get(key)));
+    const overflow = await comparisonFor().show(
+      [...picked].map((key) => seeds.get(key)),
+    );
 
     // The table caps selection by click but refuses the extra one silently; handing it back
     // is what keeps the ticks and the comparison saying the same thing. `forget` rather than
@@ -258,8 +255,10 @@ function loadListPage({
       onChange: (_data, { selected, deselected }) => {
         if (syncing) return;
 
-        for (const row of selected) picked.add(compare.toSeed(row.getData()).key);
-        for (const row of deselected) picked.delete(compare.toSeed(row.getData()).key);
+        for (const row of selected)
+          picked.add(compare.toSeed(row.getData()).key);
+        for (const row of deselected)
+          picked.delete(compare.toSeed(row.getData()).key);
 
         updateComparison();
       },
@@ -295,25 +294,26 @@ function loadListPage({
       noun: noun.replace(/s$/, ""),
       page: cardPage,
       pageSize: cardsPerPage,
-      onPage: page => {
+      onPage: (page) => {
         cardPage = page;
         renderCards();
       },
       selection: comparing
         ? { keys: picked, max: compare.max, onToggle: toggle }
         : null,
-      keyOf: row => compare?.toSeed(row).key ?? row.id,
+      keyOf: (row) => compare?.toSeed(row).key ?? row.id,
     });
   }
 
   function renderTable() {
     elements.list.className = "";
 
-    tableInstance = table({
-      container: elements.list,
-      rows,
-      selection: comparing ? selectionFor() : null,
-    }) ?? null;
+    tableInstance =
+      table({
+        container: elements.list,
+        rows,
+        selection: comparing ? selectionFor() : null,
+      }) ?? null;
 
     // Tabulator builds its DOM asynchronously, so neither the filter nor the selection can
     // be applied to the instance the constructor just returned.
@@ -326,7 +326,8 @@ function loadListPage({
   function applyTableFilter() {
     // Filtered rather than handed a filtered copy of the data: the rows behind the picks
     // have to stay in the table, or narrowing the list would empty the comparison.
-    if (tableInstance && filterState) tableInstance.setFilter(filterState.matches);
+    if (tableInstance && filterState)
+      tableInstance.setFilter(filterState.matches);
   }
 
   function renderView(viewId) {
@@ -386,7 +387,15 @@ function loadListPage({
             ...actions,
             // Before the view toggle: it is what the reader came to do, where the toggle is
             // how they want to look at the list while doing it.
-            ...(compare ? [{ id: COMPARE, label: compare.label, icon: getIcon("compare") }] : []),
+            ...(compare
+              ? [
+                  {
+                    id: COMPARE,
+                    label: compare.label,
+                    icon: getIcon("compare"),
+                  },
+                ]
+              : []),
             ...(table ? [CARDS_ACTION, TABLE_ACTION] : []),
           ]),
           body: buildList(compare),
@@ -410,24 +419,25 @@ function loadListPage({
       filtered = rows;
 
       if (compare) {
-        seeds = new Map(rows.map(row => {
-          const seed = compare.toSeed(row);
+        seeds = new Map(
+          rows.map((row) => {
+            const seed = compare.toSeed(row);
 
-          return [seed.key, seed];
-        }));
+            return [seed.key, seed];
+          }),
+        );
       }
 
       renderFilterBar();
       renderView(getInitialView(rows, table, maxCards));
 
-      for (const button of [
-        elements.cardsButton,
-        elements.tableButton,
-      ]) {
+      for (const button of [elements.cardsButton, elements.tableButton]) {
         button?.addEventListener("click", () => renderView(button.id));
       }
 
-      elements.compareButton?.addEventListener("click", () => setComparing(!comparing));
+      elements.compareButton?.addEventListener("click", () =>
+        setComparing(!comparing),
+      );
     },
   });
 }

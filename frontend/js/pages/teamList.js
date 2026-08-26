@@ -5,7 +5,11 @@
 
 import { getTeams, getMyTeams } from "../api/teamApi.js";
 import { buildTeamCards } from "../cards/teamCards.js";
-import { getTeamControls, renderTeamsTable, toTeamRows } from "../tables/teamTable.js";
+import {
+  getTeamControls,
+  renderTeamsTable,
+  toTeamRows,
+} from "../tables/teamTable.js";
 import { loadListPage } from "../templates/list-page.js";
 
 const MINE = document.body.dataset.scope === "mine";
@@ -22,7 +26,8 @@ loadListPage({
   // render from the rows it matches against.
   filters: getTeamControls,
   cards: buildTeamCards,
-  table: ({ container, rows }) => renderTeamsTable({ container, rows, showFilters: false }),
+  table: ({ container, rows }) =>
+    renderTeamsTable({ container, rows, showFilters: false }),
   create: {
     href: "/html/teams/team_create.html",
     label: "New team",

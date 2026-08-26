@@ -21,11 +21,14 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-
 function initials(name) {
-  return name.split(/\s+/).map((w) => w[0] || "").join("").slice(0, 2).toUpperCase();
+  return name
+    .split(/\s+/)
+    .map((w) => w[0] || "")
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
-
 
 function refreshIcons() {
   globalThis.lucide?.createIcons?.();
@@ -38,10 +41,12 @@ function formatBytes(bytes) {
   const units = ["KB", "MB", "GB", "TB"];
   let val = bytes / 1024;
   let i = 0;
-  while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
+  while (val >= 1024 && i < units.length - 1) {
+    val /= 1024;
+    i++;
+  }
   return `${val.toFixed(1)} ${units[i]}`;
 }
-
 
 function formatDate(value, locale = "en-GB") {
   if (!value) {
@@ -84,7 +89,12 @@ function buildMessageCard(message, className = "info-msg", detail = "") {
   `;
 }
 
-function renderMessage(container, message, className = "info-msg", detail = "") {
+function renderMessage(
+  container,
+  message,
+  className = "info-msg",
+  detail = "",
+) {
   container.hidden = false;
   container.innerHTML = buildMessageCard(message, className, detail);
 }
@@ -97,7 +107,6 @@ function clearMessage(element) {
   element.replaceChildren();
 }
 
-
 function showMessage(element, message) {
   if (!message) {
     clearMessage(element);
@@ -107,7 +116,6 @@ function showMessage(element, message) {
   renderMessage(element, message);
 }
 
-
 // A section with nothing to show yet — no submissions, no members, no scored tasks. Its own
 // helper rather than showMessage with a class argument, so every one of them looks the same
 // without each call site electing to.
@@ -115,13 +123,11 @@ function showEmpty(element, message) {
   renderMessage(element, message, "empty-msg");
 }
 
-
 // The two outcomes of a create or an edit. `showFailure` names the action that failed and
 // puts the error underneath, so the sentence stays readable however ugly the detail is.
 function showSuccess(element, message) {
   renderMessage(element, message, "success-msg");
 }
-
 
 // A change that was valid but cost something — fields cleared because they no longer
 // apply. Amber rather than red: nothing failed, but it must not slip past unnoticed.
@@ -129,11 +135,9 @@ function showWarning(element, message, detail = "") {
   renderMessage(element, message, "warn-msg", detail);
 }
 
-
 function showFailure(element, message, error) {
   renderMessage(element, message, "failure-msg", error?.message ?? "");
 }
-
 
 function showError(element, message) {
   if (!message) {
@@ -145,7 +149,9 @@ function showError(element, message) {
 }
 
 function mean(values) {
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+  return values.length
+    ? values.reduce((sum, value) => sum + value, 0) / values.length
+    : null;
 }
 
 // How a score is written everywhere it appears — a table cell, a stat card, a plot tooltip.
@@ -154,7 +160,6 @@ function mean(values) {
 function score(value) {
   return value == null ? "—" : value.toFixed(3);
 }
-
 
 export {
   escapeHtml,
@@ -172,5 +177,5 @@ export {
   showWarning,
   mean,
   refreshIcons,
-  score
+  score,
 };

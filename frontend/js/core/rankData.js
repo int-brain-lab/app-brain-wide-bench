@@ -47,18 +47,20 @@ function readPlacing(side, figure) {
 function toRankRows(ranking) {
   const coverage = placingOf(ranking?.private ?? ranking?.public, "overall");
 
-  return FIGURES.map(figure => ({
+  return FIGURES.map((figure) => ({
     figure,
     label: figure === "overall" ? "Overall" : figure.toUpperCase(),
     publicSide: readPlacing(ranking?.public, figure),
     privateSide: readPlacing(ranking?.private, figure),
     coverage:
       figure === "overall"
-        ? { scored: coverage?.suites_scored ?? 0, total: coverage?.suites_total ?? 0 }
+        ? {
+            scored: coverage?.suites_scored ?? 0,
+            total: coverage?.suites_total ?? 0,
+          }
         : null,
   }));
 }
-
 
 /**
  * Stamp each score row with the rankings its entry is currently carrying.
@@ -84,14 +86,10 @@ function markRankedRows(rows, ranking) {
     }
   }
 
-  return rows.map(row => ({
+  return rows.map((row) => ({
     ...row,
     ranked: used[row.id] ?? { public: false, private: false },
   }));
 }
 
-
-export {
-  markRankedRows,
-  toRankRows,
-};
+export { markRankedRows, toRankRows };

@@ -24,13 +24,14 @@ import {
   suiteBadgesFormatter,
 } from "./formatters.js";
 
-
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
 const STATUSES = ["pending", "scoring", "done", "failed"];
 
-const STATUS_OPTIONS = STATUSES.map(status => ({ value: status, label: status }));
-
+const STATUS_OPTIONS = STATUSES.map((status) => ({
+  value: status,
+  label: status,
+}));
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────
 
@@ -51,7 +52,6 @@ function toSubmissionRow(submission) {
 function toSubmissionRows(submissions) {
   return submissions.map(toSubmissionRow);
 }
-
 
 // ─── COLUMNS ────────────────────────────────────────────────────────────────
 
@@ -101,7 +101,6 @@ function getSubmissionColumns({ showModel = false } = {}) {
   ];
 }
 
-
 // ─── CONTROLS ───────────────────────────────────────────────────────────────
 
 function getSubmissionControls() {
@@ -128,7 +127,6 @@ function getSubmissionControls() {
     },
   ];
 }
-
 
 // ─── TABLE ──────────────────────────────────────────────────────────────────
 
@@ -160,7 +158,6 @@ function renderSubmissionsTable({
   });
 }
 
-
 // ─── STATIC TABLE ───────────────────────────────────────────────────────────
 
 /**
@@ -175,22 +172,32 @@ function renderSubmissionsTable({
  * @returns every row it built, not just the slice it rendered. The total is already in
  *          the footer; this is for a caller that needs the rows themselves.
  */
-function renderStaticSubmissionsTable({ container, submissions, showModel = false, limit, viewAll }) {
+function renderStaticSubmissionsTable({
+  container,
+  submissions,
+  showModel = false,
+  limit,
+  viewAll,
+}) {
   const rows = toSubmissionRows(submissions);
 
-  const shown = previewRows(rows, (a, b) => dateSorter(b.updated_at, a.updated_at), limit);
+  const shown = previewRows(
+    rows,
+    (a, b) => dateSorter(b.updated_at, a.updated_at),
+    limit,
+  );
 
-  resolveContainer(container, "renderStaticSubmissionsTable").innerHTML = renderStaticTable({
-    columns: getSubmissionColumns({ showModel }),
-    rows: shown,
-    noun: "submission",
-    total: rows.length,
-    viewAll,
-  });
+  resolveContainer(container, "renderStaticSubmissionsTable").innerHTML =
+    renderStaticTable({
+      columns: getSubmissionColumns({ showModel }),
+      rows: shown,
+      noun: "submission",
+      total: rows.length,
+      viewAll,
+    });
 
   return rows;
 }
-
 
 export {
   getSubmissionControls,

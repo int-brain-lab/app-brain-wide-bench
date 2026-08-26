@@ -35,5 +35,4 @@ async function getLeaderboard({ isPretrained } = {}) {
   }
 }
 
-
 export { getLeaderboard };

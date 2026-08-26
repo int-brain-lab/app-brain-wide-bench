@@ -8,7 +8,6 @@
 import { escapeHtml } from "../core/utils.js";
 import { getIcon } from "./icons.js";
 
-
 // The plot-or-table pair, which is every current caller: a figure to see the shape and a
 // grid to read the numbers off. The plot leads because it is the faster answer to the
 // question a reader opens either widget with.
@@ -30,7 +29,9 @@ const PLOT_TABLE_VIEWS = [
 function buildViewToggle({ views = PLOT_TABLE_VIEWS, active, role }) {
   return `
     <div class="row right gap-sm">
-      ${views.map(option => `
+      ${views
+        .map(
+          (option) => `
         <button
           type="button"
           class="btn with-icon ${option.value === active ? "primary-inv" : ""}"
@@ -40,7 +41,9 @@ function buildViewToggle({ views = PLOT_TABLE_VIEWS, active, role }) {
         >
           <i class="btn-icon" data-lucide="${escapeHtml(getIcon(option.icon))}"></i>
           ${escapeHtml(option.label)}
-        </button>`).join("")}
+        </button>`,
+        )
+        .join("")}
     </div>`;
 }
 
@@ -53,6 +56,5 @@ function buildViewToggle({ views = PLOT_TABLE_VIEWS, active, role }) {
 function viewFromClick(event, role) {
   return event.target.closest(`[data-role='${role}']`)?.dataset.view ?? null;
 }
-
 
 export { PLOT_TABLE_VIEWS, buildViewToggle, viewFromClick };

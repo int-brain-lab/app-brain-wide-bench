@@ -13,19 +13,19 @@ import { loadSubmissionFields } from "../schemas/submissionSchema.js";
 import { loadModel } from "../api/modelApi.js";
 import { showFailure, showMessage } from "../core/utils.js";
 import { buildTaskPanel, createTaskSection } from "../widgets/taskPanel.js";
-import { buildUploadPanel, createUploadSection } from "../widgets/submissionUpload.js";
+import {
+  buildUploadPanel,
+  createUploadSection,
+} from "../widgets/submissionUpload.js";
 import {
   createSubmission,
   presignSubmission,
   uploadToPresignedUrl,
 } from "../api/submissionApi.js";
 import { loadCreatePage } from "../templates/create-page.js";
-import {
-  pageMessage,
-  showPageError,
-} from "../templates/record-page.js";
+import { pageMessage, showPageError } from "../templates/record-page.js";
 import { getMeta } from "../api/metaApi.js";
-import {loadTaskFields} from "../schemas/taskSubmissionSchema.js";
+import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
 
 // Built from the context rather than declared as a constant, because panels 3 and 4 report
 // their completeness by asking objects that don't exist until `setup` has run.
@@ -35,25 +35,26 @@ function buildPanels(context) {
   return [
     {
       panel: 1,
-      title: "1. Choose a submission name and the model it belongs to"
+      title: "1. Choose a submission name and the model it belongs to",
     },
     {
       panel: 2,
-      title: "2. Set submission visibility and optional narratives"
+      title: "2. Set submission visibility and optional narratives",
     },
     {
       panel: 3,
       // The file is this panel's, not the schema's — it never renders as a field, and the
       // upload widget is what knows whether there is one.
-      complete: () => Boolean(context.file) && context.unknownTaskIds.length === 0,
+      complete: () =>
+        Boolean(context.file) && context.unknownTaskIds.length === 0,
       build: buildUploadPanel,
-      title: "3. Upload a zip file and detect tasks"
+      title: "3. Upload a zip file and detect tasks",
     },
     {
       panel: 4,
       complete: () => context.taskPanel?.allConfirmed(),
       build: buildTaskPanel,
-      title: "4. Configure task parameters"
+      title: "4. Configure task parameters",
     },
   ];
 }
@@ -98,7 +99,7 @@ async function preselectModel(state, fields, taskSection) {
   if (!requested) return;
 
   const known = fields.model_id.options.some(
-    option => String(option.value) === requested,
+    (option) => String(option.value) === requested,
   );
 
   if (!known) return;
@@ -113,7 +114,7 @@ async function loadKnownTasks() {
   try {
     const { tasks } = await getMeta();
 
-    return new Map(tasks.map(task => [task.id, task.task_suite]));
+    return new Map(tasks.map((task) => [task.id, task.task_suite]));
   } catch (error) {
     console.error(error);
 
@@ -133,7 +134,6 @@ async function loadKnownTasks() {
 // rather than in the form — only this page knows how far along it is. The form catches a
 // throw, reports it and re-arms the button.
 async function submitSubmission(state, taskSection) {
-
   // TODO better way to handle this
   // Pass in uploadPanel and store the file in this.
   const file = state.file;
@@ -147,8 +147,10 @@ async function submitSubmission(state, taskSection) {
 
   await createSubmission(presigned.submission_id);
 
-  return `/html/submissions/submissions.html`
-    + `?id=${encodeURIComponent(presigned.submission_id)}&view=details&created`;
+  return (
+    `/html/submissions/submissions.html` +
+    `?id=${encodeURIComponent(presigned.submission_id)}&view=details&created`
+  );
 }
 
 // ─── INITIALISATION ─────────────────────────────────────────────────────────
@@ -167,7 +169,13 @@ async function loadSubmissionContext() {
   const knownTasks = await loadKnownTasks();
   await loadTaskFields();
 
-  return { fields, knownTasks, unknownTaskIds: [], taskPanel: null, file: null };
+  return {
+    fields,
+    knownTasks,
+    unknownTaskIds: [],
+    taskPanel: null,
+    file: null,
+  };
 }
 
 // The task section owns panel 4, the upload section panel 3; both are built here, between
@@ -189,7 +197,7 @@ async function setupPanels(form, context) {
     onFile: (file, taskIds) => {
       // A catalogue that failed to load can't judge anything, so nothing is unknown.
       context.unknownTaskIds = knownTasks.size
-        ? taskIds.filter(id => !knownTasks.has(id))
+        ? taskIds.filter((id) => !knownTasks.has(id))
         : [];
 
       // Onto the context for panel 3's `complete`, and onto the state because that is where
@@ -211,15 +219,22 @@ async function setupPanels(form, context) {
 
 loadCreatePage({
   noun: "submission",
-  backTo: { href: "/html/submissions/submission_list.html", text: "← Back to submissions" },
+  backTo: {
+    href: "/html/submissions/submission_list.html",
+    text: "← Back to submissions",
+  },
   load: loadSubmissionContext,
-  fields: context => context.fields,
+  fields: (context) => context.fields,
   panels: buildPanels,
   setup: setupPanels,
   submit: (state, context) => submitSubmission(state, context.taskPanel),
   onChange: async (key, value, cleared, { form, context }) => {
     if (key === "model_id") {
-      await loadSelectedModel(form.state.model_id, form.state, context.taskPanel);
+      await loadSelectedModel(
+        form.state.model_id,
+        form.state,
+        context.taskPanel,
+      );
     }
   },
 });

@@ -23,7 +23,6 @@ import { trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
 import { buildComparisonGrid } from "../tables/comparisonGrid.js";
 import { recordingMetricNames } from "../tables/recordingScoreTable.js";
 
-
 // Maximum number of scores that can be compared at once.
 const MAX_COMPARED = 6;
 
@@ -39,11 +38,9 @@ const VIEWS = [
 // cap, in the words of whatever table is above it.
 const PROMPT = `Select up to ${MAX_COMPARED} task scores to compare them.`;
 
-
 // The metric is a column like the others, and the first of them: it is the one the reader
 // chooses rather than reads, and it decides what the panel below is drawn in.
 const METRIC = "metric";
-
 
 // Which score this row is, and the way to drop it. The submission sits under the task
 // because two rows of the same task across two models is the comparison this is for.
@@ -76,10 +73,12 @@ function buildRowHeader(entry) {
 // drawn in. Its value is the metric, so the column still mutes when they all agree.
 function buildMetricCell(entry) {
   const options = recordingMetricNames(entry.recordings)
-    .map(name => `
+    .map(
+      (name) => `
       <option value="${escapeHtml(name)}" ${name === entry.metric ? "selected" : ""}>
         ${escapeHtml(name)}
-      </option>`)
+      </option>`,
+    )
     .join("");
 
   return {
@@ -111,21 +110,20 @@ function buildMethodologyGrid(entries, fields) {
   return buildComparisonGrid({
     columns: [
       { key: METRIC, label: "Metric" },
-      ...keys.map(key => ({ key, label: fields[key]?.label ?? key })),
+      ...keys.map((key) => ({ key, label: fields[key]?.label ?? key })),
     ],
-    rows: entries.map(entry => ({
+    rows: entries.map((entry) => ({
       key: entry.key,
       header: buildRowHeader(entry),
       cells: {
         [METRIC]: buildMetricCell(entry),
-        ...Object.fromEntries(keys.map(key => [key, { value: valueOf(entry, key, fields) }])),
+        ...Object.fromEntries(
+          keys.map((key) => [key, { value: valueOf(entry, key, fields) }]),
+        ),
       },
     })),
   });
 }
-
-
-
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -148,7 +146,6 @@ function toSeriesEntry(entry, index, { overlaid = false } = {}) {
     recordings: entry.recordings,
   };
 }
-
 
 // ─── WIDGET ──────────────────────────────────────────────────────────────────
 
@@ -174,7 +171,7 @@ function createTaskComparison({ container, onDrop = () => {} }) {
   // ─── Rendering ────────────────────────────────────────────────────────────
 
   function clearCharts() {
-    charts.forEach(chart => chart?.destroy?.());
+    charts.forEach((chart) => chart?.destroy?.());
     charts = [];
   }
 
@@ -209,7 +206,7 @@ function createTaskComparison({ container, onDrop = () => {} }) {
 
       renderRecordingHeatmaps({
         container: plot,
-        entries: entries.map(entry => toSeriesEntry(entry)),
+        entries: entries.map((entry) => toSeriesEntry(entry)),
       });
 
       return;
@@ -220,7 +217,7 @@ function createTaskComparison({ container, onDrop = () => {} }) {
     charts = renderRecordingCharts({
       container: plot,
       entries: entries.map((entry, index) =>
-        toSeriesEntry(entry, index, { overlaid })
+        toSeriesEntry(entry, index, { overlaid }),
       ),
       charts,
       facet: overlaid ? "metric" : "score",
@@ -231,7 +228,7 @@ function createTaskComparison({ container, onDrop = () => {} }) {
   function render() {
     if (!entries.length) {
       clearCharts();
-      showEmpty(root, prompt);
+      showEmpty(root, PROMPT);
       return;
     }
 
@@ -244,10 +241,7 @@ function createTaskComparison({ container, onDrop = () => {} }) {
 
   async function loadDetail(entry) {
     try {
-      const detail = await loadTaskSubmission(
-        entry.submissionId,
-        entry.key
-      );
+      const detail = await loadTaskSubmission(entry.submissionId, entry.key);
 
       entry.detail = detail;
       entry.recordings = detail.score?.metrics?.recordings ?? [];
@@ -264,18 +258,18 @@ function createTaskComparison({ container, onDrop = () => {} }) {
   }
 
   async function show(seeds) {
-    const keys = new Set(seeds.map(seed => seed.key));
+    const keys = new Set(seeds.map((seed) => seed.key));
     const overflow = [];
 
     // Remove scores that are no longer selected.
-    entries = entries.filter(entry => keys.has(entry.key));
+    entries = entries.filter((entry) => keys.has(entry.key));
 
     if (seeds.length && !fields) {
       fields = await loadTaskFields();
     }
 
     for (const seed of seeds) {
-      if (entries.some(entry => entry.key === seed.key)) {
+      if (entries.some((entry) => entry.key === seed.key)) {
         continue;
       }
 
@@ -307,14 +301,12 @@ function createTaskComparison({ container, onDrop = () => {} }) {
 
   // ─── Events ───────────────────────────────────────────────────────────────
 
-  root.addEventListener("change", event => {
+  root.addEventListener("change", (event) => {
     const select = event.target.closest("[data-role='metric']");
 
     if (!select) return;
 
-    const entry = entries.find(
-      item => item.key === select.dataset.key
-    );
+    const entry = entries.find((item) => item.key === select.dataset.key);
 
     if (!entry) return;
 
@@ -322,7 +314,7 @@ function createTaskComparison({ container, onDrop = () => {} }) {
     renderPlot();
   });
 
-  root.addEventListener("click", event => {
+  root.addEventListener("click", (event) => {
     const drop = event.target.closest("[data-role='drop']");
 
     if (drop) {

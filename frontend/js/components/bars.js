@@ -1,11 +1,13 @@
-import {escapeHtml, score} from "../core/utils.js";
-import {SUITES} from "../core/suites.js";
+import { escapeHtml, score } from "../core/utils.js";
+import { SUITES } from "../core/suites.js";
 
 // r2 and poisson_d2 are unbounded below, so a real score can be negative — and
 // `width: -14%` is not a short bar, it is no bar at all, silently identical to "no score".
 // Clamped rather than hidden: the number beside it still reports what was measured.
 function barWidth(value) {
-  return value == null ? 0 : Math.min(100, Math.max(0, Math.round(value * 100)));
+  return value == null
+    ? 0
+    : Math.min(100, Math.max(0, Math.round(value * 100)));
 }
 
 function buildSuiteScoreBar(suite, score, rank) {
@@ -29,17 +31,19 @@ function buildSuiteScoreBar(suite, score, rank) {
     </div>`;
 }
 
-
 function buildSuiteScoreBars(meanScores, ranks) {
   return `
   <div class="column gap-md">
-    ${SUITES
-      .map(suite => buildSuiteScoreBar(suite, meanScores[suite] ?? null, ranks[suite] ?? null))
-      .join("")}
+    ${SUITES.map((suite) =>
+      buildSuiteScoreBar(
+        suite,
+        meanScores[suite] ?? null,
+        ranks[suite] ?? null,
+      ),
+    ).join("")}
   </div>
   `;
 }
-
 
 // ─── MODEL BARS ─────────────────────────────────────────────────────────────
 
@@ -57,7 +61,9 @@ function buildModelScoreBar(entry, suite, totalTasks) {
   const hasScore = entry.mean != null;
   const widthPct = barWidth(entry.mean);
 
-  const badge = entry.isSelected ? `<span class="badge sm neutral">This model</span>` : "";
+  const badge = entry.isSelected
+    ? `<span class="badge sm neutral">This model</span>`
+    : "";
 
   // Two lines rather than one dotted string: the team says whose model this is and the
   // count says how much of the suite the mean is over — the second is a caveat on the
@@ -98,16 +104,15 @@ function buildModelScoreBar(entry, suite, totalTasks) {
  * model sorts last instead of leading with a zero-width bar.
  */
 function buildModelScoreBars(entries, { suite, totalTasks }) {
-  const ordered = [...entries].sort((a, b) => (b.mean ?? -Infinity) - (a.mean ?? -Infinity));
+  const ordered = [...entries].sort(
+    (a, b) => (b.mean ?? -Infinity) - (a.mean ?? -Infinity),
+  );
 
   return `
   <div class="card column gap-md">
-    ${ordered.map(entry => buildModelScoreBar(entry, suite, totalTasks)).join("")}
+    ${ordered.map((entry) => buildModelScoreBar(entry, suite, totalTasks)).join("")}
   </div>
   `;
 }
 
-export {
-  buildSuiteScoreBars,
-  buildModelScoreBars
-}
+export { buildSuiteScoreBars, buildModelScoreBars };

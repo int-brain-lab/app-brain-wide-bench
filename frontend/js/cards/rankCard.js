@@ -12,7 +12,6 @@ import { escapeHtml } from "../core/utils.js";
 import { getIcon } from "../components/icons.js";
 import { toRankRows } from "../core/rankData.js";
 
-
 // Overall takes the neutral grey: it is not a suite, and grey is already what the badges
 // use for "not one of the coloured three" — see buildSuiteCoverageBadges.
 function variantOf(figure) {
@@ -45,11 +44,12 @@ function buildMover({ publicSide, privateSide }) {
   return `<span class="rank-mover ${direction}">${arrow} ${Math.abs(places)}</span>`;
 }
 
-
 // ─── ROWS ───────────────────────────────────────────────────────────────────
 
 function buildChips(row, showPrivate) {
-  const chips = [`<span class="badge rank-chip">Public ${positionOf(row.publicSide)}</span>`];
+  const chips = [
+    `<span class="badge rank-chip">Public ${positionOf(row.publicSide)}</span>`,
+  ];
 
   if (showPrivate) {
     chips.push(
@@ -78,14 +78,17 @@ function buildRankRow(row, showPrivate, submitHref) {
     ? `<span class="rank-chips metadata">No submission yet</span>`
     : buildChips(row, showPrivate);
 
-  const end = empty && submitHref
-    ? `<a class="btn with-icon rank-end" href="${escapeHtml(submitHref)}">
+  const end =
+    empty && submitHref
+      ? `<a class="btn with-icon rank-end" href="${escapeHtml(submitHref)}">
          <i class="btn-icon" data-lucide="${escapeHtml(getIcon("add"))}"></i>
          Submit
        </a>`
-    : `<span class="rank-end metadata">${
-        row.coverage && !placed ? `${row.coverage.scored} of ${row.coverage.total} suites` : buildMover(row)
-      }</span>`;
+      : `<span class="rank-end metadata">${
+          row.coverage && !placed
+            ? `${row.coverage.scored} of ${row.coverage.total} suites`
+            : buildMover(row)
+        }</span>`;
 
   return `
     <div class="row gap-md rank-row">
@@ -96,7 +99,6 @@ function buildRankRow(row, showPrivate, submitHref) {
       ${end}
     </div>`;
 }
-
 
 // ─── CARD ───────────────────────────────────────────────────────────────────
 
@@ -113,11 +115,10 @@ function buildRankCard(ranking, { submitHref = null } = {}) {
   const showPrivate = Boolean(ranking?.private);
 
   const rows = toRankRows(ranking)
-    .map(row => buildRankRow(row, showPrivate, submitHref))
+    .map((row) => buildRankRow(row, showPrivate, submitHref))
     .join("");
 
   return `<div class="card rank-list column">${rows}</div>`;
 }
-
 
 export { buildRankCard };

@@ -5,13 +5,12 @@
 // read one shape. The suites are already worked out there.
 
 import { escapeHtml, formatDate } from "../core/utils.js";
-import {buildStatusBadge, buildSuiteBadgeList } from "../components/badges.js";
-
+import { buildStatusBadge, buildSuiteBadgeList } from "../components/badges.js";
 
 function buildSubmissionCards(submissions) {
   return submissions
     .map(
-      submission => `
+      (submission) => `
         <a
           class="card column left gap-md"
           href="/html/submissions/submissions.html?id=${encodeURIComponent(submission.id)}"
@@ -37,6 +36,5 @@ function buildSubmissionCards(submissions) {
     )
     .join("");
 }
-
 
 export { buildSubmissionCards };

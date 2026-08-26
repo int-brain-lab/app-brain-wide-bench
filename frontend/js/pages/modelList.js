@@ -7,9 +7,16 @@
 // says: the cards, the table and the create link are the same list either way.
 
 import { getModels, getMyModels } from "../api/modelApi.js";
-import { getModelControls, renderModelsTable, toModelRows } from "../tables/modelTable.js";
+import {
+  getModelControls,
+  renderModelsTable,
+  toModelRows,
+} from "../tables/modelTable.js";
 import { buildModelCards } from "../cards/modelCards.js";
-import { MAX_MODELS, createModelComparison } from "../widgets/modelComparison.js";
+import {
+  MAX_MODELS,
+  createModelComparison,
+} from "../widgets/modelComparison.js";
 import { loadListPage } from "../templates/list-page.js";
 
 const MINE = document.body.dataset.scope === "mine";
@@ -27,7 +34,7 @@ loadListPage({
   // The table's own controls, hoisted to the page: one bar over both views, and the cards
   // render from the rows it matches against.
   filters: getModelControls,
-  cards: rows => buildModelCards(rows, { showMine: !MINE }),
+  cards: (rows) => buildModelCards(rows, { showMine: !MINE }),
 
   // Picked out of the table rather than chosen from a dropdown on a page of its own: the
   // list is already the set to pick from, and the comparison builds underneath it.
@@ -39,8 +46,9 @@ loadListPage({
     label: "Compare models",
     title: "Compare models",
     max: MAX_MODELS,
-    create: ({ container, onDrop }) => createModelComparison({ container, onDrop }),
-    toSeed: row => ({
+    create: ({ container, onDrop }) =>
+      createModelComparison({ container, onDrop }),
+    toSeed: (row) => ({
       key: row.id,
       modelId: row.id,
       name: row.name,
@@ -49,7 +57,13 @@ loadListPage({
   },
 
   table: ({ container, rows, selection }) =>
-    renderModelsTable({ container, rows, showMine: !MINE, showFilters: false, selection }),
+    renderModelsTable({
+      container,
+      rows,
+      showMine: !MINE,
+      showFilters: false,
+      selection,
+    }),
   create: {
     href: "/html/models/model_create.html",
     label: "New model",

@@ -18,7 +18,6 @@ const SURFACE = "#fff";
 // so the spread is drawn in ink, the way a value's text is.
 const SEM_INK = "#1a1a1a";
 
-
 /**
  * The series' colour, striped with the surface behind it — a second channel for a filled
  * mark, which has no shape to change when the hues come round again (see seriesStyle).
@@ -50,7 +49,6 @@ function hatch(colour) {
 
   return ctx.createPattern(tile, "repeat");
 }
-
 
 // ─── ERROR BARS ─────────────────────────────────────────────────────────────
 
@@ -84,7 +82,9 @@ const errorBars = {
       meta.data.forEach((point, i) => {
         const value = dataset.data[i];
         const y = value !== null && typeof value === "object" ? value.y : value;
-        const sem = dataset.sems?.[i] ?? (value !== null && typeof value === "object" ? value.sem : null);
+        const sem =
+          dataset.sems?.[i] ??
+          (value !== null && typeof value === "object" ? value.sem : null);
 
         if (sem == null || y == null) return;
 
@@ -109,7 +109,6 @@ const errorBars = {
     ctx.restore();
   },
 };
-
 
 // The gap between the legend and the top of the plot, in pixels.
 const LEGEND_GAP = 16;
@@ -138,7 +137,6 @@ const legendGap = {
   },
 };
 
-
 // ─── DEFAULTS ───────────────────────────────────────────────────────────────
 
 // Recessive axes and grid, a legend whichever way the caller leans, and hover on by
@@ -159,7 +157,12 @@ function defaults({ legend = true, tooltip = {} } = {}) {
         display: legend,
         position: "top",
         align: "start",
-        labels: { color: AXIS, boxWidth: 10, boxHeight: 10, usePointStyle: true },
+        labels: {
+          color: AXIS,
+          boxWidth: 10,
+          boxHeight: 10,
+          usePointStyle: true,
+        },
       },
       tooltip: {
         backgroundColor: "#1a1a1a",
@@ -171,7 +174,12 @@ function defaults({ legend = true, tooltip = {} } = {}) {
     scales: {
       x: {
         grid: { display: false },
-        ticks: { color: AXIS, maxRotation: 90, minRotation: 45, autoSkip: false },
+        ticks: {
+          color: AXIS,
+          maxRotation: 90,
+          minRotation: 45,
+          autoSkip: false,
+        },
       },
       y: {
         grid: { color: GRID },
@@ -197,7 +205,6 @@ function withDefaults(options, base) {
 
   return merged;
 }
-
 
 // ─── CHART ──────────────────────────────────────────────────────────────────
 
@@ -225,7 +232,9 @@ function createChart({
   caller = "createChart",
 }) {
   if (typeof Chart === "undefined") {
-    throw new Error(`${caller}: Chart.js is not loaded — add its <script> to the page.`);
+    throw new Error(
+      `${caller}: Chart.js is not loaded — add its <script> to the page.`,
+    );
   }
 
   const root = resolveContainer(container, caller);
@@ -246,6 +255,5 @@ function createChart({
 function destroyChart(chart) {
   chart?.destroy?.();
 }
-
 
 export { AXIS, GRID, SEM_INK, SURFACE, createChart, destroyChart, hatch };

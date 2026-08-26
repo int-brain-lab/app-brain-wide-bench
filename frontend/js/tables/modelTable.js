@@ -21,7 +21,6 @@ import {
   suiteBadgesFormatter,
 } from "./formatters.js";
 
-
 // ─── ROWS ───────────────────────────────────────────────────────────────────
 
 function toModelRow(model) {
@@ -43,7 +42,6 @@ function toModelRows(models) {
   return models.map(toModelRow);
 }
 
-
 // ─── COLUMNS ────────────────────────────────────────────────────────────────
 
 // `showTeam` off drops the Team column, for a caller already scoped to one — a team's own
@@ -53,11 +51,13 @@ function toModelRows(models) {
 // them with everyone else's. Off by default: on a listing that is all theirs it says nothing.
 function getModelColumns({ showTeam = true, showMine = false } = {}) {
   const teamColumn = showTeam
-    ? [{
-        title: "Team",
-        field: "team_name",
-        formatter: metadataFormatter,
-      }]
+    ? [
+        {
+          title: "Team",
+          field: "team_name",
+          formatter: metadataFormatter,
+        },
+      ]
     : [];
 
   return [
@@ -88,7 +88,6 @@ function getModelColumns({ showTeam = true, showMine = false } = {}) {
   ];
 }
 
-
 // ─── CONTROLS ───────────────────────────────────────────────────────────────
 
 // `showSuiteFilter` off for a caller whose rows are already one suite's — the compare page,
@@ -109,17 +108,18 @@ function getModelControls(rows, { showSuiteFilter = true } = {}) {
       match: matchEquals("team_name"),
     },
     ...(showSuiteFilter
-      ? [{
-          type: "select",
-          name: "suite",
-          placeholder: "All suites",
-          options: SUITE_OPTIONS,
-          match: matchInArray("suites"),
-        }]
+      ? [
+          {
+            type: "select",
+            name: "suite",
+            placeholder: "All suites",
+            options: SUITE_OPTIONS,
+            match: matchInArray("suites"),
+          },
+        ]
       : []),
   ];
 }
-
 
 // ─── TABLE ──────────────────────────────────────────────────────────────────
 
@@ -154,13 +154,10 @@ function renderModelsTable({
     selection,
     controls: showFilters ? getModelControls(rows, { showSuiteFilter }) : [],
     noun: "model",
-    initialSort: [
-      { column: "created_at", dir: "desc" },
-    ],
+    initialSort: [{ column: "created_at", dir: "desc" }],
     caller: "renderModelsTable",
   });
 }
-
 
 // ─── STATIC TABLE ───────────────────────────────────────────────────────────
 
@@ -176,23 +173,36 @@ function renderModelsTable({
  * @returns every row it built, not just the slice it rendered. The total is already in
  *          the footer; this is for a caller that needs the rows themselves.
  */
-function renderStaticModelsTable({ container, models, showTeam = true, limit, viewAll }) {
+function renderStaticModelsTable({
+  container,
+  models,
+  showTeam = true,
+  limit,
+  viewAll,
+}) {
   const rows = toModelRows(models);
 
-  const shown = previewRows(rows, (a, b) => dateSorter(b.created_at, a.created_at), limit);
+  const shown = previewRows(
+    rows,
+    (a, b) => dateSorter(b.created_at, a.created_at),
+    limit,
+  );
 
-  resolveContainer(container, "renderStaticModelsTable").innerHTML = renderStaticTable({
-    columns: getModelColumns({ showTeam }),
-    rows: shown,
-    noun: "model",
-    total: rows.length,
-    viewAll,
-  });
+  resolveContainer(container, "renderStaticModelsTable").innerHTML =
+    renderStaticTable({
+      columns: getModelColumns({ showTeam }),
+      rows: shown,
+      noun: "model",
+      total: rows.length,
+      viewAll,
+    });
 
   return rows;
 }
 
-
-export { getModelControls, renderModelsTable, renderStaticModelsTable, toModelRows };
-
-
+export {
+  getModelControls,
+  renderModelsTable,
+  renderStaticModelsTable,
+  toModelRows,
+};

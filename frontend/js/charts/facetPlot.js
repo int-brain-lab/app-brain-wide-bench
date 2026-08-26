@@ -23,10 +23,17 @@
 // value, which is the stronger read where there are few categories and a zero to stand on;
 // dots are for many categories, or a scale a bar has no business claiming a baseline on.
 
-import { AXIS, createChart, destroyChart, GRID, hatch, SEM_INK, SURFACE } from "./chart.js";
+import {
+  AXIS,
+  createChart,
+  destroyChart,
+  GRID,
+  hatch,
+  SEM_INK,
+  SURFACE,
+} from "./chart.js";
 import { resolveContainer } from "../tables/table.js";
 import { score } from "../core/utils.js";
-
 
 // A panel holds the series that share both a metric and an axis — see rule 2 above. A TS3
 // score measured in something a TS1 score also reports would otherwise land on one panel,
@@ -34,7 +41,6 @@ import { score } from "../core/utils.js";
 function panelKey(entry) {
   return `${entry.group}|${entry.metric}`;
 }
-
 
 // ─── AXES ───────────────────────────────────────────────────────────────────
 
@@ -54,11 +60,12 @@ function panelKey(entry) {
 function axisKeys(series, order) {
   const [first, ...rest] = series;
 
-  const ordered = order === "value"
-    ? [...(first ?? [])]
-        .sort((a, b) => (b.mean ?? -Infinity) - (a.mean ?? -Infinity))
-        .map(point => point.key)
-    : (first ?? []).map(point => point.key);
+  const ordered =
+    order === "value"
+      ? [...(first ?? [])]
+          .sort((a, b) => (b.mean ?? -Infinity) - (a.mean ?? -Infinity))
+          .map((point) => point.key)
+      : (first ?? []).map((point) => point.key);
 
   for (const points of rest) {
     for (const point of points) {
@@ -79,7 +86,9 @@ function panelAxes(entries, order) {
     series.set(entry.group, [...(series.get(entry.group) ?? []), entry.points]);
   }
 
-  return new Map([...series].map(([group, points]) => [group, axisKeys(points, order)]));
+  return new Map(
+    [...series].map(([group, points]) => [group, axisKeys(points, order)]),
+  );
 }
 
 /**
@@ -95,8 +104,11 @@ function panelRanges(entries) {
 
   for (const entry of entries) {
     const values = entry.points
-      .filter(point => point.mean != null)
-      .flatMap(point => [point.mean - (point.sem ?? 0), point.mean + (point.sem ?? 0)]);
+      .filter((point) => point.mean != null)
+      .flatMap((point) => [
+        point.mean - (point.sem ?? 0),
+        point.mean + (point.sem ?? 0),
+      ]);
 
     if (!values.length) continue;
 
@@ -111,7 +123,6 @@ function panelRanges(entries) {
 
   return ranges;
 }
-
 
 // ─── SERIES ─────────────────────────────────────────────────────────────────
 
@@ -165,12 +176,14 @@ const MARKS = { point: pointMark, bar: barMark };
  */
 function toDatasets(entries, labels, mark) {
   // Key → what an axis should show for it, taken from whichever series has the point.
-  const shortLabels = new Map(entries.flatMap(entry => entry.points.map(p => [p.key, p.label])));
+  const shortLabels = new Map(
+    entries.flatMap((entry) => entry.points.map((p) => [p.key, p.label])),
+  );
 
   return {
     shortLabels,
-    datasets: entries.map(entry => {
-      const byKey = new Map(entry.points.map(point => [point.key, point]));
+    datasets: entries.map((entry) => {
+      const byKey = new Map(entry.points.map((point) => [point.key, point]));
 
       return {
         // No metric in the label: the panel this series is in is the metric, and its axis
@@ -179,14 +192,13 @@ function toDatasets(entries, labels, mark) {
         // Positioned by index against `labels` rather than by an `x` the category scale
         // would have to match: a point whose x it fails to place lands at the axis origin,
         // which draws a chart that looks plausible and is wrong.
-        data: labels.map(key => byKey.get(key)?.mean ?? null),
-        sems: labels.map(key => byKey.get(key)?.sem ?? null),
+        data: labels.map((key) => byKey.get(key)?.mean ?? null),
+        sems: labels.map((key) => byKey.get(key)?.sem ?? null),
         ...(MARKS[mark] ?? pointMark)(entry),
       };
     }),
   };
 }
-
 
 // ─── PANELS ─────────────────────────────────────────────────────────────────
 
@@ -201,7 +213,7 @@ function toDatasets(entries, labels, mark) {
 // Grouped in the order they were first given, so a panel doesn't jump around the page when
 // an unrelated one changes.
 function toPanels(entries, facet) {
-  if (facet === "series") return entries.map(entry => [entry.label, [entry]]);
+  if (facet === "series") return entries.map((entry) => [entry.label, [entry]]);
 
   const panels = new Map();
 
@@ -211,7 +223,7 @@ function toPanels(entries, facet) {
     panels.set(key, [...(panels.get(key) ?? []), entry]);
   }
 
-  return [...panels.values()].map(members => [members[0].metric, members]);
+  return [...panels.values()].map((members) => [members[0].metric, members]);
 }
 
 /**
@@ -245,9 +257,10 @@ function renderPanel({
   // A bar's length is the value, so the axis it stands on has to include zero: cropped to
   // the data, a 2% difference between two models is drawn as one bar twice the height of
   // the other. Dots say only where a value sits, so theirs is free to frame the data.
-  const span = range && mark === "bar"
-    ? { min: Math.min(0, range.min), max: Math.max(0, range.max) }
-    : range;
+  const span =
+    range && mark === "bar"
+      ? { min: Math.min(0, range.min), max: Math.max(0, range.max) }
+      : range;
 
   return createChart({
     container,
@@ -258,8 +271,8 @@ function renderPanel({
     tooltip: {
       callbacks: {
         // The whole key, where the axis had room only for the head of it.
-        title: items => items[0]?.label ?? "",
-        label: item => {
+        title: (items) => items[0]?.label ?? "",
+        label: (item) => {
           const sem = item.dataset.sems?.[item.dataIndex];
 
           return `${item.dataset.label}: ${score(item.raw)}${sem == null ? "" : ` ± ${score(sem)}`}`;
@@ -284,7 +297,11 @@ function renderPanel({
           // among several — on a chart of differences it is the boundary between ahead and
           // behind, and a reader shouldn't have to find it by reading the ticks.
           ...(mark === "bar"
-            ? { grid: { color: context => (context.tick?.value === 0 ? AXIS : GRID) } }
+            ? {
+                grid: {
+                  color: (context) => (context.tick?.value === 0 ? AXIS : GRID),
+                },
+              }
             : {}),
           ...(span ? { suggestedMin: span.min, suggestedMax: span.max } : {}),
         },
@@ -359,7 +376,9 @@ function renderFacetPlots({
   // The last panel of each group, since in a stack only those carry their axis: a stack of
   // recording panels labels its bottom one, and a region panel below them labels itself
   // rather than borrowing labels that aren't its own.
-  const lastOfGroup = new Map(panels.map(([, members], index) => [members[0].group, index]));
+  const lastOfGroup = new Map(
+    panels.map(([, members], index) => [members[0].group, index]),
+  );
 
   const root = resolveContainer(container, caller);
 
@@ -386,13 +405,14 @@ function renderFacetPlots({
       // panel are read as the whole stack's. Panels side by side have nothing above them to
       // label, so each carries its own — and in a grid the categories are unreadable at a
       // column's width, so none of them do. The tooltip carries the category either way.
-      showAxis: layout === "row" || (layout === "stack" && lastOfGroup.get(members[0].group) === index),
+      showAxis:
+        layout === "row" ||
+        (layout === "stack" && lastOfGroup.get(members[0].group) === index),
       height,
       legend,
       caller,
     }),
   );
 }
-
 
 export { panelAxes, panelKey, panelRanges, renderFacetPlots, toPanels };

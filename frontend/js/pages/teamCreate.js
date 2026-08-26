@@ -9,14 +9,14 @@
 
 import { createTeam } from "../api/teamApi.js";
 import { loadMe } from "../api/userApi.js";
-import { buildMembersPanel, createMembersSection } from "../widgets/teamMembers.js";
+import {
+  buildMembersPanel,
+  createMembersSection,
+} from "../widgets/teamMembers.js";
 import { TEAM_FIELDS } from "../schemas/teamSchema.js";
 import { showFailure, showMessage } from "../core/utils.js";
 import { loadCreatePage } from "../templates/create-page.js";
-import {
-  pageMessage,
-  showPageError,
-} from "../templates/record-page.js";
+import { pageMessage, showPageError } from "../templates/record-page.js";
 
 // Panel 2 requires nothing of its own: a team with no one but its creator is valid, and the
 // creator is added by the server regardless. Its `build` marks it as the page's own, so the
@@ -27,7 +27,7 @@ const TEAM_PANELS = [
   },
   {
     panel: 2,
-    build: buildMembersPanel
+    build: buildMembersPanel,
   },
 ];
 
@@ -44,7 +44,11 @@ async function loadCreator() {
     return null;
   }
 
-  return { me, draft: { id: null, members: [{ ...me, role: "owner" }] }, members: null };
+  return {
+    me,
+    draft: { id: null, members: [{ ...me, role: "owner" }] },
+    members: null,
+  };
 }
 
 // A thrown error is the form's to report; returning without a destination is this page
@@ -52,7 +56,6 @@ async function loadCreator() {
 // Two api requests. First create the team and then add members. Doesn't prevent team
 // from being created if a member does not exist.
 async function submitTeam(state, draft, members) {
-
   // The whole state: createTeam builds the payload from it and trims the name itself.
   // Passing `state.name` here sent a *string* to be object-spread, so the body went out
   // as {"0":"M","1":"y",…} with no name at all.
@@ -75,8 +78,8 @@ async function submitTeam(state, draft, members) {
   // and the team's own page can't say what was attempted.
   showFailure(
     pageMessage(),
-    "Team created, but some members could not be added — they may not have signed in yet. "
-    + "Add them from the team page.",
+    "Team created, but some members could not be added — they may not have signed in yet. " +
+      "Add them from the team page.",
     new Error(failed.join("; ")),
   );
 
@@ -93,10 +96,11 @@ loadCreatePage({
   setup: (form, context) => {
     context.members = createMembersSection({
       getTeam: () => context.draft,
-      onMessage: (message, failed) => (failed
-        ? showFailure(pageMessage(), message)
-        : showMessage(pageMessage(), message)),
-      canRemove: member => member.id !== context.me.id,
+      onMessage: (message, failed) =>
+        failed
+          ? showFailure(pageMessage(), message)
+          : showMessage(pageMessage(), message),
+      canRemove: (member) => member.id !== context.me.id,
     });
 
     // Staged mode starts read-only, for teamView.js where the block only opens on Edit.

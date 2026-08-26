@@ -34,11 +34,10 @@ a {
    referenced everywhere with var(). Change a value here, and it updates
    across the whole site. */
 :root {
-
   /*!* Primary *!*/
-  --primary: #1D9E75;
-  --primary-dark: #0F6E56;
-  --primary-light: #E1F5EE;
+  --primary: #1d9e75;
+  --primary-dark: #0f6e56;
+  --primary-light: #e1f5ee;
 
   /*!* Neutral *!*/
   --text-color: #1a1a1a;
@@ -51,16 +50,16 @@ a {
 
   /*!* Task suites *!*/
   /*--ts1: #085041;*/
-  --ts1: #1D9E75;
-  --ts1-light: #E1F5EE;
+  --ts1: #1d9e75;
+  --ts1-light: #e1f5ee;
 
   /*--ts2: #0C447C;*/
-  --ts2: #378ADD;
-  --ts2-light: #E6F1FB;
+  --ts2: #378add;
+  --ts2-light: #e6f1fb;
 
   /*--ts3: #3C3489;*/
-  --ts3: #7F77DD;
-  --ts3-light: #EEEDFE;
+  --ts3: #7f77dd;
+  --ts3-light: #eeedfe;
 
   /* Danger */
   --danger: #d33333;
@@ -82,8 +81,6 @@ a {
   --pending-dark: #185fa5;
   --pending-light: #e6f1fb;
 
-
-
   /* Border radius */
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -100,7 +97,6 @@ a {
   --font-xl: 1.25rem;
   --font-hd: 2rem;
 
-
   /* Font weight */
   --bold: 500;
   --xbold: 650;
@@ -113,18 +109,29 @@ a {
   --gap-xl: 64px;
 }
 
-
-.gap-xs { gap: var(--gap-xs); }
-.gap-sm { gap: var(--gap-sm); }
-.gap-md { gap: var(--gap-md); }
-.gap-lg { gap: var(--gap-lg); }
-.gap-xl { gap: var(--gap-xl); }
+.gap-xs {
+  gap: var(--gap-xs);
+}
+.gap-sm {
+  gap: var(--gap-sm);
+}
+.gap-md {
+  gap: var(--gap-md);
+}
+.gap-lg {
+  gap: var(--gap-lg);
+}
+.gap-xl {
+  gap: var(--gap-xl);
+}
 
 /* Stops grid/flex children stretching to the tallest in their row. The dashboard needs it:
    two .page-section columns of unequal length would both stretch, and .page-section's
    `justify-content: space-between` then pushes the shorter one's content to the bottom of
    the row instead of leaving it at the top. Same reason .wizard and .task-split set it. */
-.align-start { align-items: start; }
+.align-start {
+  align-items: start;
+}
 
 /* Numbered steps, for the dashboard's getting-started panel. `align-items: flex-start` so
    the number sits level with the step's heading rather than centred against a tall
@@ -152,15 +159,15 @@ a {
 MAIN SHELLS ETC
 --------------------------------------------------------------------------------------*/
 .main {
-    height: auto;
-    overflow: visible;
+  height: auto;
+  overflow: visible;
 }
 
 .content {
   display: flex;
   flex-direction: column;
-  flex: 1;        /* take all height left under the top nav */
-  min-height: 0;  /* allow the inner .main to scroll instead of growing the page */
+  flex: 1; /* take all height left under the top nav */
+  min-height: 0; /* allow the inner .main to scroll instead of growing the page */
   overflow: hidden;
   background: transparent;
   justify-content: center;
@@ -168,20 +175,19 @@ MAIN SHELLS ETC
   max-width: 1200px;
 }
 
-.content.landing{
-  max-width: 800px
+.content.landing {
+  max-width: 800px;
 }
 
 .main-private {
   display: grid;
-  grid-template-columns: 220px 1fr;        /* sidebar | content */
+  grid-template-columns: 220px 1fr; /* sidebar | content */
   grid-template-rows: auto minmax(0, 1fr); /* nav | body */
   grid-template-areas:
     "nav  nav"
     "sidebar content-private";
   height: 100dvh;
   background: var(--surface-secondary);
-
 }
 
 .content-private {
@@ -191,7 +197,6 @@ MAIN SHELLS ETC
   max-width: 1440px;
   /*background: var(--surface-secondary);*/
 }
-
 
 /*----------------------------------------------------------------------------------------
 TOP NAVIGATION BAR
@@ -223,7 +228,6 @@ TOP NAVIGATION BAR
   align-items: center;
   justify-content: center;
 }
-
 
 .nav-links {
   display: flex;
@@ -306,7 +310,7 @@ SIDE NAVIGATION BAR
   color: var(--text-color);
 }
 .sidebar-item.active {
-  background:var(--surface);
+  background: var(--surface);
   color: var(--primary);
   font-weight: var(--bold);
 }
@@ -323,11 +327,9 @@ SIDE NAVIGATION BAR
   border-top: 1px solid var(--border-color);
 }
 
-
 .divider {
   border: none;
   border-top: 3px solid var(--border-color);
-
 }
 
 /*----------------------------------------------------------------------------------------
@@ -351,9 +353,8 @@ USER LOGO
 .user-logo.large {
   width: 40px;
   height: 40px;
-  font-size: var(--font-md)
+  font-size: var(--font-md);
 }
-
 
 /*----------------------------------------------------------------------------------------
 BUTTONS
@@ -387,7 +388,15 @@ BUTTONS
   border-color: var(--primary);
 }
 
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.disabled-link {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 /* A button with a leading icon. Sets its own flex rather than borrowing `.row`,
    which would only beat .btn's `display: inline-block` by being further down this
@@ -419,7 +428,6 @@ SECTIONS
   text-align: center;
 }
 
-
 .page-section {
   display: flex;
   flex-direction: column;
@@ -428,39 +436,42 @@ SECTIONS
   margin-bottom: 50px;
 }
 
-
 /*----------------------------------------------------------------------------------------
 MODEL OVERVIEW
 --------------------------------------------------------------------------------------*/
 .model-overview {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    grid-template-rows: 3fr 1fr;
-    grid-template-areas:
-        "scores details"
-        "stats details";
-    gap: 2rem;
-    padding: 10px 30px;
-}
-
-.model-stats  {grid-area: stats; display: flex}
-.model-scores { grid-area: scores; display: grid}
-.model-details { grid-area: details; display: flex}
-
-
-.model-card {
-
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-template-rows: 3fr 1fr;
+  grid-template-areas:
+    "scores details"
+    "stats details";
+  gap: 2rem;
+  padding: 10px 30px;
 }
 
 .model-stats {
-
+  grid-area: stats;
+  display: flex;
+}
+.model-scores {
+  grid-area: scores;
+  display: grid;
+}
+.model-details {
+  grid-area: details;
+  display: flex;
 }
 
+.model-card {
+}
+
+.model-stats {
+}
 
 /*----------------------------------------------------------------------------------------
 GRIDS, COLUMNS AND ROWS
 --------------------------------------------------------------------------------------*/
-
 
 .column {
   display: flex;
@@ -527,7 +538,6 @@ GRIDS, COLUMNS AND ROWS
   gap: var(--gap-lg);
 }
 
-
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 300px));
@@ -542,7 +552,6 @@ GRIDS, COLUMNS AND ROWS
 .span-all {
   grid-column: 1 / -1;
 }
-
 
 .section-row {
   display: grid;
@@ -576,10 +585,6 @@ GRIDS, COLUMNS AND ROWS
 .section-row > .page-section > .section-body > .card {
   flex: 1;
 }
-
-
-
-
 
 /*----------------------------------------------------------------------------------------
 CREATE CARD
@@ -624,7 +629,6 @@ CREATE CARD
   margin-top: var(--gap-md);
 }
 
-
 /* The filter bar over a list page's two views — templates/list-page.js. It has a container
    of its own above the list, rather than the one inside the table root that used to hold it
    and space it, so the gap under it comes from here. Empty on a list with nothing to narrow,
@@ -632,7 +636,6 @@ CREATE CARD
 #filters:not(:empty) {
   margin-bottom: var(--gap-md);
 }
-
 
 /*----------------------------------------------------------------------------------------
 CARDS
@@ -675,7 +678,6 @@ CARDS
   border-color: transparent;
   background: var(--surface-secondary);
 }
-
 
 /* A card whose "View all" link sits in the bottom-right corner, level with the last row of
    fields instead of on a row of its own. The card's field columns are independent stacks,
@@ -906,7 +908,6 @@ CARDS
   color: var(--danger);
 }
 
-
 .stat-card {
   display: flex;
   flex-direction: column;
@@ -962,7 +963,6 @@ TEXT UTILS
   text-align: right;
 }
 
-
 /*----------------------------------------------------------------------------------------
 HEADERS
 --------------------------------------------------------------------------------------*/
@@ -989,7 +989,6 @@ HEADERS
   margin-bottom: 20px;
 }
 
-
 /*----------------------------------------------------------------------------------------
 GENERIC TEXT
 --------------------------------------------------------------------------------------*/
@@ -1000,7 +999,7 @@ GENERIC TEXT
 
 .hero-description {
   font-size: var(--font-lg);
-  color: var(--text-muted)
+  color: var(--text-muted);
 }
 
 .page-title {
@@ -1023,9 +1022,8 @@ GENERIC TEXT
   font-size: var(--font-md);
   color: var(--text-muted);
   line-height: 1.4;
-  padding-bottom: 10px
+  padding-bottom: 10px;
 }
-
 
 .card-title {
   font-size: var(--font-lg);
@@ -1040,6 +1038,10 @@ GENERIC TEXT
 .link {
   font-size: var(--font-sm);
   color: var(--primary);
+}
+
+.link.disabled-link {
+  color: var(--text-muted);
 }
 
 .link.un {
@@ -1200,14 +1202,10 @@ GENERIC TEXT
   white-space: pre-line;
 }
 
-
 .statistic {
   font-size: 28px;
   font-weight: var(--bold);
 }
-
-
-
 
 /*.text {*/
 /*  font-size: var(--font-md);*/
@@ -1221,29 +1219,40 @@ GENERIC TEXT
 /*  font-size: var(--font-xs);*/
 /*}*/
 
-
 .muted {
   color: var(--text-muted);
 }
 
-.ts1 { color: var(--ts1); }
-.ts2 { color: var(--ts2); }
-.ts3 { color: var(--ts3); }
+.ts1 {
+  color: var(--ts1);
+}
+.ts2 {
+  color: var(--ts2);
+}
+.ts3 {
+  color: var(--ts3);
+}
 
 .bold {
   font-weight: var(--bold);
 }
 
-
 /*.ts1-bg { background: var(--ts1-light); border-color: transparent;}*/
 /*.ts2-bg { background: var(--ts2-light);  border-color: transparent; }*/
 /*.ts3-bg { background: var(--ts3-light);  border-color: transparent; }*/
 
-
-.ts1-bg { border-color: var(--ts1-light); border-width: 6px;}
-.ts2-bg { border-color: var(--ts2-light); border-width: 6px}
-.ts3-bg { border-color: var(--ts3-light); border-width: 6px}
-
+.ts1-bg {
+  border-color: var(--ts1-light);
+  border-width: 6px;
+}
+.ts2-bg {
+  border-color: var(--ts2-light);
+  border-width: 6px;
+}
+.ts3-bg {
+  border-color: var(--ts3-light);
+  border-width: 6px;
+}
 
 .info-msg {
   color: var(--text-muted);
@@ -1326,7 +1335,7 @@ GENERIC TEXT
 }
 
 .error-msg {
-  color: #B42318;
+  color: #b42318;
   font-size: var(--font-md);
   font-weight: var(--bold);
   margin: 0;
@@ -1376,7 +1385,7 @@ RANKS
 --------------------------------------------------------------------------------------*/
 
 .rank-gold {
-  color: #BA7517;
+  color: #ba7517;
   font-weight: 600;
 }
 
@@ -1386,10 +1395,9 @@ RANKS
 }
 
 .rank-bronze {
-  color: #854F0B;
+  color: #854f0b;
   font-weight: 600;
 }
-
 
 /*----------------------------------------------------------------------------------------
 BADGES
@@ -1475,7 +1483,6 @@ BADGES
 
 .badge.visible {
   background: var(--border-color);
-
 }
 
 /*----------------------------------------------------------------------------------------
@@ -1484,9 +1491,8 @@ TABLES
 table {
   width: 100%;
   border-collapse: collapse; /* merge cell borders into single 1px lines */
-  table-layout: fixed;       /* honour the column widths below; Model takes the rest */
+  table-layout: fixed; /* honour the column widths below; Model takes the rest */
 }
-
 
 /* Table outline */
 .table,
@@ -1497,7 +1503,6 @@ table {
   background: var(--surface);
   text-align: left;
 }
-
 
 /* Table header */
 .table th,
@@ -1533,7 +1538,10 @@ table {
    on a left-aligned column — the text is at the other end — and .num-cell below puts the
    matching space on the cells of the columns that are right-aligned, so the two still
    line up. */
-.tabulator .tabulator-header .tabulator-col.tabulator-sortable .tabulator-col-content {
+.tabulator
+  .tabulator-header
+  .tabulator-col.tabulator-sortable
+  .tabulator-col-content {
   padding-right: 28px;
 }
 
@@ -1551,7 +1559,6 @@ table {
   border-top: none;
   background: var(--surface);
 }
-
 
 /* Tabulator draws a frozen column as a pane rather than as columns: a divider down its
    right edge, and a background that inherits the row striping the .tabulator-cell rule
@@ -1578,11 +1585,13 @@ table {
   background: var(--surface);
 }
 
-
 /* Table columns */
-.table th.rank {width: 50px; }
-.table th.num { width: 80px; }
-
+.table th.rank {
+  width: 50px;
+}
+.table th.num {
+  width: 80px;
+}
 
 /* Table rows */
 .table tr:hover,
@@ -1614,7 +1623,10 @@ table {
    After the hover rules on purpose: they match with the same weight, so hovering a picked
    row would otherwise wash the picking away. */
 .tabulator .tabulator-row.tabulator-selected .tabulator-cell,
-[data-rows-selectable="true"] .tabulator .tabulator-row.tabulator-selected:hover .tabulator-cell {
+[data-rows-selectable="true"]
+  .tabulator
+  .tabulator-row.tabulator-selected:hover
+  .tabulator-cell {
   background: var(--primary-light);
 }
 
@@ -1644,7 +1656,6 @@ table {
   border-bottom: none;
 }
 
-
 /* Table footer — the strip holding the row count, and the page buttons when a grid pages.
    Tabulator's own colour here is a hardcoded grey, so --text-muted is set explicitly
    rather than left to whichever stylesheet loads last. */
@@ -1657,7 +1668,6 @@ table {
   color: var(--text-muted);
 }
 
-
 /* Tabulator nests a flex row inside the footer and pads that, so padding on the footer
    itself would sit outside Tabulator's own — leaving the count indented past the column
    it counts. Ours goes on the inner row, at the cell padding, so the count starts where
@@ -1666,7 +1676,6 @@ table {
 .tabulator .tabulator-footer .tabulator-footer-contents {
   padding: 10px 16px;
 }
-
 
 /* Count left, "View all" right — the same shape Tabulator gives its own footer row, where
    the paginator's `flex: 1; text-align: right` does this job instead. A footer with only a
@@ -1677,7 +1686,6 @@ table {
   justify-content: space-between;
   gap: 16px;
 }
-
 
 /* With the last row's border-bottom gone, a footer needs its own top edge or it butts
    straight onto the final row. Both kinds, now that the hand-written tables have lost
@@ -1708,13 +1716,11 @@ table {
   font-weight: var(--bold);
 }
 
-
 /* A <button> doesn't inherit the footer's font — Tabulator sets one on its own paginator
    buttons, and ours takes the footer's instead. */
 .pager-page {
   font: inherit;
 }
-
 
 /* Tabulator's own arrows go grey and unclickable at either end of the range; ours are
    <button disabled>, which browsers only dim on some platforms. */
@@ -1726,8 +1732,6 @@ table {
 .pager-page:not(:disabled) {
   cursor: pointer;
 }
-
-
 
 /*----------------------------------------------------------------------------------------
 TABS
@@ -1752,7 +1756,6 @@ TABS
   font-weight: var(--bold);
   border-bottom-color: var(--primary);
 }
-
 
 /*----------------------------------------------------------------------------------------
 BARS
@@ -1782,12 +1785,15 @@ BARS
   height: 12px;
 }
 
-.bar.ts1 { background: var(--ts1); }
-.bar.ts2 { background: var(--ts2); }
-.bar.ts3 { background: var(--ts3); }
-
-
-
+.bar.ts1 {
+  background: var(--ts1);
+}
+.bar.ts2 {
+  background: var(--ts2);
+}
+.bar.ts3 {
+  background: var(--ts3);
+}
 
 /* ── DROPZONE ───────────────────────────────────────────────────── */
 
@@ -1798,12 +1804,23 @@ BARS
   text-align: center;
   cursor: pointer;
   color: var(--text-muted);
-  transition: border-color .15s, background .15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
-.dropzone:hover, .dropzone:focus { outline: none; border-color: var(--primary); }
-.dropzone.active { border-color: var(--primary); background: var(--primary-light); }
-.dropzone-label { font-size: var(--font-md); margin: 0; }
-
+.dropzone:hover,
+.dropzone:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.dropzone.active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+.dropzone-label {
+  font-size: var(--font-md);
+  margin: 0;
+}
 
 /* ── Selected-file card ───────────────────────────────────────────────────── */
 
@@ -1844,9 +1861,12 @@ BARS
   accent-color: var(--primary);
 }
 
-
-input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary) }
-
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
 
 /*----------------------------------------------------------------------------------------
 WIZARD
@@ -1860,7 +1880,6 @@ WIZARD
   align-items: start;
 }
 
-
 .wizard-panel {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
@@ -1872,7 +1891,6 @@ WIZARD
   justify-content: center;
   gap: var(--gap-lg);
 }
-
 
 /* A panel on the single-page create form (js/models/modelCreate.js), which shows every
    panel at once and locks the ones below the point the user has reached.
@@ -1896,7 +1914,6 @@ WIZARD
 .form-panel:disabled {
   opacity: 50%;
 }
-
 
 .wizard-step {
   display: flex;
@@ -1966,12 +1983,6 @@ WIZARD
   color: #fff;
 }
 
-
-
-
-
-
-
 /* This is the round icon which can be reused */
 .task-status {
   flex: none;
@@ -1983,10 +1994,17 @@ WIZARD
   font-size: var(--font-md);
   line-height: 1;
 }
-.task-status.ok { background: var(--primary); color: #fff; }
-.task-status.bad { background: #d33; color: #fff; }
-.task-status.pending { border: 1.5px solid var(--border-color); }
-
+.task-status.ok {
+  background: var(--primary);
+  color: #fff;
+}
+.task-status.bad {
+  background: #d33;
+  color: #fff;
+}
+.task-status.pending {
+  border: 1.5px solid var(--border-color);
+}
 
 /* The task panel of the single-page submission form — js/tasks/taskSubmissionsCreate.js.
    Master–detail: the suite-grouped picker on the left, the selected task's methodology
@@ -2021,14 +2039,18 @@ WIZARD
   cursor: pointer;
 }
 
-.task-item:hover { background: var(--surface-secondary); }
+.task-item:hover {
+  background: var(--surface-secondary);
+}
 
 .task-item.selected {
   border-color: var(--primary);
   background: var(--surface);
 }
 
-.task-item.invalid { color: #d33; }
+.task-item.invalid {
+  color: #d33;
+}
 
 /* Ids can be longer than the column; truncate rather than wrap, so every row is one
    line high and the list stays scannable. The full id is in the detail pane's title. */
@@ -2037,7 +2059,6 @@ WIZARD
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 
 /* The modal backdrop (`.task-popup`/`.popup`), its `.popup-card`, and the `.match-list`
    pair went with the submit wizard's add-task dialog — team creation is its own page
@@ -2052,7 +2073,6 @@ WIZARD
   line-height: 1;
   color: var(--text-muted);
 }
-
 
 /*----------------------------------------------------------------------------------------
 COMPARISON
@@ -2133,6 +2153,12 @@ COMPARISON
 
 /* Which way a difference went. Green is the primary green rather than a fresh one, so the
    page has one "better" colour; the red is the same as .task-item.invalid. */
-.diff-up { color: var(--primary); }
-.diff-down { color: #d33; }
-.diff-flat { color: var(--text-muted); }
+.diff-up {
+  color: var(--primary);
+}
+.diff-down {
+  color: #d33;
+}
+.diff-flat {
+  color: var(--text-muted);
+}

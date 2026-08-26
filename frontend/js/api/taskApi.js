@@ -18,5 +18,4 @@ async function getTasks() {
   }
 }
 
-
 export { getTasks };

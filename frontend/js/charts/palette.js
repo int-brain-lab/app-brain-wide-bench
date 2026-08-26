@@ -43,7 +43,6 @@ function seriesStyle(index) {
   };
 }
 
-
 // Magnitude, not identity: one hue from light to dark, because a quantity has an order and
 // a set of hues does not — a rainbow ramp invents boundaries where the data has none. Five
 // steps rather than a continuous wash, so a reader can match a cell against a key instead
@@ -53,6 +52,5 @@ function seriesStyle(index) {
 // step still reads as a value rather than as an empty cell, dark enough that the top step
 // is unmistakably the top.
 const SEQUENTIAL = ["#e6f1fb", "#b9d6f3", "#7fb1e6", "#4a89d4", "#245f9e"];
-
 
 export { SEQUENTIAL, SERIES_COLOURS, SERIES_INK, SERIES_SHAPES, seriesStyle };

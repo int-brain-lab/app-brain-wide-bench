@@ -15,13 +15,24 @@
 // The model records arrive one request each, on selection: a board row names a model but
 // carries none of its specification, and a reader compares a handful, not a hundred.
 
-import { escapeHtml, refreshIcons, showEmpty, showMessage } from "../core/utils.js";
+import {
+  escapeHtml,
+  refreshIcons,
+  showEmpty,
+  showMessage,
+} from "../core/utils.js";
 import { getIcon } from "../components/icons.js";
 import { buildViewToggle, viewFromClick } from "../components/viewToggle.js";
 import { resolveContainer } from "../tables/table.js";
 import { buildComparisonGrid } from "../tables/comparisonGrid.js";
-import { renderCompareTable, showNoComparison } from "../tables/compareTable.js";
-import { renderCompareCharts, renderDiffCharts } from "../charts/compareChart.js";
+import {
+  renderCompareTable,
+  showNoComparison,
+} from "../tables/compareTable.js";
+import {
+  renderCompareCharts,
+  renderDiffCharts,
+} from "../charts/compareChart.js";
 import {
   compareModels,
   compareTasks,
@@ -34,7 +45,6 @@ import { SUITES, suitesFromSubmission } from "../core/suites.js";
 import { loadModel } from "../api/modelApi.js";
 import { MODEL_FIELDS, loadModelMeta } from "../schemas/modelSchema.js";
 import { fieldsForPanel } from "../schemas/schema.js";
-
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
@@ -49,7 +59,6 @@ const DEFAULT_VIEW = "plot";
 // The specification panel — architecture and pretraining. Not identity (the row header is
 // the name) and not the links, which are somewhere to go rather than something to compare.
 const SUMMARY_PANEL = 3;
-
 
 // ─── SUMMARY ────────────────────────────────────────────────────────────────
 
@@ -89,17 +98,16 @@ function buildSummary(models, fields) {
   const keys = fieldsForPanel(MODEL_FIELDS, SUMMARY_PANEL, false);
 
   return buildComparisonGrid({
-    columns: keys.map(key => ({ key, label: fields[key]?.label ?? key })),
-    rows: models.map(model => ({
+    columns: keys.map((key) => ({ key, label: fields[key]?.label ?? key })),
+    rows: models.map((model) => ({
       key: model.key,
       header: buildRowHeader(model),
       cells: Object.fromEntries(
-        keys.map(key => [key, { value: valueOf(model.detail, key, fields) }]),
+        keys.map((key) => [key, { value: valueOf(model.detail, key, fields) }]),
       ),
     })),
   });
 }
-
 
 // ─── WIDGET ─────────────────────────────────────────────────────────────────
 
@@ -157,7 +165,7 @@ function createModelComparison({ container, onDrop = () => {} }) {
   // and the next chart on that canvas throws.
   function clearCharts() {
     for (const key of Object.keys(charts)) {
-      charts[key].forEach(chart => chart?.destroy?.());
+      charts[key].forEach((chart) => chart?.destroy?.());
       charts[key] = [];
     }
   }
@@ -200,7 +208,10 @@ function createModelComparison({ container, onDrop = () => {} }) {
     renderToggle("breakdown", tasks.length > 0);
 
     if (!tasks.length) {
-      grids.breakdown = showNoComparison(slot("breakdown"), "No scored tasks on this suite.");
+      grids.breakdown = showNoComparison(
+        slot("breakdown"),
+        "No scored tasks on this suite.",
+      );
 
       return;
     }
@@ -238,17 +249,23 @@ function createModelComparison({ container, onDrop = () => {} }) {
     renderToggle("differences", comparable);
 
     if (!comparable) {
-      showNoComparison(container, "Select a second model to see the difference.");
+      showNoComparison(
+        container,
+        "Select a second model to see the difference.",
+      );
       return;
     }
 
-    if (!entries.some(entry => entry.modelId === baseline)) baseline = entries[0].modelId;
+    if (!entries.some((entry) => entry.modelId === baseline))
+      baseline = entries[0].modelId;
 
     const options = entries
-      .map(entry => `
+      .map(
+        (entry) => `
         <option value="${escapeHtml(entry.modelId)}" ${entry.modelId === baseline ? "selected" : ""}>
           ${escapeHtml(entry.modelName)}
-        </option>`)
+        </option>`,
+      )
       .join("");
 
     container.innerHTML = `
@@ -289,10 +306,12 @@ function createModelComparison({ container, onDrop = () => {} }) {
   // option.
   function availableSuites() {
     const scored = new Set(
-      models.flatMap(model => (model.detail?.submissions ?? []).flatMap(suitesFromSubmission)),
+      models.flatMap((model) =>
+        (model.detail?.submissions ?? []).flatMap(suitesFromSubmission),
+      ),
     );
 
-    return SUITES.filter(candidate => scored.has(candidate));
+    return SUITES.filter((candidate) => scored.has(candidate));
   }
 
   /**
@@ -324,10 +343,12 @@ function createModelComparison({ container, onDrop = () => {} }) {
 
   function buildSuiteBar() {
     const options = availableSuites()
-      .map(candidate => `
+      .map(
+        (candidate) => `
         <option value="${escapeHtml(candidate)}" ${candidate === suite ? "selected" : ""}>
           ${escapeHtml(candidate.toUpperCase())}
-        </option>`)
+        </option>`,
+      )
       .join("");
 
     return `
@@ -343,7 +364,7 @@ function createModelComparison({ container, onDrop = () => {} }) {
     clearGrids();
     clearCharts();
 
-    const loaded = models.map(model => model.detail).filter(Boolean);
+    const loaded = models.map((model) => model.detail).filter(Boolean);
 
     // Before the suite, because which suites are on offer is read off the models' own
     // scores: until every one of them has landed, "no suite to compare on" and "not yet"
@@ -414,7 +435,8 @@ function createModelComparison({ container, onDrop = () => {} }) {
   }
 
   async function loadDetail(model) {
-    if (!details.has(model.modelId)) details.set(model.modelId, loadModel(model.modelId));
+    if (!details.has(model.modelId))
+      details.set(model.modelId, loadModel(model.modelId));
 
     try {
       model.detail = await details.get(model.modelId);
@@ -442,17 +464,17 @@ function createModelComparison({ container, onDrop = () => {} }) {
       suiteChosen = false;
     }
 
-    const keys = seeds.map(seed => seed.key);
+    const keys = seeds.map((seed) => seed.key);
     const overflow = [];
 
-    models = models.filter(model => keys.includes(model.key));
+    models = models.filter((model) => keys.includes(model.key));
 
     // Loaded once: the field definitions are the same for every model, and a reader who
     // never compares never pays for them.
     if (seeds.length && !fields) fields = await loadModelMeta();
 
     for (const seed of seeds) {
-      if (models.some(model => model.key === seed.key)) continue;
+      if (models.some((model) => model.key === seed.key)) continue;
 
       if (models.length >= MAX_MODELS) {
         overflow.push(seed.key);
@@ -481,7 +503,7 @@ function createModelComparison({ container, onDrop = () => {} }) {
 
   // Delegated: the summary is rewritten on every change, and the baseline select is rebuilt
   // with its grid.
-  root.addEventListener("click", event => {
+  root.addEventListener("click", (event) => {
     for (const section of Object.keys(views)) {
       const chosen = viewFromClick(event, toggleRole(section));
 
@@ -500,7 +522,7 @@ function createModelComparison({ container, onDrop = () => {} }) {
     if (drop) onDrop(drop.dataset.key);
   });
 
-  root.addEventListener("change", event => {
+  root.addEventListener("change", (event) => {
     if (event.target.closest("[data-role='suite']")) {
       suite = event.target.value;
       suiteChosen = true;
@@ -522,6 +544,5 @@ function createModelComparison({ container, onDrop = () => {} }) {
 
   return { show, clear, MAX_MODELS };
 }
-
 
 export { MAX_MODELS, createModelComparison };
