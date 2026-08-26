@@ -1,15 +1,15 @@
 // The "new model / new submission / new team" affordance on the list pages.
 //
-// Two shapes for one control, because the lists have two views:
+// Two shapes for one control:
 //
-//   card view   an extra cell appended to the card grid, so it sits beside the records at
-//               their width and stretches to their row height.
-//   table view  a full-width strip under the table. It can't be a real table row —
-//               Tabulator owns the list container and its rows come from the data — so it's
-//               a sibling element styled to meet the table's bottom edge.
-//
-// Hence two containers, built by pages/list-page.js: the grid (#list) and a dedicated one
-// (#create-row) that only table view uses.
+//   as a row    a full-width strip under the list, which is what both views of a list page
+//               use — it can't be a real table row, since Tabulator owns the list container
+//               and its rows come from the data, so it's a sibling styled to meet the
+//               table's bottom edge. Once the cards page, a cell in the grid would either
+//               repeat on every page or hide on all but one.
+//   as a cell   appended to a grid of cards, so it sits beside the records at their width
+//               and stretches to their row height. For a fixed grid that doesn't page —
+//               the sections on the model and team pages.
 //
 // Both call createIcons: the label carries a Lucide `plus` placeholder, and createIcons
 // consumes placeholders, so it has to run after this markup lands rather than once at page

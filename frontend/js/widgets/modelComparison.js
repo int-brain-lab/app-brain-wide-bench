@@ -107,22 +107,29 @@ function buildSummary(models, fields) {
  * @param container element, or the id of one. Its contents are replaced.
  * @param onDrop    (key) => void, when a reader removes a model. The selection lives in the
  *                  host's table, so only the host can act on it.
- * @param chooseSuite true where the host has no suite control of its own — the models list,
- *                  as against the leaderboard, whose metric select already names one. The
- *                  options are then the suites the chosen models have actually been scored
- *                  on, which is a question only answerable once they have loaded.
+ * A score is a fact about a model *on a suite*, so there is always one in force. Which
+ * control names it is settled per call rather than per widget: a host that passes one to
+ * `show` owns it — the compare page's suite select, the leaderboard's metric select on a
+ * suite — and one that passes nothing gets the widget's own select instead, offering the
+ * suites the chosen models have actually been scored on. That is the leaderboard on
+ * Overall, where the metric select names no suite, and the models list, which has no such
+ * control at all.
  *
  * @returns { show(seeds, suite), clear() }. `seeds` are `{ key, modelId, name, teamName }`
  *          — what a board row already knows — and `show` returns the keys it had no room
  *          for, for the host to deselect.
  */
-function createModelComparison({ container, onDrop = () => {}, chooseSuite = false }) {
+function createModelComparison({ container, onDrop = () => {} }) {
   const root = resolveContainer(container, "createModelComparison");
 
   let models = [];
   let suite = "";
   let fields = null;
   let baseline = "";
+
+  // The suite the host last named, "" for "you choose". Held rather than read off `suite`,
+  // which is whatever is on screen: the two differ exactly when this widget is choosing.
+  let hostSuite = "";
 
   // Whether the suite on screen is the reader's choice or this widget's guess. The models
   // arrive one request at a time, so a guess made when the first landed would otherwise
@@ -288,6 +295,33 @@ function createModelComparison({ container, onDrop = () => {}, chooseSuite = fal
     return SUITES.filter(candidate => scored.has(candidate));
   }
 
+  /**
+   * The widget's own suite control, where the host named none — see the note on
+   * createModelComparison.
+   *
+   * The choice is settled here rather than in `show`, because it depends on what the models
+   * turned out to have been scored on: the first suite any of them has, until the reader
+   * says otherwise. A reader's choice that the current selection has no scores on falls
+   * back the same way, so removing the only model with TS3 doesn't leave an empty grid
+   * under a suite nobody here has entered.
+   */
+  function renderSuiteBar() {
+    const bar = slot("suite-bar");
+
+    if (hostSuite) {
+      // The host's control names it; a second select beside it could only disagree.
+      if (bar) bar.innerHTML = "";
+
+      return;
+    }
+
+    const available = availableSuites();
+
+    if (!suiteChosen || !available.includes(suite)) suite = available[0] ?? "";
+
+    if (bar) bar.innerHTML = available.length ? buildSuiteBar() : "";
+  }
+
   function buildSuiteBar() {
     const options = availableSuites()
       .map(candidate => `
@@ -309,38 +343,34 @@ function createModelComparison({ container, onDrop = () => {}, chooseSuite = fal
     clearGrids();
     clearCharts();
 
-    // Chosen here rather than by the host, and settled once the models are in: the first
-    // suite any of them has been scored on, until the reader says otherwise.
-    if (chooseSuite) {
-      const available = availableSuites();
-
-      if (!suiteChosen || !available.includes(suite)) suite = available[0] ?? "";
-
-      const bar = slot("suite-bar");
-
-      if (bar) bar.innerHTML = available.length ? buildSuiteBar() : "";
-    }
-
-    // The specification is a fact about a model; a score is a fact about a model on a
-    // suite. So the summary stands on its own and these two wait for one to be chosen.
-    if (!suite) {
-      const note = "Choose a task suite above to compare scores.";
-
-      renderToggle("breakdown", false);
-      renderToggle("differences", false);
-      showNoComparison(slot("breakdown"), note);
-      showNoComparison(slot("differences"), note);
-
-      return;
-    }
-
     const loaded = models.map(model => model.detail).filter(Boolean);
 
+    // Before the suite, because which suites are on offer is read off the models' own
+    // scores: until every one of them has landed, "no suite to compare on" and "not yet"
+    // look exactly alike. The select above keeps whatever it last offered rather than
+    // emptying and refilling as each model arrives.
     if (loaded.length < models.length) {
       renderToggle("breakdown", false);
       renderToggle("differences", false);
       showMessage(slot("breakdown"), "Loading scores…");
       showMessage(slot("differences"), "Loading scores…");
+
+      return;
+    }
+
+    renderSuiteBar();
+
+    // The specification is a fact about a model; a score is a fact about a model on a
+    // suite. So the summary stands on its own, and with no suite in force there is nothing
+    // for these two to be about — which, now that one is chosen wherever the host names
+    // none, means none of the chosen models has been scored at all.
+    if (!suite) {
+      const note = "None of these models has a scored task suite yet.";
+
+      renderToggle("breakdown", false);
+      renderToggle("differences", false);
+      showNoComparison(slot("breakdown"), note);
+      showNoComparison(slot("differences"), note);
 
       return;
     }
@@ -403,8 +433,14 @@ function createModelComparison({ container, onDrop = () => {}, chooseSuite = fal
    * @param next  the suite the scores are compared on, or "" for none yet.
    */
   async function show(seeds, next) {
-    // The host's suite where it has one; otherwise whatever the reader last chose here.
-    if (!chooseSuite) suite = next ?? "";
+    hostSuite = next ?? "";
+
+    // The host's suite wins outright and is not the reader's to override here; without one,
+    // `suite` keeps whatever the reader last chose and renderSuiteBar settles it.
+    if (hostSuite) {
+      suite = hostSuite;
+      suiteChosen = false;
+    }
 
     const keys = seeds.map(seed => seed.key);
     const overflow = [];

@@ -97,16 +97,18 @@ function getTeamControls(rows) {
 /**
  * @param container element, or the id of one. Its contents are replaced.
  * @param teams     as renderTeamsTable's caller has them, mapped to rows by toTeamRows().
+ * @param rows      already-mapped rows, for a caller that mapped them itself — see
+ *                  renderModelsTable. Pass one or the other, not both.
+ * @param showFilters  keep the filter bar above the grid. False for a caller with a bar of
+ *                  its own over both its views — see templates/list-page.js.
  * @returns the Tabulator instance.
  */
-function renderTeamsTable({ container, teams }) {
-  const rows = toTeamRows(teams);
-
+function renderTeamsTable({ container, teams, rows = toTeamRows(teams), showFilters = true }) {
   return createFilterableTable({
     container,
     rows,
     columns: getTeamColumns(),
-    controls: getTeamControls(rows),
+    controls: showFilters ? getTeamControls(rows) : [],
     noun: "team",
     initialSort: [{ column: "name", dir: "asc" }],
     caller: "renderTeamsTable",
@@ -114,4 +116,4 @@ function renderTeamsTable({ container, teams }) {
 }
 
 
-export { renderTeamsTable };
+export { getTeamControls, renderTeamsTable, toTeamRows };

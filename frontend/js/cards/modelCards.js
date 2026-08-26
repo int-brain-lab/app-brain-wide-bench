@@ -1,4 +1,7 @@
 // One card per model, for the model list and the team dashboard.
+//
+// Built from a model *row* — tables/modelTable.js's toModelRows — not from the API record,
+// so that the cards, the filters above them and the table beside them all read one shape.
 
 import { escapeHtml, formatDate } from "../core/utils.js";
 import {buildMineBadge, buildPretrainedBadge, buildSuiteBadgeList, buildVisibleBadge} from "../components/badges.js";
@@ -22,7 +25,7 @@ function buildModelCard(model, { showMine = false } = {}) {
       </div>
 
       <div class="row left gap-md">
-        ${buildSuiteBadgeList(model.task_suites ?? [], "sm")}
+        ${buildSuiteBadgeList(model.suites ?? [], "sm")}
         ${buildPretrainedBadge(model.is_pretrained, "sm")}
         ${showMine ? buildMineBadge(model.is_mine, "sm") : ""}
       </div>

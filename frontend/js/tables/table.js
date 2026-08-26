@@ -3,13 +3,24 @@
 // in this folder supplies only its rows, columns and controls — nothing here knows what it
 // is listing, and how a cell renders is in formatters.js.
 //
+// The bar itself is components/filters.js, shared with the card view of a list. This mounts
+// it, hands its predicate to Tabulator, and knows nothing more about it.
+//
 // `Tabulator` is a global from the unpkg <script>, not this module graph, so a page
 // mounting one of these tables needs both the tabulator JS and CSS tags — copy them from
 // dashboard.html.
 
 import { buildTableCount } from "../components/count.js";
 import { escapeHtml } from "../core/utils.js";
-import { SUITES } from "../core/suites.js";
+import {
+  SUITE_OPTIONS,
+  buildFilterBar,
+  createFilterState,
+  matchEquals,
+  matchInArray,
+  matchIncludes,
+  optionsFromRows,
+} from "../components/filters.js";
 
 
 // ─── CONTAINER ──────────────────────────────────────────────────────────────
@@ -26,86 +37,6 @@ function resolveContainer(container, caller) {
   }
 
   return element;
-}
-
-
-// ─── FILTERS ────────────────────────────────────────────────────────────────
-
-// Hardcoded from SUITES rather than derived from the rows, so an option doesn't disappear
-// exactly when nothing on the page covers that suite.
-const SUITE_OPTIONS = SUITES.map(suite => ({ value: suite, label: suite.toUpperCase() }));
-
-// Each of these builds a control's `match`. They are only ever called with a non-empty
-// value — createFilterableTable skips a blank control — so none has to treat "" as
-// "match everything".
-
-function matchIncludes(field) {
-  return (row, value) =>
-    String(row[field] ?? "").toLowerCase().includes(value.toLowerCase());
-}
-
-function matchEquals(field) {
-  return (row, value) => String(row[field] ?? "") === value;
-}
-
-function matchInArray(field) {
-  return (row, value) => (row[field] ?? []).includes(value);
-}
-
-// For a select whose options are whatever the data happens to contain (team names). A
-// fixed server-side enum should stay hardcoded instead, so an option doesn't vanish
-// exactly when a user has no rows carrying that value.
-function optionsFromRows(rows, field) {
-  return [...new Set(rows.map(row => row[field]).filter(value => value != null && value !== ""))]
-    .sort((a, b) => String(a).localeCompare(String(b)))
-    .map(value => ({ value, label: value }));
-}
-
-
-// ─── FILTER BAR ─────────────────────────────────────────────────────────────
-
-function buildOptions(control) {
-  return control.options.map(option => `
-    <option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>
-  `).join("");
-}
-
-// The blank first option doubles as the control's label, so an unset filter reads as
-// "All suites" without a separate <label>. `required` omits it: a control that picks
-// *which* thing the table shows — the leaderboard's metric — has no "don't narrow".
-function buildSelect(control) {
-  return `
-    <select class="input-select" data-filter="${escapeHtml(control.name)}">
-      ${control.required ? "" : `<option value="">${escapeHtml(control.placeholder)}</option>`}
-      ${buildOptions(control)}
-    </select>
-  `;
-}
-
-function buildSearch(control) {
-  return `
-    <input
-      class="input-text"
-      type="search"
-      data-filter="${escapeHtml(control.name)}"
-      placeholder="${escapeHtml(control.placeholder)}">
-  `;
-}
-
-// A grid rather than a flex row: the controls carry width:100% from .input-select and
-// .input-text, so only a grid gives them equal shares. An unsupported count stacks.
-const GRID_CLASS = { 2: "grid-2", 3: "grid-3", 4: "grid-4" };
-
-function buildFilterBar(controls) {
-  if (controls.length === 0) return "";
-
-  const layout = GRID_CLASS[controls.length] ?? "column gap-md";
-
-  return `
-    <div class="${layout}">
-      ${controls.map(control => control.type === "select" ? buildSelect(control) : buildSearch(control)).join("")}
-    </div>
-  `;
 }
 
 
@@ -225,7 +156,8 @@ function renderStaticTable({ columns, rows, noun, total = rows.length, viewAll }
  *                       two meanings for one click.
  * @param selection      optional {max, onChange} — makes rows pickable by clicking them,
  *                       highlighted rather than ticked, at most `max` at
- *                       a time, and calls `onChange(rows)` with the selected row data
+ *                       a time, and calls `onChange(rows, {selected, deselected})` with the
+ *                       selected row data — and the row components that just changed —
  *                       whenever that set changes. What is picked is said by the row's own
  *                       highlight — see `.tabulator-selected` in style.css — rather than by
  *                       a column of checkboxes beside it.
@@ -279,21 +211,28 @@ function createFilterableTable({
     count.textContent = buildTableCount(table.getDataCount("display"), rows.length, noun);
   }
 
-  // Scoped to this call, so two tables on one page can't fight over one set of filter
-  // values. A `required` select starts on its first option to match the markup buildSelect
-  // emits for it, rather than saying "no filter" while the visible select shows a choice.
-  const filters = Object.fromEntries(controls.map(control => [
-    control.name,
-    control.required && control.options?.length ? String(control.options[0].value) : "",
-  ]));
+  // The bar's markup is already in `root`; this is the state behind it. Applying a change
+  // is ours because only we have the table — see the onChange below.
+  const filters = createFilterState({
+    controls,
+    root,
+    onChange: (name, value) => {
+      table.setFilter(filters.matches);
 
-  // A blank control is skipped rather than matched, so "All statuses" means "don't narrow"
-  // instead of "status equals empty string".
-  function matchesFilters(row) {
-    return controls.every(control => {
-      const value = filters[control.name].trim();
-      return !value || control.match(row, value);
-    });
+      // After the filter, so a handler that reads the table sees the new row set.
+      onControlChange?.(name, value, { table, setControlOptions });
+    },
+  });
+
+  // Swapping a control's options leaves the table showing the old one's rows, so the
+  // refilter belongs here rather than in the caller's handler. createFilterState stops short
+  // of it: it has no table to refilter.
+  function setControlOptions(name, options, selected) {
+    const value = filters.setControlOptions(name, options, selected);
+
+    table.setFilter(filters.matches);
+
+    return value;
   }
 
   const table = new Tabulator(root.querySelector("[data-role='grid']"), {
@@ -352,7 +291,11 @@ function createFilterableTable({
   // the chart — works on the same plain objects the table was given, and a component would
   // tie them to a table that re-creates them on every filter.
   if (selection) {
-    table.on("rowSelectionChanged", data => selection.onChange(data));
+    // The deltas as well as the whole set: a caller holding the selection itself — the list
+    // page, which keeps it across a filter and across the switch to cards — needs what
+    // changed, not what Tabulator currently has selected.
+    table.on("rowSelectionChanged", (data, _rows, selected, deselected) =>
+      selection.onChange(data, { selected, deselected }));
 
     // There is no checkbox column: the row itself is the control, and the largest target in
     // most rows is a link to the thing the row is about. Where the caller asks for it, a
@@ -370,54 +313,23 @@ function createFilterableTable({
     table.on("rowClick", (event, row) => onRowClick(row.getData(), { event, element: row.getElement() }));
   }
 
-  // For a control whose choices depend on another control's value — the leaderboard's
-  // metric list, which is the suites or the tasks depending on the grouping. The previous
-  // value is dropped rather than preserved: the point of swapping the options is that the
-  // old one may no longer exist, and a stale value would filter against a field no row has.
-  function setControlOptions(name, options, selected) {
-    const control = controls.find(candidate => candidate.name === name);
-    const select = root.querySelector(`select[data-filter="${name}"]`);
-    if (!control || !select) return;
-
-    control.options = options;
-    select.innerHTML = `
-      ${control.required ? "" : `<option value="">${escapeHtml(control.placeholder)}</option>`}
-      ${buildOptions(control)}
-    `;
-
-    const value = selected ?? (control.required && options.length ? String(options[0].value) : "");
-
-    select.value = value;
-    filters[name] = value;
-    table.setFilter(matchesFilters);
-
-    return value;
-  }
-
-  // Delegated, and on `input` rather than `change`: a <select> fires both, while a text
-  // input only fires `change` on blur, leaving the table stale until the user clicks away.
-  root.addEventListener("input", event => {
-    const control = event.target.closest("[data-filter]");
-    if (!control) return;
-
-    filters[control.dataset.filter] = control.value;
-    table.setFilter(matchesFilters);
-
-    // After the filter, so a handler that reads the table sees the new row set.
-    onControlChange?.(control.dataset.filter, control.value, { table, setControlOptions });
-  });
-
   return table;
 }
 
 
+// TODO: the matchers and SUITE_OPTIONS are re-exported only so the tables beside this one
+// keep their existing imports. They belong to components/filters.js now — move each table
+// over to importing them from there, and drop them from this list.
 export {
   SUITE_OPTIONS,
-  resolveContainer,
-  matchIncludes,
   matchEquals,
   matchInArray,
+  matchIncludes,
   optionsFromRows,
+};
+
+export {
+  resolveContainer,
   previewRows,
   renderStaticTable,
   createFilterableTable,

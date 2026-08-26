@@ -172,6 +172,9 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   // What a fresh compare mode invites, which depends on what the board is showing: one
   // task makes the rows scores to compare against each other, anything coarser makes them
   // models to compare across a suite.
+  // Both branches say it through the widget's own empty state rather than writing one over
+  // the top of it: the cap and the wording are the comparison's, and the page only decides
+  // which of the two is being invited.
   function promptToCompare(metric) {
     if (!taskFor(metric)) {
       showCompareSection(true, "Compare models");
@@ -183,10 +186,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
 
     showCompareSection(true);
     showPane("tasks");
-    showEmpty(
-      paneBody("tasks"),
-      `Select up to ${MAX_COMPARED} rows to compare their scores on this task.`,
-    );
+    comparison.clear();
   }
 
   // A comparison knows a score by the entry that produced it; the board knows a row by
@@ -196,6 +196,9 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
 
   const comparison = createTaskComparison({
     container: paneBody("tasks"),
+    // A board row is a model's standing on the chosen task, so "rows" rather than the
+    // "task scores" the scores page calls the same things.
+    prompt: `Select up to ${MAX_COMPARED} rows to compare their scores on this task.`,
     // Guarded: Tabulator reads a missing index as "no argument" and deselects every row, so
     // a key this map has not seen would untick the board rather than one row.
     onDrop: key => rowOf.has(key) && table?.deselectRow(rowOf.get(key)),

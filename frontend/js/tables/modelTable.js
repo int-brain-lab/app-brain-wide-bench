@@ -91,7 +91,9 @@ function getModelColumns({ showTeam = true, showMine = false } = {}) {
 
 // ─── CONTROLS ───────────────────────────────────────────────────────────────
 
-function getModelControls(rows) {
+// `showSuiteFilter` off for a caller whose rows are already one suite's — the compare page,
+// which picks the suite above the table. Left on, the select could only ever empty it.
+function getModelControls(rows, { showSuiteFilter = true } = {}) {
   return [
     {
       type: "search",
@@ -106,13 +108,15 @@ function getModelControls(rows) {
       options: optionsFromRows(rows, "team_name"),
       match: matchEquals("team_name"),
     },
-    {
-      type: "select",
-      name: "suite",
-      placeholder: "All suites",
-      options: SUITE_OPTIONS,
-      match: matchInArray("suites"),
-    },
+    ...(showSuiteFilter
+      ? [{
+          type: "select",
+          name: "suite",
+          placeholder: "All suites",
+          options: SUITE_OPTIONS,
+          match: matchInArray("suites"),
+        }]
+      : []),
   ];
 }
 
@@ -122,18 +126,33 @@ function getModelControls(rows) {
 /**
  * @param container element, or the id of one. Its contents are replaced.
  * @param models    list of models with task suites attached, mapped to rows by toModelRows().
+ * @param rows      already-mapped rows, for a caller that mapped them itself — the list
+ *                  page, whose cards and filters work in the same shape. Pass one or the
+ *                  other, not both.
  * @param showMine  mark the rows on the viewer's own teams — see getModelColumns.
+ * @param showSuiteFilter  keep the suite select — see getModelControls.
+ * @param showFilters  keep the filter bar above the grid. False for a caller with a bar of
+ *                  its own over both its views — see templates/list-page.js.
+ * @param selection as createFilterableTable. Keyed on the model id, so a caller holding one
+ *                  can select or deselect its row without a lookup of its own.
  * @returns the Tabulator instance.
  */
-function renderModelsTable({ container, models, showMine = false, selection }) {
-  const rows = toModelRows(models);
-
+function renderModelsTable({
+  container,
+  models,
+  rows = toModelRows(models),
+  showMine = false,
+  showSuiteFilter = true,
+  showFilters = true,
+  selection,
+}) {
   return createFilterableTable({
     container,
     rows,
+    index: "id",
     columns: getModelColumns({ showMine }),
     selection,
-    controls: getModelControls(rows),
+    controls: showFilters ? getModelControls(rows, { showSuiteFilter }) : [],
     noun: "model",
     initialSort: [
       { column: "created_at", dir: "desc" },
@@ -174,6 +193,6 @@ function renderStaticModelsTable({ container, models, showTeam = true, limit, vi
 }
 
 
-export { renderModelsTable, renderStaticModelsTable };
+export { getModelControls, renderModelsTable, renderStaticModelsTable, toModelRows };
 
 

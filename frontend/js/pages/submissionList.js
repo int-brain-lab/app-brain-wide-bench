@@ -6,7 +6,11 @@
 // One script, as modelList.js — the two differ only in the fetch and the heading.
 
 import { getSubmissions, getMySubmissions } from "../api/submissionApi.js";
-import { renderSubmissionsTable } from "../tables/submissionTable.js";
+import {
+  getSubmissionControls,
+  renderSubmissionsTable,
+  toSubmissionRows,
+} from "../tables/submissionTable.js";
 import { buildSubmissionCards } from "../cards/submissionCards.js";
 import { loadListPage } from "../templates/list-page.js";
 
@@ -17,11 +21,15 @@ loadListPage({
   noun: "submissions",
   fetch: MINE ? getMySubmissions : getSubmissions,
   requiresAuth: MINE,
+  toRows: toSubmissionRows,
+  // The table's own controls, hoisted to the page: one bar over both views, and the cards
+  // render from the rows it matches against.
+  filters: getSubmissionControls,
   cards: buildSubmissionCards,
   // Spans models, so the Model column earns its place here where it doesn't on a model's
   // own submissions table.
   table: ({ container, rows }) =>
-    renderSubmissionsTable({ container, submissions: rows, showModel: true }),
+    renderSubmissionsTable({ container, rows, showModel: true, showFilters: false }),
   create: {
     href: "/html/submissions/submission_create.html",
     label: "New submission",

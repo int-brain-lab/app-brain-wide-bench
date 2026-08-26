@@ -308,7 +308,7 @@ function renderRecordingScoresTable({ container, recordings }) {
     // Otherwise the rows keep the order the scorer wrote them in, which for the region
     // layout puts the aggregate "macro" row last.
     initialSort: layout.initialSort,
-    paginationSize: 15,
+    paginationSize: 5,
     caller: "renderRecordingScoresTable",
   });
 }

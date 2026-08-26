@@ -1,69 +1,148 @@
-// Several task scores read side by side: how each was produced, and what each measured.
+// Compare several task scores side by side.
 //
-// The half of the comparison that isn't the table. It is separate because the table it
-// hangs under isn't always the same one — the scores page selects rows out of a list of
-// task scores, and the leaderboard selects them out of a board of models on one task — and
-// both want this underneath: a methodology grid, and the numbers as small multiples, as one
-// overlaid chart, or as a heatmap.
-//
-// The host owns the selection and the cap; this owns everything downstream of it. Each
-// entry's per-recording breakdown and methodology arrive together, one request each, and
-// the views fill in as they land — a listing carries the figure a table shows and nothing
-// behind it, which is why there is a request at all.
+// The host owns selection. This component owns everything after selection:
+// loading score details, showing methodology, and rendering the recording
+// breakdown as separate charts, an overlaid chart, or a heatmap.
 
 import { refreshIcons, showEmpty } from "../core/utils.js";
 import { buildViewToggle, viewFromClick } from "../components/viewToggle.js";
 import { resolveContainer } from "../tables/table.js";
-import { buildMethodologyGrid } from "../tables/methodologyGrid.js";
-import { recordingMetricNames } from "../tables/recordingScoreTable.js";
-import { renderRecordingCharts, renderRecordingHeatmaps } from "../charts/recordingChart.js";
+import {
+  renderRecordingCharts,
+  renderRecordingHeatmaps,
+} from "../charts/recordingChart.js";
 import { SERIES_INK, seriesStyle } from "../charts/palette.js";
 import { loadTaskSubmission } from "../api/taskSubmissionApi.js";
 import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
+import { escapeHtml } from "../core/utils.js";
+import { getIcon } from "../components/icons.js";
+import { buildSuiteBadgeList } from "../components/badges.js";
+import { displayValue } from "../forms/fields.js";
+import { suiteFromTask } from "../core/suites.js";
+import { trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
+import { buildComparisonGrid } from "../tables/comparisonGrid.js";
+import { recordingMetricNames } from "../tables/recordingScoreTable.js";
 
 
-// ─── CONFIGURATION ───────────────────────────────────────────────────────────
-
-// Six: two rows of three small multiples, and six rows of methodology a reader can hold at
-// once. Not a colour limit — separate panels don't colour by score at all — though it is
-// also the point past which the overlaid view runs out of colour-and-shape pairs.
+// Maximum number of scores that can be compared at once.
 const MAX_COMPARED = 6;
 
-// Separate panels lead because they hold any number of scores and stay comparable; overlaid
-// is the closer read, for when the question is which series is above which at a given
-// recording; the heatmap answers where rather than how much.
 const VIEWS = [
   { value: "separate", label: "Separate", icon: "cards" },
   { value: "overlaid", label: "Overlaid", icon: "score" },
   { value: "heatmap", label: "Heatmap", icon: "suite" },
 ];
 
+// What the widget says with nothing selected. A default rather than a constant the host
+// must restate: the leaderboard's rows are one task's scores across models, so it says
+// "rows" where the scores page says "task scores" — the same instruction about the same
+// cap, in the words of whatever table is above it.
 const PROMPT = `Select up to ${MAX_COMPARED} task scores to compare them.`;
 
 
-// ─── ENTRIES ────────────────────────────────────────────────────────────────
+// The metric is a column like the others, and the first of them: it is the one the reader
+// chooses rather than reads, and it decides what the panel below is drawn in.
+const METRIC = "metric";
 
-// The score's own metric where the breakdown reports one the reader can choose — a TS3
-// score's metrics are named per region, so its primary ("macro/f1-score") is not one of the
-// suffixes on offer, and the first suffix stands in. Only answerable once the breakdown has
-// arrived; until then the primary stands, which is what the table shows.
+
+// Which score this row is, and the way to drop it. The submission sits under the task
+// because two rows of the same task across two models is the comparison this is for.
+function buildRowHeader(entry) {
+  const suite = suiteFromTask(entry.taskId);
+
+  return `
+    <span class="column gap-xs">
+      <span class="row left gap-sm">
+        <button
+          type="button"
+          class="chip-remove"
+          data-role="drop"
+          data-key="${escapeHtml(entry.key)}"
+          title="Remove ${escapeHtml(entry.taskId)}"
+          aria-label="Remove ${escapeHtml(entry.taskId)}"
+        >
+          <i class="field-icon" data-lucide="${escapeHtml(getIcon("remove"))}"></i>
+        </button>
+        <span class="label">${escapeHtml(entry.taskId)}</span>
+        ${suite ? buildSuiteBadgeList([suite], "sm") : ""}
+      </span>
+      <span class="metadata">${escapeHtml(
+        [entry.modelName, entry.submissionLabel].filter(Boolean).join(" · "),
+      )}</span>
+    </span>`;
+}
+
+// The one cell that is a control rather than a reading: which metric this score's panel is
+// drawn in. Its value is the metric, so the column still mutes when they all agree.
+function buildMetricCell(entry) {
+  const options = recordingMetricNames(entry.recordings)
+    .map(name => `
+      <option value="${escapeHtml(name)}" ${name === entry.metric ? "selected" : ""}>
+        ${escapeHtml(name)}
+      </option>`)
+    .join("");
+
+  return {
+    value: entry.metric ?? "",
+    html: `
+      <select class="input-select" data-role="metric" data-key="${escapeHtml(entry.key)}">
+        ${options}
+      </select>`,
+  };
+}
+
+// A value the reader can compare, or nothing. `detail` is absent until each score's own
+// request lands, which reads as "not known yet" rather than "not set".
+function valueOf(entry, key, fields) {
+  if (!entry.detail) return null;
+
+  const value = displayValue(fields[key], entry.detail[key]);
+
+  return value == null || value === "" ? null : String(value);
+}
+
+/**
+ * @param entries [{ key, taskId, submissionLabel, modelName, metric, recordings, detail }]
+ * @param fields  the task-submission field definitions, from loadTaskFields.
+ */
+function buildMethodologyGrid(entries, fields) {
+  const keys = trainingFieldKeys();
+
+  return buildComparisonGrid({
+    columns: [
+      { key: METRIC, label: "Metric" },
+      ...keys.map(key => ({ key, label: fields[key]?.label ?? key })),
+    ],
+    rows: entries.map(entry => ({
+      key: entry.key,
+      header: buildRowHeader(entry),
+      cells: {
+        [METRIC]: buildMetricCell(entry),
+        ...Object.fromEntries(keys.map(key => [key, { value: valueOf(entry, key, fields) }])),
+      },
+    })),
+  });
+}
+
+
+
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+
 function defaultMetric(metric, recordings) {
   const names = recordingMetricNames(recordings);
 
-  if (!names.length) return metric;
+  if (!names.length || names.includes(metric)) {
+    return metric;
+  }
 
-  return names.includes(metric) ? metric : names[0];
+  return names[0];
 }
 
-// Overlaid, a series is told apart by how it looks, so it takes the nth colour and shape.
-// Separate, the panel's title says which score it is and every mark takes one ink — six
-// hues a reader can tell apart do not exist, and a panel per score means none are needed.
-function toSeriesEntry(entry, index, overlaid) {
-  const style = overlaid ? seriesStyle(index) : { colour: SERIES_INK };
-
+function toSeriesEntry(entry, index, { overlaid = false } = {}) {
   return {
     key: entry.key,
-    ...style,
+    ...(overlaid ? seriesStyle(index) : { colour: SERIES_INK }),
     label: `${entry.modelName ?? entry.submissionLabel ?? ""} · ${entry.taskId}`,
     metric: entry.metric,
     recordings: entry.recordings,
@@ -71,16 +150,18 @@ function toSeriesEntry(entry, index, overlaid) {
 }
 
 
-// ─── WIDGET ─────────────────────────────────────────────────────────────────
+// ─── WIDGET ──────────────────────────────────────────────────────────────────
 
 /**
- * @param container element, or the id of one. Its contents are replaced.
- * @param onDrop    (key) => void, when a reader removes a score from the grid. The
- *                  selection lives in the host's table, so only the host can act on it.
+ * Create a task-score comparison widget.
  *
- * @returns { show(seeds), clear() }. `seeds` are `{ key, taskId, submissionId,
- *          submissionLabel, modelName, metric }` — what a listing already knows — and
- *          `show` returns the keys it had no room for, for the host to deselect.
+ * @param {HTMLElement|string} container
+ * @param {(key: string) => void} onDrop Called when a score is removed.
+ *
+ * @returns {{
+ *   show: (seeds: Array) => Promise<string[]>,
+ *   clear: () => void
+ * }}
  */
 function createTaskComparison({ container, onDrop = () => {} }) {
   const root = resolveContainer(container, "createTaskComparison");
@@ -88,47 +169,61 @@ function createTaskComparison({ container, onDrop = () => {} }) {
   let entries = [];
   let charts = [];
   let fields = null;
-  let view = VIEWS[0].value;
+  let view = "separate";
 
-  // Chart.js keeps a registry keyed on the canvas, so an instance whose container is about
-  // to be rewritten has to be told: otherwise it goes on answering resizes from a detached
-  // element and the next chart on that canvas throws.
+  // ─── Rendering ────────────────────────────────────────────────────────────
+
   function clearCharts() {
     charts.forEach(chart => chart?.destroy?.());
     charts = [];
   }
 
-  function buildToggle() {
-    return buildViewToggle({ views: VIEWS, active: view, role: "compare-view" });
+  function ensureLayout() {
+    if (root.querySelector("[data-role='grid']")) return;
+
+    root.innerHTML = `
+      <div data-role="grid"></div>
+      <div data-role="plot"></div>
+    `;
   }
 
   function renderGrid() {
-    root.querySelector("[data-role='grid']").innerHTML =
-      buildMethodologyGrid(entries, fields) + buildToggle();
+    const grid = root.querySelector("[data-role='grid']");
 
-    // The grid is rewritten on every change and each row carries a Lucide placeholder for
-    // its remove button, so swapping them in is this caller's job.
+    grid.innerHTML =
+      buildMethodologyGrid(entries, fields) +
+      buildViewToggle({
+        views: VIEWS,
+        active: view,
+        role: "compare-view",
+      });
+
     refreshIcons();
   }
 
   function renderPlot() {
     const plot = root.querySelector("[data-role='plot']");
-    const overlaid = view === "overlaid";
 
     if (view === "heatmap") {
       clearCharts();
-      renderRecordingHeatmaps({ container: plot, entries: entries.map(toSeriesEntry) });
+
+      renderRecordingHeatmaps({
+        container: plot,
+        entries: entries.map(entry => toSeriesEntry(entry)),
+      });
 
       return;
     }
 
+    const overlaid = view === "overlaid";
+
     charts = renderRecordingCharts({
       container: plot,
-      entries: entries.map((entry, index) => toSeriesEntry(entry, index, overlaid)),
+      entries: entries.map((entry, index) =>
+        toSeriesEntry(entry, index, { overlaid })
+      ),
       charts,
       facet: overlaid ? "metric" : "score",
-      // Overlaid is the close read — six series on one pair of axes, where what matters is
-      // the gaps between them — so it gets the room the small multiples don't need.
       size: overlaid ? "tall" : "regular",
     });
   }
@@ -136,65 +231,64 @@ function createTaskComparison({ container, onDrop = () => {} }) {
   function render() {
     if (!entries.length) {
       clearCharts();
-      showEmpty(root, PROMPT);
-
+      showEmpty(root, prompt);
       return;
     }
 
-    // Rebuilt rather than reused: the empty state above replaces the whole area, so the two
-    // slots are gone by the time there is something to put in them.
-    if (!root.querySelector("[data-role='grid']")) {
-      root.innerHTML = `<div data-role="grid"></div><div data-role="plot"></div>`;
-    }
-
+    ensureLayout();
     renderGrid();
     renderPlot();
   }
 
-  // Fetched per selection: the methodology fields and the per-recording breakdown are both
-  // on the detail response only, and a reader compares a handful of scores, not three
-  // hundred. A failure leaves the row without its fields rather than taking the comparison
-  // down.
+  // ─── Data ─────────────────────────────────────────────────────────────────
+
   async function loadDetail(entry) {
     try {
-      entry.detail = await loadTaskSubmission(entry.submissionId, entry.key);
-      entry.recordings = entry.detail.score?.metrics?.recordings ?? [];
+      const detail = await loadTaskSubmission(
+        entry.submissionId,
+        entry.key
+      );
+
+      entry.detail = detail;
+      entry.recordings = detail.score?.metrics?.recordings ?? [];
       entry.metric = defaultMetric(entry.metric, entry.recordings);
     } catch (error) {
       console.error(error);
       entry.detail = {};
     }
 
-    // Both, because the breakdown is what the plot is drawn from: a comparison renders
-    // empty panels until each request lands, and fills in as they do.
+    // The entry may have been removed while the request was in flight.
     if (entries.includes(entry)) {
-      renderGrid();
-      renderPlot();
+      render();
     }
   }
 
-  // Reconciles rather than diffs, because a host hands over its whole selection: what is
-  // gone drops out, what is new is appended, and everything else keeps its position — which
-  // is what stops the rows and the panels reshuffling when one score is removed.
   async function show(seeds) {
-    const keys = seeds.map(seed => seed.key);
+    const keys = new Set(seeds.map(seed => seed.key));
     const overflow = [];
 
-    entries = entries.filter(entry => keys.includes(entry.key));
+    // Remove scores that are no longer selected.
+    entries = entries.filter(entry => keys.has(entry.key));
 
-    // Loaded once, on the first comparison: nothing else needs the field definitions, and a
-    // reader who never compares never pays for them.
-    if (seeds.length && !fields) fields = await loadTaskFields();
+    if (seeds.length && !fields) {
+      fields = await loadTaskFields();
+    }
 
     for (const seed of seeds) {
-      if (entries.some(entry => entry.key === seed.key)) continue;
+      if (entries.some(entry => entry.key === seed.key)) {
+        continue;
+      }
 
       if (entries.length >= MAX_COMPARED) {
         overflow.push(seed.key);
         continue;
       }
 
-      const entry = { ...seed, recordings: [], detail: null };
+      const entry = {
+        ...seed,
+        recordings: [],
+        detail: null,
+      };
 
       entries.push(entry);
       loadDetail(entry);
@@ -208,18 +302,19 @@ function createTaskComparison({ container, onDrop = () => {} }) {
   function clear() {
     clearCharts();
     entries = [];
-    showEmpty(root, PROMPT);
+    showEmpty(root, prompt);
   }
 
-  // Delegated, because the grid is rewritten on every change and per-row listeners would be
-  // re-bound each time — and the remove button has to reach a table this widget has no
-  // handle on.
+  // ─── Events ───────────────────────────────────────────────────────────────
+
   root.addEventListener("change", event => {
     const select = event.target.closest("[data-role='metric']");
 
     if (!select) return;
 
-    const entry = entries.find(item => item.key === select.dataset.key);
+    const entry = entries.find(
+      item => item.key === select.dataset.key
+    );
 
     if (!entry) return;
 
@@ -237,17 +332,16 @@ function createTaskComparison({ container, onDrop = () => {} }) {
 
     const chosen = viewFromClick(event, "compare-view");
 
-    if (chosen && chosen !== view) {
-      view = chosen;
-      renderGrid();
-      renderPlot();
-    }
+    if (!chosen || chosen === view) return;
+
+    view = chosen;
+    renderGrid();
+    renderPlot();
   });
 
   clear();
 
   return { show, clear };
 }
-
 
 export { MAX_COMPARED, createTaskComparison };

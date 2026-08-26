@@ -1,4 +1,4 @@
-// Compare page — one reference model against up to five others, on one task suite.
+// Compare page — one model against a handful of others, on one task suite.
 //
 // Two ways in, and the difference between them is one control:
 //
@@ -11,47 +11,32 @@
 // separate parameters rather than one: they name the same model but say different things
 // about the page, and a refresh has to land back in the mode it was in.
 //
+// The comparison itself is not this page's: it is the same widget the leaderboard and the
+// models list mount under their own tables — the specification grid, the task breakdown and
+// the differences, each as a plot or a grid. So this page is only what leads to it:
+//
+//   reference    which model is this about — only when the page wasn't told
+//   suite        which suite, from the ones the reference has been scored on
+//   models       every model scored on that suite, as a table. Picking a row adds it to the
+//                comparison; the reference's own row is picked from the start, since a
+//                comparison this page is titled after cannot leave it out
+//   comparison   the widget, which fetches what it needs itself
+//
 // A single view, so it boots through loadPage rather than loadRecordPage: there is no
 // second screen to route to, and the state that does vary belongs in the URL as a
 // comparison anyone can send to someone else, not as a stack of history entries left
 // behind by working the controls.
-//
-// The sections, in the order they answer the reader's questions:
-//
-//   reference    which model is this about — only when the page wasn't told
-//   suite        which suite, from the ones the reference has been scored on
-//   models       who to compare against — at most five, all of which have that suite
-//   metric       narrow every section below to one metric
-//   overview     one bar per model, best first
-//   breakdown    every task, as a plot or as a grid of mean ± sem, models across the top
-//   differences  the same again, against a baseline the reader picks
-//
-// The last two each carry their own plot-or-grid toggle: a reader comparing shapes in one is
-// often reading numbers off the other.
 
-import { escapeHtml, refreshIcons, showEmpty, showMessage } from "../core/utils.js";
+import { escapeHtml, refreshIcons, showEmpty } from "../core/utils.js";
 import { getIcon } from "../components/icons.js";
 import { buildSuiteBadgeList } from "../components/badges.js";
 import { suiteFromTask } from "../core/suites.js";
 import { sortSuites } from "../tables/formatters.js";
 import { latestScoresByTask } from "../core/scoreData.js";
-import { buildModelScoreBars } from "../components/bars.js";
 import { getModels, loadModel } from "../api/modelApi.js";
 import { loadPage } from "../templates/page-loader.js";
-import { MAX_SELECTED, renderModelPicker } from "../widgets/modelPicker.js";
-import { applyMetricFilter, renderCompareTable, showNoComparison } from "../tables/compareTable.js";
-import { renderCompareCharts, renderDiffCharts } from "../charts/compareChart.js";
-import { buildViewToggle } from "../components/viewToggle.js";
-import {
-  compareMetrics,
-  compareModels,
-  compareTasks,
-  entriesForMetric,
-  tasksForMetric,
-  toCompareEntries,
-  toDiffRows,
-  toScoreRows,
-} from "../core/compareData.js";
+import { renderModelsTable } from "../tables/modelTable.js";
+import { MAX_MODELS, createModelComparison } from "../widgets/modelComparison.js";
 import {
   buildHeader,
   buildPage,
@@ -68,28 +53,29 @@ import {
 const MODEL_PAGE = "/html/models/models.html";
 
 const PICK_TITLE = "Compare models";
-const PICK_DESCRIPTION = "Pick a reference model, then up to five others to measure against it.";
+const PICK_DESCRIPTION = "Pick a reference model, then the others to measure it against.";
 
 // `with` rather than `models`: it reads as the sentence the URL is making, and `models` is
 // already what the page's own model list is called.
 const SUITE_PARAM = "suite";
 const WITH_PARAM = "with";
-const METRIC_PARAM = "metric";
-const BASELINE_PARAM = "baseline";
 const REF_PARAM = "ref";
 
-// Every section below the controls, so they can be hidden together while there is nothing
-// to put in them.
-const RESULT_SECTIONS = ["overview", "breakdown", "differences"];
-const CONTROL_SECTIONS = ["suite", "models", "metric"];
+// The table and the comparison under it, so they can be hidden together while there is
+// nothing to put in them.
+const RESULT_SECTIONS = ["models", "comparison"];
+const CONTROL_SECTIONS = ["suite"];
+
+// One short of the widget's own cap, because the reference is the fifth: the comparison
+// holds MAX_MODELS in total and this page's reference is always one of them.
+const MAX_COMPARATORS = MAX_MODELS - 1;
 
 
 // ─── URL STATE ───────────────────────────────────────────────────────────────
 
-// Nothing is validated here. Which suites exist depends on the reference, which metrics
-// exist depends on the tasks the chosen models turn out to have been scored on, and the
-// reference itself may have been deleted since the URL was written. Each is checked by
-// whichever renderer knows the answer, and falls back there.
+// Nothing is validated here. Which suites exist depends on the reference, and the reference
+// itself may have been deleted since the URL was written. Each is checked by whichever
+// renderer knows the answer, and falls back there.
 function readSelection() {
   const params = new URLSearchParams(location.search);
 
@@ -97,26 +83,22 @@ function readSelection() {
     ref: params.get(REF_PARAM) ?? "",
     suite: params.get(SUITE_PARAM) ?? "",
     withIds: (params.get(WITH_PARAM) ?? "").split(",").filter(Boolean),
-    metric: params.get(METRIC_PARAM) ?? "",
-    baseline: params.get(BASELINE_PARAM) ?? "",
   };
 }
 
-// replaceState, not pushState: a comparison is built by working four dropdowns, and each
-// change would otherwise be a history entry the reader has to press Back through to leave
-// the page. The URL still survives a refresh and can still be sent to someone.
+// replaceState, not pushState: a comparison is built by working a dropdown and a table, and
+// each change would otherwise be a history entry the reader has to press Back through to
+// leave the page. The URL still survives a refresh and can still be sent to someone.
 //
 // Each parameter is dropped rather than written empty, so the plainest version of the page
 // leaves the plainest URL.
-function writeSelection({ ref, suite, withIds, metric, baseline }) {
+function writeSelection({ ref, suite, withIds }) {
   const params = new URLSearchParams(location.search);
 
   const entries = {
     [REF_PARAM]: ref,
     [SUITE_PARAM]: suite,
     [WITH_PARAM]: withIds.join(","),
-    [METRIC_PARAM]: metric,
-    [BASELINE_PARAM]: baseline,
   };
 
   for (const [key, value] of Object.entries(entries)) {
@@ -155,18 +137,20 @@ function referenceOptions(models) {
     }));
 }
 
-// Every other model the caller can see that has been scored on this suite. `task_suites` is
-// only populated by the list endpoint — a detail response leaves it empty — which is why
-// the page fetches the list as well as the model.
-function candidatesFor(models, referenceId, suite) {
-  return models
-    .filter(candidate => candidate.id !== referenceId)
-    .filter(candidate => (candidate.task_suites ?? []).includes(suite))
-    .map(candidate => ({
-      id: candidate.id,
-      name: candidate.name,
-      teamName: candidate.team_name,
-    }));
+/**
+ * Every model the table should hold: the ones scored on this suite, and the reference
+ * whether or not it is among them.
+ *
+ * `task_suites` is only populated by the list endpoint — a detail response leaves it empty
+ * — which is why the page fetches the list as well as the model. The reference is added
+ * back by id for the same reason: its own row would otherwise depend on the two sources
+ * agreeing, and the row it is picked in cannot be missing.
+ */
+function modelsOnSuite(models, referenceId, suite) {
+  return models.filter(
+    candidate =>
+      candidate.id === referenceId || (candidate.task_suites ?? []).includes(suite),
+  );
 }
 
 
@@ -177,9 +161,6 @@ function candidatesFor(models, referenceId, suite) {
  * @param selected the value to open on.
  * @param blank    the leading "don't narrow" option's label. Omit for a select that must
  *                 hold one of its options — the suite, which the page is scoped to.
- *
- * Every select on the page, rather than four near-identical builders: they are the same
- * control with different contents, and only the blank option differs.
  */
 function buildSelect(role, options, selected, blank = null) {
   const items = options
@@ -190,7 +171,7 @@ function buildSelect(role, options, selected, blank = null) {
     `)
     .join("");
 
-  // Nothing to choose between: one suite, or one metric across every task on it.
+  // Nothing to choose between: a reference scored on one suite.
   const closed = options.length <= 1 && !blank;
 
   return `
@@ -227,30 +208,26 @@ function renderComparePage({ model, models, fixedId }) {
           }]
         : []),
 
-      // The controls share a row: together they are one question — which model, on which
-      // suite, against whom, narrowed to which metric. `align-start` because the picker
-      // grows a line as chips are added, and .page-section's space-between would otherwise
-      // push the other selects to the bottom of cells stretched to match it.
+      // The two controls share a row: together they are one question — which model, on
+      // which suite. `align-start` because a section may grow a line and .page-section's
+      // space-between would otherwise push the other to the bottom of a stretched cell.
       body:
         `<div class="section-row align-start">${buildSections([
           ...(selectable ? [{ id: "reference", title: "Reference model" }] : []),
           { id: "suite", title: "Task suite" },
-          { id: "models", title: "Compare with" },
-          { id: "metric", title: "Metric" },
         ])}</div>` +
         // Untitled: it holds whatever is standing in for the page — "choose a model" — and
         // a heading over that would be a heading over an apology.
         buildSection({ id: "intro" }) +
         buildSections([
-          { id: "overview", title: "Overview" },
-          { id: "breakdown", title: "Task breakdown" },
-          { id: "differences", title: "Differences" },
+          { id: "models", title: "Models on this suite" },
+          { id: "comparison", title: "Comparison" },
         ]),
     }),
   );
 
   // renderPage writes the header's icon placeholders; nothing else on the page calls into
-  // lucide, and the router that used to do this for every view isn't in the way any more.
+  // lucide until a table or the widget does its own.
   refreshIcons();
 
   const state = readSelection();
@@ -259,10 +236,12 @@ function renderComparePage({ model, models, fixedId }) {
   // Both change when the reference does, which is why neither is a constant.
   let reference = model ?? null;
   let suites = [];
+  let table = null;
 
   // Seeded with the model already in hand, so a fixed reference is never fetched twice, and
-  // held across renders so unticking a model and ticking it again costs nothing. It doubles
-  // as the reference cache — a reader trying three references pays for each one once.
+  // held across renders so trying three references pays for each one once. The comparison
+  // keeps its own cache of the models it draws — this one is only for the reference, whose
+  // scored suites are what the page is built from.
   const details = new Map(model ? [[model.id, Promise.resolve(model)]] : []);
 
   function detailFor(id) {
@@ -271,48 +250,14 @@ function renderComparePage({ model, models, fixedId }) {
     return details.get(id);
   }
 
-  // Replacing a section's contents detaches a Tabulator's element but doesn't free it — its
-  // own registry keeps the instance and its ResizeObserver alive. The router did this for
-  // views; here the page re-renders these sections itself, so it does it itself.
-  let grids = { breakdown: null, differences: null };
-
-  function releaseGrid(name) {
-    grids[name]?.destroy?.();
-    grids[name] = null;
-  }
-
-  function releaseGrids() {
-    releaseGrid("breakdown");
-    releaseGrid("differences");
-  }
-
-  // How each of the two score sections is being read, and the charts drawn where it is the
-  // plot. The plot leads, as it does in the widget the leaderboard and the models list
-  // mount — the question is which model is ahead and by how much, and a grid of "mean ±
-  // sem" answers that slowly.
-  let views = { breakdown: "plot", differences: "plot" };
-  let charts = { breakdown: [], differences: [] };
-
-  // Chart.js keeps the same kind of registry Tabulator does, so an instance whose container
-  // is about to be rewritten has to be told or it outlives the render.
-  function releaseCharts(name) {
-    charts[name].forEach(chart => chart?.destroy?.());
-    charts[name] = [];
-  }
-
-  function releaseAllCharts() {
-    for (const name of Object.keys(charts)) releaseCharts(name);
-  }
-
-  // What the last fetch produced, so changing the metric or the baseline can redraw without
-  // going back to the API — the scores are already here, only the arithmetic over them
-  // changes.
-  let results = { entries: [], tasks: [] };
-
-  // Every render of the results is a fetch, and a reader working the controls quickly can
-  // have two in flight. Without this the slower one lands last and draws a comparison
-  // nobody asked for.
-  let latestRender = 0;
+  // The whole of what was three sections: the specification grid, the task breakdown and
+  // the differences, in whichever view the reader last chose. A ✕ inside it takes a model
+  // out, and the table above is where that selection lives — so the widget hands the key
+  // back rather than acting on it.
+  const comparison = createModelComparison({
+    container: sectionBody("comparison"),
+    onDrop: key => table?.deselectRow(key),
+  });
 
   function showSections(ids, shown) {
     for (const id of ids) {
@@ -323,13 +268,15 @@ function renderComparePage({ model, models, fixedId }) {
   }
 
   // Narrows a set of chosen ids to the ones that can actually be compared on the current
-  // suite, in the order the reader asked for them, and no more than the picker would allow.
+  // suite, in the order the reader asked for them, and no more than the comparison holds.
   function pruneSelection(withIds) {
     const allowed = new Set(
-      candidatesFor(models, reference?.id, state.suite).map(candidate => candidate.id),
+      modelsOnSuite(models, reference?.id, state.suite)
+        .filter(candidate => candidate.id !== reference?.id)
+        .map(candidate => candidate.id),
     );
 
-    return withIds.filter(id => allowed.has(id)).slice(0, MAX_SELECTED);
+    return withIds.filter(id => allowed.has(id)).slice(0, MAX_COMPARATORS);
   }
 
 
@@ -363,250 +310,79 @@ function renderComparePage({ model, models, fixedId }) {
       state.suite = event.target.value;
 
       // A comparator chosen for the old suite may not have the new one. Pruned here rather
-      // than left to the picker, so the URL stays honest about what is being compared.
+      // than left to the table, so the URL stays honest about what is being compared.
       state.withIds = pruneSelection(state.withIds);
 
       writeSelection(state);
       renderTitle();
-      renderPicker();
-      renderResults();
+      renderModels();
     });
   }
 
-  function renderPicker() {
-    renderModelPicker({
+  // What the reader picks from, and what says what is picked: one row per model scored on
+  // the suite, the chosen ones highlighted. It replaced a checkbox picker, so the rows are
+  // the comparison's own set rather than a list of names beside it.
+  //
+  // Rebuilt whenever the suite changes: which models qualify is the suite's answer, and the
+  // rows are Tabulator's to hold once given.
+  function renderModels() {
+    table?.destroy?.();
+    comparison.clear();
+
+    table = renderModelsTable({
       container: sectionBody("models"),
-      candidates: candidatesFor(models, reference.id, state.suite),
-      selectedIds: state.withIds,
-      onChange: ids => {
-        state.withIds = ids;
-        writeSelection(state);
-        renderResults();
+      models: modelsOnSuite(models, reference.id, state.suite),
+      // The page picks the suite above; a second suite select here could only ever empty
+      // the table.
+      showSuiteFilter: false,
+      selection: {
+        max: MAX_MODELS,
+        onChange: onSelection,
+        // The row is the control while picking, so a click on the model's name picks it
+        // rather than leaving the page and this comparison with it.
+        claimLinks: true,
       },
     });
+
+    // After the build rather than straight away: Tabulator constructs its rows
+    // asynchronously, and a selectRow before that has nothing to select. The reference goes
+    // in first so it leads the comparison — the widget reads the models in the order they
+    // arrive, and this page is about the first of them.
+    table.on("tableBuilt", () => {
+      table.selectRow([reference.id, ...state.withIds]);
+    });
   }
 
-  // Rebuilt whenever the results are, because which metrics exist depends on the tasks the
-  // chosen models were scored on. A metric that has gone with them falls back to "all"
-  // rather than leaving every section filtered to nothing.
-  function renderMetricFilter(metrics) {
-    if (!metrics.some(option => option.value === state.metric)) state.metric = "";
+  // The comparison is the table's selection, less the ordering Tabulator happens to hand
+  // back: the reference first, then everything else. It is only ever a handful of models,
+  // so this is a filter rather than a lookup.
+  function toSeeds(rows) {
+    const ordered = [
+      ...rows.filter(row => row.id === reference.id),
+      ...rows.filter(row => row.id !== reference.id),
+    ];
 
-    // The URL may have named a metric that this set of models doesn't have; the fallback
-    // above has just dropped it, so the address bar has to be told.
+    return ordered.map(row => ({
+      key: row.id,
+      modelId: row.id,
+      name: row.name,
+      teamName: row.team_name,
+    }));
+  }
+
+  // The reference is picked for the reader rather than pinned there: a reader who takes it
+  // out is asking to read two other models against each other on the page they arrived at,
+  // which is a fair thing to want. It comes back on the next load, since the URL carries it
+  // as the page's own id rather than as one of the comparators.
+  async function onSelection(rows) {
+    state.withIds = rows.filter(row => row.id !== reference.id).map(row => row.id);
     writeSelection(state);
 
-    const container = sectionBody("metric");
+    const overflow = await comparison.show(toSeeds(rows), state.suite);
 
-    container.innerHTML = buildSelect("metric", metrics, state.metric, "All metrics");
-
-    container.querySelector("[data-role='metric']").addEventListener("change", event => {
-      state.metric = event.target.value;
-      writeSelection(state);
-
-      // Filtered in place, not rebuilt: the grids are already mounted with these rows, and
-      // rebuilding them would throw away whatever column the reader had sorted by. A plot
-      // has no rows to filter — its panels *are* the metrics — so it is drawn again.
-      if (views.breakdown === "plot") renderBreakdown();
-      else applyMetricFilter(grids.breakdown, state.metric);
-
-      if (views.differences === "plot") renderDifferences();
-      else applyMetricFilter(grids.differences, state.metric);
-
-      renderOverview();
-    });
-  }
-
-  // The bars are means, so narrowing to a metric is not a filter on them — the mean has to
-  // be taken again over the tasks that survive. Which also reorders the section: "best
-  // first" on bacc alone is a different order from "best first" overall, and that is the
-  // point of asking.
-  function renderOverview() {
-    const entries = entriesForMetric(results.entries, state.metric);
-    const tasks = tasksForMetric(results.tasks, state.metric);
-
-    sectionBody("overview").innerHTML = buildModelScoreBars(entries, {
-      suite: state.suite,
-      totalTasks: tasks.length,
-    });
-  }
-
-  // Listeners go on the buttons rather than on the section, which survives the render that
-  // replaced them and would collect one listener per pass.
-  function attachViewToggle(container, section, redraw) {
-    for (const button of container.querySelectorAll(`[data-role='${section}-view']`)) {
-      button.addEventListener("click", () => {
-        if (button.dataset.view === views[section]) return;
-
-        views[section] = button.dataset.view;
-        redraw();
-      });
-    }
-  }
-
-  function renderBreakdown() {
-    const { entries, tasks } = results;
-    const container = sectionBody("breakdown");
-
-    releaseGrid("breakdown");
-    releaseCharts("breakdown");
-
-    if (!tasks.length) {
-      grids.breakdown = showNoComparison(container, "No scored tasks on this suite.");
-
-      return;
-    }
-
-    // The toggle above whichever view is open, and both rebuilt together: the buttons carry
-    // which one that is.
-    container.innerHTML =
-      buildViewToggle({ active: views.breakdown, role: "breakdown-view" }) +
-      `<div data-role="breakdown-body"></div>`;
-
-    refreshIcons();
-    attachViewToggle(container, "breakdown", renderBreakdown);
-
-    const body = container.querySelector("[data-role='breakdown-body']");
-
-    if (views.breakdown === "plot") {
-      // Faceted by metric rather than filtered to one, so the metric select narrows the
-      // plot by narrowing what it is drawn over. The grid does the same thing as a row
-      // filter, which is why only this path has to be told about it.
-      charts.breakdown = renderCompareCharts({
-        container: body,
-        entries,
-        tasks: tasksForMetric(tasks, state.metric),
-        charts: charts.breakdown,
-      });
-
-      return;
-    }
-
-    grids.breakdown = renderCompareTable({
-      container: body,
-      rows: toScoreRows(entries, tasks),
-      models: compareModels(entries),
-      metric: state.metric,
-      mode: "score",
-    });
-  }
-
-  // The one section with a control of its own. The reference, the suite, the models and the
-  // metric all shape every section, so they live in the row at the top; the baseline shapes
-  // only this grid, and putting it anywhere else would claim otherwise.
-  function buildBaselineBar(entries) {
-    const options = entries.map(entry => ({ value: entry.modelId, label: entry.modelName }));
-
-    // Wrapped, because .section-body has no layout of its own — without this the control
-    // and the grid sit flush against each other.
-    return `
-      <div class="column gap-md">
-        <div class="row">
-          <div class="row left gap-md">
-            <span class="metadata">Difference from</span>
-            <span class="inline-select">${buildSelect("baseline", options, state.baseline)}</span>
-          </div>
-          ${buildViewToggle({ active: views.differences, role: "differences-view" })}
-        </div>
-        <div data-role="diff-body"></div>
-      </div>
-    `;
-  }
-
-  function renderDifferences() {
-    const { entries, tasks } = results;
-    const container = sectionBody("differences");
-
-    releaseGrid("differences");
-    releaseCharts("differences");
-
-    // A baseline named in the URL, or left over from a model that has since been unticked,
-    // falls back to the reference — the only model guaranteed to be in every comparison.
-    if (!entries.some(entry => entry.modelId === state.baseline)) {
-      state.baseline = reference.id;
-      writeSelection(state);
-    }
-
-    // Fewer than two models is nothing to subtract, and no tasks is nothing to subtract it
-    // over — either way there is no grid and so no baseline to choose.
-    if (!tasks.length || entries.length < 2) {
-      showNoComparison(container, "Choose a model above to see the difference.");
-      return;
-    }
-
-    container.innerHTML = buildBaselineBar(entries);
-
-    refreshIcons();
-    attachViewToggle(container, "differences", renderDifferences);
-
-    container.querySelector("[data-role='baseline']").addEventListener("change", event => {
-      state.baseline = event.target.value;
-      writeSelection(state);
-
-      // Rebuilt rather than refiltered: both the rows and the columns change, since the
-      // baseline is the one model the grid doesn't show.
-      renderDifferences();
-    });
-
-    const body = container.querySelector("[data-role='diff-body']");
-
-    if (views.differences === "plot") {
-      charts.differences = renderDiffCharts({
-        container: body,
-        entries,
-        tasks: tasksForMetric(tasks, state.metric),
-        baselineId: state.baseline,
-        charts: charts.differences,
-      });
-
-      return;
-    }
-
-    grids.differences = renderCompareTable({
-      container: body,
-      rows: toDiffRows(entries, tasks, state.baseline),
-      models: compareModels(entries, { exclude: state.baseline }),
-      metric: state.metric,
-      mode: "diff",
-    });
-  }
-
-  async function renderResults() {
-    const token = ++latestRender;
-
-    releaseGrids();
-    releaseAllCharts();
-
-    for (const id of RESULT_SECTIONS) {
-      showMessage(sectionBody(id), "Loading scores…");
-    }
-
-    // A catch per model rather than one around the lot: a comparator that has become
-    // unreadable — unshared while the page was open — shouldn't take the other four down
-    // with it. It drops out of the comparison and the count below the grid says so.
-    const loaded = await Promise.all(
-      [reference.id, ...state.withIds].map(id =>
-        detailFor(id).catch(error => {
-          console.error(`Could not load model ${id} for comparison:`, error);
-          details.delete(id);
-          return null;
-        }),
-      ),
-    );
-
-    if (token !== latestRender) return;
-
-    const entries = toCompareEntries(loaded.filter(Boolean), state.suite, reference.id);
-    const tasks = compareTasks(entries);
-
-    results = { entries, tasks };
-
-    // Before the rest, so the metric they are drawn for is one that exists.
-    renderMetricFilter(compareMetrics(tasks));
-
-    renderOverview();
-    renderBreakdown();
-    renderDifferences();
+    // Tabulator caps selection by click but refuses the extra one silently; putting it back
+    // is what keeps the highlighted rows and the comparison saying the same thing.
+    for (const key of overflow) table?.deselectRow(key);
   }
 
 
@@ -631,8 +407,9 @@ function renderComparePage({ model, models, fixedId }) {
   // Nothing chosen, or nothing to show for what was: the controls and the results have
   // nothing to say, so they are hidden rather than left standing empty under their titles.
   function renderIntro(message) {
-    releaseGrids();
-    releaseAllCharts();
+    table?.destroy?.();
+    table = null;
+    comparison.clear();
 
     showSections([...CONTROL_SECTIONS, ...RESULT_SECTIONS], false);
     showSections(["intro"], true);
@@ -642,7 +419,7 @@ function renderComparePage({ model, models, fixedId }) {
 
   /**
    * Point the page at a model. Everything below the reference depends on it — which suites
-   * can be chosen, which models are candidates, every score on the page — so this is the
+   * can be chosen, which models the table holds, every score on the page — so this is the
    * one path that rebuilds all of it, and the only place `reference` is assigned.
    */
   async function useReference(id) {
@@ -658,7 +435,7 @@ function renderComparePage({ model, models, fixedId }) {
     }
 
     // Between the click and the scores there is a fetch, and on a cold cache it is the
-    // whole page. Said once here rather than in each of the six sections behind it.
+    // whole page. Said once here rather than in each of the sections behind it.
     renderIntro("Loading model…");
 
     const next = await detailFor(id).catch(error => {
@@ -692,9 +469,7 @@ function renderComparePage({ model, models, fixedId }) {
     showSections([...CONTROL_SECTIONS, ...RESULT_SECTIONS], true);
 
     renderSuite();
-    renderPicker();
-
-    return renderResults();
+    renderModels();
   }
 
 

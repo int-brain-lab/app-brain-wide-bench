@@ -7,7 +7,7 @@
 // says: the cards, the table and the create link are the same list either way.
 
 import { getModels, getMyModels } from "../api/modelApi.js";
-import { renderModelsTable } from "../tables/modelTable.js";
+import { getModelControls, renderModelsTable, toModelRows } from "../tables/modelTable.js";
 import { buildModelCards } from "../cards/modelCards.js";
 import { MAX_MODELS, createModelComparison } from "../widgets/modelComparison.js";
 import { loadListPage } from "../templates/list-page.js";
@@ -23,19 +23,23 @@ loadListPage({
   requiresAuth: MINE,
   // Only the public scope marks which rows are the viewer's: on "My models" every one of
   // them is, so a badge on each would carry no information.
-  cards: models => buildModelCards(models, { showMine: !MINE }),
+  toRows: toModelRows,
+  // The table's own controls, hoisted to the page: one bar over both views, and the cards
+  // render from the rows it matches against.
+  filters: getModelControls,
+  cards: rows => buildModelCards(rows, { showMine: !MINE }),
 
   // Picked out of the table rather than chosen from a dropdown on a page of its own: the
   // list is already the set to pick from, and the comparison builds underneath it.
   //
-  // The suite is the comparison's own here — this page has no control that names one, where
-  // the leaderboard's metric select already does.
+  // No suite is passed, so the comparison offers its own select — this page has no control
+  // that names one, where the compare page's suite select and the leaderboard's metric
+  // select (on a suite rather than Overall) do.
   compare: {
     label: "Compare models",
     title: "Compare models",
     max: MAX_MODELS,
-    create: ({ container, onDrop }) =>
-      createModelComparison({ container, onDrop, chooseSuite: true }),
+    create: ({ container, onDrop }) => createModelComparison({ container, onDrop }),
     toSeed: row => ({
       key: row.id,
       modelId: row.id,
@@ -45,7 +49,7 @@ loadListPage({
   },
 
   table: ({ container, rows, selection }) =>
-    renderModelsTable({ container, models: rows, showMine: !MINE, selection }),
+    renderModelsTable({ container, rows, showMine: !MINE, showFilters: false, selection }),
   create: {
     href: "/html/models/model_create.html",
     label: "New model",

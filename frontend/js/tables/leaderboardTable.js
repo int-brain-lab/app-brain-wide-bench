@@ -262,8 +262,7 @@ function getLeaderboardColumns(suites, getMetric) {
       title: "Model",
       field: "title",
       formatter: modelFormatter,
-      widthGrow: 2,
-      minWidth: 180,
+      widthGrow: 1.5,
     },
 
     // ── task mode ──
@@ -277,7 +276,6 @@ function getLeaderboardColumns(suites, getMetric) {
       formatter: cell => score(cell.getData()[getMetric()]),
       sorter: (a, b, aRow, bRow) =>
         numericSorter(aRow.getData()[getMetric()], bRow.getData()[getMetric()]),
-      width: 110,
       hozAlign: "right",
       headerHozAlign: "right",
       cssClass: "overall-cell",
@@ -288,7 +286,6 @@ function getLeaderboardColumns(suites, getMetric) {
       formatter: cell => rankValue(cell.getData().taskRanks?.[getMetric()]),
       sorter: (a, b, aRow, bRow) =>
         rankOrder(aRow.getData().taskRanks?.[getMetric()], bRow.getData().taskRanks?.[getMetric()]),
-      width: 100,
       hozAlign: "right",
       headerHozAlign: "right",
     },
@@ -301,7 +298,6 @@ function getLeaderboardColumns(suites, getMetric) {
       field: suite.key,
       formatter: cell => rankValue(cell.getValue()),
       sorter: rankSorter,
-      width: 100,
       hozAlign: "right",
       headerHozAlign: "right",
       cssClass: "rank-cell",

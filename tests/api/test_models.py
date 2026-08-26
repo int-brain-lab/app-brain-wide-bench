@@ -8,7 +8,7 @@ than on the model itself. The caller is a member of nothing until a test says ot
 import uuid
 
 from app.models import Model, UserTeam
-from tests.conftest import MODEL_ROWS, MODELS, TEAMS
+from tests.conftest import MODEL_ROWS, MODELS, SUBMISSIONS, TEAMS
 
 BASELINE = MODELS["mlp-baseline"]
 PRETRAINED = MODELS["ssl-transformer"]
@@ -439,11 +439,25 @@ async def test_update_moves_model_to_member_team(
     add,
     me,
 ):
-    """A member of two teams can move a model to the other team."""
+    """A member of two teams can move a model to the other team.
+
+    And its submissions go with it: a submission has no team of its own, so the four on
+    mlp-baseline are the destination team's the moment the model is. Leaving them behind
+    would keep them readable by the old team and hide them from the new one.
+    """
     await add(
         UserTeam(user_id=me, team_id=MY_TEAM),
         UserTeam(user_id=me, team_id=OTHER_TEAM),
     )
+
+    def counts(response):
+        return {team["name"]: team["n_submissions"] for team in response.json()}
+
+    assert counts(await seeded_client.get("/api/teams")) == {
+        "Brain Wide Bench": 5,
+        "Int Brain Lab": 0,
+        "Cortex Lab": 0,
+    }
 
     response = await seeded_client.patch(
         models_url(BASELINE),
@@ -456,6 +470,19 @@ async def test_update_moves_model_to_member_team(
 
     assert body["team_id"] == str(OTHER_TEAM)
     assert body["team_name"] == "Int Brain Lab"
+
+    # Four of the five moved with it; ssl-transformer's is the one left behind.
+    assert counts(await seeded_client.get("/api/teams")) == {
+        "Brain Wide Bench": 1,
+        "Int Brain Lab": 4,
+        "Cortex Lab": 0,
+    }
+
+    # And each submission says so itself, without anything having written to its row.
+    moved = await seeded_client.get(f"/api/submissions/{SUBMISSIONS['mlp-ts1-baseline']}")
+
+    assert moved.json()["team_id"] == str(OTHER_TEAM)
+    assert moved.json()["team_name"] == "Int Brain Lab"
 
 
 async def test_update_refuses_non_member_target_team(

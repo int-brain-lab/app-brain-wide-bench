@@ -1,8 +1,11 @@
 // One card per submission, for the submission list and the model dashboard.
+//
+// Built from a submission *row* — tables/submissionTable.js's toSubmissionRows — not from
+// the API record, so that the cards, the filters above them and the table beside them all
+// read one shape. The suites are already worked out there.
 
 import { escapeHtml, formatDate } from "../core/utils.js";
 import {buildStatusBadge, buildSuiteBadgeList } from "../components/badges.js";
-import { suitesFromSubmission } from "../core/suites.js";
 
 
 function buildSubmissionCards(submissions) {
@@ -22,7 +25,7 @@ function buildSubmissionCards(submissions) {
           </div>
 
           <div class="row left gap-md">
-            ${buildSuiteBadgeList(suitesFromSubmission(submission), "sm")}
+            ${buildSuiteBadgeList(submission.suites ?? [], "sm")}
             ${buildStatusBadge(submission.status, "sm")}
           </div>
 

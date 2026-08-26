@@ -10,6 +10,8 @@ import { getMyModels } from "../api/modelApi.js";
 import { getMyTaskSubmissions} from "../api/taskSubmissionApi.js";
 import { showEmpty } from "../core/utils.js";
 import { renderStaticSubmissionsTable } from "../tables/submissionTable.js";
+import { toModelRows } from "../tables/modelTable.js";
+import { toTeamRows } from "../tables/teamTable.js";
 import { renderStaticTaskScoresTable, toScoreResultRows } from "../tables/scoreTable.js";
 import { renderTaskScoreExplorer } from "../widgets/taskScoreExplorer.js";
 import { buildCount } from "../components/count.js";
@@ -151,7 +153,7 @@ function renderTeamsSection(teams) {
   }
 
   container.className = "column gap-md";
-  container.innerHTML = buildTeamCards(teams.slice(0, MAX_TEAM_CARDS));
+  container.innerHTML = buildTeamCards(toTeamRows(teams.slice(0, MAX_TEAM_CARDS)));
 }
 
 function renderModelsSection(models) {
@@ -166,7 +168,7 @@ function renderModelsSection(models) {
     return;
   }
 
-  container.innerHTML = buildModelCards(models.slice(0, MAX_MODEL_CARDS));
+  container.innerHTML = buildModelCards(toModelRows(models.slice(0, MAX_MODEL_CARDS)));
 }
 
 function renderSubmissionsSection(submissions) {

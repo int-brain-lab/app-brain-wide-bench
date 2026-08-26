@@ -135,15 +135,25 @@ function getSubmissionControls() {
 /**
  * @param container   element, or the id of one. Its contents are replaced.
  * @param submissions list of submissions with taskSubmissions attached, mapped to rows by toSubmissionRows().
+ * @param rows        already-mapped rows, for a caller that mapped them itself — see
+ *                    renderModelsTable. Pass one or the other, not both.
  * @param showModel   add Model and Team columns. For a list spanning models.
+ * @param showFilters keep the filter bar above the grid. False for a caller with a bar of
+ *                    its own over both its views — see templates/list-page.js.
  * @returns the Tabulator instance.
  */
-function renderSubmissionsTable({ container, submissions, showModel = false }) {
+function renderSubmissionsTable({
+  container,
+  submissions,
+  rows = toSubmissionRows(submissions),
+  showModel = false,
+  showFilters = true,
+}) {
   return createFilterableTable({
     container,
-    rows: toSubmissionRows(submissions),
+    rows,
     columns: getSubmissionColumns({ showModel }),
-    controls: getSubmissionControls(),
+    controls: showFilters ? getSubmissionControls() : [],
     noun: "submission",
     initialSort: [{ column: "updated_at", dir: "desc" }],
     caller: "renderSubmissionsTable",
@@ -183,7 +193,9 @@ function renderStaticSubmissionsTable({ container, submissions, showModel = fals
 
 
 export {
+  getSubmissionControls,
   renderSubmissionsTable,
   renderStaticSubmissionsTable,
+  toSubmissionRows,
   STATUSES,
 };

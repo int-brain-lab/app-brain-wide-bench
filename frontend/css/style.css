@@ -625,6 +625,15 @@ CREATE CARD
 }
 
 
+/* The filter bar over a list page's two views — templates/list-page.js. It has a container
+   of its own above the list, rather than the one inside the table root that used to hold it
+   and space it, so the gap under it comes from here. Empty on a list with nothing to narrow,
+   where it should take no room at all. */
+#filters:not(:empty) {
+  margin-bottom: var(--gap-md);
+}
+
+
 /*----------------------------------------------------------------------------------------
 CARDS
 --------------------------------------------------------------------------------------*/
@@ -634,6 +643,27 @@ CARDS
   border-radius: var(--radius-lg);
   background: transparent;
   overflow: hidden;
+}
+
+/* A card picked for a comparison, and the cards' answer to `.tabulator-selected` — the same
+   wash and the same edge, since the two views are one list. Simpler than the table's version
+   only because a card paints its own background, where a Tabulator row is painted by the
+   cells on top of it. */
+.card.selected {
+  background: var(--primary-light);
+  border-color: var(--primary-dark);
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+/* While comparing, a card is a control rather than a link — see the click handler in
+   cards/cardGrid.js, which is what stops it navigating. Scoped to that mode: elsewhere a
+   card *is* a link, and the two shouldn't feel alike. */
+[data-cards-selectable="true"] .card {
+  cursor: pointer;
+}
+
+[data-cards-selectable="true"] .card:not(.selected):hover {
+  background: var(--surface-secondary);
 }
 
 .card.primary {
@@ -1657,7 +1687,11 @@ table {
   border-top: 1px solid var(--border-color);
 }
 
-.tabulator .tabulator-footer .tabulator-page {
+/* The card grid's pager, sharing the table paginator's rules below: the two footers say the
+   same thing in the same place, so their buttons are one definition rather than two that
+   drift the first time either is restyled. */
+.tabulator .tabulator-footer .tabulator-page,
+.pager-page {
   border: 1px solid var(--border-color);
   border-radius: 4px;
   background: var(--surface);
@@ -1666,11 +1700,31 @@ table {
   margin: 0 2px;
 }
 
-.tabulator .tabulator-footer .tabulator-page.active {
+.tabulator .tabulator-footer .tabulator-page.active,
+.pager-page.active {
   background: var(--primary-light);
   border-color: var(--primary-dark);
   color: var(--primary);
   font-weight: var(--bold);
+}
+
+
+/* A <button> doesn't inherit the footer's font — Tabulator sets one on its own paginator
+   buttons, and ours takes the footer's instead. */
+.pager-page {
+  font: inherit;
+}
+
+
+/* Tabulator's own arrows go grey and unclickable at either end of the range; ours are
+   <button disabled>, which browsers only dim on some platforms. */
+.pager-page:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pager-page:not(:disabled) {
+  cursor: pointer;
 }
 
 
