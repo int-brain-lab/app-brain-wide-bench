@@ -5,7 +5,7 @@
 // Nothing here knows what a recording or a task is, and nothing here picks a colour: a
 // caller passes colours in, so the series and the card that named it can't drift apart.
 
-import { resolveContainer } from "../tables/table.js";
+import { resolveContainer } from "../core/dom.js";
 
 // The ink the chart is drawn in. Text wears text colours and never a series colour — a
 // value in the series' own hue reads as another mark rather than as a label.

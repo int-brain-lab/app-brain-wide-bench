@@ -1,4 +1,4 @@
-import { apiFetch } from "./client.js";
+import { apiFetchOptional } from "./client.js";
 
 // ─── API ────────────────────────────────────────────────────────────────────
 
@@ -11,11 +11,7 @@ import { apiFetch } from "./client.js";
 // Returns undefined on failure rather than throwing, matching the other read helpers; the
 // callers already treat a falsy result as "show the error state".
 async function getTasks() {
-  try {
-    return await apiFetch("/api/tasks");
-  } catch (err) {
-    console.error(err);
-  }
+  return await apiFetchOptional("/api/tasks");
 }
 
 export { getTasks };

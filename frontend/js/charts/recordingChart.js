@@ -10,7 +10,7 @@
 // holding both would be one axis pretending to be two. So the dimension is the group the
 // engine keys its axes on.
 
-import { resolveContainer } from "../tables/table.js";
+import { resolveContainer } from "../core/dom.js";
 import {
   describeRecordingScores,
   toRecordingPoints,

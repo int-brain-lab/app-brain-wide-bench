@@ -23,7 +23,7 @@ import {
 } from "../core/utils.js";
 import { getIcon } from "../components/icons.js";
 import { buildViewToggle, viewFromClick } from "../components/viewToggle.js";
-import { resolveContainer } from "../tables/table.js";
+import { resolveContainer } from "../core/dom.js";
 import { buildComparisonGrid } from "../tables/comparisonGrid.js";
 import {
   renderCompareTable,

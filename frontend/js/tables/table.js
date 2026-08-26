@@ -11,6 +11,7 @@
 // dashboard.html.
 
 import { buildTableCount } from "../components/count.js";
+import { resolveContainer } from "../core/dom.js";
 import { escapeHtml } from "../core/utils.js";
 import {
   SUITE_OPTIONS,
@@ -21,23 +22,6 @@ import {
   matchIncludes,
   optionsFromRows,
 } from "../components/filters.js";
-
-// ─── CONTAINER ──────────────────────────────────────────────────────────────
-
-// `caller` only shapes the error message: a bad id is the likeliest mistake at a mount
-// site, and "no such container" beats the TypeError that writing to null would give.
-function resolveContainer(container, caller) {
-  const element =
-    typeof container === "string"
-      ? document.getElementById(container)
-      : container;
-
-  if (!element) {
-    throw new Error(`${caller}: no such container "${container}"`);
-  }
-
-  return element;
-}
 
 // ─── STATIC TABLE ───────────────────────────────────────────────────────────
 
@@ -348,9 +332,4 @@ export {
   optionsFromRows,
 };
 
-export {
-  resolveContainer,
-  previewRows,
-  renderStaticTable,
-  createFilterableTable,
-};
+export { previewRows, renderStaticTable, createFilterableTable };

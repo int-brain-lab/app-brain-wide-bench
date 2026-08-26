@@ -14,7 +14,7 @@ import {
   buildViewToggle,
   viewFromClick,
 } from "../components/viewToggle.js";
-import { resolveContainer } from "../tables/table.js";
+import { resolveContainer } from "../core/dom.js";
 import {
   recordingMetricNames,
   renderRecordingScoresTable,

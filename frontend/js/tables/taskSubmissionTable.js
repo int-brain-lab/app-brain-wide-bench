@@ -3,6 +3,7 @@
 // the rows, the columns and the two controls.
 
 import { suiteFromTask } from "../core/suites.js";
+import { resolveContainer } from "../core/dom.js";
 import {
   TASK_FIELDS,
   trainingFieldKeys,
@@ -12,7 +13,6 @@ import {
   createFilterableTable,
   previewRows,
   renderStaticTable,
-  resolveContainer,
   matchEquals,
   matchIncludes,
 } from "./table.js";

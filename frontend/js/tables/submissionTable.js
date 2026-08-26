@@ -5,12 +5,12 @@
 // This code just defines the columns, rows and controls. Table infrastructure lives in utils/tables.js
 
 import { suitesFromSubmission } from "../core/suites.js";
+import { resolveContainer } from "../core/dom.js";
 import {
   SUITE_OPTIONS,
   createFilterableTable,
   previewRows,
   renderStaticTable,
-  resolveContainer,
   matchEquals,
   matchInArray,
   matchIncludes,

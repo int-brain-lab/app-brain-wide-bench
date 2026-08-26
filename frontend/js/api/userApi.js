@@ -1,4 +1,4 @@
-import { apiFetch } from "./client.js";
+import { apiFetch, apiFetchOptional } from "./client.js";
 
 // ─── PAYLOADS ────────────────────────────────────────────────────────────────
 function buildUserPayload(state) {
@@ -30,14 +30,9 @@ async function updateMe(patch) {
 // transient error shouldn't put an error banner under a field the user is still typing
 // in. An empty result reads the same as "no matches", which is the honest fallback.
 async function searchUsers(query, limit = 10) {
-  try {
-    const params = new URLSearchParams({ q: query, limit: String(limit) });
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
 
-    return await apiFetch(`/api/users?${params}`);
-  } catch (err) {
-    console.error(err);
-    return [];
-  }
+  return await apiFetchOptional(`/api/users?${params}`, { fallback: [] });
 }
 
 export { loadMe, updateMe, searchUsers };

@@ -6,7 +6,7 @@
 
 import { refreshIcons, showEmpty } from "../core/utils.js";
 import { buildViewToggle, viewFromClick } from "../components/viewToggle.js";
-import { resolveContainer } from "../tables/table.js";
+import { resolveContainer } from "../core/dom.js";
 import {
   renderRecordingCharts,
   renderRecordingHeatmaps,

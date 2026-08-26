@@ -1,4 +1,4 @@
-import { apiFetch } from "./client.js";
+import { apiFetch, apiFetchOptional } from "./client.js";
 
 // ─── PAYLOADS ────────────────────────────────────────────────────────────────────
 
@@ -34,11 +34,7 @@ async function loadModel(modelId) {
 // beside a record the page has already loaded, and losing the ranking shouldn't take the
 // record down with it.
 async function getModelRanking(modelId) {
-  try {
-    return await apiFetch(`/api/models/${modelId}/ranking`);
-  } catch (err) {
-    console.error(err);
-  }
+  return await apiFetchOptional(`/api/models/${modelId}/ranking`);
 }
 
 async function updateModel(modelId, patch) {

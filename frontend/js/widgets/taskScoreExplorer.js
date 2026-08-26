@@ -16,7 +16,7 @@
 
 import { escapeHtml, refreshIcons } from "../core/utils.js";
 import { getIcon } from "../components/icons.js";
-import { resolveContainer } from "../tables/table.js";
+import { resolveContainer } from "../core/dom.js";
 import { renderTaskScoresTable } from "../tables/scoreTable.js";
 import { MAX_COMPARED, createTaskComparison } from "./taskComparison.js";
 import { createTaskBreakdown } from "./taskBreakdown.js";

@@ -32,7 +32,7 @@ import {
   SEM_INK,
   SURFACE,
 } from "./chart.js";
-import { resolveContainer } from "../tables/table.js";
+import { resolveContainer } from "../core/dom.js";
 import { score } from "../core/utils.js";
 
 // A panel holds the series that share both a metric and an axis — see rule 2 above. A TS3

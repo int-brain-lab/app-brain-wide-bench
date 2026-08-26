@@ -1,4 +1,4 @@
-import { apiFetch } from "./client.js";
+import { apiFetchOptional } from "./client.js";
 
 // ─── API ────────────────────────────────────────────────────────────────────
 
@@ -28,11 +28,7 @@ async function getLeaderboard({ isPretrained } = {}) {
 
   const query = params.size ? `?${params}` : "";
 
-  try {
-    return await apiFetch(`/api/leaderboard${query}`);
-  } catch (err) {
-    console.error(err);
-  }
+  return await apiFetchOptional(`/api/leaderboard${query}`);
 }
 
 export { getLeaderboard };
