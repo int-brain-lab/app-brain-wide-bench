@@ -13,10 +13,7 @@ import {
   toModelRows,
 } from "../tables/modelTable.js";
 import { buildModelCards } from "../cards/modelCards.js";
-import {
-  MAX_MODELS,
-  createModelComparison,
-} from "../widgets/modelComparison.js";
+import { createModelComparison } from "../comparisons/models.js";
 import { loadListPage } from "../templates/list-page.js";
 
 const MINE = document.body.dataset.scope === "mine";
@@ -45,10 +42,8 @@ loadListPage({
   compare: {
     label: "Compare models",
     title: "Compare models",
-    max: MAX_MODELS,
-    create: ({ container, onDrop }) =>
-      createModelComparison({ container, onDrop }),
-    toSeed: (row) => ({
+    create: createModelComparison,
+    toEntry: (row) => ({
       key: row.id,
       modelId: row.id,
       name: row.name,

@@ -25,9 +25,10 @@ import { renderLeaderboardTable } from "../tables/leaderboardTable.js";
 import {
   MAX_COMPARED,
   createTaskComparison,
-} from "../widgets/taskComparison.js";
+} from "../comparisons/taskScores.js";
 import { createTaskBreakdown } from "../widgets/taskBreakdown.js";
-import { createModelComparison } from "../widgets/modelComparison.js";
+import { createModelComparison } from "../comparisons/models.js";
+import { bindTable } from "../widgets/comparison.js";
 import { loadPage } from "../templates/page-loader.js";
 import {
   escapeHtml,
@@ -205,19 +206,12 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     comparison.clear();
   }
 
-  // A comparison knows a score by the entry that produced it; the board knows a row by
-  // the standing it belongs to. This is the map between them, so a ✕ in the comparison
-  // can untick the right row.
-  const rowOf = new Map();
-
   const comparison = createTaskComparison({
     container: paneBody("tasks"),
+    toEntry: toTaskEntry,
     // A board row is a model's standing on the chosen task, so "rows" rather than the
     // "task scores" the scores page calls the same things.
     prompt: `Select up to ${MAX_COMPARED} rows to compare their scores on this task.`,
-    // Guarded: Tabulator reads a missing index as "no argument" and deselects every row, so
-    // a key this map has not seen would untick the board rather than one row.
-    onDrop: (key) => rowOf.has(key) && table?.deselectRow(rowOf.get(key)),
   });
 
   // One per pane: comparing is a mode, the two comparisons are what the metric select
@@ -226,8 +220,27 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
 
   const models = createModelComparison({
     container: paneBody("models"),
-    onDrop: (key) => table?.deselectRow(key),
+    toEntry: toModelEntry,
   });
+
+  // A binding each, and only the one the metric calls for is attached: the same tick means a
+  // score on a task and a whole model on anything coarser, so the two must never both be
+  // reconciling the board.
+  const picking = {
+    // A comparison knows a score by the task submission that produced it; the board knows a
+    // row by the standing it belongs to. This is all that the map between them ever was.
+    tasks: bindTable(comparison, { rowIndex: (entry) => entry.rowId }),
+    models: bindTable(models),
+  };
+
+  function usePicking(metric) {
+    const active = taskFor(metric) ? "tasks" : "models";
+
+    picking[active].attach(table);
+    picking[active === "tasks" ? "models" : "tasks"].attach(null);
+
+    return picking[active];
+  }
 
   // Which row is open, marked on the row itself: outside compare mode nothing is selected,
   // so there is no highlight of Tabulator's to borrow.
@@ -244,12 +257,20 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   // A leaderboard row is a model's standing, so its score on the chosen task names the
   // entry that produced it — see LeaderboardScore. That is all a comparison needs to
   // start; it fetches the breakdown and the methodology itself.
-  function toSeed(row, taskId) {
-    const score = row.scores?.[taskId];
+  //
+  // Nothing for a row with no score on that task, and nothing at all where the board isn't
+  // showing one: the comparison drops what it can't take rather than comparing nothing.
+  function toTaskEntry(row, metric = currentMetric()) {
+    const taskId = taskFor(metric);
+    const score = taskId && row.scores?.[taskId];
 
     return (
       score && {
         key: score.task_submission_id,
+        // The board knows a row by its standing's newest submission, which is the only
+        // handle the table has; the comparison knows it by the score inside. Carried so a ✕
+        // can untick the right row — all the map between them ever was.
+        rowId: row.submissionId,
         taskId,
         submissionId: score.submission_id,
         modelName: row.title,
@@ -266,8 +287,8 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
 
   // A board row names a model and carries none of its specification, which is what the
   // comparison fetches for itself. The row's own id is its standing's newest submission —
-  // the only handle the table has — so that is the key a ✕ hands back.
-  function toModelSeed(row) {
+  // the only handle the table has — so that is the key, and the row index with it.
+  function toModelEntry(row) {
     return {
       key: row.submissionId,
       modelId: row.modelId,
@@ -281,68 +302,43 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   function onRowClick(row, metric, { event, element }) {
     if (event.target.closest("a")) return;
 
-    const seed = toSeed(row, metric);
+    const entry = toTaskEntry(row, metric);
 
     // Nothing to open: the board is showing a suite or the overall figure, where a row is
     // several scores rather than one.
-    if (!seed) return;
+    if (!entry) return;
 
     markOpen(element);
     showCompareSection(true, "Task detail");
     showPane("browse");
-    breakdown.show(seed);
+    breakdown.show(entry);
   }
 
-  async function onSelection(rows, metric) {
-    const taskId = taskFor(metric);
+  function onSelection(rows, { metric }) {
+    const active = usePicking(metric);
 
     // No task means the rows are models rather than scores, and the comparison for that is
     // a different one — the specification of each, and how they scored across the suite.
-    if (!taskId) {
+    if (!taskFor(metric)) {
       comparison.clear();
       showCompareSection(true, "Compare models");
       showPane("models");
+      models.set(rows, metric);
+    } else {
+      models.clear();
 
-      const overflow = await models.show(rows.map(toModelSeed), metric);
-
-      for (const key of overflow) table?.deselectRow(key);
-
-      return;
+      // Re-stated rather than assumed: the heading may still be the model comparison's, from
+      // a compare mode that opened on a suite before the reader picked a task. With nothing
+      // ticked the comparison puts its own invitation there, which is why this doesn't have
+      // to say anything about an empty selection.
+      showCompareSection(true);
+      showPane("tasks");
+      comparison.set(rows);
     }
 
-    models.clear();
-
-    rowOf.clear();
-
-    const seeds = [];
-
-    for (const row of rows) {
-      const seed = toSeed(row, taskId);
-
-      if (!seed) continue;
-
-      rowOf.set(seed.key, row.submissionId);
-      seeds.push(seed);
-    }
-
-    // Nothing ticked yet: the section stays and says what to do, since the reader asked
-    // for it by pressing the button.
-    if (!seeds.length) {
-      promptToCompare(metric);
-
-      return;
-    }
-
-    // Re-stated rather than assumed: the heading may still be the model comparison's, from
-    // a compare mode that opened on a suite before the reader picked a task.
-    showCompareSection(true);
-    showPane("tasks");
-
-    const overflow = await comparison.show(seeds);
-
-    // Tabulator caps selection by click but refuses the extra one silently; putting it
-    // back is what keeps the ticks and the comparison saying the same thing.
-    for (const key of overflow) table?.deselectRow(rowOf.get(key));
+    // The comparison refuses a pick past its cap and drops a row it has no entry for, so the
+    // board may be showing ticks it doesn't hold. This is what takes those back.
+    active.reconcile();
   }
 
   // Whether rows are pickable, and the payload they are picked from. The mode is a
@@ -389,6 +385,11 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
           }
         : { onRowClick }),
     });
+
+    // After the board exists, and after the metric has been read back off its own filter
+    // bar: which comparison a tick belongs to is what decides which binding follows it.
+    if (comparing) usePicking(currentMetric());
+    else for (const binding of Object.values(picking)) binding.attach(null);
   }
 
   function setMode(next) {

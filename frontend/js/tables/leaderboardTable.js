@@ -372,8 +372,8 @@ function getLeaderboardControls(suites) {
  * @param tasks        the GET /api/tasks payload — the columns come from it.
  * @param myTeamIds    Set of the viewer's own team ids, as strings, for the "Yours" pill.
  *                     Omit for no pill — see toLeaderboardRows.
- * @param selection    optional {max, onChange}. `onChange(rows, metric)` fires with the
- *                     selected rows and whatever the metric select is on, since what a
+ * @param selection    optional, as createFilterableTable — with whatever the metric select
+ *                     is on added to the context its `onChange` is given, since what a
  *                     selection *means* depends on it: a task id makes the rows comparable,
  *                     a suite or "Overall" doesn't.
  * @param onRowClick   optional (row, metric, {event, element}) => void. The metric comes
@@ -469,10 +469,12 @@ function renderLeaderboardTable({
     ...(selection
       ? {
           selection: {
-            max: selection.max,
+            ...selection,
             // The metric rides along because the rows alone don't say what they are
-            // selected *for* — see the parameter's note.
-            onChange: (rows) => selection.onChange(rows, metric),
+            // selected *for* — see the parameter's note. Spread rather than rebuilt, so
+            // everything else the caller asked for — `claimLinks` — still reaches the table.
+            onChange: (rows, context) =>
+              selection.onChange(rows, { ...context, metric }),
           },
         }
       : {}),

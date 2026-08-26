@@ -69,13 +69,20 @@ function buildPager(page, pageCount) {
 // rather than built into the markup because what a card's key *is* belongs to the page that
 // compares them — see `toSeed` in templates/list-page.js — not to the card.
 function assignKeys(grid, rows, keyOf) {
+  const keyed = new Map();
+
   grid.querySelectorAll(":scope > .card").forEach((card, index) => {
-    card.dataset.key = keyOf(rows[index]);
+    const key = keyOf(rows[index]);
+
+    card.dataset.key = key;
+    keyed.set(key, rows[index]);
 
     // An <a> that picks instead of navigating is a button for as long as the mode lasts,
     // and the highlight alone would say so only to a reader who can see it.
     card.setAttribute("role", "button");
   });
+
+  return keyed;
 }
 
 /**
@@ -109,10 +116,11 @@ function markCardSelection(container, keys) {
  *                  the reader doesn't have to.
  * @param pageSize  cards per page.
  * @param onPage    (page) => void, when a page button is clicked.
- * @param selection optional {keys, max, onToggle} — makes the cards pickable. `keys` is the
- *                  set of picked keys, held by the caller because it outlives this render:
- *                  it survives paging, filtering and the switch to the table. `onToggle(key)`
- *                  is called with what was clicked; nothing is picked or unpicked here.
+ * @param selection optional {keys, onToggle} — makes the cards pickable. `keys` is the set
+ *                  of picked keys, held by the caller because it outlives this render: it
+ *                  survives paging, filtering and the switch to the table.
+ *                  `onToggle(key, row)` is called with what was clicked; nothing is picked
+ *                  or unpicked here, and a pick past the cap is the holder's to refuse.
  * @param keyOf     (row) => key, matching whatever `selection.keys` holds.
  * @returns the page actually drawn, which is `page` clamped to what the rows allow.
  */
@@ -156,10 +164,9 @@ function renderCardGrid({
   // rather than the grid so the whole view is scoped by it.
   container.dataset.cardsSelectable = selection ? "true" : "false";
 
-  if (selection) {
-    assignKeys(grid, shown, keyOf);
-    markCardSelection(container, selection.keys);
-  }
+  const keyed = selection ? assignKeys(grid, shown, keyOf) : null;
+
+  if (selection) markCardSelection(container, selection.keys);
 
   // Both listeners go on elements this render just created, not on `container` — which is
   // the same element every time and would collect a handler per render, each closed over the
@@ -182,14 +189,12 @@ function renderCardGrid({
       // trade the table makes with `claimLinks`.
       event.preventDefault();
 
+      // The row as well as the key: whoever holds the selection needs the row to make an
+      // entry out of it, and this grid is the only thing that knows which card was which. A
+      // pick past the cap is refused there rather than here — see widgets/comparison.js.
       const { key } = card.dataset;
 
-      // Refused rather than swapped: silently dropping someone's first pick to make room for
-      // their sixth is worse than doing nothing.
-      if (!selection.keys.has(key) && selection.keys.size >= selection.max)
-        return;
-
-      selection.onToggle(key);
+      selection.onToggle(key, keyed.get(key));
     });
   }
 

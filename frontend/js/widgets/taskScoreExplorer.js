@@ -6,7 +6,8 @@
 //             was measured on, which used to be a page of its own
 //   compare   several rows at a time, side by side
 //
-// Both halves are widgets of their own — taskBreakdown.js and taskComparison.js — because
+// Both halves are their own module — taskBreakdown.js and comparisons/taskScores.js —
+// because
 // the leaderboard drives the same two things from a different table. What is left here is
 // the table, the mode switch, and turning a row into what those two take.
 //
@@ -18,7 +19,8 @@ import { escapeHtml, refreshIcons } from "../core/utils.js";
 import { getIcon } from "../components/icons.js";
 import { resolveContainer } from "../core/dom.js";
 import { renderTaskScoresTable } from "../tables/scoreTable.js";
-import { MAX_COMPARED, createTaskComparison } from "./taskComparison.js";
+import { createTaskComparison } from "../comparisons/taskScores.js";
+import { bindTable } from "./comparison.js";
 import { createTaskBreakdown } from "./taskBreakdown.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
@@ -30,7 +32,7 @@ const BROWSE_PROMPT =
 
 // What either widget needs to start on a row: the rest — the breakdown, the methodology —
 // each fetches for itself.
-function toSeed(row) {
+function toEntry(row) {
   return {
     key: row.id,
     taskId: row.task_id,
@@ -89,9 +91,11 @@ function renderTaskScoreExplorer({
   let table = null;
 
   // Both built on first use and kept: each holds the reader's choice of view and whatever
-  // it has already fetched, which rebuilding per selection would throw away.
+  // it has already fetched — and the comparison holds what is picked — which rebuilding per
+  // selection would throw away.
   let breakdown = null;
   let comparison = null;
+  let picking = null;
 
   function breakdownFor() {
     breakdown ??= createTaskBreakdown({
@@ -102,24 +106,15 @@ function renderTaskScoreExplorer({
     return breakdown;
   }
 
-  // The comparison's remove button reaches back into the table, since that is where the
-  // selection lives.
+  // The comparison holds what is picked; the table is bound to it, so its ✕ unticks the row
+  // and a pick past the cap takes its own tick back.
   function comparisonFor() {
-    comparison ??= createTaskComparison({
-      container: detail,
-      onDrop: (key) => table?.deselectRow(key),
-    });
+    if (!comparison) {
+      comparison = createTaskComparison({ container: detail, toEntry });
+      picking = bindTable(comparison);
+    }
 
     return comparison;
-  }
-
-  async function onSelection(selectedRows) {
-    const overflow = await comparisonFor().show(selectedRows.map(toSeed));
-
-    // Tabulator caps selection by click, not by selectRow — and a click past the cap is
-    // refused silently. Putting the extras back is what keeps the ticks and the rows of the
-    // grid saying the same thing; the pass this triggers finds nothing left to do.
-    for (const key of overflow) table?.deselectRow(key);
   }
 
   // ── the table, which is a different table in each mode ──
@@ -128,7 +123,7 @@ function renderTaskScoreExplorer({
   // same way in both: the row picked is the row highlighted, which is the only thing on
   // screen saying which row the breakdown below belongs to.
   function onBrowse(selectedRows) {
-    if (selectedRows.length) breakdownFor().show(toSeed(selectedRows[0]));
+    if (selectedRows.length) breakdownFor().show(toEntry(selectedRows[0]));
     else breakdownFor().clear();
   }
 
@@ -142,15 +137,13 @@ function renderTaskScoreExplorer({
       // The task name links away to the submission's own breakdown. Here that breakdown is
       // a row click away, so the link would be a second answer to the same question.
       showTaskLink: false,
-      selection: {
-        max: comparing ? MAX_COMPARED : 1,
-        onChange: comparing ? onSelection : onBrowse,
-        // Only while comparing: there the row is the control and a link would cost the
-        // reader the comparison, where in browse mode the Model and Submission links are
-        // the only way to the pages behind the row.
-        claimLinks: comparing,
-      },
+      // Only while comparing does the row claim its links: there it is the control and a
+      // link would cost the reader the comparison, where in browse mode the Model and
+      // Submission links are the only way to the pages behind the row.
+      selection: comparing ? picking.selection() : { max: 1, onChange: onBrowse },
     });
+
+    picking?.attach(comparing ? table : null);
   }
 
   function setMode(next) {
@@ -159,12 +152,15 @@ function renderTaskScoreExplorer({
     toolbar.innerHTML = buildToolbar(comparing);
     refreshIcons();
 
-    renderTable();
-
     // Emptied rather than destroyed: a reader who switches away and back keeps the view
     // they had chosen and the details already fetched. Whichever one is now in charge is
     // also what puts its own prompt on screen, since the wording is its own.
+    //
+    // Before the table rather than after, so the one that holds the picks has been built by
+    // the time the table is bound to it.
     (comparing ? comparisonFor() : breakdownFor()).clear();
+
+    renderTable();
   }
 
   toolbar.addEventListener("click", (event) => {

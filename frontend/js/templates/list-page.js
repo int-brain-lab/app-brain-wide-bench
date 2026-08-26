@@ -7,10 +7,11 @@
 //
 // Both views page: the table through Tabulator, the cards through cards/cardGrid.js.
 //
-// Everything the two views share is held here rather than derived from whichever is on
-// screen — the filter values, the page, and the set of records picked for a comparison.
-// That is what lets compare mode work in either view, and what keeps a pick made in the
-// table from vanishing when the reader filters it out of sight or switches to the cards.
+// What the two views share is held apart from both of them rather than read back off
+// whichever is on screen: the filter values and the card page here, and what is picked for a
+// comparison in the comparison itself. That is what lets compare mode work in either view,
+// and what keeps a pick made in the table from vanishing when the reader filters it out of
+// sight or switches to the cards.
 //
 // The boot half — gate, shell, load, and the words each failure is reported in — is
 // page-loader.js, shared with the record pages.
@@ -19,12 +20,13 @@
 // everything else is rendered. A domain that passes no `table` gets cards only and no
 // toggle — that's the teams list.
 
-import { renderCardGrid, markCardSelection } from "../cards/cardGrid.js";
+import { renderCardGrid } from "../cards/cardGrid.js";
 import { renderCreateRow } from "../cards/createCard.js";
 import { buildFilterBar, createFilterState } from "../components/filters.js";
 import { getIcon } from "../components/icons.js";
 import { dispose } from "../core/disposable.js";
 import { escapeHtml, showEmpty } from "../core/utils.js";
+import { bindCards, bindTable } from "../widgets/comparison.js";
 import { loadPage } from "./page-loader.js";
 import {
   buildHeader,
@@ -131,10 +133,10 @@ function loadListPage({
   // than about going anywhere.
   actions = [],
   // Turns the list into something a reader can pick from: a button in the header, pickable
-  // rows or cards, and whatever `create` builds underneath it. The list page owns the mode
-  // and the selection; what a pick *means* is the caller's — see modelList.js.
+  // rows or cards, and a comparison underneath. The page owns the mode; the comparison owns
+  // what is picked — see widgets/comparison.js — and what a pick *means* is the caller's.
   //
-  //   { title, label, max, create({ container, onDrop }), toSeed(row) }
+  //   { title, label, create(options), toEntry(row) }
   //
   compare = null,
   maxCards = 6,
@@ -161,109 +163,35 @@ function loadListPage({
   let filterState = null;
   let cardPage = 1;
 
-  // Comparing is a mode of either view. The widget is built once and kept, since it holds
-  // what it has already fetched.
+  // Comparing is a mode of either view. The comparison is built once and kept, since it
+  // holds what it has already fetched — and it holds the picks, which is what lets them
+  // survive a filter, a page of cards, and the switch between the two views.
   let comparing = false;
   let comparison = null;
 
-  // The comparison's contents, held here rather than read back off whichever view is on
-  // screen: the cards don't know about the table's ticks, and the table forgets everything
-  // when it is rebuilt for the other view. Insertion order is the order they were picked,
-  // which is the order the comparison reads them in.
-  const picked = new Set();
-  let seeds = new Map();
-
-  // Set while we push `picked` back into a freshly mounted table, so the selection events
-  // that causes aren't mistaken for the reader picking those rows again.
-  let syncing = false;
+  // One per view, bound to the comparison. Only the mounted one is attached; the other's
+  // pushes go nowhere.
+  let tableView = null;
+  let cardView = null;
 
   function destroyTable() {
     dispose(tableInstance);
     tableInstance = null;
   }
 
-  // Built on the first switch into compare mode and kept: it holds whatever it has already
-  // fetched, which rebuilding per selection would throw away.
+  // Built on the first switch into compare mode, and kept from then on.
   function comparisonFor() {
-    comparison ??= compare.create({
-      container: elements.compareBody,
-      onDrop: (key) => drop(key),
-    });
+    if (!comparison) {
+      comparison = compare.create({
+        container: elements.compareBody,
+        toEntry: compare.toEntry,
+      });
+
+      tableView = bindTable(comparison);
+      cardView = bindCards(comparison);
+    }
 
     return comparison;
-  }
-
-  async function updateComparison() {
-    const overflow = await comparisonFor().show(
-      [...picked].map((key) => seeds.get(key)),
-    );
-
-    // The table caps selection by click but refuses the extra one silently; handing it back
-    // is what keeps the ticks and the comparison saying the same thing. `forget` rather than
-    // `drop`: these never made it into the comparison, so it has nothing to be told about.
-    for (const key of overflow) forget(key);
-  }
-
-  // Unpick a record everywhere it is shown. Deselecting the row would ordinarily be enough —
-  // the selection event is what drives everything else — but not while `syncing` is set, and
-  // this is one of the two callers that sets it.
-  function forget(key) {
-    picked.delete(key);
-
-    if (tableInstance) {
-      syncing = true;
-      tableInstance.deselectRow(key);
-      syncing = false;
-    } else {
-      markCardSelection(elements.list, picked);
-    }
-  }
-
-  // The ✕ on a model in the comparison itself. The widget doesn't remove it — the selection
-  // isn't its to change — so it hands the key back and waits to be shown the rest.
-  function drop(key) {
-    forget(key);
-    updateComparison();
-  }
-
-  function toggle(key) {
-    if (picked.has(key)) picked.delete(key);
-    else picked.add(key);
-
-    markCardSelection(elements.list, picked);
-    updateComparison();
-  }
-
-  // A table mounted mid-comparison starts with nothing selected, and one that was filtered
-  // may have dropped rows that are still in the comparison. Either way `picked` is the
-  // record, so it is re-asserted rather than read.
-  function syncTableSelection() {
-    if (!tableInstance || !comparing) return;
-
-    syncing = true;
-    for (const key of picked) tableInstance.selectRow(key);
-    syncing = false;
-  }
-
-  function selectionFor() {
-    return {
-      max: compare.max,
-      // The row is the control while comparing, so a click on the name in it picks the row
-      // rather than leaving the page and the half-built comparison with it.
-      claimLinks: true,
-      // What changed rather than what is now selected: a row filtered out of the table is
-      // still in the comparison, and reading the whole selection back would drop it.
-      onChange: (_data, { selected, deselected }) => {
-        if (syncing) return;
-
-        for (const row of selected)
-          picked.add(compare.toSeed(row.getData()).key);
-        for (const row of deselected)
-          picked.delete(compare.toSeed(row.getData()).key);
-
-        updateComparison();
-      },
-    };
   }
 
   function setComparing(next) {
@@ -272,16 +200,15 @@ function loadListPage({
     elements.compareButton.classList.toggle("primary-inv", comparing);
     elements.compareSection.hidden = !comparing;
 
-    // Leaving the mode leaves the picks with it — the comparison below is gone, so ticks
-    // pointing at it would point at nothing.
-    if (!comparing) picked.clear();
+    // Either way the comparison is emptied — leaving the mode takes the picks with it, since
+    // the comparison below is gone and ticks pointing at it would point at nothing, and
+    // entering it puts the comparison's own invitation on screen.
+    if (comparing) comparisonFor().clear();
+    else comparison?.clear();
 
     // The view is redrawn either way: whether its rows or its cards can be picked is settled
     // when they are drawn — for the table by a constructor option, which Tabulator reads once.
     renderView(currentView);
-
-    if (comparing) comparisonFor().clear();
-    else comparison?.clear();
   }
 
   function renderCards() {
@@ -299,11 +226,12 @@ function loadListPage({
         cardPage = page;
         renderCards();
       },
-      selection: comparing
-        ? { keys: picked, max: compare.max, onToggle: toggle }
-        : null,
-      keyOf: (row) => compare?.toSeed(row).key ?? row.id,
+      selection: comparing ? cardView.selection() : null,
+      keyOf: (row) => (comparing ? comparison.keyOf(row) : row.id),
     });
+
+    cardView?.attach(comparing ? elements.list : null);
+    tableView?.attach(null);
   }
 
   function renderTable() {
@@ -313,22 +241,30 @@ function loadListPage({
       table({
         container: elements.list,
         rows,
-        selection: comparing ? selectionFor() : null,
+        selection: comparing ? tableView.selection() : null,
       }) ?? null;
 
-    // Tabulator builds its DOM asynchronously, so neither the filter nor the selection can
-    // be applied to the instance the constructor just returned.
-    tableInstance?.on("tableBuilt", () => {
-      applyTableFilter();
-      syncTableSelection();
-    });
+    // Tabulator builds its DOM asynchronously, so the filter can't be applied to the
+    // instance the constructor just returned. The binding hangs off the same event for the
+    // ticks, and is attached after this so it reconciles against filtered rows.
+    tableInstance?.on("tableBuilt", applyTableFilter);
+
+    cardView?.attach(null);
+    tableView?.attach(comparing ? tableInstance : null);
   }
 
   function applyTableFilter() {
     // Filtered rather than handed a filtered copy of the data: the rows behind the picks
     // have to stay in the table, or narrowing the list would empty the comparison.
-    if (tableInstance && filterState)
-      tableInstance.setFilter(filterState.matches);
+    if (!tableInstance || !filterState) return;
+
+    const filter = () => tableInstance.setFilter(filterState.matches);
+
+    // Guarded while comparing: if narrowing the list takes a picked row out of sight and
+    // Tabulator unticks it, that is the table changing its mind about the selection rather
+    // than the reader, and the comparison is the record of it.
+    if (comparing && tableView) tableView.apply(filter);
+    else filter();
   }
 
   function renderView(viewId) {
@@ -350,12 +286,8 @@ function loadListPage({
     // the first page is where they expect to land after changing what they are looking at.
     cardPage = 1;
 
-    if (currentView === TABLE) {
-      applyTableFilter();
-      syncTableSelection();
-    } else {
-      renderCards();
-    }
+    if (currentView === TABLE) applyTableFilter();
+    else renderCards();
   }
 
   function renderFilterBar() {
@@ -418,16 +350,6 @@ function loadListPage({
 
       rows = toRows(records);
       filtered = rows;
-
-      if (compare) {
-        seeds = new Map(
-          rows.map((row) => {
-            const seed = compare.toSeed(row);
-
-            return [seed.key, seed];
-          }),
-        );
-      }
 
       renderFilterBar();
       renderView(getInitialView(rows, table, maxCards));
