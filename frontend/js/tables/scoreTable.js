@@ -3,12 +3,12 @@
 // table.js.
 
 import { suiteFromTask } from "../core/suites.js";
+import { resolveContainer } from "../core/dom.js";
 import {
   SUITE_OPTIONS,
   createFilterableTable,
   previewRows,
   renderStaticTable,
-  resolveContainer,
   matchEquals,
   matchIncludes,
   optionsFromRows,
@@ -304,14 +304,13 @@ function renderStaticTaskScoresTable({
     limit,
   );
 
-  resolveContainer(container, "renderStaticTaskScoresTable").innerHTML =
-    renderStaticTable({
-      columns: getScoreColumns({ showSubmission, showModel, showRanking }),
-      rows: shown,
-      noun: "task",
-      total: rows.length,
-      viewAll,
-    });
+  resolveContainer(container).innerHTML = renderStaticTable({
+    columns: getScoreColumns({ showSubmission, showModel, showRanking }),
+    rows: shown,
+    noun: "task",
+    total: rows.length,
+    viewAll,
+  });
 
   return rows;
 }

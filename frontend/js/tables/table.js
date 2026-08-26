@@ -188,7 +188,7 @@ function createFilterableTable({
     );
   }
 
-  const root = resolveContainer(container, caller);
+  const root = resolveContainer(container);
 
   root.className = "column gap-md";
   root.innerHTML = `

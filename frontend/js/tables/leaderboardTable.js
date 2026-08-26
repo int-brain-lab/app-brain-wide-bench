@@ -27,7 +27,6 @@ import {
   matchIncludes,
   previewRows,
   renderStaticTable,
-  resolveContainer,
 } from "./table.js";
 import {
   modelFormatter,
@@ -38,6 +37,7 @@ import {
   rankValue,
   score,
 } from "./formatters.js";
+import { resolveContainer } from "../core/dom.js";
 
 // ─── ROWS ───────────────────────────────────────────────────────────────────
 
@@ -525,14 +525,13 @@ function renderStaticLeaderboardTable({
 
   const shown = previewRows(rows, byPosition, limit);
 
-  resolveContainer(container, "renderStaticLeaderboardTable").innerHTML =
-    renderStaticTable({
-      columns: getLeaderboardPreviewColumns(suites),
-      rows: shown,
-      noun: "model",
-      total: rows.length,
-      viewAll,
-    });
+  resolveContainer(container).innerHTML = renderStaticTable({
+    columns: getLeaderboardPreviewColumns(suites),
+    rows: shown,
+    noun: "model",
+    total: rows.length,
+    viewAll,
+  });
 
   return rows;
 }

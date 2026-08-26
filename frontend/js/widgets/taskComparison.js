@@ -4,7 +4,9 @@
 // loading score details, showing methodology, and rendering the recording
 // breakdown as separate charts, an overlaid chart, or a heatmap.
 
-import { refreshIcons, showEmpty } from "../core/utils.js";
+import { refreshIcons } from "../core/utils.js";
+import { showEmpty } from "../core/message.js";
+import { disposeAll } from "../core/disposable.js";
 import { buildViewToggle, viewFromClick } from "../components/viewToggle.js";
 import { resolveContainer } from "../core/dom.js";
 import {
@@ -161,7 +163,7 @@ function toSeriesEntry(entry, index, { overlaid = false } = {}) {
  * }}
  */
 function createTaskComparison({ container, onDrop = () => {} }) {
-  const root = resolveContainer(container, "createTaskComparison");
+  const root = resolveContainer(container);
 
   let entries = [];
   let charts = [];
@@ -171,7 +173,7 @@ function createTaskComparison({ container, onDrop = () => {} }) {
   // ─── Rendering ────────────────────────────────────────────────────────────
 
   function clearCharts() {
-    charts.forEach((chart) => chart?.destroy?.());
+    disposeAll(charts);
     charts = [];
   }
 

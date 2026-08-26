@@ -380,7 +380,7 @@ function renderFacetPlots({
     panels.map(([, members], index) => [members[0].group, index]),
   );
 
-  const root = resolveContainer(container, caller);
+  const root = resolveContainer(container);
 
   root.innerHTML = `
     <div class="${LAYOUTS[layout] ?? LAYOUTS.stack}">

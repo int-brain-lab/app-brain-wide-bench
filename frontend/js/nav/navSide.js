@@ -1,4 +1,5 @@
 import { initials } from "../core/utils.js";
+import { renderHtml } from "../core/render.js";
 import { getIcon } from "../components/icons.js";
 import { apiFetch, isAuthenticated, logout } from "../api/client.js";
 import { renderLogo } from "./navTop.js";
@@ -163,7 +164,7 @@ async function initialiseSidebar() {
     return;
   }
 
-  nav.innerHTML = renderSidebar();
+  renderHtml(nav, renderSidebar());
 
   // Straight back to the public home, which logout() is already pointed at.
   document

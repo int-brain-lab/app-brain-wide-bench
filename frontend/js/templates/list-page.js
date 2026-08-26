@@ -23,6 +23,7 @@ import { renderCardGrid, markCardSelection } from "../cards/cardGrid.js";
 import { renderCreateRow } from "../cards/createCard.js";
 import { buildFilterBar, createFilterState } from "../components/filters.js";
 import { getIcon } from "../components/icons.js";
+import { dispose } from "../core/disposable.js";
 import { escapeHtml, showEmpty } from "../core/utils.js";
 import { loadPage } from "./page-loader.js";
 import {
@@ -177,7 +178,7 @@ function loadListPage({
   let syncing = false;
 
   function destroyTable() {
-    tableInstance?.destroy?.();
+    dispose(tableInstance);
     tableInstance = null;
   }
 

@@ -8,7 +8,9 @@
 // The breakdown and the methodology arrive together, one request, because a listing carries
 // the figure a table shows and nothing behind it.
 
-import { escapeHtml, refreshIcons, showEmpty } from "../core/utils.js";
+import { escapeHtml, refreshIcons } from "../core/utils.js";
+import { showEmpty } from "../core/message.js";
+import { disposeAll } from "../core/disposable.js";
 import {
   PLOT_TABLE_VIEWS,
   buildViewToggle,
@@ -49,7 +51,7 @@ function createTaskBreakdown({
   container,
   prompt = "Select a task score to see how it was measured.",
 }) {
-  const root = resolveContainer(container, "createTaskBreakdown");
+  const root = resolveContainer(container);
 
   let seed = null;
   let detail = null;
@@ -62,7 +64,7 @@ function createTaskBreakdown({
   // to be rewritten has to be told: otherwise it goes on answering resizes from a detached
   // element and the next chart on that canvas throws.
   function clearCharts() {
-    charts.forEach((chart) => chart?.destroy?.());
+    disposeAll(charts);
     charts = [];
   }
 

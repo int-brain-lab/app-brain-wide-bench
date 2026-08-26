@@ -1,13 +1,12 @@
 // Filterable models table
 //
 // The table allows you to search by model name and filter by team or suite
-
+import { resolveContainer } from "../core/dom.js";
 import {
   SUITE_OPTIONS,
   createFilterableTable,
   previewRows,
   renderStaticTable,
-  resolveContainer,
   matchEquals,
   matchInArray,
   matchIncludes,
@@ -188,14 +187,13 @@ function renderStaticModelsTable({
     limit,
   );
 
-  resolveContainer(container, "renderStaticModelsTable").innerHTML =
-    renderStaticTable({
-      columns: getModelColumns({ showTeam }),
-      rows: shown,
-      noun: "model",
-      total: rows.length,
-      viewAll,
-    });
+  resolveContainer(container).innerHTML = renderStaticTable({
+    columns: getModelColumns({ showTeam }),
+    rows: shown,
+    noun: "model",
+    total: rows.length,
+    viewAll,
+  });
 
   return rows;
 }

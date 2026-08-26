@@ -77,7 +77,7 @@ function renderTaskScoreExplorer({
   showModel = false,
   showRanking = false,
 }) {
-  const root = resolveContainer(container, "renderTaskScoreExplorer");
+  const root = resolveContainer(container);
 
   root.innerHTML = buildShell();
 

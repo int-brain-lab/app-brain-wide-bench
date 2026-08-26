@@ -11,7 +11,7 @@
 
 import { loadSubmissionFields } from "../schemas/submissionSchema.js";
 import { loadModel } from "../api/modelApi.js";
-import { showFailure, showMessage } from "../core/utils.js";
+import { showFailure, showMessage } from "../core/message.js";
 import { buildTaskPanel, createTaskSection } from "../widgets/taskPanel.js";
 import {
   buildUploadPanel,

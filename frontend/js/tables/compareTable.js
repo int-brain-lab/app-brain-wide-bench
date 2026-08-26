@@ -12,7 +12,8 @@
 // question asked of the same tasks — so the page owns it and reaches in through
 // applyMetricFilter.
 
-import { createFilterableTable, resolveContainer } from "./table.js";
+import { createFilterableTable } from "./table.js";
+import { resolveContainer } from "../core/dom.js";
 import { escapeHtml, showEmpty } from "../core/utils.js";
 import {
   compareScoreSorter,
@@ -157,7 +158,7 @@ function applyMetricFilter(table, metric) {
  * the same handle a table would have gone in and destroy it unconditionally.
  */
 function showNoComparison(container, message) {
-  showEmpty(resolveContainer(container, "showNoComparison"), message);
+  showEmpty(resolveContainer(container), message);
 
   return null;
 }

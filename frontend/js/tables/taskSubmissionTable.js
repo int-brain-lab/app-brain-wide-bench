@@ -178,16 +178,15 @@ function renderStaticTaskSubmissionsTable({
     limit,
   );
 
-  resolveContainer(container, "renderStaticTaskSubmissionsTable").innerHTML =
-    renderStaticTable({
-      // No Edit column: the button routes through the record page's task view, which a
-      // preview isn't.
-      columns: getTaskSubmissionColumns(),
-      rows: shown,
-      noun: "task",
-      total: rows.length,
-      viewAll,
-    });
+  resolveContainer(container).innerHTML = renderStaticTable({
+    // No Edit column: the button routes through the record page's task view, which a
+    // preview isn't.
+    columns: getTaskSubmissionColumns(),
+    rows: shown,
+    noun: "task",
+    total: rows.length,
+    viewAll,
+  });
 
   return rows;
 }

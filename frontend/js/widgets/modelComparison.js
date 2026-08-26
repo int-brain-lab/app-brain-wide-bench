@@ -18,9 +18,9 @@
 import {
   escapeHtml,
   refreshIcons,
-  showEmpty,
-  showMessage,
 } from "../core/utils.js";
+import { showEmpty, showMessage } from "../core/message.js";
+import { dispose, disposeAll } from "../core/disposable.js";
 import { getIcon } from "../components/icons.js";
 import { buildViewToggle, viewFromClick } from "../components/viewToggle.js";
 import { resolveContainer } from "../core/dom.js";
@@ -128,7 +128,7 @@ function buildSummary(models, fields) {
  *          for, for the host to deselect.
  */
 function createModelComparison({ container, onDrop = () => {} }) {
-  const root = resolveContainer(container, "createModelComparison");
+  const root = resolveContainer(container);
 
   let models = [];
   let suite = "";
@@ -155,7 +155,7 @@ function createModelComparison({ container, onDrop = () => {} }) {
   // has to be destroyed or its element and observer outlive the render.
   function clearGrids() {
     for (const key of Object.keys(grids)) {
-      grids[key]?.destroy?.();
+      dispose(grids[key]);
       grids[key] = null;
     }
   }
@@ -165,7 +165,7 @@ function createModelComparison({ container, onDrop = () => {} }) {
   // and the next chart on that canvas throws.
   function clearCharts() {
     for (const key of Object.keys(charts)) {
-      charts[key].forEach((chart) => chart?.destroy?.());
+      disposeAll(charts[key]);
       charts[key] = [];
     }
   }

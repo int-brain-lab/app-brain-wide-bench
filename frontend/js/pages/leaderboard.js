@@ -36,6 +36,7 @@ import {
   showFailure,
   showMessage,
 } from "../core/utils.js";
+import { dispose } from "../core/disposable.js";
 import { getIcon } from "../components/icons.js";
 import {
   buildBody,
@@ -359,7 +360,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   }
 
   function mountTable() {
-    table?.destroy?.();
+    dispose(table);
 
     // A new mode or a new board closes whatever was open.
     comparison.clear();
@@ -410,7 +411,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   async function renderBoard() {
     const token = ++latest;
 
-    table?.destroy?.();
+    dispose(table);
     table = null;
 
     showMessage(sectionBody("body"), "Loading scores…");

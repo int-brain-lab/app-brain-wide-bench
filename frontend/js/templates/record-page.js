@@ -1,6 +1,7 @@
 // Page chrome shared by every record view: the wrapper, header, actions and sections.
 
-import { escapeHtml, refreshIcons, renderMessage } from "../core/utils.js";
+import { escapeHtml, renderMessage } from "../core/utils.js";
+import { renderHtml, refreshIcons, setText } from "../core/render.js";
 import { getIcon } from "../components/icons.js";
 import { panelGroups } from "../schemas/schema.js";
 import { buildDisplayFields, buildGroupCards } from "../forms/fields.js";
@@ -291,12 +292,7 @@ function buildPage({ back = null, header = "", body = "" }) {
 // ─── RENDERING ───────────────────────────────────────────────────────────────
 
 function renderPage(html) {
-  const container = document.getElementById(CONTAINER_ID);
-
-  container.replaceChildren();
-  container.innerHTML = html;
-
-  return container;
+  return renderHtml(CONTAINER_ID, html);
 }
 
 /**
@@ -313,12 +309,12 @@ function renderHeader(title, description = "", badges = []) {
   const descriptionElement = document.getElementById(DESCRIPTION_ID);
   const badgesElement = document.getElementById(BADGES_ID);
 
-  titleElement.textContent = title;
+  setText(titleElement, title);
 
   // Most pages have no badges at all and call this with two arguments.
   const badgeRow = buildBadges(badges ?? []);
 
-  badgesElement.innerHTML = badgeRow;
+  renderHtml(badgesElement, badgeRow);
   badgesElement.hidden = !badgeRow;
 
   const subtitle =
@@ -326,7 +322,7 @@ function renderHeader(title, description = "", badges = []) {
       ? escapeHtml(description)
       : buildSubtitle(description);
 
-  descriptionElement.innerHTML = subtitle;
+  renderHtml(descriptionElement, subtitle);
   descriptionElement.hidden = !subtitle;
 
   // The subtitle's icons are `<i data-lucide>` placeholders, and this runs outside a view

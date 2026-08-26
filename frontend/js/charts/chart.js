@@ -6,6 +6,7 @@
 // caller passes colours in, so the series and the card that named it can't drift apart.
 
 import { resolveContainer } from "../core/dom.js";
+import { dispose } from "../core/disposable.js";
 
 // The ink the chart is drawn in. Text wears text colours and never a series colour — a
 // value in the series' own hue reads as another mark rather than as a label.
@@ -237,7 +238,7 @@ function createChart({
     );
   }
 
-  const root = resolveContainer(container, caller);
+  const root = resolveContainer(container);
 
   root.innerHTML = `<div class="chart-box" style="height:${height}px"><canvas></canvas></div>`;
 
@@ -253,7 +254,7 @@ function createChart({
 // to be rewritten has to be told — otherwise it goes on responding to resizes and the next
 // chart on that canvas throws.
 function destroyChart(chart) {
-  chart?.destroy?.();
+  dispose(chart);
 }
 
 export { AXIS, GRID, SEM_INK, SURFACE, createChart, destroyChart, hatch };

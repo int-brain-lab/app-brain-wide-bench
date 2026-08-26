@@ -1,3 +1,5 @@
+import { dispose } from "./disposable.js";
+
 // One document, several views of a single record. `?view=` is the state.
 
 const CONTAINER_ID = "container";
@@ -71,7 +73,7 @@ function createRecordRouter({
       );
     }
 
-    mounted.destroy?.();
+    dispose(mounted);
     mounted = null;
   }
 

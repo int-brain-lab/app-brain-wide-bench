@@ -19,7 +19,8 @@ import {
 } from "../api/teamApi.js";
 import { searchUsers } from "../api/userApi.js";
 import { buildTableCount } from "../components/count.js";
-import { escapeHtml, initials, showEmpty } from "../core/utils.js";
+import { escapeHtml, initials } from "../core/utils.js";
+import { showEmpty } from "../core/message.js";
 
 // The server's TeamRole. Ordered as the select shows them, most privileged first.
 const ROLES = ["owner", "collaborator"];

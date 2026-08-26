@@ -1,12 +1,10 @@
 import { apiFetch } from "./client.js";
+import { normalizeObject, trimmed } from "../core/validation.js";
 
 // ─── PAYLOADS ────────────────────────────────────────────────────────────────────
 
 function buildSubmissionPayload(state) {
-  return {
-    ...state,
-    label: state.label?.trim(),
-  };
+  return normalizeObject(state, { label: trimmed });
 }
 
 function buildPresignPayload(state, taskSection) {

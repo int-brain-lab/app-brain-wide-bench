@@ -102,7 +102,7 @@ function renderRecordingHeatmaps({ container, entries }) {
   const axes = panelAxes(series, "value");
   const ranges = panelRanges(series);
 
-  const root = resolveContainer(container, "renderRecordingHeatmaps");
+  const root = resolveContainer(container);
 
   root.innerHTML = blocks
     .map(([metric, members]) => {

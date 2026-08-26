@@ -1,5 +1,6 @@
 import { escapeHtml, initials } from "../core/utils.js";
 import { apiFetch, isAuthenticated, login, logout } from "../api/client.js";
+import { renderHtml } from "../core/render.js";
 
 // ─── CONSTANTS ─────────────────────────────────────────────────────────────
 
@@ -162,11 +163,14 @@ async function initialiseNav() {
 
   // The link lives here rather than inside renderLogo: the sidebar wraps the same mark in
   // its own anchor, and an <a> inside an <a> is invalid.
-  nav.innerHTML = `
+  renderHtml(
+    nav,
+    `
     <a href="${HOME_HREF}">${renderLogo()}</a>
     ${renderNavLinks(currentPage())}
     ${await renderAuthSection()}
-  `;
+  `,
+  );
 
   attachNavEvents();
 }

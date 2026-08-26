@@ -28,6 +28,7 @@
 // behind by working the controls.
 
 import { escapeHtml, refreshIcons, showEmpty } from "../core/utils.js";
+import { dispose } from "../core/disposable.js";
 import { getIcon } from "../components/icons.js";
 import { buildSuiteBadgeList } from "../components/badges.js";
 import { suiteFromTask } from "../core/suites.js";
@@ -342,7 +343,7 @@ function renderComparePage({ model, models, fixedId }) {
   // Rebuilt whenever the suite changes: which models qualify is the suite's answer, and the
   // rows are Tabulator's to hold once given.
   function renderModels() {
-    table?.destroy?.();
+    dispose(table);
     comparison.clear();
 
     table = renderModelsTable({
@@ -422,7 +423,7 @@ function renderComparePage({ model, models, fixedId }) {
   // Nothing chosen, or nothing to show for what was: the controls and the results have
   // nothing to say, so they are hidden rather than left standing empty under their titles.
   function renderIntro(message) {
-    table?.destroy?.();
+    dispose(table);
     table = null;
     comparison.clear();
 

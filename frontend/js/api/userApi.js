@@ -1,10 +1,11 @@
 import { apiFetch, apiFetchOptional } from "./client.js";
+import { trimmed } from "../core/validation.js";
 
 // ─── PAYLOADS ────────────────────────────────────────────────────────────────
 function buildUserPayload(state) {
   return {
     ...state,
-    label: state.username?.label?.trim(),
+    label: trimmed(state.username?.label),
   };
 }
 

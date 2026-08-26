@@ -187,14 +187,13 @@ function renderStaticSubmissionsTable({
     limit,
   );
 
-  resolveContainer(container, "renderStaticSubmissionsTable").innerHTML =
-    renderStaticTable({
-      columns: getSubmissionColumns({ showModel }),
-      rows: shown,
-      noun: "submission",
-      total: rows.length,
-      viewAll,
-    });
+  resolveContainer(container).innerHTML = renderStaticTable({
+    columns: getSubmissionColumns({ showModel }),
+    rows: shown,
+    noun: "submission",
+    total: rows.length,
+    viewAll,
+  });
 
   return rows;
 }
