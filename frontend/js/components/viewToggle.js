@@ -5,7 +5,7 @@
 // than in a widget because the styling is the whole of it: which button is lit says which
 // view is open, and three copies of that rule drift apart the first time one is restyled.
 
-import { escapeHtml } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
 import { getIcon } from "./icons.js";
 
 // The plot-or-table pair, which is every current caller: a figure to see the shape and a

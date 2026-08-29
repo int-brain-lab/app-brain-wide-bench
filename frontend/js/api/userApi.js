@@ -9,7 +9,7 @@ function buildUserPayload(state) {
   };
 }
 
-// ─── API ────────────────────────────────────────────────────────────────────
+// ─── API ─────────────────────────────────────────────────────────────────────
 
 async function loadMe() {
   return await apiFetch("/api/users/me");

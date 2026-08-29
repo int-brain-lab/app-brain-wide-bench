@@ -1,31 +1,28 @@
-// The card view of a list: a page of cards in a grid, with the footer the table has.
+// Card view for a list: a paginated grid with the table view's footer and count.
 //
-// The counterpart to createFilterableTable, and deliberately its shape — same count in the
-// same words, page buttons in the same place — because the two are one list read two ways
-// and a reader switching between them shouldn't have to re-learn where anything is.
+// The page is this module's; the filter and the selection are set from outside.
 //
-// Filtering isn't here: the page above owns the filter bar and hands down whichever rows
-// survived it. This only slices, draws and reports.
+// createCardGrid is built once and kept; the caller attaches its element.
 
 import { buildTableCount } from "../components/count.js";
-import { showEmpty } from "../core/utils.js";
+import { buildEmptyMessage } from "../components/messages.js";
+import { clearContent, refreshIcons, renderHtml } from "../core/render.js";
 
-// Enough to see where you are without the footer becoming a second list. Beyond this the
-// window slides, so the current page is always in it.
 const MAX_PAGE_BUTTONS = 5;
 
-// ─── PAGER ──────────────────────────────────────────────────────────────────
+const CARDS_PER_PAGE = 8;
 
-// The window of page numbers around the current page, clamped to both ends so a page near
-// either edge still gets MAX_PAGE_BUTTONS of them rather than a short row.
-function pageWindow(page, pageCount) {
-  const span = Math.min(MAX_PAGE_BUTTONS, pageCount);
+// ─── PAGINATION ──────────────────────────────────────────────────────────────
+
+function getPageNumbers(currentPage, pageCount) {
+  const count = Math.min(MAX_PAGE_BUTTONS, pageCount);
+
   const first = Math.min(
-    Math.max(1, page - Math.floor(span / 2)),
-    pageCount - span + 1,
+    Math.max(1, currentPage - Math.floor(count / 2)),
+    pageCount - count + 1,
   );
 
-  return Array.from({ length: span }, (_, offset) => first + offset);
+  return Array.from({ length: count }, (_, index) => first + index);
 }
 
 function buildPageButton(
@@ -38,169 +35,244 @@ function buildPageButton(
       type="button"
       class="pager-page${active ? " active" : ""}"
       data-page="${page}"
-      ${active ? `aria-current="page"` : ""}
+      ${active ? 'aria-current="page"' : ""}
       ${disabled ? "disabled" : ""}
-    >${label}</button>
+    >
+      ${label}
+    </button>
   `;
 }
 
-// No buttons for a single page, which is also what Tabulator does — a lone "1" is a control
-// that can only ever do nothing.
-function buildPager(page, pageCount) {
+function buildPager(currentPage, pageCount) {
   if (pageCount < 2) return "";
 
   return `
     <div class="row right gap-xs" data-role="pager">
-      ${buildPageButton("‹", page - 1, { disabled: page === 1 })}
-      ${pageWindow(page, pageCount)
-        .map((number) =>
-          buildPageButton(number, number, { active: number === page }),
+      ${buildPageButton("First", 1, {
+        disabled: currentPage === 1,
+      })}
+
+      ${buildPageButton("Prev", currentPage - 1, {
+        disabled: currentPage === 1,
+      })}
+
+      ${getPageNumbers(currentPage, pageCount)
+        .map((page) =>
+          buildPageButton(page, page, {
+            active: page === currentPage,
+          }),
         )
         .join("")}
-      ${buildPageButton("›", page + 1, { disabled: page === pageCount })}
+
+      ${buildPageButton("Next", currentPage + 1, {
+        disabled: currentPage === pageCount,
+      })}
+
+      ${buildPageButton("Last", pageCount, {
+        disabled: currentPage === pageCount,
+      })}
     </div>
   `;
 }
 
-// ─── GRID ───────────────────────────────────────────────────────────────────
+function clampPage(page, pageCount) {
+  return Math.min(Math.max(1, page), Math.max(1, pageCount));
+}
 
-// The cards come back as one HTML string, so the keys go on afterwards by position: a
-// builder maps its rows one to one, in order, which is what makes that sound. Positional
-// rather than built into the markup because what a card's key *is* belongs to the page that
-// compares them — see `toSeed` in templates/list-page.js — not to the card.
-function assignKeys(grid, rows, keyOf) {
-  const keyed = new Map();
+// ─── SELECTION ───────────────────────────────────────────────────────────────
 
-  grid.querySelectorAll(":scope > .card").forEach((card, index) => {
-    const key = keyOf(rows[index]);
-
-    card.dataset.key = key;
-    keyed.set(key, rows[index]);
-
-    // An <a> that picks instead of navigating is a button for as long as the mode lasts,
-    // and the highlight alone would say so only to a reader who can see it.
-    card.setAttribute("role", "button");
+// `root` is any ancestor of the cards.
+function highlightSelectedCards(root, keys) {
+  root.querySelectorAll(".card[data-key]").forEach((card) => {
+    card.classList.toggle("selected", keys.has(card.dataset.key));
   });
-
-  return keyed;
 }
 
-/**
- * Repaint which cards are picked, without redrawing them.
- *
- * Exported because the set can change from outside this grid — a pick made in the table
- * before the reader switched to cards, or one dropped from the comparison itself.
- *
- * @param container what renderCardGrid drew into.
- * @param keys      the picked keys.
- */
-function markCardSelection(container, keys) {
-  for (const card of container.querySelectorAll(".card[data-key]")) {
-    const picked = keys.has(card.dataset.key);
+function setSelectable(grid, selectable) {
+  grid.dataset.cardsSelectable = String(selectable);
 
-    card.classList.toggle("selected", picked);
-    card.setAttribute("aria-pressed", String(picked));
-  }
+  grid.querySelectorAll(".card[data-key]").forEach((card) => {
+    if (selectable) {
+      card.setAttribute("role", "button");
+      card.setAttribute("tabindex", "0");
+    } else {
+      card.removeAttribute("role");
+      card.removeAttribute("tabindex");
+    }
+  });
 }
 
-/**
- * Draws one page of cards into `container`, replacing whatever is there.
- *
- * @param container element the grid and its footer are written into.
- * @param rows      the rows that survived the filter, already mapped by the domain's
- *                  `toXRows` — the cards render from the same shape the filters match.
- * @param cards     (rows) => HTML, the domain's card builder.
- * @param total     rows before the filter, so the footer can say "8 out of 25".
- * @param noun      *singular* — the footer adds the "s", as the tables do.
- * @param page      1-based. Clamped here, so a caller that filtered the list out from under
- *                  the reader doesn't have to.
- * @param pageSize  cards per page.
- * @param onPage    (page) => void, when a page button is clicked.
- * @param selection optional {keys, onToggle} — makes the cards pickable. `keys` is the set
- *                  of picked keys, held by the caller because it outlives this render: it
- *                  survives paging, filtering and the switch to the table.
- *                  `onToggle(key, row)` is called with what was clicked; nothing is picked
- *                  or unpicked here, and a pick past the cap is the holder's to refuse.
- * @param keyOf     (row) => key, matching whatever `selection.keys` holds.
- * @returns the page actually drawn, which is `page` clamped to what the rows allow.
- */
-function renderCardGrid({
-  container,
-  rows,
-  cards,
+function toRowMap(rows, getKey) {
+  return new Map(rows.map((row) => [String(getKey(row)), row]));
+}
+
+// ─── MARKUP ──────────────────────────────────────────────────────────────────
+
+// `total` is the count before filtering.
+function buildGridHtml({
+  visibleRows,
+  buildCards,
   total,
   noun,
-  page = 1,
-  pageSize = 8,
-  onPage,
-  selection = null,
-  keyOf = (row) => row.id,
+  page,
+  pageCount,
 }) {
-  container.className = "column gap-md";
-  container.replaceChildren();
+  return `
+    <div class="grid-2" data-role="cards">
+      ${buildCards(visibleRows)}
+    </div>
 
-  // The same words Tabulator's placeholder uses, for the same state: the list has rows and
-  // the filters are hiding all of them.
-  if (!rows.length) {
-    showEmpty(container, `No ${noun}s match these filters.`);
-    return 1;
-  }
+    <div class="table-footer cards-footer">
+      <span>
+        ${buildTableCount(visibleRows.length, total, noun)}
+      </span>
 
-  const pageCount = Math.ceil(rows.length / pageSize);
-  const current = Math.min(Math.max(1, page), pageCount);
-  const shown = rows.slice((current - 1) * pageSize, current * pageSize);
-
-  container.innerHTML = `
-    <div class="grid-2" data-role="cards">${cards(shown)}</div>
-    <div class="table-footer">
-      <span>${buildTableCount(shown.length, total, noun)}</span>
-      ${buildPager(current, pageCount)}
+      ${buildPager(page, pageCount)}
     </div>
   `;
-
-  const grid = container.querySelector("[data-role='cards']");
-
-  // What the cursor keys off, as `data-rows-selectable` does for the table. On the container
-  // rather than the grid so the whole view is scoped by it.
-  container.dataset.cardsSelectable = selection ? "true" : "false";
-
-  const keyed = selection ? assignKeys(grid, shown, keyOf) : null;
-
-  if (selection) markCardSelection(container, selection.keys);
-
-  // Both listeners go on elements this render just created, not on `container` — which is
-  // the same element every time and would collect a handler per render, each closed over the
-  // rows and the page it was drawn with.
-  container
-    .querySelector("[data-role='pager']")
-    ?.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-page]");
-
-      if (button) onPage?.(Number(button.dataset.page));
-    });
-
-  if (selection) {
-    grid.addEventListener("click", (event) => {
-      const card = event.target.closest(".card[data-key]");
-      if (!card) return;
-
-      // The card is a link to the thing it is about, and while it is a control that link is
-      // what a click would otherwise follow — losing the half-built comparison with it. Same
-      // trade the table makes with `claimLinks`.
-      event.preventDefault();
-
-      // The row as well as the key: whoever holds the selection needs the row to make an
-      // entry out of it, and this grid is the only thing that knows which card was which. A
-      // pick past the cap is refused there rather than here — see widgets/comparison.js.
-      const { key } = card.dataset;
-
-      selection.onToggle(key, keyed.get(key));
-    });
-  }
-
-  globalThis.lucide?.createIcons?.();
-
-  return current;
 }
 
-export { markCardSelection, renderCardGrid };
+// ─── GRID ────────────────────────────────────────────────────────────────────
+
+/**
+ * A card grid that is built once and kept. The rows, the filter and the page live here.
+ *
+ * @param buildCards   (rows) => HTML.
+ * @param noun         *singular*, for the footer — "model". The count adds the "s".
+ * @param cardsPerPage how many cards a page holds.
+ * @param getKey       (row) => the key a card is identified by.
+ * @returns { element, setRows, setFilter, setSelection, destroy }. `element` is the grid's
+ *          own, detached until the caller places it, and never replaced.
+ */
+function createCardGrid({
+  buildCards,
+  noun,
+  cardsPerPage = CARDS_PER_PAGE,
+  getKey = (row) => row.id,
+}) {
+  const element = document.createElement("div");
+
+  element.className = "column gap-md";
+
+  let allRows = [];
+  let activeFilter = null;
+  let page = 1;
+
+  // `{ keys, onToggle }`, or null when nothing is pickable.
+  let activeSelection = null;
+
+  // Key => row, for the page on screen.
+  let rowMap = new Map();
+
+  function visible() {
+    return activeFilter ? allRows.filter(activeFilter) : allRows;
+  }
+
+  function render() {
+    const matching = visible();
+
+    clearContent(element);
+
+    if (!matching.length) {
+      renderHtml(
+        element,
+        buildEmptyMessage(`No ${noun}s match these filters.`),
+      );
+      rowMap = new Map();
+
+      return;
+    }
+
+    const pageCount = Math.ceil(matching.length / cardsPerPage);
+
+    page = clampPage(page, pageCount);
+
+    const start = (page - 1) * cardsPerPage;
+    const visibleRows = matching.slice(start, start + cardsPerPage);
+
+    renderHtml(
+      element,
+      buildGridHtml({
+        visibleRows,
+        buildCards,
+        total: allRows.length,
+        noun,
+        page,
+        pageCount,
+      }),
+    );
+
+    const grid = element.querySelector("[data-role='cards']");
+
+    rowMap = toRowMap(visibleRows, getKey);
+
+    // Positional: `buildCards` returns one string, mapping its rows in order.
+    grid.querySelectorAll(":scope > .card").forEach((card, index) => {
+      card.dataset.key = String(getKey(visibleRows[index]));
+    });
+
+    setSelectable(grid, Boolean(activeSelection));
+
+    if (activeSelection) highlightSelectedCards(grid, activeSelection.keys);
+
+    refreshIcons();
+  }
+
+  function onClick(event) {
+    const pageButton = event.target.closest("[data-page]");
+
+    if (pageButton) {
+      page = Number(pageButton.dataset.page);
+      render();
+
+      return;
+    }
+
+    if (!activeSelection) return;
+
+    const card = event.target.closest(".card[data-key]");
+
+    if (!card) return;
+
+    // A card is a link; while it is a selection control the click must not navigate.
+    event.preventDefault();
+
+    const row = rowMap.get(card.dataset.key);
+
+    if (row) activeSelection.onToggle(row);
+  }
+
+  element.addEventListener("click", onClick);
+
+  /** @param rows every row, unfiltered. Resets to the first page. */
+  function setRows(rows) {
+    allRows = rows ?? [];
+    page = 1;
+
+    render();
+  }
+
+  /** @param filter a predicate, or null for no narrowing. Resets to the first page. */
+  function setFilter(filter) {
+    activeFilter = filter ?? null;
+    page = 1;
+
+    render();
+  }
+
+  /** @param selection `{ keys, onToggle }` to make the cards pickable, or null to stop. */
+  function setSelection(selection) {
+    activeSelection = selection ?? null;
+
+    render();
+  }
+
+  function destroy() {
+    element.removeEventListener("click", onClick);
+    clearContent(element);
+  }
+
+  return { destroy, element, setFilter, setRows, setSelection };
+}
+
+export { createCardGrid, highlightSelectedCards };

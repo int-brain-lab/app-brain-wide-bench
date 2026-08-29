@@ -1,6 +1,6 @@
 import { apiFetch } from "./client.js";
 
-// ─── API ────────────────────────────────────────────────────────────────────
+// ─── API ─────────────────────────────────────────────────────────────────────
 
 // The field options and the task list used to live here, as /api/meta/enums and a second
 // copy of /api/tasks. Both are in the one /api/meta document now — see api/metaApi.js.

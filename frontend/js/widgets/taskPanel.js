@@ -7,7 +7,9 @@
 // add, remove, or rename tasks.
 //
 
-import { buildMessageCard, escapeHtml, showEmpty } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
+import { buildEmptyMessage, buildMessageCard } from "../components/messages.js";
+import { renderHtml } from "../core/render.js";
 import { buildCount } from "../components/count.js";
 import { CLEARED_MESSAGE } from "../forms/form.js";
 import { createFieldState, fieldsForPanel } from "../schemas/schema.js";
@@ -16,7 +18,7 @@ import {
   attachFieldEvents,
   revalidateFields,
   setFieldValue,
-  withPreservedFocus,
+  renderPreservingFocus,
 } from "../forms/form.js";
 import {
   TASK_FIELDS,
@@ -43,7 +45,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
   let selectedTaskId = null;
   let model = null;
 
-  // ─── TASK STATE ───────────────────────────────────────────────────────────
+  // ─── TASK STATE ────────────────────────────────────────────────────────────
 
   function createTask(taskId) {
     const state = createFieldState(TASK_FIELDS);
@@ -72,7 +74,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     return task.confirmed && task.cleared.length === 0;
   }
 
-  // ─── SUITE OPERATIONS ─────────────────────────────────────────────────────
+  // ─── SUITE OPERATIONS ──────────────────────────────────────────────────────
 
   function getSuiteSiblings(task) {
     const suite = getSuite(task.taskId);
@@ -123,7 +125,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     }
   }
 
-  // ─── RENDERING ────────────────────────────────────────────────────────────
+  // ─── RENDERING ─────────────────────────────────────────────────────────────
 
   function buildTaskStatus(task) {
     if (task.confirmed) {
@@ -201,7 +203,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     `;
   }
 
-  // Markup rather than a showWarning call: this sits inside the task's own card, built with
+  // Markup rather than a rendered warning: this sits inside the task's own card, built with
   // the fields it warns about.
   function buildClearedNotice(task) {
     if (!task.cleared.length) return "";
@@ -263,7 +265,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
 
           <div class="column gap-md">
             ${buildFields(
-              fieldsForPanel(TASK_FIELDS, 1),
+              fieldsForPanel(TASK_FIELDS, "methodology"),
               task.state,
               TASK_FIELDS,
             )}
@@ -291,11 +293,14 @@ function createTaskSection({ taskSuites, onChange } = {}) {
 
   function render() {
     if (!tasks.size) {
-      showEmpty(container, "No tasks yet — upload a .zip on the panel above.");
+      renderHtml(
+        container,
+        buildEmptyMessage("No tasks yet — upload a .zip on the panel above."),
+      );
       return;
     }
 
-    withPreservedFocus(container, () => {
+    renderPreservingFocus(container, () => {
       container.innerHTML = `
         <div class="task-split">
           ${buildTaskPicker()}
@@ -305,7 +310,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     });
   }
 
-  // ─── STATE UPDATES ────────────────────────────────────────────────────────
+  // ─── STATE UPDATES ─────────────────────────────────────────────────────────
 
   function updateTask(task, update) {
     update(task);
@@ -368,7 +373,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     });
   }
 
-  // ─── EVENTS ───────────────────────────────────────────────────────────────
+  // ─── EVENTS ────────────────────────────────────────────────────────────────
 
   function handleClick(event) {
     const confirmButton = event.target.closest(".task-confirm");
@@ -414,7 +419,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     render();
   }
 
-  // ─── PUBLIC API ───────────────────────────────────────────────────────────
+  // ─── PUBLIC API ────────────────────────────────────────────────────────────
 
   function setTasks(taskIds) {
     tasks = new Map(taskIds.map((taskId) => [taskId, createTask(taskId)]));

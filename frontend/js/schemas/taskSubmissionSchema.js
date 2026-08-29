@@ -36,7 +36,7 @@ const TASK_FIELDS = {
   extra_input_modality: {
     label: "Extra modality",
     input: "checkbox-list",
-    panel: 1,
+    panel: "methodology",
     enum: "modality",
     // Spikes is the baseline input (not "extra"); the suite's own
     // supervision target can't be used as an input either.
@@ -55,7 +55,7 @@ const TASK_FIELDS = {
   training_paradigm: {
     label: "Training paradigm",
     input: "select",
-    panel: 1,
+    panel: "methodology",
     enum: "training_paradigm",
     disabledOptionsWhen: (state) => {
       const model = state.model;
@@ -86,7 +86,7 @@ const TASK_FIELDS = {
   supervision_regime: {
     label: "Supervision regime",
     input: "select",
-    panel: 1,
+    panel: "methodology",
     enum: "supervision_regime",
     disabledOptionsWhen: (state) => {
       const disabled = new Set();
@@ -113,7 +113,7 @@ const TASK_FIELDS = {
   calibration: {
     label: "Calibration",
     input: "select",
-    panel: 1,
+    panel: "methodology",
     enum: "calibration",
     // Single-session models are always transductive (trained from scratch).
     disabledOptionsWhen: (state) =>
@@ -123,7 +123,7 @@ const TASK_FIELDS = {
   finetuning_strategy: {
     label: "Fine tuning strategy",
     input: "checkbox-list",
-    panel: 1,
+    panel: "methodology",
     enum: "finetuning_strategy",
     // Field disabled when pretrained is false
     disabledWhen: (state) => !state.model?.is_pretrained,
@@ -152,12 +152,12 @@ async function loadTaskFields() {
   return applyFieldMeta(TASK_FIELDS, meta, "task_submission");
 }
 
-// The per-task methodology ("training") fields: everything on panel 1. Both the
-// submit wizard's carousel and the submission card's task editor render exactly
-// this set, and it's also the shape of a task-submission PATCH — so the list
-// lives here with the schema rather than being re-derived at each call site.
+// The per-task methodology ("training") fields: everything on the methodology panel. Both
+// the submit wizard's carousel and the submission card's task editor render exactly this
+// set, and it's also the shape of a task-submission PATCH — so the list lives here with the
+// schema rather than being re-derived at each call site.
 function trainingFieldKeys() {
-  return fieldsForPanel(TASK_FIELDS, 1);
+  return fieldsForPanel(TASK_FIELDS, "methodology");
 }
 
 // The body of a task-submission PATCH: the methodology keys, and only those, read off a
@@ -172,7 +172,9 @@ function taskPayload(state) {
 
 // One card, since every editable task field is methodology. Declared anyway so the
 // task editor builds its layout the same way the model and submission ones do.
-const TASK_PANELS = [{ panel: 1, title: "Methodology", columns: 2 }];
+const TASK_PANELS = {
+  methodology: { type: "fields", title: "Methodology", columns: 2 },
+};
 
 export {
   TASK_FIELDS,

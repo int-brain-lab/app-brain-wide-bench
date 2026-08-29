@@ -1,7 +1,7 @@
 import { apiFetch } from "./client.js";
 import { normalizeObject, trimmed } from "../core/validation.js";
 
-// ─── PAYLOADS ────────────────────────────────────────────────────────────────────
+// ─── PAYLOADS ────────────────────────────────────────────────────────────────
 
 function buildSubmissionPayload(state) {
   return normalizeObject(state, { label: trimmed });
@@ -14,7 +14,7 @@ function buildPresignPayload(state, taskSection) {
   };
 }
 
-// ─── API ────────────────────────────────────────────────────────────────────
+// ─── API ─────────────────────────────────────────────────────────────────────
 
 async function getSubmissions() {
   return await apiFetch(`/api/submissions`);
@@ -48,7 +48,7 @@ async function createSubmission(submissionId) {
   });
 }
 
-// ─── UPLOAD FILE ────────────────────────────────────────────────────────────
+// ─── UPLOAD FILE ─────────────────────────────────────────────────────────────
 
 async function uploadToPresignedUrl(uploadUrl, file) {
   if (uploadUrl.startsWith("mock-s3://")) {

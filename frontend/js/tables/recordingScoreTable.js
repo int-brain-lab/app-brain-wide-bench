@@ -10,8 +10,9 @@
 // What a row *is* depends on the suite, so the row dimension is chosen from the data rather
 // than passed in — see `rowMode`.
 
-import { escapeHtml } from "../core/utils.js";
-import { createFilterableTable, matchIncludes } from "./table.js";
+import { escapeHtml } from "../core/html.js";
+import { createFilterableTable } from "./table.js";
+import { matchIncludes } from "../components/filters.js";
 import {
   metricsBadgeFormatter,
   numericSorter,
@@ -21,7 +22,7 @@ import {
 // ts3 names its metrics `<brain region>/<metric>` — "TH/f1-score", "macro/precision".
 const REGION_SEPARATOR = "/";
 
-// ─── SHAPE ──────────────────────────────────────────────────────────────────
+// ─── SHAPE ───────────────────────────────────────────────────────────────────
 
 // First-seen order across every entry rather than the keys of the first one: the scorers
 // emit metrics in ReadoutSpec order, which puts the task's primary metric first, and taking
@@ -68,7 +69,7 @@ function splitMetric(name) {
   return [name.slice(0, at), name.slice(at + 1)];
 }
 
-// ─── ROWS ───────────────────────────────────────────────────────────────────
+// ─── ROWS ────────────────────────────────────────────────────────────────────
 
 // `n_seeds` is the largest `n` across a row's metrics: they agree in practice, and taking
 // the max means a metric that failed on one seed reports the seeds the row actually has
@@ -144,47 +145,7 @@ function metricSuffixes(recordings) {
   return suffixes;
 }
 
-// ─── AGGREGATION ────────────────────────────────────────────────────────────
-
-// One entry per metric, aggregated across recordings the same way the scorers aggregate the
-// primary metric into the task summary (see `task_summary` in app/scoring/ts1.py):
-//
-//     mean = np.mean(means)
-//     sem  = np.std(means, ddof=1) / np.sqrt(n)   for n > 1, else None
-//
-// `ddof=1` is the sample standard deviation, so the variance divisor is n - 1 — which is
-// also why the n === 1 case has to return null rather than divide by zero. Applied to a
-// task's primary metric this reproduces the stored `primary_metric_mean` /
-// `primary_metric_sem` exactly; the point of doing it here is to get the same pair of
-// figures for the metrics the score carries no summary for.
-function summariseMetric(recordings, name) {
-  const means = (recordings ?? [])
-    .map((recording) => recording.metrics?.[name]?.mean)
-    .filter((value) => value != null);
-
-  const n = means.length;
-
-  if (n === 0) return { name, mean: null, sem: null, n };
-
-  const mean = means.reduce((total, value) => total + value, 0) / n;
-
-  if (n === 1) return { name, mean, sem: null, n };
-
-  const variance =
-    means.reduce((total, value) => total + (value - mean) ** 2, 0) / (n - 1);
-
-  return { name, mean, sem: Math.sqrt(variance) / Math.sqrt(n), n };
-}
-
-// In the same first-seen order the columns use, so the cards above the table and the column
-// pairs below it read left to right in step.
-function summariseMetrics(recordings) {
-  return metricNames(recordings).map((name) =>
-    summariseMetric(recordings, name),
-  );
-}
-
-// ─── COLUMNS ────────────────────────────────────────────────────────────────
+// ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
 const SEED_COLUMN = {
   title: "n_seeds",
@@ -248,7 +209,7 @@ function metricRowColumns() {
   ];
 }
 
-// ─── LAYOUTS ────────────────────────────────────────────────────────────────
+// ─── LAYOUTS ─────────────────────────────────────────────────────────────────
 
 // Everything that differs between the three row dimensions, in one place, so adding a suite
 // with its own shape is one entry rather than a branch in four functions.
@@ -280,7 +241,7 @@ const LAYOUTS = {
   },
 };
 
-// ─── TABLE ──────────────────────────────────────────────────────────────────
+// ─── TABLE ───────────────────────────────────────────────────────────────────
 
 /**
  * Mounts the breakdown table for one task score.
@@ -292,7 +253,7 @@ const LAYOUTS = {
 function renderRecordingScoresTable({ container, recordings }) {
   const layout = LAYOUTS[rowMode(recordings)];
 
-  return createFilterableTable({
+  const { table } = createFilterableTable({
     container,
     rows: layout.rows(recordings),
     columns: layout.columns(recordings),
@@ -311,6 +272,8 @@ function renderRecordingScoresTable({ container, recordings }) {
     paginationSize: 5,
     caller: "renderRecordingScoresTable",
   });
+
+  return table;
 }
 
 /**
@@ -327,7 +290,7 @@ function describeRecordingScores(recordings) {
   };
 }
 
-// ─── FOR A CHART ────────────────────────────────────────────────────────────
+// ─── FOR A CHART ─────────────────────────────────────────────────────────────
 //
 // The same two questions the table answers — what runs down the rows, and what metrics
 // were measured — asked by something that draws rather than tabulates. They live here
@@ -390,6 +353,5 @@ export {
   renderRecordingScoresTable,
   describeRecordingScores,
   recordingMetricNames,
-  summariseMetrics,
   toRecordingPoints,
 };

@@ -8,10 +8,10 @@
 // Every control matches against *rows* — what a domain's `toXRows` produced — which is why
 // the cards on a list page render from rows too. One shape, one set of matchers.
 
-import { escapeHtml } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
 import { SUITES } from "../core/suites.js";
 
-// ─── MATCHERS ───────────────────────────────────────────────────────────────
+// ─── MATCHERS ────────────────────────────────────────────────────────────────
 
 // Hardcoded from SUITES rather than derived from the rows, so an option doesn't disappear
 // exactly when nothing on the page covers that suite.
@@ -54,7 +54,7 @@ function optionsFromRows(rows, field) {
     .map((value) => ({ value, label: value }));
 }
 
-// ─── BAR ────────────────────────────────────────────────────────────────────
+// ─── BAR ─────────────────────────────────────────────────────────────────────
 
 function buildOptions(control) {
   return control.options
@@ -104,7 +104,7 @@ function buildFilterBar(controls) {
   `;
 }
 
-// ─── STATE ──────────────────────────────────────────────────────────────────
+// ─── STATE ───────────────────────────────────────────────────────────────────
 
 /**
  * The values behind a bar already in the DOM, and the predicate they add up to.

@@ -648,6 +648,13 @@ CARDS
   overflow: hidden;
 }
 
+/* A narrative runs to paragraphs, and the card shares a row with the details card beside
+   it. Capped and scrolled so a long one doesn't set the height of the row. */
+.scroll-y {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
 /* A card picked for a comparison, and the cards' answer to `.tabulator-selected` — the same
    wash and the same edge, since the two views are one list. Simpler than the table's version
    only because a card paints its own background, where a Tabulator row is painted by the
@@ -1693,6 +1700,12 @@ table {
 .table-footer,
 .tabulator .tabulator-footer {
   border-top: 1px solid var(--border-color);
+}
+
+/* The card grid's footer sits under a gap rather than against a last row, so it has no
+   edge to separate itself from. */
+.table-footer.cards-footer {
+  border-top: none;
 }
 
 /* The card grid's pager, sharing the table paginator's rules below: the two footers say the

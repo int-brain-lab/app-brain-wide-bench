@@ -8,7 +8,7 @@
 // The mover on the right is the point of the section: it is what publishing would change,
 // and it is the only thing on the row that isn't just a number.
 
-import { escapeHtml } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
 import { getIcon } from "../components/icons.js";
 import { toRankRows } from "../core/rankData.js";
 
@@ -44,7 +44,7 @@ function buildMover({ publicSide, privateSide }) {
   return `<span class="rank-mover ${direction}">${arrow} ${Math.abs(places)}</span>`;
 }
 
-// ─── ROWS ───────────────────────────────────────────────────────────────────
+// ─── ROWS ────────────────────────────────────────────────────────────────────
 
 function buildChips(row, showPrivate) {
   const chips = [
@@ -100,7 +100,7 @@ function buildRankRow(row, showPrivate, submitHref) {
     </div>`;
 }
 
-// ─── CARD ───────────────────────────────────────────────────────────────────
+// ─── CARD ────────────────────────────────────────────────────────────────────
 
 /**
  * @param ranking    the GET /api/models/{id}/ranking payload, or nothing if it failed to

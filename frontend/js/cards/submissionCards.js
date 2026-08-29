@@ -4,8 +4,10 @@
 // the API record, so that the cards, the filters above them and the table beside them all
 // read one shape. The suites are already worked out there.
 
-import { escapeHtml, formatDate } from "../core/utils.js";
+import { formatDate } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
 import { buildStatusBadge, buildSuiteBadgeList } from "../components/badges.js";
+import { createCardGrid } from "./cardGrid.js";
 
 function buildSubmissionCards(submissions) {
   return submissions
@@ -37,4 +39,14 @@ function buildSubmissionCards(submissions) {
     .join("");
 }
 
-export { buildSubmissionCards };
+/** @param options as createCardGrid. */
+function createSubmissionCardGrid(options) {
+  return createCardGrid({
+    buildCards: buildSubmissionCards,
+    noun: "submission",
+
+    ...options,
+  });
+}
+
+export { buildSubmissionCards, createSubmissionCardGrid };

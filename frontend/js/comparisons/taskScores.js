@@ -1,17 +1,19 @@
 // Several task scores side by side: how each was measured, and what it did per recording.
 //
-// What a comparison of task scores *is*. Running one is widgets/comparison.js; how a host's
-// rows name a score is the host's, as `toEntry`.
-//
 //   methodology  one row per score, one column per training field, the metric first
 //   recordings   every recording behind those scores — separate plots, one overlaid plot,
 //                or a heatmap
 //
+// The picks, the fetches and the ✕ are widgets/comparison.js, which this hands a `render`
+// to; how a host's rows name a score is the host's, as `toEntry`.
+//
 // The metric is per score rather than per comparison: two scores of the same task can be
 // recorded under different metrics, and the reader picks which one each is drawn in.
 
-import { escapeHtml } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
+import { buildMessageCard } from "../components/messages.js";
 import { buildSuiteBadgeList } from "../components/badges.js";
+import { buildViewToggle } from "../components/viewToggle.js";
 import { buildComparisonGrid } from "../tables/comparisonGrid.js";
 import {
   renderRecordingCharts,
@@ -26,7 +28,7 @@ import {
 import { displayValue } from "../forms/fields.js";
 import { suiteFromTask } from "../core/suites.js";
 import { recordingMetricNames } from "../tables/recordingScoreTable.js";
-import { createComparison } from "../widgets/comparison.js";
+import { buildRowHeader, createComparison } from "../widgets/comparison.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
@@ -39,11 +41,22 @@ const VIEWS = [
   { value: "heatmap", label: "Heatmap", icon: "suite" },
 ];
 
+const VIEW_ROLE = "task-compare-view";
+
 // The metric is a column like the others, and the first of them: it is the one the reader
 // chooses rather than reads, and it decides what the panel below is drawn in.
 const METRIC = "metric";
 
-// ─── ENTRIES ────────────────────────────────────────────────────────────────
+// The grid, the toggle under it, and the plots under that. Built once per comparison.
+const LAYOUT = `
+  <div data-role="grid"></div>
+  <div data-role="plot"></div>`;
+
+function slot(root, name) {
+  return root.querySelector(`[data-role='${name}']`);
+}
+
+// ─── ENTRIES ─────────────────────────────────────────────────────────────────
 
 // Read off the detail rather than stamped onto the entry when it lands: a score unticked and
 // reticked is a new entry answered from the cache, which never runs the fetch again.
@@ -71,7 +84,7 @@ function toSeriesEntry(entry, index, { overlaid = false } = {}) {
   };
 }
 
-// ─── METHODOLOGY ────────────────────────────────────────────────────────────
+// ─── METHODOLOGY ─────────────────────────────────────────────────────────────
 
 // The one cell that is a control rather than a reading: which metric this score's panel is
 // drawn in. Its value is the metric, so the column still mutes when they all agree.
@@ -106,17 +119,32 @@ function valueOf(entry, key, fields) {
   return value == null || value === "" ? null : String(value);
 }
 
-function buildMethodologyGrid(entries, fields, headerFor) {
+// Which score this row is. The submission sits under the task because two rows of the same
+// task across two models is the comparison this is for.
+function buildScoreHeader(entry) {
+  const suite = suiteFromTask(entry.taskId);
+
+  return buildRowHeader({
+    key: entry.key,
+    title: `
+      <span class="label">${escapeHtml(entry.taskId)}</span>
+      ${suite ? buildSuiteBadgeList([suite], "sm") : ""}`,
+    meta: [entry.modelName, entry.submissionLabel].filter(Boolean).join(" · "),
+    name: entry.taskId,
+  });
+}
+
+function buildMethodologyGrid(entries, fields) {
   const keys = trainingFieldKeys();
 
   return buildComparisonGrid({
     columns: [
       { key: METRIC, label: "Metric" },
-      ...keys.map((key) => ({ key, label: fields[key]?.label ?? key })),
+      ...keys.map((key) => ({ key, label: entries[key]?.label ?? key })),
     ],
     rows: entries.map((entry) => ({
       key: entry.key,
-      header: headerFor(entry),
+      header: buildScoreHeader(entry),
       cells: {
         [METRIC]: buildMetricCell(entry),
         ...Object.fromEntries(
@@ -127,7 +155,7 @@ function buildMethodologyGrid(entries, fields, headerFor) {
   });
 }
 
-// ─── WIDGET ─────────────────────────────────────────────────────────────────
+// ─── WIDGET ──────────────────────────────────────────────────────────────────
 
 /**
  * @param container as createComparison.
@@ -140,84 +168,101 @@ function buildMethodologyGrid(entries, fields, headerFor) {
  *                  whatever table is above it.
  */
 function createTaskComparison(options) {
+  // Which of the three ways the recordings are being read. Per comparison, and sticky: a
+  // reader who overlaid one set wants the next overlaid too.
+  let view = "separate";
+
+  // The training fields every score is described by. The same for all of them, so they are
+  // fetched once — and on the first render rather than here, so a reader who never compares
+  // never pays for them. `loadingFields` is what stops a second render starting a second
+  // request while the first is still in the air.
+  let fields = null;
+  let loadingFields = null;
+
+  // The grid, and the two controls that live in it: a metric per score, and the toggle for
+  // the plots below. Both listeners go on elements this render just made — the grid itself
+  // survives every render and would collect one per redraw.
+  function renderGrid(root, entries, refresh) {
+    const grid = slot(root, "grid");
+
+    // The toggle is drawn either way: which way the plots below are read has nothing to do
+    // with the fields, and taking the control away while they land would be a flicker.
+    grid.innerHTML =
+      (fields
+        ? buildMethodologyGrid(entries, fields)
+        : buildMessageCard("Loading methodology…")) +
+      buildViewToggle({ views: VIEWS, active: view, role: VIEW_ROLE });
+
+    for (const select of grid.querySelectorAll("[data-role='metric']")) {
+      select.addEventListener("change", () => {
+        const entry = entries.find((item) => item.key === select.dataset.key);
+
+        if (!entry) return;
+
+        entry.metric = select.value;
+        refresh();
+      });
+    }
+
+    for (const button of grid.querySelectorAll("[data-view]")) {
+      button.addEventListener("click", () => {
+        if (button.dataset.view === view) return;
+
+        view = button.dataset.view;
+        refresh();
+      });
+    }
+  }
+
+  function renderPlot(root, entries, track) {
+    const plot = slot(root, "plot");
+
+    if (view === "heatmap") {
+      renderRecordingHeatmaps({
+        container: plot,
+        entries: entries.map((entry) => toSeriesEntry(entry)),
+      });
+
+      return;
+    }
+
+    const overlaid = view === "overlaid";
+
+    track(
+      renderRecordingCharts({
+        container: plot,
+        entries: entries.map((entry, index) =>
+          toSeriesEntry(entry, index, { overlaid }),
+        ),
+        charts: [],
+        facet: overlaid ? "metric" : "score",
+        size: overlaid ? "tall" : "regular",
+      }),
+    );
+  }
+
+  function render({ root, entries, refresh, track }) {
+    if (!slot(root, "grid")) root.innerHTML = LAYOUT;
+
+    loadingFields ??= loadTaskFields().then((loaded) => {
+      fields = loaded;
+      refresh();
+    });
+
+    // Drawn as each score arrives rather than held until they all have: a row with its
+    // methodology still missing is worth showing, and its plot fills in behind it. The
+    // plots don't wait on the fields either — nothing in them is described by one.
+    renderGrid(root, entries, refresh);
+    renderPlot(root, entries, track);
+  }
+
   return createComparison({
     max: MAX_COMPARED,
     prompt: `Select up to ${MAX_COMPARED} task scores to compare them.`,
 
     loadDetail: (entry) => loadTaskSubmission(entry.submissionId, entry.key),
-    loadFields: loadTaskFields,
 
-    // Which score this row is. The submission sits under the task because two rows of the
-    // same task across two models is the comparison this is for.
-    header: (entry) => {
-      const suite = suiteFromTask(entry.taskId);
-
-      return {
-        title: `
-          <span class="label">${escapeHtml(entry.taskId)}</span>
-          ${suite ? buildSuiteBadgeList([suite], "sm") : ""}`,
-        meta: [entry.modelName, entry.submissionLabel].filter(Boolean).join(" · "),
-        name: entry.taskId,
-      };
-    },
-
-    panels: [
-      {
-        id: "methodology",
-        render: ({ container, entries, fields, headerFor, refresh }) => {
-          container.innerHTML = buildMethodologyGrid(entries, fields, headerFor);
-
-          // Delegated to this panel's own container, which is rewritten on every render of
-          // it, rather than to a root that outlives the selects.
-          container.addEventListener("change", (event) => {
-            const select = event.target.closest("[data-role='metric']");
-
-            if (!select) return;
-
-            const entry = entries.find((item) => item.key === select.dataset.key);
-
-            if (!entry) return;
-
-            entry.metric = select.value;
-
-            // The plot alone: the grid's own selects are already showing the new value, and
-            // redrawing them would take the reader's cursor out of the control they are
-            // still working.
-            refresh("recordings");
-          });
-        },
-      },
-
-      {
-        // No title: the toggle above the plots is the whole of this panel's header, and a
-        // heading over a figure the grid above already names would be saying it twice.
-        id: "recordings",
-        views: VIEWS,
-
-        render: ({ container, entries, view }) => {
-          if (view === "heatmap") {
-            renderRecordingHeatmaps({
-              container,
-              entries: entries.map((entry) => toSeriesEntry(entry)),
-            });
-
-            return null;
-          }
-
-          const overlaid = view === "overlaid";
-
-          return renderRecordingCharts({
-            container,
-            entries: entries.map((entry, index) =>
-              toSeriesEntry(entry, index, { overlaid }),
-            ),
-            charts: [],
-            facet: overlaid ? "metric" : "score",
-            size: overlaid ? "tall" : "regular",
-          });
-        },
-      },
-    ],
+    render,
 
     ...options,
   });

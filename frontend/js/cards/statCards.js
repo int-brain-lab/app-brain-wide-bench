@@ -3,7 +3,7 @@
 // Takes `[label, value, icon]` triples rather than objects because every caller builds the
 // row as a literal list and the order is the layout.
 
-import { escapeHtml } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
 
 function buildStatCard([label, value, icon]) {
   return `

@@ -10,26 +10,31 @@
 
 import { getLeaderboard } from "../api/leaderboardApi.js";
 import { getTasks } from "../api/taskApi.js";
-import { showFailure } from "../core/utils.js";
-import { renderStaticLeaderboardTable } from "../tables/leaderboardTable.js";
+import { buildFailureMessage } from "../components/messages.js";
+import { renderHtml } from "../core/render.js";
+import { toSuiteGroups } from "../core/metricGroups.js";
+import {
+  buildStaticLeaderboardTable,
+  toLeaderboardRows,
+} from "../tables/leaderboardTable.js";
 
-// ─── CONSTANTS ──────────────────────────────────────────────────────────────
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 const PREVIEW_LIMIT = 5;
 
-// ─── RENDERING ──────────────────────────────────────────────────────────────
+// ─── RENDERING ───────────────────────────────────────────────────────────────
 
-// Returns every row, not the five it rendered — the model stat is a total, and so is the
-// count the table puts in its footer.
 function renderPreview(standings, tasks) {
-  return renderStaticLeaderboardTable({
-    container: "lb-table-preview",
-    standings,
-    tasks,
-    limit: PREVIEW_LIMIT,
-    // The same place the section heading's "Full leaderboard" link goes.
-    viewAll: { href: "/html/leaderboard/leaderboard.html" },
-  });
+  renderHtml(
+    "lb-table-preview",
+    buildStaticLeaderboardTable({
+      standings,
+      tasks,
+      limit: PREVIEW_LIMIT,
+      // The same place the section heading's "Full leaderboard" link goes.
+      viewAll: { href: "/html/leaderboard/leaderboard.html" },
+    }),
+  );
 }
 
 // `rows.length` is one per model — the payload's own grain. The submission count has to be
@@ -45,10 +50,13 @@ function renderStats(rows) {
 // Into the preview's own slot, which takes the footer count with it — a failure written
 // where a number goes would read as one.
 function showFailedPreview(message, error) {
-  showFailure(document.getElementById("lb-table-preview"), message, error);
+  renderHtml(
+    document.getElementById("lb-table-preview"),
+    buildFailureMessage(message, error),
+  );
 }
 
-// ─── INITIALISATION ─────────────────────────────────────────────────────────
+// ─── INITIALISATION ──────────────────────────────────────────────────────────
 
 async function loadLandingPage() {
   try {
@@ -63,7 +71,10 @@ async function loadLandingPage() {
       return;
     }
 
-    renderStats(renderPreview(standings, tasks));
+    renderPreview(standings, tasks);
+
+    // Every row, not the five on screen: the stats are totals.
+    renderStats(toLeaderboardRows(standings, toSuiteGroups(tasks)));
   } catch (err) {
     console.error("Failed to initialise the landing page:", err);
     showFailedPreview("Loading the leaderboard failed.", err);

@@ -1,8 +1,7 @@
 import { dispose } from "./disposable.js";
+import { refreshIcons } from "./render.js";
 
 // One document, several views of a single record. `?view=` is the state.
-
-const CONTAINER_ID = "container";
 
 // Two kinds of URL extra, and they clean up at opposite ends:
 //
@@ -13,7 +12,7 @@ function createRecordRouter({
   views,
   context,
   defaultView = "dashboard",
-  container = document.getElementById(CONTAINER_ID),
+  container,
   flags = [],
   params: viewParams = [],
 }) {
@@ -87,7 +86,7 @@ function createRecordRouter({
 
     mounted = views[name]({ ...context, ...extra }, router) ?? null;
 
-    globalThis.lucide?.createIcons?.();
+    refreshIcons();
   }
 
   function goTo(name, extra = {}) {

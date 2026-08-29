@@ -12,7 +12,7 @@ const SUBMISSION_FIELDS = {
   label: {
     label: "Name",
     input: "text",
-    panel: 1,
+    panel: "model",
     default: "",
     required: true,
   },
@@ -21,7 +21,7 @@ const SUBMISSION_FIELDS = {
     label: "Model id",
     input: "select",
     options: null,
-    panel: 1,
+    panel: "model",
     required: true,
   },
 
@@ -29,14 +29,14 @@ const SUBMISSION_FIELDS = {
     label: "Model name",
     input: "text",
     editable: false,
-    panel: 1,
+    panel: "model",
   },
 
   team_name: {
     label: "Team name",
     input: "text",
     editable: false,
-    panel: 1,
+    panel: "model",
   },
 
   // team_id: {
@@ -49,14 +49,14 @@ const SUBMISSION_FIELDS = {
     label: "Status",
     input: "text",
     editable: false,
-    panel: 1,
+    panel: "model",
   },
 
   is_public: {
     label: "Public",
     input: "select",
     options: [true, false],
-    panel: 2,
+    panel: "information",
     required: true,
   },
 
@@ -82,20 +82,20 @@ const SUBMISSION_FIELDS = {
   narrative_public: {
     label: "Public narrative",
     input: "textarea",
-    panel: 2,
+    panel: "information",
   },
 
   narrative_private: {
     label: "Private narrative",
     input: "textarea",
-    panel: 2,
+    panel: "information",
   },
 };
 
-const SUBMISSION_PANELS = [
-  { panel: 1, title: "Model", columns: 2 },
-  { panel: 2, title: "Information", columns: 1 },
-];
+const SUBMISSION_PANELS = {
+  model: { type: "fields", title: "Model", columns: 2 },
+  information: { type: "fields", title: "Information", columns: 1 },
+};
 
 // The help text, from /api/meta. Split out from loadSubmissionFields because a signed-out
 // reader of a public submission sees the same description rows and cannot fetch the models

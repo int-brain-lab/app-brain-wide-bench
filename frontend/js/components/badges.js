@@ -1,4 +1,4 @@
-import { escapeHtml } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
 import { SUITES } from "../core/suites.js";
 import { buildIcon } from "./icons.js";
 

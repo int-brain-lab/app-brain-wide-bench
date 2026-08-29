@@ -24,10 +24,10 @@ import {
 } from "../core/metricGroups.js";
 import {
   createFilterableTable,
-  matchIncludes,
   previewRows,
-  renderStaticTable,
+  buildStaticTable,
 } from "./table.js";
+import { matchIncludes } from "../components/filters.js";
 import {
   modelFormatter,
   numericSorter,
@@ -37,9 +37,8 @@ import {
   rankValue,
   score,
 } from "./formatters.js";
-import { resolveContainer } from "../core/dom.js";
 
-// ─── ROWS ───────────────────────────────────────────────────────────────────
+// ─── ROWS ────────────────────────────────────────────────────────────────────
 
 // Every scored task becomes a field named after the task id, and every suite a field named
 // after its key, so a column can bind to `ts1-choice` or to `ts1_rank` with no reshaping —
@@ -112,7 +111,7 @@ function toLeaderboardRows(standings, suites, myTeamIds = new Set()) {
   return rows.sort(byPosition);
 }
 
-// ─── RANKING ────────────────────────────────────────────────────────────────
+// ─── RANKING ─────────────────────────────────────────────────────────────────
 
 const EPSILON = 1e-10;
 
@@ -211,7 +210,7 @@ function byPosition(a, b) {
   return rankOrder(a.partialRank, b.partialRank);
 }
 
-// ─── METRICS ────────────────────────────────────────────────────────────────
+// ─── METRICS ─────────────────────────────────────────────────────────────────
 
 const GROUPINGS = [
   { value: "suite", label: "Suites" },
@@ -245,7 +244,7 @@ function rankFieldFor(metric, suites) {
   return suites.find((suite) => suite.suite === metric)?.key ?? null;
 }
 
-// ─── COLUMNS ────────────────────────────────────────────────────────────────
+// ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
 // Suite mode is the three rank columns and nothing else: a mean rank is the only summary a
 // suite has, so the numbers a reader compares down the board are these. The scores behind
@@ -331,7 +330,7 @@ function getLeaderboardPreviewColumns(suites) {
   ];
 }
 
-// ─── CONTROLS ───────────────────────────────────────────────────────────────
+// ─── CONTROLS ────────────────────────────────────────────────────────────────
 
 function getLeaderboardControls(suites) {
   return [
@@ -364,10 +363,9 @@ function getLeaderboardControls(suites) {
   ];
 }
 
-// ─── TABLE ──────────────────────────────────────────────────────────────────
+// ─── TABLE ───────────────────────────────────────────────────────────────────
 
 /**
- * @param container    element, or the id of one. Its contents are replaced.
  * @param standings    the GET /api/leaderboard payload.
  * @param tasks        the GET /api/tasks payload — the columns come from it.
  * @param myTeamIds    Set of the viewer's own team ids, as strings, for the "Yours" pill.
@@ -450,7 +448,7 @@ function renderLeaderboardTable({
     table.replaceData(rows).then(() => table.setSort("rank", "asc"));
   }
 
-  return createFilterableTable({
+  const { table } = createFilterableTable({
     container,
     rows,
     columns: getLeaderboardColumns(suites, () => metric),
@@ -495,27 +493,27 @@ function renderLeaderboardTable({
       }
     },
   });
+
+  return table;
 }
 
-// ─── STATIC TABLE ───────────────────────────────────────────────────────────
+// ─── STATIC TABLE ────────────────────────────────────────────────────────────
 
 /**
  * Plain-markup counterpart to renderLeaderboardTable, for a fixed preview — no filters,
  * no paging, and no Tabulator needed on the page. Ordered by the position
  * toLeaderboardRows assigned, the only order a preview without a metric selector has.
  *
- * @param container   element, or the id of one. Its contents are replaced.
  * @param standings   as renderLeaderboardTable.
  * @param tasks       as renderLeaderboardTable.
  * @param limit       how many rows to show. Omit for all of them.
- * @param viewAll     as renderStaticTable — where the footer's "View all" link goes.
+ * @param viewAll     as buildStaticTable — where the footer's "View all" link goes.
  * @param myTeamIds   as renderLeaderboardTable. Omit for no "Yours" pill, which is what a
  *                    preview that isn't worth an extra request for the memberships does.
  * @returns every row it built, not just the slice it rendered, so a caller can report
  *          a total alongside the preview.
  */
-function renderStaticLeaderboardTable({
-  container,
+function buildStaticLeaderboardTable({
   standings,
   tasks,
   limit,
@@ -527,15 +525,17 @@ function renderStaticLeaderboardTable({
 
   const shown = previewRows(rows, byPosition, limit);
 
-  resolveContainer(container).innerHTML = renderStaticTable({
+  return buildStaticTable({
     columns: getLeaderboardPreviewColumns(suites),
     rows: shown,
     noun: "model",
     total: rows.length,
     viewAll,
   });
-
-  return rows;
 }
 
-export { renderLeaderboardTable, renderStaticLeaderboardTable };
+export {
+  renderLeaderboardTable,
+  buildStaticLeaderboardTable,
+  toLeaderboardRows,
+};

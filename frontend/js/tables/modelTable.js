@@ -1,16 +1,11 @@
 // Filterable models table
 //
 // The table allows you to search by model name and filter by team or suite
-import { resolveContainer } from "../core/dom.js";
+
 import {
-  SUITE_OPTIONS,
   createFilterableTable,
   previewRows,
-  renderStaticTable,
-  matchEquals,
-  matchInArray,
-  matchIncludes,
-  optionsFromRows,
+  buildStaticTable,
 } from "./table.js";
 import {
   dateFormatter,
@@ -19,29 +14,10 @@ import {
   modelNameFormatter,
   suiteBadgesFormatter,
 } from "./formatters.js";
+import {getModelFilters} from "../utils/modelUtils.js";
 
-// ─── ROWS ───────────────────────────────────────────────────────────────────
 
-function toModelRow(model) {
-  return {
-    id: model.id,
-    name: model.name,
-    team_name: model.team_name ?? null,
-    created_at: model.created_at,
-    n_submissions: model.n_submissions ?? 0,
-    suites: model.task_suites,
-    // Both carried so modelNameFormatter can put a pill beside the name; nothing filters
-    // or sorts on either.
-    is_pretrained: model.is_pretrained ?? null,
-    is_mine: model.is_mine ?? false,
-  };
-}
-
-function toModelRows(models) {
-  return models.map(toModelRow);
-}
-
-// ─── COLUMNS ────────────────────────────────────────────────────────────────
+// ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
 // `showTeam` off drops the Team column, for a caller already scoped to one — a team's own
 // page, where it would repeat the page's heading down every row.
@@ -87,120 +63,73 @@ function getModelColumns({ showTeam = true, showMine = false } = {}) {
   ];
 }
 
-// ─── CONTROLS ───────────────────────────────────────────────────────────────
 
-// `showSuiteFilter` off for a caller whose rows are already one suite's — the compare page,
-// which picks the suite above the table. Left on, the select could only ever empty it.
-function getModelControls(rows, { showSuiteFilter = true } = {}) {
-  return [
-    {
-      type: "search",
-      name: "name",
-      placeholder: "Search models...",
-      match: matchIncludes("name"),
-    },
-    {
-      type: "select",
-      name: "team_name",
-      placeholder: "All teams",
-      options: optionsFromRows(rows, "team_name"),
-      match: matchEquals("team_name"),
-    },
-    ...(showSuiteFilter
-      ? [
-          {
-            type: "select",
-            name: "suite",
-            placeholder: "All suites",
-            options: SUITE_OPTIONS,
-            match: matchInArray("suites"),
-          },
-        ]
-      : []),
-  ];
-}
-
-// ─── TABLE ──────────────────────────────────────────────────────────────────
+// ─── TABLE ───────────────────────────────────────────────────────────────────
 
 /**
- * @param container element, or the id of one. Its contents are replaced.
- * @param models    list of models with task suites attached, mapped to rows by toModelRows().
- * @param rows      already-mapped rows, for a caller that mapped them itself — the list
- *                  page, whose cards and filters work in the same shape. Pass one or the
- *                  other, not both.
+ * @param rows      rows from toModelRows.
  * @param showMine  mark the rows on the viewer's own teams — see getModelColumns.
- * @param showSuiteFilter  keep the suite select — see getModelControls.
+ * @param showSuiteFilter  keep the suite select — see getModelFilters.
  * @param showFilters  keep the filter bar above the grid. False for a caller with a bar of
- *                  its own over both its views — see templates/list-page.js.
+ *                  its own over both its views — see templates/listPage.js.
  * @param selection as createFilterableTable. Keyed on the model id, so a caller holding one
  *                  can select or deselect its row without a lookup of its own.
- * @returns the Tabulator instance.
+ * @returns { element, table } — the caller mounts the element where it wants it, and keeps
+ *          the instance. Handing it back rather than filling a container is what lets a page
+ *          build the table once and attach it to a slot it shares with another view.
  */
-function renderModelsTable({
-  container,
-  models,
-  rows = toModelRows(models),
+function createModelsTable({
+  rows,
   showMine = false,
   showSuiteFilter = true,
   showFilters = true,
   selection,
 }) {
   return createFilterableTable({
-    container,
     rows,
     index: "id",
     columns: getModelColumns({ showMine }),
     selection,
-    controls: showFilters ? getModelControls(rows, { showSuiteFilter }) : [],
+    controls: showFilters ? getModelFilters(rows, { showSuiteFilter }) : [],
     noun: "model",
     initialSort: [{ column: "created_at", dir: "desc" }],
-    caller: "renderModelsTable",
   });
 }
 
-// ─── STATIC TABLE ───────────────────────────────────────────────────────────
+// ─── STATIC TABLE ────────────────────────────────────────────────────────────
 
 /**
- * Plain-markup counterpart to renderModelsTable, for a fixed preview — no filters, no
+ * Plain-markup counterpart to createModelsTable, for a fixed preview — no filters, no
  * paging, and no Tabulator needed on the page.
  *
- * @param container element, or the id of one. Its contents are replaced.
- * @param models    as renderModelsTable.
+ * @param rows      as createModelsTable.
  * @param showTeam  keep the Team column. Pass false when every row is one team's.
  * @param limit     how many rows to show. Omit for all of them.
- * @param viewAll     as renderStaticTable — where the footer's "View all" link goes.
- * @returns every row it built, not just the slice it rendered. The total is already in
- *          the footer; this is for a caller that needs the rows themselves.
+ * @param viewAll     as buildStaticTable — where the footer's "View all" link goes.
+ * @returns the markup. The caller writes it where it wants it.
  */
-function renderStaticModelsTable({
-  container,
-  models,
+function buildStaticModelsTable({
+  rows,
   showTeam = true,
   limit,
   viewAll,
 }) {
-  const rows = toModelRows(models);
-
   const shown = previewRows(
     rows,
     (a, b) => dateSorter(b.created_at, a.created_at),
     limit,
   );
 
-  resolveContainer(container).innerHTML = renderStaticTable({
+  return buildStaticTable({
     columns: getModelColumns({ showTeam }),
     rows: shown,
     noun: "model",
     total: rows.length,
     viewAll,
   });
-
-  return rows;
 }
 
 export {
-  getModelControls,
-  renderModelsTable,
-  renderStaticModelsTable,
-  toModelRows,
+  createModelsTable,
+  buildStaticModelsTable,
 };

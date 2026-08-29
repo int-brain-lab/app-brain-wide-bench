@@ -19,13 +19,15 @@ import {
 } from "../api/teamApi.js";
 import { searchUsers } from "../api/userApi.js";
 import { buildTableCount } from "../components/count.js";
-import { escapeHtml, initials } from "../core/utils.js";
-import { showEmpty } from "../core/message.js";
+import { initials } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
+import { buildEmptyMessage } from "../components/messages.js";
+import { renderHtml } from "../core/render.js";
 
 // The server's TeamRole. Ordered as the select shows them, most privileged first.
 const ROLES = ["owner", "collaborator"];
 
-// ─── DOM ────────────────────────────────────────────────────────────────────
+// ─── DOM ─────────────────────────────────────────────────────────────────────
 
 // The block's own markup, so the ids below are declared and queried in one place. Both
 // callers used to write this out themselves — the create page in HTML and the team record
@@ -62,7 +64,7 @@ function getElements() {
   };
 }
 
-// ─── SECTION ────────────────────────────────────────────────────────────────
+// ─── SECTION ─────────────────────────────────────────────────────────────────
 
 /**
  * @param getTeam    () => the record being edited. Read on every interaction, so a caller
@@ -97,7 +99,7 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
   // opens it once at construction, because there the panel's own lock is the gate.
   let editing = false;
 
-  // ─── MEMBERS ──────────────────────────────────────────────────────────────
+  // ─── MEMBERS ───────────────────────────────────────────────────────────────
 
   function getEffectiveMembers() {
     const current = (getTeam().members ?? []).filter(
@@ -107,7 +109,7 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
     return [...current, ...pendingAdds.values()];
   }
 
-  // ─── RENDERING ────────────────────────────────────────────────────────────
+  // ─── RENDERING ─────────────────────────────────────────────────────────────
 
   // A select rather than a badge, so the role is chosen where the member is. Only a
   // staged addition can have its role set: changing a saved member's role would need an
@@ -183,7 +185,7 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
     }
 
     if (members.length === 0) {
-      showEmpty(elements.list, "No members yet.");
+      renderHtml(elements.list, buildEmptyMessage("No members yet."));
       return;
     }
 
@@ -261,7 +263,7 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
     renderMembers();
   }
 
-  // ─── MEMBER CHANGES ──────────────────────────────────────────────────────
+  // ─── MEMBER CHANGES ────────────────────────────────────────────────────────
 
   // Re-adding someone staged for removal cancels that removal rather than recording a
   // separate add — otherwise apply() would DELETE and then POST the same person.
@@ -362,7 +364,7 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
     render();
   }
 
-  // ─── EVENTS ───────────────────────────────────────────────────────────────
+  // ─── EVENTS ────────────────────────────────────────────────────────────────
 
   async function handleSearch() {
     const query = elements.search.value.trim();

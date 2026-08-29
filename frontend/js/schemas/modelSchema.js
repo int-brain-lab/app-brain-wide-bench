@@ -8,13 +8,13 @@ const MODEL_FIELDS = {
     label: "Model id",
     input: "text",
     editable: false,
-    panel: 1,
+    panel: "identity",
   },
 
   name: {
     label: "Name",
     input: "text",
-    panel: 1,
+    panel: "identity",
     default: "",
     required: true,
   },
@@ -23,7 +23,7 @@ const MODEL_FIELDS = {
     label: "Team",
     input: "select",
     options: null,
-    panel: 1,
+    panel: "identity",
     required: true,
   },
 
@@ -37,55 +37,55 @@ const MODEL_FIELDS = {
     label: "Created",
     input: "datetime-local",
     editable: false,
-    panel: 1,
+    panel: "identity",
   },
 
   // `icon` is a Lucide name, shown next to the label on display rows only.
   link_project: {
     label: "Project link",
     input: "url",
-    panel: 2,
+    panel: "links",
     icon: getIcon("link"),
   },
 
   link_code: {
     label: "Project code",
     input: "url",
-    panel: 2,
+    panel: "links",
     icon: getIcon("code"),
   },
 
   publication_doi: {
     label: "Publication (DOI)",
     input: "text",
-    panel: 2,
+    panel: "links",
     icon: getIcon("publication"),
   },
 
   link_weights: {
     label: "Model weights",
     input: "url",
-    panel: 2,
+    panel: "links",
     icon: getIcon("data"),
   },
 
   n_parameters: {
     label: "N parameters",
     input: "number",
-    panel: 3,
+    panel: "specification",
   },
 
   temporal_context_s: {
     label: "Temporal context (s)",
     input: "number",
     default: 1,
-    panel: 3,
+    panel: "specification",
   },
 
   is_pretrained: {
     label: "Pretrained",
     input: "select",
-    panel: 3,
+    panel: "specification",
     options: [true, false],
     required: true,
   },
@@ -97,7 +97,7 @@ const MODEL_FIELDS = {
     input: "checkbox-list",
     enum: "modality",
     default: [],
-    panel: 3,
+    panel: "specification",
   },
 
   pretrained_out_modalities: {
@@ -105,19 +105,19 @@ const MODEL_FIELDS = {
     input: "checkbox-list",
     enum: "modality",
     default: [],
-    panel: 3,
+    panel: "specification",
   },
 
   pretraining_data: {
     label: "Pretraining data",
     input: "textarea",
-    panel: 3,
+    panel: "specification",
   },
 };
 
 // How the panels above are titled and laid out. Lives here, next to the `panel`
 // numbers it names, so the details view and its edit form can't drift apart —
-// both build their cards from this one list via panelGroups().
+// both build their cards from this one list via toPanelGroups().
 //
 // Order here is render order; a key with no `panel` (team_name) is intentionally
 // absent from every card.
@@ -125,11 +125,11 @@ const MODEL_FIELDS = {
 // `columns` is the read-only layout — the edit form overrides it to 1 so inputs
 // get the full card width. Model specification stays single-column because its
 // textarea and checkbox lists are the tall fields that need the room.
-const MODEL_PANELS = [
-  { panel: 1, title: "Identity", columns: 2 },
-  { panel: 2, title: "Links", columns: 1, inline: true },
-  { panel: 3, title: "Model specification", columns: 2 },
-];
+const MODEL_PANELS = {
+  identity: { type: "fields", title: "Identity", columns: 2 },
+  links: { type: "fields", title: "Links", columns: 1, inline: true },
+  specification: { type: "fields", title: "Model specification", columns: 2 },
+};
 
 // The enum options and the help text, from /api/meta. Split out from loadModelFields
 // because every reader needs it and not every reader is signed in: the details cards show

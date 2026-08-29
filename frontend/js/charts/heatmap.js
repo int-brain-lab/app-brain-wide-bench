@@ -7,7 +7,7 @@
 // Generic in the same way chart.js is: it knows about columns, rows and a ramp, and nothing
 // about recordings or scores. What a cell means is the caller's — see recordingChart.js.
 
-import { escapeHtml } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
 import { SEQUENTIAL } from "./palette.js";
 
 // The bucket a value falls in, as an index into the ramp. Discrete rather than a continuous

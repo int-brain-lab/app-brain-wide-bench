@@ -11,7 +11,7 @@
 // Plain markup, not Tabulator: a handful of rows that never sort or filter, with the odd
 // control living in a cell.
 
-import { escapeHtml } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
 
 // A cell is a value to compare and, optionally, the markup to show instead of it — a
 // select, a badge. The value is what decides whether the column agrees, so a control still

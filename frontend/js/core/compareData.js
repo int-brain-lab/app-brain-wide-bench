@@ -22,7 +22,7 @@ import { mean } from "./utils.js";
 import { suiteFromTask } from "./suites.js";
 import { latestScoresByTask } from "./scoreData.js";
 
-// ─── ENTRIES ────────────────────────────────────────────────────────────────
+// ─── ENTRIES ─────────────────────────────────────────────────────────────────
 
 // One model, reduced to its scores on a single suite. `model` is a ModelDetail — the
 // GET /api/models/{id} payload, whose submissions carry the task scores.
@@ -66,7 +66,7 @@ function toCompareEntries(models, suite, selectedId) {
   });
 }
 
-// ─── TASKS ──────────────────────────────────────────────────────────────────
+// ─── TASKS ───────────────────────────────────────────────────────────────────
 
 /**
  * The union of scored tasks across `entries`, sorted by id, each with the metric it is
@@ -131,7 +131,7 @@ function tasksForMetric(tasks, metric) {
   return metric ? tasks.filter((task) => task.metric === metric) : tasks;
 }
 
-// ─── COLUMNS ────────────────────────────────────────────────────────────────
+// ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
 /**
  * The models to give a column to, in the order they should appear: the page's own model
@@ -154,7 +154,7 @@ function compareModels(entries, { exclude = null } = {}) {
     }));
 }
 
-// ─── ROWS ───────────────────────────────────────────────────────────────────
+// ─── ROWS ────────────────────────────────────────────────────────────────────
 
 // Tabulator binds a column to a field name, so each model id becomes a field. The value is
 // the whole { mean, sem } object rather than a number — the cell renders both halves, and

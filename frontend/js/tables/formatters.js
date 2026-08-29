@@ -6,11 +6,12 @@
 // innerHTML sink and model names, labels, team names and affiliations are all user-supplied
 // — hence escapeHtml on every interpolation.
 //
-// A formatter reads its cell through `getValue()` / `getData()` only: renderStaticTable
+// A formatter reads its cell through `getValue()` / `getData()` only: buildStaticTable
 // fakes a cell with exactly those two methods, so anything reaching for cell.getElement()
 // would work in one renderer and not the other.
 
-import { escapeHtml, formatDate } from "../core/utils.js";
+import { formatDate } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
 import { buildIcon, getIcon } from "../components/icons.js";
 import { SUITES } from "../core/suites.js";
 import {
@@ -23,13 +24,13 @@ import {
   buildSuiteBadgeList,
 } from "../components/badges.js";
 
-// ─── VALUES ─────────────────────────────────────────────────────────────────
+// ─── VALUES ──────────────────────────────────────────────────────────────────
 
 function score(value) {
   return value == null ? "—" : value.toFixed(3);
 }
 
-// ─── SORTERS ────────────────────────────────────────────────────────────────
+// ─── SORTERS ─────────────────────────────────────────────────────────────────
 
 // Tabulator's built-in "number" sorter leaves a null wherever the browser's comparison
 // lands it. Nulls sort smallest here, so under the desc sort these columns use, "no score"
@@ -71,7 +72,7 @@ function dateSorter(a, b) {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-// ─── GENERAL ────────────────────────────────────────────────────────────────
+// ─── GENERAL ─────────────────────────────────────────────────────────────────
 
 // Curried on the page rather than taking a full href, so a caller can't pass an unencoded
 // id — it always goes through encodeURIComponent here.
@@ -114,7 +115,7 @@ function dateFormatter(cell) {
   return `<span class="metadata">${escapeHtml(formatDate(cell.getValue()))}</span>`;
 }
 
-// ─── SUITES ─────────────────────────────────────────────────────────────────
+// ─── SUITES ──────────────────────────────────────────────────────────────────
 
 function suiteBadgesFormatter(cell) {
   return `<span class="row left gap-sm">${buildSuiteBadgeList(cell.getValue() ?? [], "sm")}</span>`;
@@ -133,7 +134,7 @@ function sortSuites(suites) {
   return SUITES.filter((suite) => suites.includes(suite));
 }
 
-// ─── METRICS AND SCORES ─────────────────────────────────────────────────────
+// ─── METRICS AND SCORES ──────────────────────────────────────────────────────
 
 // Takes a single name or an array: a task row carries just its primary metric today, but
 // TaskScoreOut also has a `metrics` dict, so a cell showing several needs no new formatter.
@@ -150,47 +151,17 @@ function scoreFormatter(cell) {
   return score(cell.getValue());
 }
 
-// A task name that links to the per-recording, per-metric breakdown of its score. The
-// breakdown lives on the submission record page, so the link carries a full URL *and* the
-// router's `data-view`: the URL is what makes it work from the dashboard and the model page,
-// where there is no `score` view to route to, and the attributes are what keep it a
-// client-side navigation on the submission page itself (see the unknown-view fall-through in
-// router.js).
-//
-// A row with no score has nothing to break down, and one with no submission has nowhere to
-// go, so both render as the plain name — the same markup taskNameFormatter gives.
-function taskScoreLinkFormatter(cell) {
-  const row = cell.getData();
-  const name = escapeHtml(cell.getValue().slice(4));
-
-  if (row.mean_score == null || row.submission_id == null) {
-    return `<span class="label">${name}</span>`;
-  }
-
-  const query = new URLSearchParams({
-    id: row.submission_id,
-    view: "score",
-    score: row.id,
-  });
-
-  return `
-    <a href="/html/submissions/submissions.html?${query}"
-       data-view="score"
-       data-score="${escapeHtml(row.id)}">${name}</a>
-  `;
-}
-
 function taskNameFormatter(cell) {
   return `<span class="label">${escapeHtml(cell.getValue().slice(4))}</span>`;
 }
 
-// ─── SUBMISSIONS ────────────────────────────────────────────────────────────
+// ─── SUBMISSIONS ─────────────────────────────────────────────────────────────
 
 function statusFormatter(cell) {
   return buildStatusBadge(cell.getValue(), "sm");
 }
 
-// ─── TEAMS ──────────────────────────────────────────────────────────────────
+// ─── TEAMS ───────────────────────────────────────────────────────────────────
 
 // buildRoleBadge renders nothing without a role, which on a listing of every team is most
 // rows — so the em dash stands in, as it does for any other empty cell.
@@ -198,7 +169,7 @@ function roleBadgeFormatter(cell) {
   return buildRoleBadge(cell.getValue(), "sm") || "—";
 }
 
-// ─── TASK SUBMISSIONS ───────────────────────────────────────────────────────
+// ─── TASK SUBMISSIONS ────────────────────────────────────────────────────────
 
 // Not an href: these rows only ever render inside the submission record page, so they
 // route through it. `data-task` is the declared view param the router copies from the
@@ -236,7 +207,7 @@ function parameterFormatter(cell) {
     : `<span class="metadata">${escapeHtml(value)}</span>`;
 }
 
-// ─── LEADERBOARD ────────────────────────────────────────────────────────────
+// ─── LEADERBOARD ─────────────────────────────────────────────────────────────
 
 const MEDAL_CLASSES = { 1: "rank-gold", 2: "rank-silver", 3: "rank-bronze" };
 
@@ -326,7 +297,7 @@ function rankValue(value) {
     : `<span class="rank-value">${escapeHtml(value.toFixed(2))}</span>`;
 }
 
-// ─── COMPARISON ─────────────────────────────────────────────────────────────
+// ─── COMPARISON ──────────────────────────────────────────────────────────────
 
 // The comparison grids put a whole { mean, sem, metric } object in each task cell rather
 // than a bare number, so these read the half they want off the value. Both sorters go
@@ -408,8 +379,7 @@ function diffFormatter(cell) {
  * the same line would set the column's width from the longest pair rather than the longest
  * name.
  *
- * @param inner the formatter for the name itself, since a task name is a link on some grids
- *              and plain text on others — see taskScoreLinkFormatter.
+ * @param inner the formatter for the name itself.
  */
 function taskSuiteFormatter(inner) {
   return (cell) => {
@@ -460,7 +430,6 @@ export {
   metricsBadgeFormatter,
   scoreFormatter,
   taskNameFormatter,
-  taskScoreLinkFormatter,
   taskSuiteFormatter,
   roleBadgeFormatter,
   statusFormatter,

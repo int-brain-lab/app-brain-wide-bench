@@ -7,12 +7,10 @@
 // This component owns its markup and event listeners. `buildUploadPanel()` creates the
 // markup; `createUploadSection()` is then called once that markup is in the DOM.
 
-import {
-  clearMessage,
-  escapeHtml,
-  formatBytes,
-  showFailure,
-} from "../core/utils.js";
+import { formatBytes } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
+import { buildFailureMessage } from "../components/messages.js";
+import { clearContent, renderHtml } from "../core/render.js";
 import { REQUIRED_MARKER } from "../forms/fields.js";
 import { inferTasks, listZipEntries } from "../core/zip.js";
 
@@ -109,7 +107,7 @@ function isValidZip(file) {
   return file?.name.toLowerCase().endsWith(".zip");
 }
 
-// ─── CONTROLLER ───────────────────────────────────────────────────────────
+// ─── CONTROLLER ──────────────────────────────────────────────────────────────
 /**
  * @param knownTasks Map of task id -> suite.
  * @param onFile    Called with `(file, taskIds)` when a file is selected,
@@ -148,18 +146,19 @@ function createUploadSection({ knownTasks, onFile }) {
     elements.fileMessage.hidden = true;
   }
 
-  // ─── EVENTS ───────────────────────────────────────────────────────────────
+  // ─── EVENTS ────────────────────────────────────────────────────────────────
 
   async function processFile(file) {
     if (!isValidZip(file)) {
-      showFailure(
+      renderHtml(
         elements.fileMessage,
-        `${file?.name ?? "That file"} is not a .zip file.`,
+        buildFailureMessage(`${file?.name ?? "That file"} is not a .zip file.`),
+        { show: true },
       );
       return;
     }
 
-    clearMessage(elements.fileMessage);
+    clearContent(elements.fileMessage, { hide: true });
     showSelectedFile(file);
 
     try {
@@ -171,10 +170,13 @@ function createUploadSection({ knownTasks, onFile }) {
     } catch (error) {
       console.error(error);
 
-      showFailure(
+      renderHtml(
         elements.fileMessage,
-        "That .zip could not be read. Check the file and upload it again.",
-        error,
+        buildFailureMessage(
+          "That .zip could not be read. Check the file and upload it again.",
+          error,
+        ),
+        { show: true },
       );
 
       onFile(null, []);
@@ -183,7 +185,7 @@ function createUploadSection({ knownTasks, onFile }) {
 
   function removeFile() {
     showDropzone();
-    clearMessage(elements.fileMessage);
+    clearContent(elements.fileMessage, { hide: true });
     onFile(null, []);
   }
 

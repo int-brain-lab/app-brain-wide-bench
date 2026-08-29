@@ -11,7 +11,8 @@
 // escaping uniformly means no reader has to work out which slot is which.
 
 import { installFieldHelp } from "../components/fieldHelp.js";
-import { escapeHtml, formatDate } from "../core/utils.js";
+import { formatDate } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
 import { disabledOptionValues, isDisabled, isHelpPinned } from "./form.js";
 
 // Positioning a help popover so it stays on screen needs measurements, so it is document
@@ -27,7 +28,7 @@ function toArray(value) {
   return [value];
 }
 
-// ─── HELP TEXT ──────────────────────────────────────────────────────────────
+// ─── HELP TEXT ───────────────────────────────────────────────────────────────
 
 // The "?" beside a label, and the description it shows. Emitted wherever a field has a
 // `description` — which is filled from /api/meta, so what it says is a change to models.py
@@ -117,7 +118,7 @@ function optionsHelpText(field) {
   return [field.description, ...options].filter(Boolean).join("\n\n");
 }
 
-// ─── DISPLAY ────────────────────────────────────────────────────────────────
+// ─── DISPLAY ─────────────────────────────────────────────────────────────────
 
 // A checkbox-list's array is joined rather than left to String(array), and an empty one
 // reads as unset rather than "".
@@ -180,7 +181,7 @@ function buildDisplayField(key, state, fields, inline = false) {
   `;
 }
 
-// ─── INPUTS ─────────────────────────────────────────────────────────────────
+// ─── INPUTS ──────────────────────────────────────────────────────────────────
 
 // Shown on inputs only, never on a display row — a read-only value can't be filled in.
 // aria-hidden because the control itself carries the `required` attribute, which is what a
@@ -381,9 +382,9 @@ function buildField(key, state, fields) {
   }
 }
 
-// ─── RUNS OF FIELDS ─────────────────────────────────────────────────────────
+// ─── RUNS OF FIELDS ──────────────────────────────────────────────────────────
 
-// Both take (keys, state, fields, inline), so either can be buildGroupCards' renderer.
+// Both take (keys, values, fields, inline), so either can be buildPanelCards' builder.
 
 function buildFields(keys, state, fields) {
   return keys.map((key) => buildField(key, state, fields)).join("");
@@ -395,7 +396,7 @@ function buildDisplayFields(keys, state, fields, inline = false) {
     .join("");
 }
 
-// ─── CARDS AND GRIDS ────────────────────────────────────────────────────────
+// ─── CARDS AND GRIDS ─────────────────────────────────────────────────────────
 
 // A `columns` value with no class here falls back to the card's own flex column, rather
 // than emitting a class style.css has no rule for.
@@ -408,25 +409,35 @@ function wrapColumns(html, columns) {
   return gridClass ? `<div class="${gridClass}">${html}</div>` : html;
 }
 
-// One card per group, so a read-only view and its edit form share one layout definition.
+// One panel as a card: its title above its fields. A panel group is `{title, keys, inline,
+// columns}` — a panel resolved to the keys it holds, from schema.js's toPanelGroup. Null
+// for a panel with nothing to draw.
 //
-// A group is just `{title, keys, inline, columns}` — nothing here knows about `panel`, so a
-// caller is free to group by something else; schema.js's panelGroups is only the usual way.
-// `render` is the per-group renderer: buildFields to edit, buildDisplayFields to display.
+// `buildRun` builds the fields inside: buildFields to edit, buildDisplayFields to display.
+// Both take (keys, values, fields, inline), which is what lets one panel serve either.
 //
-// `columns` lays fields out N-up. Mostly for a read-only view, where a label/value pair per
-// line wastes the card's width; inputs want the full width, so an edit form overrides it.
-function buildGroupCards(groups, state, fields, render) {
+// `columns` lays the fields out N-up. Mostly for a read-only view, where a label/value pair
+// per line wastes the card's width; inputs want the full width, so an edit form overrides it.
+function buildPanelCard(panelGroup, values, fields, buildRun) {
+  if (!panelGroup) return "";
+
+  const { title, keys, inline, columns } = panelGroup;
+
+  return `
+    <div class="card column gap-md">
+      ${title ? `<p class="title muted">${escapeHtml(title)}</p>` : ""}
+      ${wrapColumns(buildRun(keys, values, fields, inline), columns)}
+    </div>
+  `;
+}
+
+// One card per panel, which is how a read-only view and its edit form share one layout.
+function buildPanelCards(panelGroups, values, fields, buildRun) {
   return `
     <div class="column gap-lg">
-      ${groups
-        .map(
-          (group) => `
-        <div class="card column gap-md">
-          ${group.title ? `<p class="title muted">${escapeHtml(group.title)}</p>` : ""}
-          ${wrapColumns(render(group.keys, state, fields, group.inline), group.columns)}
-        </div>
-      `,
+      ${panelGroups
+        .map((panelGroup) =>
+          buildPanelCard(panelGroup, values, fields, buildRun),
         )
         .join("")}
     </div>
@@ -435,8 +446,9 @@ function buildGroupCards(groups, state, fields, render) {
 
 export {
   REQUIRED_MARKER,
+  buildPanelCard,
   buildDisplayFields,
   displayValue,
   buildFields,
-  buildGroupCards,
+  buildPanelCards,
 };

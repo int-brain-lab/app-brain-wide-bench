@@ -1,6 +1,6 @@
 import { apiFetchOptional } from "./client.js";
 
-// ─── API ────────────────────────────────────────────────────────────────────
+// ─── API ─────────────────────────────────────────────────────────────────────
 
 // The benchmark's task table: every task, its suite and the metric it is scored in.
 //

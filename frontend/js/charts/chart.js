@@ -51,7 +51,7 @@ function hatch(colour) {
   return ctx.createPattern(tile, "repeat");
 }
 
-// ─── ERROR BARS ─────────────────────────────────────────────────────────────
+// ─── ERROR BARS ──────────────────────────────────────────────────────────────
 
 /**
  * Whiskers from each point's own `sem`, drawn after the datasets.
@@ -138,7 +138,7 @@ const legendGap = {
   },
 };
 
-// ─── DEFAULTS ───────────────────────────────────────────────────────────────
+// ─── DEFAULTS ────────────────────────────────────────────────────────────────
 
 // Recessive axes and grid, a legend whichever way the caller leans, and hover on by
 // default: an HTML chart is interactive, and a reader who can't ask a mark what it is has
@@ -207,7 +207,7 @@ function withDefaults(options, base) {
   return merged;
 }
 
-// ─── CHART ──────────────────────────────────────────────────────────────────
+// ─── CHART ───────────────────────────────────────────────────────────────────
 
 /**
  * Mounts a Chart.js canvas, replacing whatever the container held.

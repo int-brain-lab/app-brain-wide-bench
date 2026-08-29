@@ -6,7 +6,7 @@ function buildTeamPayload(state) {
   return normalizeObject(state, { name: trimmed });
 }
 
-// ─── API ────────────────────────────────────────────────────────────────────
+// ─── API ─────────────────────────────────────────────────────────────────────
 
 async function getTeams() {
   return await apiFetch("/api/teams");

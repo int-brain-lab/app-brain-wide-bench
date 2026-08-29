@@ -12,9 +12,11 @@
 // question asked of the same tasks — so the page owns it and reaches in through
 // applyMetricFilter.
 
-import { createFilterableTable } from "./table.js";
+import { createTable } from "./table.js";
 import { resolveContainer } from "../core/dom.js";
-import { escapeHtml, showEmpty } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
+import { buildEmptyMessage } from "../components/messages.js";
+import { renderHtml } from "../core/render.js";
 import {
   compareScoreSorter,
   diffFormatter,
@@ -23,7 +25,7 @@ import {
   taskMetricFormatter,
 } from "./formatters.js";
 
-// ─── COLUMNS ────────────────────────────────────────────────────────────────
+// ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
 // The model name over its team, with the page's own model badged so it can be picked out of
 // six columns. "This model" rather than "Reference": the difference grid now has a baseline
@@ -89,7 +91,7 @@ function getCompareColumns(models, { formatter, sorter }) {
   ];
 }
 
-// ─── TABLE ──────────────────────────────────────────────────────────────────
+// ─── TABLE ───────────────────────────────────────────────────────────────────
 
 /**
  * @param container element, or the id of one. Its contents are replaced.
@@ -112,7 +114,7 @@ function renderCompareTable({
       ? { formatter: diffFormatter, sorter: diffSorter }
       : { formatter: meanSemFormatter, sorter: compareScoreSorter };
 
-  return createFilterableTable({
+  const { table } = createTable({
     container,
     rows,
     columns: getCompareColumns(models, cells),
@@ -136,6 +138,8 @@ function renderCompareTable({
     // ask "where is this model strongest?" — is the reader's to request.
     caller: "renderCompareTable",
   });
+
+  return table;
 }
 
 /**
@@ -158,7 +162,7 @@ function applyMetricFilter(table, metric) {
  * the same handle a table would have gone in and destroy it unconditionally.
  */
 function showNoComparison(container, message) {
-  showEmpty(resolveContainer(container), message);
+  renderHtml(resolveContainer(container), buildEmptyMessage(message));
 
   return null;
 }

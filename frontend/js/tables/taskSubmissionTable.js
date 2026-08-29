@@ -1,70 +1,36 @@
-// Filterable table of one submission's task submissions and their methodology
-// parameters. All the table plumbing lives in utils/tables.js — this module is just
-// the rows, the columns and the two controls.
+// Filterable table of one submission's task submissions and their methodology parameters.
+//
+// The table allows you to search by task and filter by suite.
+//
+// The columns only. Rows are in utils/taskSubmissionUtils.js, filters in
+// filters/taskSubmissionFilters.js, and the table infrastructure in table.js.
 
-import { suiteFromTask } from "../core/suites.js";
-import { resolveContainer } from "../core/dom.js";
 import {
   TASK_FIELDS,
   trainingFieldKeys,
 } from "../schemas/taskSubmissionSchema.js";
 import {
-  SUITE_OPTIONS,
   createFilterableTable,
   previewRows,
-  renderStaticTable,
-  matchEquals,
-  matchIncludes,
+  buildStaticTable,
 } from "./table.js";
+import { getTaskSubmissionFilters } from "../utils/taskSubmissionUtils.js";
 import {
   editFormatter,
+  numericSorter,
   parameterFormatter,
+  scoreSemFormatter,
   suiteBadgeFormatter,
   taskLinkFormatter,
 } from "./formatters.js";
 
-// ─── ROWS ───────────────────────────────────────────────────────────────────
+// ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
-// The methodology fields, taken from TASK_FIELDS' panel 1 rather than listed here, so
-// this table and the task editor can't disagree about what "the parameters" are —
-// adding a `panel: 1` field to the schema adds a column here automatically.
-function parameterKeys() {
-  return trainingFieldKeys();
-}
-
-// The parameters are spread onto the row rather than nested, because a Tabulator
-// column addresses its value by a flat `field` name.
+// `showEdit` appends a per-row Edit button. Off by default.
 //
-// `submission_id` rides along unused by any column: the Task link needs both ids, and
-// a formatter can only reach what's on the row.
-function toTaskSubmissionRow(submission, taskSubmission) {
-  const parameters = Object.fromEntries(
-    parameterKeys().map((key) => [key, taskSubmission[key]]),
-  );
-
-  return {
-    id: taskSubmission.id,
-    submission_id: submission.id,
-    task_id: taskSubmission.task_id,
-    suite: suiteFromTask(taskSubmission.task_id),
-    ...parameters,
-  };
-}
-
-// Plural counterpart. The submission is the same for every row — it carries the id the
-// edit link needs — so it stays outside the map rather than being repeated per task.
-function toTaskSubmissionRows(
-  submission,
-  taskSubmissions = submission.task_submissions ?? [],
-) {
-  return taskSubmissions.map((taskSubmission) =>
-    toTaskSubmissionRow(submission, taskSubmission),
-  );
-}
-
-// ─── COLUMNS ────────────────────────────────────────────────────────────────
-
-// `showEdit` appends a per-row Edit button. Off by default
+// The methodology columns come from TASK_FIELDS' panel 1 rather than a list here, so this
+// table and the task editor can't disagree about what "the parameters" are — adding a
+// `panel: "methodology"` field to the schema adds a column automatically.
 function getTaskSubmissionColumns({ showEdit = false } = {}) {
   const editColumn = showEdit
     ? [
@@ -92,7 +58,14 @@ function getTaskSubmissionColumns({ showEdit = false } = {}) {
       formatter: suiteBadgeFormatter,
       width: 100,
     },
-    ...parameterKeys().map((key) => ({
+    {
+      title: "Score",
+      field: "mean_score",
+      formatter: scoreSemFormatter("sem", { metricField: "metric" }),
+      sorter: numericSorter,
+      width: 220,
+    },
+    ...trainingFieldKeys().map((key) => ({
       title: TASK_FIELDS[key].label,
       field: key,
       formatter: parameterFormatter,
@@ -104,81 +77,53 @@ function getTaskSubmissionColumns({ showEdit = false } = {}) {
   ];
 }
 
-// ─── CONTROLS ───────────────────────────────────────────────────────────────
-
-function getTaskSubmissionControls() {
-  return [
-    {
-      type: "search",
-      name: "task_id",
-      placeholder: "Search tasks...",
-      match: matchIncludes("task_id"),
-    },
-    {
-      type: "select",
-      name: "suite",
-      placeholder: "All suites",
-      options: SUITE_OPTIONS,
-      match: matchEquals("suite"),
-    },
-  ];
-}
-
-// ─── TABLE ──────────────────────────────────────────────────────────────────
+// ─── TABLE ───────────────────────────────────────────────────────────────────
 
 /**
- * @param container  element, or the id of one. Its contents are replaced.
- * @param submission a submission detail record — its `task_submissions` are the rows,
- *                   and its id is half of each row's edit link.
- * @param showEdit   append the per-row Edit button.
- * @returns the Tabulator instance.
+ * @param rows        rows from toTaskSubmissionRows.
+ * @param showEdit    append the per-row Edit button.
+ * @param showFilters keep the filter bar above the grid. False for a caller with a bar of
+ *                    its own — see templates/listView.js.
+ * @param selection   as createFilterableTable. Keyed on the task submission id.
+ * @returns { element, table } — the caller mounts the element.
  */
-function renderTaskSubmissionsTable({
-  container,
-  submission,
+function createTaskSubmissionsTable({
+  rows,
   showEdit = true,
+  showFilters = true,
+  selection,
 }) {
-  const taskSubmissions = submission.task_submissions ?? [];
-
   return createFilterableTable({
-    container,
-    rows: toTaskSubmissionRows(submission, taskSubmissions),
+    rows,
+    index: "id",
+    selection,
     columns: getTaskSubmissionColumns({ showEdit }),
-    controls: getTaskSubmissionControls(),
+    controls: showFilters ? getTaskSubmissionFilters(rows) : [],
     noun: "task",
     initialSort: [{ column: "task_id", dir: "asc" }],
-    caller: "renderTaskSubmissionsTable",
+    caller: "createTaskSubmissionsTable",
   });
 }
 
-// ─── STATIC TABLE ───────────────────────────────────────────────────────────
+// ─── STATIC TABLE ────────────────────────────────────────────────────────────
 
 /**
- * Plain-markup counterpart to renderTaskSubmissionsTable, for a fixed preview — no
+ * Plain-markup counterpart to createTaskSubmissionsTable, for a fixed preview — no
  * filters, no paging, and no Tabulator needed on the page.
  *
- * @param container  element, or the id of one. Its contents are replaced.
- * @param submission as renderTaskSubmissionsTable.
- * @param limit      how many rows to show. Omit for all of them.
- * @param viewAll     as renderStaticTable — where the footer's "View all" link goes.
- * @returns every row it built, not just the slice it rendered. The total is already in
- *          the footer; this is for a caller that needs the rows themselves.
+ * @param rows    as createTaskSubmissionsTable.
+ * @param limit   how many rows to show. Omit for all of them.
+ * @param viewAll as buildStaticTable — where the footer's "View all" link goes.
+ * @returns the markup.
  */
-function renderStaticTaskSubmissionsTable({
-  container,
-  submission,
-  limit,
-  viewAll,
-}) {
-  const rows = toTaskSubmissionRows(submission);
-
+function buildStaticTaskSubmissionsTable({ rows, limit, viewAll }) {
   const shown = previewRows(
     rows,
     (a, b) => String(a.task_id).localeCompare(b.task_id),
     limit,
   );
 
-  resolveContainer(container).innerHTML = renderStaticTable({
+  return buildStaticTable({
     // No Edit column: the button routes through the record page's task view, which a
     // preview isn't.
     columns: getTaskSubmissionColumns(),
@@ -187,8 +132,6 @@ function renderStaticTaskSubmissionsTable({
     total: rows.length,
     viewAll,
   });
-
-  return rows;
 }
 
-export { renderTaskSubmissionsTable, renderStaticTaskSubmissionsTable };
+export { createTaskSubmissionsTable, buildStaticTaskSubmissionsTable };

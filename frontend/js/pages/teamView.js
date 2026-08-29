@@ -1,67 +1,90 @@
 // Team record page — dashboard and details for one team.
 
+import { renderHtml } from "../core/render.js";
+import { escapeHtml } from "../core/html.js";
 import {
-  escapeHtml,
-  showEmpty,
-  showFailure,
-  showMessage,
-  showSuccess,
-} from "../core/utils.js";
-import { getIcon } from "../components/icons.js";
-import { buildCount, buildTableCount } from "../components/count.js";
+  buildEmptyMessage,
+  buildFailureMessage,
+  buildInfoMessage,
+} from "../components/messages.js";
+import {
+  buildCreateButton,
+  buildEditButton,
+  buildMembersButton,
+} from "../components/buttons.js";
+import { buildTableCount } from "../components/count.js";
 import {
   attachEditLink,
-  attachRecordEditor,
-} from "../templates/record-editor.js";
+  renderRecordDetailsView,
+} from "../templates/recordDetails.js";
 import { TEAM_FIELDS, TEAM_PANELS } from "../schemas/teamSchema.js";
 import { loadTeam, updateTeam } from "../api/teamApi.js";
+import {
+  getTeamStatistics,
+  getTeamSubtitle,
+  isTeamOwner,
+} from "../utils/teamUtils.js";
 import { getModels } from "../api/modelApi.js";
-import { renderStaticModelsTable } from "../tables/modelTable.js";
+import { toModelRows } from "../utils/modelUtils.js";
+import { buildStaticModelsTable } from "../tables/modelTable.js";
 import {
   buildMembersPanel,
   createMembersSection,
 } from "../widgets/teamMembers.js";
-import { appendCreateCard } from "../cards/createCard.js";
+
 import { buildStatCards } from "../cards/statCards.js";
+import { buildCreateCard } from "../cards/createCard.js";
 import { buildRoleBadge } from "../components/badges.js";
-import { loadRecordPage } from "../templates/record-loader.js";
+import { loadRecordPage } from "../templates/recordPage.js";
 import {
-  buildBody,
+  renderPage,
+  renderHeader,
+  renderMessage,
+  clearMessage,
+} from "../templates/pageChrome.js";
+import {
   buildHeader,
   buildPage,
-  buildSection,
   buildSections,
-  buildStats,
-  EDIT_ACTION,
-  EDIT_ACTIONS,
-  pageMessage,
-  POST_CREATE_SECTION,
-  renderDetails,
-  renderHeader,
-  renderPage,
-  sectionBody,
-} from "../templates/record-page.js";
+  getSectionBody,
+} from "../components/sections.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
 const MAX_MODELS = 5;
 
+const BACK = {
+  text: "← Back to dashboard",
+  view: "dashboard",
+};
+
+// The render functions are declarations, so they are defined by the time this is read.
+const VIEWS = {
+  dashboard: renderDashboardView,
+  details: renderDetailsView,
+};
+
 // Models first: it is what a visitor came for, and the only section a non-member sees.
 //
-// No "view all" link, deliberately: the models list is every team's, and pointing a team
-// page at it would quietly change what the reader is looking at.
+// No "view all" link on it, deliberately: the models list is every team's, and pointing a
+// team page at it would quietly change what the reader is looking at.
 const MODELS_SECTION = {
   id: "models",
   title: "Models",
 };
 
-const MEMBERS_SECTION = {
-  id: "members",
-  title: "Members",
-  view: "details",
-  linkIcon: getIcon("team"),
-  linkText: "Manage members",
-};
+const DASHBOARD_SECTIONS = [
+  {
+    id: "stats",
+    className: "stats-grid",
+  },
+  MODELS_SECTION,
+  {
+    id: "members",
+    title: "Members",
+    actions: [buildMembersButton({ view: "details" })],
+  },
+];
 
 // The same section without the link: the details view is where "Manage members" leads.
 const MEMBERS_SECTION_BODY = {
@@ -69,47 +92,11 @@ const MEMBERS_SECTION_BODY = {
   title: "Members",
 };
 
-// Beside Edit, as on the model page. Creating a team isn't an action *on* this team, but it
-// is what someone looking at one most often wants next.
-const CREATE_TEAM_ACTION = {
-  href: "/html/teams/model_create.html",
-  label: "New model",
-  icon: getIcon("add"),
-  className: "primary-inv",
-};
+// ─── LINKS ───────────────────────────────────────────────────────────────────
 
-const BACK = {
-  text: "← Back to dashboard",
-  view: "dashboard",
-};
+const CREATE_MODEL_HREF = "/html/models/model_create.html";
 
-// ─── DATA ────────────────────────────────────────────────────────────────────
-
-function getStatistics(team) {
-  return [
-    ["members", team.n_members ?? 0, getIcon("team")],
-    ["models", team.n_models ?? 0, getIcon("model")],
-    ["submissions", team.n_submissions ?? 0, getIcon("submission")],
-  ];
-}
-
-// A separate question from `canEdit`: renaming the team is any member's, but deciding who
-// is *in* it is the owner's, and the server refuses the rest with a 403. Offering the
-// controls to a collaborator would only produce that error on save.
-function isOwner(team) {
-  return team.role === "owner";
-}
-
-// ─── UTILS ───────────────────────────────────────────────────────────────────
-
-function getSubtitle(team) {
-  return [
-    { text: buildCount(team.n_members, "member"), icon: getIcon("member") },
-    { text: buildCount(team.n_models, "model"), icon: getIcon("model") },
-  ].filter((entry) => entry.text);
-}
-
-// ─── MARKUP ──────────────────────────────────────────────────────────────────
+// ─── DASHBOARD ───────────────────────────────────────────────────────────────
 
 function buildMemberRow(member) {
   return `
@@ -141,61 +128,75 @@ function buildMemberTable(members) {
   `;
 }
 
-// ─── DASHBOARD SECTIONS ──────────────────────────────────────────────────────
-
 function renderStatsSection(statistics) {
-  sectionBody("stats").innerHTML = buildStatCards(statistics);
+  renderHtml(getSectionBody("stats"), buildStatCards(statistics));
 }
 
 // No Team column: every row is this team's, which the page's own heading already says.
+// The card stands in for the table, and the heading keeps its button: a team with no
+// models is the state the page most wants to move the reader out of.
 function renderModelsSection(models) {
-  const container = sectionBody("models");
+  const container = getSectionBody("models");
 
   if (!models.length) {
-    showEmpty(container, "No models yet.");
+    renderHtml(
+      container,
+      buildCreateCard({
+        href: CREATE_MODEL_HREF,
+        label: "Create your first model",
+      }),
+      { refresh: true },
+    );
+
     return;
   }
 
-  renderStaticModelsTable({
+  renderHtml(
     container,
-    models,
-    showTeam: false,
-    limit: MAX_MODELS,
-  });
+    buildStaticModelsTable({
+      rows: toModelRows(models),
+      showTeam: false,
+      limit: MAX_MODELS,
+    }),
+  );
 }
 
 // Only reached for a member — the section itself isn't built for anyone else, since the
 // API withholds the list and a block saying so is noise on a public page.
 function renderMembersSection(team) {
-  const container = sectionBody("members");
+  const container = getSectionBody("members");
 
   if (!team.members.length) {
-    showEmpty(container, "No members yet.");
+    renderHtml(container, buildEmptyMessage("No members yet."));
     return;
   }
 
-  container.innerHTML = buildMemberTable(team.members);
+  renderHtml(container, buildMemberTable(team.members));
 }
-
-// ─── VIEWS ───────────────────────────────────────────────────────────────────
 
 function renderDashboardView(context, router) {
   const { team, models, canEdit } = context;
 
   renderPage(
     buildPage({
-      header: buildHeader(canEdit ? [CREATE_TEAM_ACTION, EDIT_ACTION] : []),
-      body:
-        buildStats() +
-        buildSections(
-          canEdit ? [MODELS_SECTION, MEMBERS_SECTION] : [MODELS_SECTION],
-        ),
+      header: buildHeader(
+        canEdit
+          ? [
+              buildEditButton(),
+              buildCreateButton({
+                href: CREATE_MODEL_HREF,
+                label: "New model",
+              }),
+            ]
+          : [],
+      ),
+      body: buildSections(canEdit ? DASHBOARD_SECTIONS : [MODELS_SECTION]),
     }),
   );
 
-  renderHeader(team.name, getSubtitle(team));
+  renderHeader(team.name, getTeamSubtitle(team));
 
-  renderStatsSection(getStatistics(team));
+  renderStatsSection(getTeamStatistics(team));
   renderModelsSection(models);
 
   if (!canEdit) return;
@@ -216,49 +217,48 @@ function renderDashboardView(context, router) {
     });
 }
 
-function renderDetailsView({
-  team,
-  fields,
-  canEdit,
-  edit = false,
-  created = false,
-}) {
-  renderPage(
-    buildPage({
-      back: BACK,
-      header: buildHeader(canEdit ? EDIT_ACTIONS : []),
-      body:
-        buildBody() +
-        (canEdit ? buildSections([MEMBERS_SECTION_BODY]) : "") +
-        (created ? buildSection({ id: POST_CREATE_SECTION }) : ""),
-    }),
-  );
+// ─── DETAILS VIEW ────────────────────────────────────────────────────────────
 
-  renderHeader(team.name, getSubtitle(team));
-  renderDetails(team, fields, TEAM_PANELS);
+function renderDetailsView({ team, fields, canEdit, edit, created }) {
+  const page = renderRecordDetailsView({
+    noun: "team",
+    record: team,
+    fields,
+    panels: TEAM_PANELS,
+    back: BACK,
+    canEdit,
+    edit,
+    created,
 
-  // Only when team_create.html sent us here. A team made moments ago owns nothing yet.
-  if (created) {
-    showSuccess(pageMessage(), "Team successfully created.");
+    // A reader who may not edit gets no members block: it would report an empty team rather
+    // than an unreadable one, and every write it offers would 403.
+    sections: canEdit ? [MEMBERS_SECTION_BODY] : [],
 
-    appendCreateCard(sectionBody(POST_CREATE_SECTION), {
-      href: "/html/models/model_create.html",
+    createCard: {
+      href: CREATE_MODEL_HREF,
       label: "Register your first model for this team",
-    });
-  }
+    },
 
-  // A reader who may not edit sees the card and nothing else: the members block would
-  // report an empty team rather than an unreadable one, and every write it offers would 403.
-  if (!canEdit) return;
+    renderTitle: (shown) => renderHeader(shown.name, getTeamSubtitle(shown)),
+  });
 
-  sectionBody("members").innerHTML = buildMembersPanel();
+  if (!page) return null;
+
+  // Built between the shell and the editor: the section it draws into exists by now, and
+  // the hooks below have to be live before `edit` opens the editor by itself.
+  renderHtml(getSectionBody("members"), buildMembersPanel());
 
   const members = createMembersSection({
     getTeam: () => team,
-    onMessage: (message, failed) =>
-      failed
-        ? showFailure(pageMessage(), message)
-        : showMessage(pageMessage(), message),
+    onMessage: (message, failed) => {
+      if (!message) {
+        clearMessage();
+      } else if (failed) {
+        renderMessage(buildFailureMessage(message));
+      } else {
+        renderMessage(buildInfoMessage(message));
+      }
+    },
   });
 
   members.render();
@@ -267,15 +267,8 @@ function renderDetailsView({
   // merges, so per-member failures have no way through except a variable scoped to here.
   let failedMembers = [];
 
-  attachRecordEditor({
-    noun: "team",
-    record: team,
-    fields,
-    panels: TEAM_PANELS,
-    edit,
-    renderTitle: (saved) => renderHeader(saved.name, getSubtitle(saved)),
-
-    onEdit: () => members.setEditing(isOwner(team)),
+  return page.attachEditor({
+    onEdit: () => members.setEditing(isTeamOwner(team)),
 
     // Members first, then the rename: PATCH answers with the full TeamDetail, so doing it
     // last means the response already reflects the membership changes.
@@ -292,10 +285,11 @@ function renderDetailsView({
       // attachRecordEditor has already reported the save; this overwrites it only when the
       // rename went through but a member didn't, which the standard card cannot say.
       if (failedMembers.length) {
-        showFailure(
-          pageMessage(),
-          "Team saved, but some members could not be changed.",
-          new Error(failedMembers.join("; ")),
+        renderMessage(
+          buildFailureMessage(
+            "Team saved, but some members could not be changed.",
+            new Error(failedMembers.join("; ")),
+          ),
         );
       }
 
@@ -310,11 +304,6 @@ function renderDetailsView({
 }
 
 // ─── LOAD ────────────────────────────────────────────────────────────────────
-
-const VIEWS = {
-  dashboard: renderDashboardView,
-  details: renderDetailsView,
-};
 
 loadRecordPage({
   views: VIEWS,

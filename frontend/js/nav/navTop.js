@@ -1,8 +1,9 @@
-import { escapeHtml, initials } from "../core/utils.js";
+import { initials } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
 import { apiFetch, isAuthenticated, login, logout } from "../api/client.js";
 import { renderHtml } from "../core/render.js";
 
-// ─── CONSTANTS ─────────────────────────────────────────────────────────────
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 // The public surface, in the order a reader meets it — the scores, then what produced
 // them — with the way into the signed-in half last. Models and Submissions are the
@@ -25,7 +26,7 @@ const NAV_ITEMS = [
   { label: "My dashboard", href: DASHBOARD_HREF },
 ];
 
-// ─── API ────────────────────────────────────────────────────────────────────
+// ─── API ─────────────────────────────────────────────────────────────────────
 
 async function loadCurrentUser() {
   try {
@@ -40,13 +41,13 @@ async function loadCurrentUser() {
   }
 }
 
-// ─── DOM ────────────────────────────────────────────────────────────────────
+// ─── DOM ─────────────────────────────────────────────────────────────────────
 
 function topNav() {
   return document.getElementById("top-nav");
 }
 
-// ─── HELPERS ────────────────────────────────────────────────────────────────
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
 
 // The whole path, not just the filename — nav hrefs are root-relative now that pages
 // live at more than one depth, and this is compared against them to mark the active
@@ -57,7 +58,7 @@ function currentPage() {
   return path === "/" ? "/index.html" : path;
 }
 
-// ─── RENDERING ──────────────────────────────────────────────────────────────
+// ─── RENDERING ───────────────────────────────────────────────────────────────
 
 // The brand mark, exported because nav_side.js puts the same one at the top of the
 // sidebar. It used to be its own module to avoid importing this file from there —
@@ -138,7 +139,7 @@ async function renderAuthSection() {
   `;
 }
 
-// ─── EVENTS ─────────────────────────────────────────────────────────────────
+// ─── EVENTS ──────────────────────────────────────────────────────────────────
 
 function attachNavEvents() {
   // Arrows, not the bare functions: a listener is called with the click event, and `login`
@@ -152,7 +153,7 @@ function attachNavEvents() {
     ?.addEventListener("click", () => logout());
 }
 
-// ─── INITIALISATION ─────────────────────────────────────────────────────────
+// ─── INITIALISATION ──────────────────────────────────────────────────────────
 
 async function initialiseNav() {
   const nav = topNav();

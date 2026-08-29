@@ -1,18 +1,14 @@
 // util functions that are reused across
 
-import { refreshIcons } from "./render.js";
-import { escapeHtml } from "./html.js";
-import {
-  buildMessageCard,
-  clearMessage,
-  renderMessage,
-  showEmpty,
-  showError,
-  showFailure,
-  showMessage,
-  showSuccess,
-  showWarning,
-} from "./message.js";
+// English enough for the nouns this app names. A word already ending in "s" is taken to be
+// plural as it stands, which is what "details" needs.
+function pluralise(noun) {
+  if (!noun || noun.endsWith("s")) return noun;
+
+  if (/[^aeiou]y$/.test(noun)) return `${noun.slice(0, -1)}ies`;
+
+  return `${noun}s`;
+}
 
 function initials(name) {
   return name
@@ -68,21 +64,4 @@ function score(value) {
   return value == null ? "—" : value.toFixed(3);
 }
 
-export {
-  buildMessageCard,
-  clearMessage,
-  escapeHtml,
-  formatDate,
-  initials,
-  formatBytes,
-  mean,
-  refreshIcons,
-  renderMessage,
-  score,
-  showEmpty,
-  showError,
-  showFailure,
-  showMessage,
-  showSuccess,
-  showWarning,
-};
+export { formatDate, initials, formatBytes, mean, pluralise, score };

@@ -15,20 +15,17 @@
 // consumes placeholders, so it has to run after this markup lands rather than once at page
 // load — the nav modules' own call may well have already happened by then.
 
-import { escapeHtml } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
 import { getIcon } from "../components/icons.js";
+import { refreshIcons } from "../core/render.js";
 
-function buildMarkup({ href, label }, extraClass = "") {
+function buildCreateCard({ href, label }, extraClass = "") {
   return `
     <a class="create-card ${extraClass}" href="${escapeHtml(href)}">
       <i class="btn-icon" data-lucide="${getIcon("add")}"></i>
       <span>${escapeHtml(label)}</span>
     </a>
   `;
-}
-
-function refreshIcons() {
-  globalThis.lucide?.createIcons?.();
 }
 
 /**
@@ -41,24 +38,9 @@ function refreshIcons() {
 function appendCreateCard(container, options) {
   if (!options) return;
 
-  container.insertAdjacentHTML("beforeend", buildMarkup(options));
+  container.insertAdjacentHTML("beforeend", buildCreateCard(options));
   refreshIcons();
 }
 
 /** Write the full-width variant into its own container, below the table. */
-function renderCreateRow(container, options) {
-  if (!options) {
-    clearCreateRow(container);
-    return;
-  }
-
-  container.innerHTML = buildMarkup(options, "as-row");
-  refreshIcons();
-}
-
-/** Empty the dedicated container — used when switching back to card view. */
-function clearCreateRow(container) {
-  container.replaceChildren();
-}
-
-export { appendCreateCard, renderCreateRow, clearCreateRow };
+export { appendCreateCard, buildCreateCard };

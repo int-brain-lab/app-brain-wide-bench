@@ -17,7 +17,7 @@ const TEAM_FIELDS = {
   name: {
     label: "Team name",
     input: "text",
-    panel: 1,
+    panel: "team",
     default: "",
     required: true,
   },
@@ -26,17 +26,17 @@ const TEAM_FIELDS = {
     label: "Members",
     input: "number",
     editable: false,
-    panel: 1,
+    panel: "team",
   },
 
   n_models: {
     label: "Models",
     input: "number",
     editable: false,
-    panel: 1,
+    panel: "team",
   },
 };
 
-const TEAM_PANELS = [{ panel: 1, title: "Team" }];
+const TEAM_PANELS = { team: { type: "fields", title: "Team" } };
 
 export { TEAM_FIELDS, TEAM_PANELS };

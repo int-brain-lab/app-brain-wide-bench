@@ -8,8 +8,9 @@
 // The breakdown and the methodology arrive together, one request, because a listing carries
 // the figure a table shows and nothing behind it.
 
-import { escapeHtml, refreshIcons } from "../core/utils.js";
-import { showEmpty } from "../core/message.js";
+import { escapeHtml } from "../core/html.js";
+import { refreshIcons, renderHtml } from "../core/render.js";
+import { buildEmptyMessage } from "../components/messages.js";
 import { disposeAll } from "../core/disposable.js";
 import {
   PLOT_TABLE_VIEWS,
@@ -89,12 +90,17 @@ function createTaskBreakdown({
     // The breakdown arrives with the methodology, so both halves of the view wait on one
     // request — and "not fetched yet" reads differently from "this score has none".
     if (!detail) {
-      showEmpty(slot, "Loading the breakdown…");
+      renderHtml(slot, buildEmptyMessage("Loading the breakdown…"));
       return;
     }
 
     if (!recordings.length) {
-      showEmpty(slot, "No per-recording breakdown was stored for this score.");
+      renderHtml(
+        slot,
+        buildEmptyMessage(
+          "No per-recording breakdown was stored for this score.",
+        ),
+      );
       return;
     }
 
@@ -139,8 +145,8 @@ function createTaskBreakdown({
     refreshIcons();
   }
 
-  async function show(next) {
-    seed = next;
+  async function show(entry) {
+    seed = entry;
     detail = null;
     recordings = [];
 
@@ -152,13 +158,13 @@ function createTaskBreakdown({
     let detailed = {};
 
     try {
-      detailed = await loadTaskSubmission(next.submissionId, next.key);
+      detailed = await loadTaskSubmission(entry.submissionId, entry.key);
     } catch (error) {
       console.error(error);
     }
 
     // Only if it is still the score on screen — a reader can open another while this lands.
-    if (seed !== next) return;
+    if (seed !== entry) return;
 
     detail = detailed;
     recordings = detailed.score?.metrics?.recordings ?? [];
@@ -171,7 +177,7 @@ function createTaskBreakdown({
     seed = null;
     detail = null;
     recordings = [];
-    showEmpty(root, prompt);
+    renderHtml(root, buildEmptyMessage(prompt));
   }
 
   // Delegated, because the view is rewritten on every change and the buttons in it are what
@@ -190,4 +196,18 @@ function createTaskBreakdown({
   return { show, clear };
 }
 
-export { createTaskBreakdown };
+// A breakdown is fed by one row rather than by a set of picks, so attach and apply have
+// nothing to do. The shape is bindTableSelection's — see widgets/comparison.js.
+function bindTableDetail(breakdown, toEntry) {
+  return {
+    selection: () => ({
+      max: 1,
+      onChange: (rows) =>
+        rows.length ? breakdown.show(toEntry(rows[0])) : breakdown.clear(),
+    }),
+    attach: () => {},
+    apply: (mutate) => mutate(),
+  };
+}
+
+export { bindTableDetail, createTaskBreakdown };

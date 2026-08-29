@@ -33,7 +33,7 @@ function optionsFor(field, meta) {
  * that page rather than to this one. Filling from one document instead of three at least
  * makes it happen once.
  *
- * @param fields  the schema to fill (MODEL_FIELDS, TASK_FIELDS, ...).
+ * @param fields  the field definitions to fill (MODEL_FIELDS, TASK_FIELDS, ...).
  * @param meta    the /api/meta document.
  * @param record  which record's field descriptions to read — "model", "submission",
  *                "task_submission". Omitted for a schema the API has no descriptions for.

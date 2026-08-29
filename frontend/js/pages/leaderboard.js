@@ -28,28 +28,27 @@ import {
 } from "../comparisons/taskScores.js";
 import { createTaskBreakdown } from "../widgets/taskBreakdown.js";
 import { createModelComparison } from "../comparisons/models.js";
-import { bindTable } from "../widgets/comparison.js";
-import { loadPage } from "../templates/page-loader.js";
+import { bindTableSelection } from "../widgets/comparison.js";
+import { loadPage } from "../templates/page.js";
+import { refreshIcons, renderHtml } from "../core/render.js";
+import { escapeHtml } from "../core/html.js";
 import {
-  escapeHtml,
-  refreshIcons,
-  showEmpty,
-  showFailure,
-  showMessage,
-} from "../core/utils.js";
+  buildEmptyMessage,
+  buildFailureMessage,
+  buildInfoMessage,
+} from "../components/messages.js";
 import { dispose } from "../core/disposable.js";
 import { getIcon } from "../components/icons.js";
+import { renderHeader, renderPage } from "../templates/pageChrome.js";
 import {
-  buildBody,
+  buildSection,
+  getSection,
+  getSectionBody,
   buildHeader,
   buildPage,
-  buildSection,
-  renderHeader,
-  renderPage,
-  sectionBody,
-} from "../templates/record-page.js";
+} from "../components/sections.js";
 
-// ─── CONSTANTS ──────────────────────────────────────────────────────────────
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 const TITLE = "Leaderboard";
 const DESCRIPTION =
@@ -69,7 +68,7 @@ const PRETRAINED_OPTIONS = [
   { value: "false", label: "Not pretrained" },
 ];
 
-// ─── FILTER ─────────────────────────────────────────────────────────────────
+// ─── FILTER ──────────────────────────────────────────────────────────────────
 
 function readFilters() {
   const value = new URLSearchParams(location.search).get(PRETRAINED_PARAM);
@@ -123,7 +122,7 @@ function buildFilterBar(selected, comparing) {
   `;
 }
 
-// ─── INITIALISATION ─────────────────────────────────────────────────────────
+// ─── INITIALISATION ──────────────────────────────────────────────────────────
 
 function renderLeaderboardPage({ tasks, myTeamIds }) {
   renderPage(
@@ -131,7 +130,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
       header: buildHeader(),
       body:
         buildSection({ id: "filters" }) +
-        buildBody() +
+        buildSection({ id: "leaderboard" }) +
         buildSection({ id: "compare", title: "Compare on this task" }),
     }),
   );
@@ -151,7 +150,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   //
   // Hidden until there is something in it — the section heading claims a comparison, and
   // an empty one under a board nobody has selected from is a promise the page hasn't kept.
-  const compareSection = sectionBody("compare").closest(".page-section");
+  const compareSection = getSection("compare");
 
   // The section holds one of two things, so it says which — a heading promising a
   // comparison over a single score's breakdown would be describing the wrong thing.
@@ -167,13 +166,13 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   const PANES = ["tasks", "browse", "models"];
 
   // Two elements per pane, because a widget's empty state un-hides the element it draws
-  // into — see renderMessage. The one the page hides therefore can't be one a widget owns.
-  sectionBody("compare").innerHTML = PANES.map(
+  // into. The one the page hides therefore can't be one a widget owns.
+  getSectionBody("compare").innerHTML = PANES.map(
     (name) => `<div data-pane="${name}" hidden><div></div></div>`,
   ).join("");
 
   function pane(name) {
-    return sectionBody("compare").querySelector(`[data-pane='${name}']`);
+    return getSectionBody("compare").querySelector(`[data-pane='${name}']`);
   }
 
   function paneBody(name) {
@@ -229,8 +228,8 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   const picking = {
     // A comparison knows a score by the task submission that produced it; the board knows a
     // row by the standing it belongs to. This is all that the map between them ever was.
-    tasks: bindTable(comparison, { rowIndex: (entry) => entry.rowId }),
-    models: bindTable(models),
+    tasks: bindTableSelection(comparison, { rowIndex: (entry) => entry.rowId }),
+    models: bindTableSelection(models),
   };
 
   function usePicking(metric) {
@@ -338,7 +337,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
 
     // The comparison refuses a pick past its cap and drops a row it has no entry for, so the
     // board may be showing ticks it doesn't hold. This is what takes those back.
-    active.reconcile();
+    active.sync();
   }
 
   // Whether rows are pickable, and the payload they are picked from. The mode is a
@@ -351,7 +350,8 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   // than keeping a second copy that could disagree with the control on screen.
   function currentMetric() {
     return (
-      sectionBody("body").querySelector("[data-filter='metric']")?.value ?? ""
+      getSectionBody("leaderboard").querySelector("[data-filter='metric']")
+        ?.value ?? ""
     );
   }
 
@@ -368,7 +368,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     else showCompareSection(false);
 
     table = renderLeaderboardTable({
-      container: sectionBody("body"),
+      container: getSectionBody("leaderboard"),
       standings,
       tasks,
       myTeamIds,
@@ -395,7 +395,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   function setMode(next) {
     comparing = next;
 
-    sectionBody("filters").innerHTML = buildFilterBar(
+    getSectionBody("filters").innerHTML = buildFilterBar(
       filters.isPretrained,
       comparing,
     );
@@ -415,14 +415,20 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     dispose(table);
     table = null;
 
-    showMessage(sectionBody("body"), "Loading scores…");
+    renderHtml(
+      getSectionBody("leaderboard"),
+      buildInfoMessage("Loading scores…"),
+    );
 
     standings = await getLeaderboard(filters);
 
     if (token !== latest) return;
 
     if (!standings) {
-      showFailure(sectionBody("body"), "Loading the leaderboard failed.");
+      renderHtml(
+        getSectionBody("leaderboard"),
+        buildFailureMessage("Loading the leaderboard failed."),
+      );
       return;
     }
 
@@ -430,11 +436,13 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     // a fact about the benchmark, and nothing matching is a fact about the filter. Saying
     // the wrong one sends the reader looking in the wrong place.
     if (standings.length === 0) {
-      showEmpty(
-        sectionBody("body"),
-        filters.isPretrained
-          ? "No models match this filter yet — most submissions haven't recorded whether their model is pretrained."
-          : "No public submissions have been scored yet.",
+      renderHtml(
+        getSectionBody("leaderboard"),
+        buildEmptyMessage(
+          filters.isPretrained
+            ? "No models match this filter yet — most submissions haven't recorded whether their model is pretrained."
+            : "No public submissions have been scored yet.",
+        ),
       );
       return;
     }
@@ -446,7 +454,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
 
   // Delegated, because the bar is rewritten whenever the mode changes and the button in
   // it is what changes.
-  sectionBody("filters").addEventListener("input", (event) => {
+  getSectionBody("filters").addEventListener("input", (event) => {
     const pretrained = event.target.closest("[data-role='pretrained']");
 
     if (!pretrained) return;
@@ -456,7 +464,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     renderBoard();
   });
 
-  sectionBody("filters").addEventListener("click", (event) => {
+  getSectionBody("filters").addEventListener("click", (event) => {
     if (event.target.closest("[data-role='mode']")) setMode(!comparing);
   });
 

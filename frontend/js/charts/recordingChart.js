@@ -79,7 +79,7 @@ function renderRecordingCharts({
   });
 }
 
-// ─── HEATMAP ────────────────────────────────────────────────────────────────
+// ─── HEATMAP ─────────────────────────────────────────────────────────────────
 
 /**
  * The same comparison as a grid of cells: scores down the rows, recordings across.

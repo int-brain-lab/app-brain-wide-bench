@@ -9,7 +9,7 @@
 // Several concepts share a glyph, and that is fine: they are separate entries because they
 // are separate ideas, and one of them may want its own icon later.
 
-import { escapeHtml } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
 
 const ICONS = {
   // Records and their parts
@@ -41,6 +41,7 @@ const ICONS = {
   save: "check",
   cancel: "x",
   remove: "x",
+  create: "plus",
 
   // Views
   cards: "layout-grid",

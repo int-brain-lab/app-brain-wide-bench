@@ -2,237 +2,229 @@
 //
 // Two views: the overview, and every task score across every model.
 
+import { toSubmissionRows } from "../utils/submissionUtils.js";
+import { toTeamRows } from "../utils/teamUtils.js";
 import { getMyTeams } from "../api/teamApi.js";
-import { getIcon } from "../components/icons.js";
+import { renderHtml } from "../core/render.js";
+import { buildCreateCard } from "../cards/createCard.js";
+import { buildCreateButton } from "../components/buttons.js";
 import { loadMe } from "../api/userApi.js";
+import {
+  getUserStatistics,
+  getWelcome,
+  isNewAccount,
+} from "../utils/userUtils.js";
 import { getMySubmissions } from "../api/submissionApi.js";
 import { getMyModels } from "../api/modelApi.js";
+import { toModelRows } from "../utils/modelUtils.js";
 import { getMyTaskSubmissions } from "../api/taskSubmissionApi.js";
-import { showEmpty } from "../core/utils.js";
-import { renderStaticSubmissionsTable } from "../tables/submissionTable.js";
-import { toModelRows } from "../tables/modelTable.js";
-import { toTeamRows } from "../tables/teamTable.js";
+import { buildStaticSubmissionsTable } from "../tables/submissionTable.js";
+import { buildStaticModelsTable } from "../tables/modelTable.js";
+import { buildStaticTeamsTable } from "../tables/teamTable.js";
+
 import {
-  renderStaticTaskScoresTable,
-  toScoreResultRows,
-} from "../tables/scoreTable.js";
-import { renderTaskScoreExplorer } from "../widgets/taskScoreExplorer.js";
+  buildStaticTaskScoresTable,
+  createTaskScoresTable,
+} from "../tables/taskScoreTable.js";
+import { getTaskScoreFilters } from "../utils/taskScoreUtils.js";
+import { toScoreResultRows } from "../utils/taskScoreUtils.js";
+import { SCORE_MODES } from "../utils/taskScoreUtils.js";
 import { buildCount } from "../components/count.js";
-import { buildModelCards } from "../cards/modelCards.js";
+
 import { buildStatCards } from "../cards/statCards.js";
-import { buildTeamCards } from "../cards/teamCards.js";
-import { renderCreateRow } from "../cards/createCard.js";
-import { loadRecordPage } from "../templates/record-loader.js";
+
+import { loadRecordPage } from "../templates/recordPage.js";
+import { renderRecordListView } from "../templates/recordList.js";
+import { renderHeader, renderPage } from "../templates/pageChrome.js";
 import {
-  buildBody,
   buildHeader,
   buildPage,
+  buildSection,
   buildSections,
-  buildStats,
-  renderHeader,
-  renderPage,
-  sectionBody,
-  sectionCreate,
-} from "../templates/record-page.js";
+  getSection,
+  getSectionBody,
+} from "../components/sections.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
-const MAX_MODEL_CARDS = 2;
-const MAX_TEAM_CARDS = 2;
+const MAX_TEAMS = 2;
+const MAX_MODELS = 2;
 const MAX_SUBMISSIONS = 3;
 const MAX_SCORES = 3;
 
 const DESCRIPTION = "Your models, submissions and results.";
-
-// The create affordance is a card at the foot of each section rather than a button in its
-// header: it is the same card the list pages end with, and at the bottom it reads as the
-// next row rather than as an action on what is already there. Shown whether or not the
-// section has anything — an empty one says so above it.
-const CREATE_TEAM = {
-  href: "/html/teams/team_create.html",
-  label: "Create a new team",
-};
-
-const CREATE_MODEL = {
-  href: "/html/models/model_create.html",
-  label: "Create a new model",
-};
-
-const CREATE_SUBMISSION = {
-  href: "/html/submissions/submission_create.html",
-  label: "Create a new submission",
-};
-
-const TEAM_SECTIONS = [
-  {
-    id: "teams",
-    title: "Teams",
-    create: true,
-    links: [
-      {
-        href: "/html/teams/team_list.html",
-        label: "View all",
-        icon: getIcon("team"),
-      },
-    ],
-  },
-  {
-    id: "models",
-    title: "Models",
-    create: true,
-    links: [
-      {
-        href: "/html/models/model_list.html",
-        label: "View all",
-        icon: getIcon("model"),
-      },
-    ],
-  },
-];
-
-// Named because the heading's link and the table footer's "View all" have to agree, and a
-// second copy of the path is exactly how they would stop agreeing.
-const SUBMISSIONS_SECTION_HREF = "/html/submissions/submission_list.html";
-
-const BOTTOM_SECTIONS = [
-  {
-    id: "submissions",
-    title: "Recent submissions",
-    create: true,
-    links: [
-      {
-        href: SUBMISSIONS_SECTION_HREF,
-        label: "View all",
-        icon: getIcon("submission"),
-      },
-    ],
-  },
-  {
-    id: "scores",
-    title: "Task scores",
-    view: "scores",
-    linkIcon: getIcon("score"),
-    linkText: "View all scores",
-  },
-];
 
 const BACK = {
   text: "← Back to dashboard",
   view: "dashboard",
 };
 
-// ─── DATA ────────────────────────────────────────────────────────────────────
+// The render functions are declarations, so they are defined by the time this is read.
+const VIEWS = {
+  dashboard: renderDashboardView,
+  scores: renderScoresView,
+};
 
-function getStatistics(models, teams, submissionCount) {
-  return [
-    ["models", models.length, getIcon("model")],
-    ["submissions", submissionCount, getIcon("submission")],
-    ["teams", teams.length, getIcon("team")],
-  ];
+// The three create affordances, in the page header. Each carries its own id because
+// buildCreateButton's default would give all three the same one.
+//
+// `card` is the same offer worded for the card a section with nothing in it shows in place
+// of its table.
+const CREATE_TEAM = {
+  id: "create-team",
+  href: "/html/teams/team_create.html",
+  label: "New team",
+  card: "Create your first team",
+};
+
+const CREATE_MODEL = {
+  id: "create-model",
+  href: "/html/models/model_create.html",
+  label: "New model",
+  card: "Create your first model",
+};
+
+const CREATE_SUBMISSION = {
+  id: "create-submission",
+  href: "/html/submissions/submission_create.html",
+  label: "New submission",
+  card: "Create your first submission",
+};
+
+const DASHBOARD_SECTIONS = [
+  {
+    id: "stats",
+    className: "stats-grid",
+  },
+  {
+    sections: [
+      {
+        id: "teams",
+        title: "Teams",
+      },
+      {
+        id: "models",
+        title: "Models",
+      },
+    ],
+  },
+  {
+    id: "submissions",
+    title: "Submissions",
+  },
+  {
+    id: "scores",
+    title: "Task scores",
+  },
+];
+
+// ─── LINKS ───────────────────────────────────────────────────────────────────
+
+// Each list page is named once: the section heading's create button and the table footer's
+// "View all" both point at one, and a second copy of a path is how they stop agreeing.
+const TEAMS_LIST_HREF = "/html/teams/team_list.html";
+const MODELS_LIST_HREF = "/html/models/model_list.html";
+const SUBMISSIONS_LIST_HREF = "/html/submissions/submission_list.html";
+
+// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+
+// A section with nothing in it says what it is for, in the words of the thing that would
+// fill it.
+function renderCreateCard(container, create) {
+  renderHtml(
+    container,
+    buildCreateCard({ href: create.href, label: create.card }),
+    { refresh: true },
+  );
 }
 
-function countSubmissions(models) {
-  return models.reduce((total, model) => total + (model.n_submissions ?? 0), 0);
+function renderStatsSection(statistics) {
+  renderHtml(getSectionBody("stats"), buildStatCards(statistics));
 }
-
-function countTaskSubmissions(scoreRows) {
-  return scoreRows.length;
-}
-
-// All three empty means the account has been signed into but nothing set up. All three
-// rather than any one: someone with a team and a model but no submission yet is midway
-// through, and the sections tell them that far better than restarting the instructions.
-function isNewAccount(models, teams, submissions) {
-  return !models.length && !teams.length && !submissions.length;
-}
-
-// ─── UTILS ───────────────────────────────────────────────────────────────────
-
-function getWelcome(user) {
-  const name = user?.name || user?.email;
-
-  return name ? `Welcome ${name}` : "Welcome";
-}
-
-// ─── SECTIONS ────────────────────────────────────────────────────────────────
 
 function renderTeamsSection(teams) {
-  const container = sectionBody("teams");
-
-  renderCreateRow(sectionCreate("teams"), CREATE_TEAM);
+  const container = getSectionBody("teams");
 
   if (!teams.length) {
-    showEmpty(container, "No teams yet.");
+    renderCreateCard(container, CREATE_TEAM);
     return;
   }
 
-  container.className = "column gap-md";
-  container.innerHTML = buildTeamCards(
-    toTeamRows(teams.slice(0, MAX_TEAM_CARDS)),
+  renderHtml(
+    container,
+    buildStaticTeamsTable({
+      rows: toTeamRows(teams),
+      limit: MAX_TEAMS,
+      viewAll: { href: TEAMS_LIST_HREF },
+    }),
   );
 }
 
 function renderModelsSection(models) {
-  const container = sectionBody("models");
-
-  container.className = "column gap-md";
-
-  renderCreateRow(sectionCreate("models"), CREATE_MODEL);
+  const container = getSectionBody("models");
 
   if (!models.length) {
-    showEmpty(container, "No models yet.");
+    renderCreateCard(container, CREATE_MODEL);
     return;
   }
 
-  container.innerHTML = buildModelCards(
-    toModelRows(models.slice(0, MAX_MODEL_CARDS)),
+  renderHtml(
+    container,
+    buildStaticModelsTable({
+      rows: toModelRows(models),
+      limit: MAX_MODELS,
+      viewAll: { href: MODELS_LIST_HREF },
+    }),
   );
 }
 
 function renderSubmissionsSection(submissions) {
-  const container = sectionBody("submissions");
-
-  renderCreateRow(sectionCreate("submissions"), CREATE_SUBMISSION);
+  const container = getSectionBody("submissions");
 
   if (!submissions.length) {
-    showEmpty(container, "No submissions yet.");
+    renderCreateCard(container, CREATE_SUBMISSION);
     return;
   }
 
-  renderStaticSubmissionsTable({
+  renderHtml(
     container,
-    submissions,
-    showModel: true,
-    limit: MAX_SUBMISSIONS,
-    viewAll: { href: SUBMISSIONS_SECTION_HREF },
-  });
+    buildStaticSubmissionsTable({
+      rows: toSubmissionRows(submissions),
+      showModel: true,
+      limit: MAX_SUBMISSIONS,
+      viewAll: { href: SUBMISSIONS_LIST_HREF },
+    }),
+  );
 }
 
 function renderScoresSection(scoreRows) {
-  const container = sectionBody("scores");
-
   if (!scoreRows.length) {
-    showEmpty(container, "No scored tasks yet.");
+    getSection("scores").hidden = true;
     return;
   }
 
-  renderStaticTaskScoresTable({
-    container,
-    rows: scoreRows,
-    showModel: true,
-    limit: MAX_SCORES,
-    viewAll: { view: "scores" },
-  });
+  renderHtml(
+    getSectionBody("scores"),
+    buildStaticTaskScoresTable({
+      rows: scoreRows,
+      showModel: true,
+      limit: MAX_SCORES,
+      viewAll: { view: "scores" },
+    }),
+  );
 }
 
-// ─── VIEWS ───────────────────────────────────────────────────────────────────
-
 function renderGettingStarted(user) {
-  renderPage(buildPage({ header: buildHeader(), body: buildBody() }));
+  renderPage(
+    buildPage({
+      header: buildHeader(),
+      body: buildSection({ id: "getting-started" }),
+    }),
+  );
 
   renderHeader(getWelcome(user), DESCRIPTION);
 
-  sectionBody("body").replaceChildren(
+  getSectionBody("getting-started").replaceChildren(
     document.getElementById("dashboard-empty").content.cloneNode(true),
   );
 }
@@ -245,22 +237,18 @@ function renderDashboardView({ user, models, teams, submissions, scoreRows }) {
 
   renderPage(
     buildPage({
-      header: buildHeader(),
-      body:
-        buildStats() +
-        // Teams and Models side by side: both are short card lists, and a full-width row of
-        // each would push everything below off the fold. `align-start` so the shorter of the
-        // two sits at the top rather than being stretched by .page-section's space-between.
-        `<div class="section-row align-start">${buildSections(TEAM_SECTIONS)}</div>` +
-        buildSections(BOTTOM_SECTIONS),
+      header: buildHeader([
+        buildCreateButton(CREATE_TEAM),
+        buildCreateButton(CREATE_MODEL),
+        buildCreateButton(CREATE_SUBMISSION),
+      ]),
+      body: buildSections(DASHBOARD_SECTIONS),
     }),
   );
 
   renderHeader(getWelcome(user), DESCRIPTION);
 
-  sectionBody("stats").innerHTML = buildStatCards(
-    getStatistics(models, teams, countSubmissions(models)),
-  );
+  renderStatsSection(getUserStatistics(models, teams));
 
   renderTeamsSection(teams);
   renderModelsSection(models);
@@ -268,40 +256,35 @@ function renderDashboardView({ user, models, teams, submissions, scoreRows }) {
   renderScoresSection(scoreRows);
 }
 
+// ─── SCORES VIEW ─────────────────────────────────────────────────────────────
+
 function renderScoresView({ models, scoreRows }) {
-  renderPage(
-    buildPage({
-      back: BACK,
-      header: buildHeader(),
-      body: buildBody(),
-    }),
-  );
+  const shown = { showModel: true, showSubmission: true };
 
-  const taskCount = countTaskSubmissions(scoreRows);
+  return renderRecordListView({
+    back: BACK,
 
-  renderHeader(
-    "Task scores",
-    `${buildCount(taskCount, "task")} across ${buildCount(models.length, "model")}`,
-  );
+    renderTitle: () =>
+      renderHeader(
+        "Task scores",
+        `${buildCount(scoreRows.length, "task")} across ${buildCount(models.length, "model")}`,
+      ),
 
-  if (!taskCount) {
-    showEmpty(sectionBody("body"), "No scored tasks yet.");
-    return;
-  }
+    noun: "score",
+    empty: "No scored tasks yet.",
 
-  return renderTaskScoreExplorer({
-    container: sectionBody("body"),
     rows: scoreRows,
-    showModel: true,
+
+    createTable: ({ rows, selection }) =>
+      createTaskScoresTable({ ...shown, rows, selection, showFilters: false }),
+
+    filterControls: (rows) => getTaskScoreFilters(rows, shown),
+
+    modes: SCORE_MODES,
   });
 }
 
 // ─── LOAD ────────────────────────────────────────────────────────────────────
-
-const VIEWS = {
-  dashboard: renderDashboardView,
-  scores: renderScoresView,
-};
 
 loadRecordPage({
   views: VIEWS,

@@ -1,17 +1,17 @@
 // Submission record page — dashboard, details, tasks and scores for one submission.
 
-import { formatDate, showEmpty, showSuccess } from "../core/utils.js";
-import { getIcon } from "../components/icons.js";
 import {
-  buildStatusBadge,
-  buildSuiteBadgeList,
-  buildVisibleBadge,
-} from "../components/badges.js";
-import { buildDisplayFields } from "../forms/fields.js";
+  buildEmptyMessage,
+  buildFailureMessage,
+  buildSuccessMessage,
+} from "../components/messages.js";
+import { renderHtml } from "../core/render.js";
+import { escapeHtml } from "../core/html.js";
+
 import {
   attachEditLink,
-  attachRecordEditor,
-} from "../templates/record-editor.js";
+  renderRecordDetailsView,
+} from "../templates/recordDetails.js";
 import {
   loadSubmissionFields,
   loadSubmissionMeta,
@@ -19,38 +19,57 @@ import {
 } from "../schemas/submissionSchema.js";
 import { loadSubmission, updateSubmission } from "../api/submissionApi.js";
 import {
-  renderStaticTaskSubmissionsTable,
-  renderTaskSubmissionsTable,
+  buildStaticTaskSubmissionsTable,
+  createTaskSubmissionsTable,
 } from "../tables/taskSubmissionTable.js";
 import {
-  renderStaticTaskScoresTable,
-  renderTaskScoresTable,
-  toScoreRows,
-} from "../tables/scoreTable.js";
-import { suitesFromSubmission } from "../core/suites.js";
-import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
-import { renderTaskView } from "./taskSubmissionView.js";
-import { renderScoreBreakdownView } from "./taskScoreView.js";
-import { buildStatCards } from "../cards/statCards.js";
-import { loadRecordPage } from "../templates/record-loader.js";
+  getTaskSubmissionFilters,
+  mergeUpdated,
+  suiteLabel,
+  suiteSiblings,
+  toTaskSubmissionRows,
+} from "../utils/taskSubmissionUtils.js";
+import { updateTaskSubmissions } from "../api/taskSubmissionApi.js";
+import { buildCount } from "../components/count.js";
 import {
-  buildBody,
+  getSubmissionBadges,
+  getSubmissionStatistics,
+  getSubmissionSubtitle,
+} from "../utils/submissionUtils.js";
+
+import {
+  loadTaskFields,
+  TASK_PANELS,
+  taskPayload,
+} from "../schemas/taskSubmissionSchema.js";
+
+import { SCORE_MODES } from "../utils/taskScoreUtils.js";
+
+import { buildStatCards } from "../cards/statCards.js";
+import { buildDetailsCard } from "../cards/detailsCard.js";
+import { loadRecordPage } from "../templates/recordPage.js";
+import { renderRecordListView } from "../templates/recordList.js";
+import {
+  renderPage,
+  renderHeader,
+  renderMessage,
+} from "../templates/pageChrome.js";
+import {
   buildHeader,
   buildPage,
+  buildSection,
   buildSections,
-  buildStats,
-  EDIT_ACTION,
-  EDIT_ACTIONS,
-  pageMessage,
-  renderDetails,
-  renderHeader,
-  renderPage,
-  sectionBody,
-} from "../templates/record-page.js";
+  getSectionBody,
+} from "../components/sections.js";
+import {
+  buildCancelButton,
+  buildEditButton,
+  buildSaveButton,
+} from "../components/buttons.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
-const SCORE_LIMIT = 5;
+const MAX_TASKS = 5;
 
 const SUMMARY_KEYS = [
   "label",
@@ -60,281 +79,328 @@ const SUMMARY_KEYS = [
   "updated_at",
 ];
 
-const DASHBOARD_SECTIONS = [
-  {
-    id: "scores",
-    title: "Task Scores",
-    view: "scores",
-    linkIcon: getIcon("details"),
-    linkText: "View task scores",
-  },
-  {
-    id: "details",
-    title: "Submission Details",
-    view: "details",
-    linkIcon: getIcon("details"),
-    linkText: "View all details",
-  },
-  {
-    id: "tasks",
-    title: "Task Submissions",
-    view: "tasks",
-    linkIcon: getIcon("model"),
-    linkText: "View task details",
-  },
-];
-
 const BACK = {
   text: "← Back to dashboard",
   view: "dashboard",
 };
 
-// ─── DATA ────────────────────────────────────────────────────────────────────
+const TASKS_BACK = {
+  text: "← Back to tasks",
+  view: "tasks",
+};
 
-function getStatistics(submission, taskSubmissions) {
-  return [
-    ["tasks", taskSubmissions.length, getIcon("task")],
-    ["task suites", suitesFromSubmission(submission).length, getIcon("suite")],
-    // TODO PLACEHOLDER FOR NOW
-    [
-      "scored suites",
-      suitesFromSubmission(submission).length,
-      getIcon("score"),
+// The render functions are declarations, so they are defined by the time this is read.
+const VIEWS = {
+  dashboard: renderDashboardView,
+  details: renderDetailsView,
+  tasks: renderTasksView,
+  task: renderTaskView,
+};
+
+const DASHBOARD_SECTIONS = [
+  {
+    id: "stats",
+    className: "stats-grid",
+  },
+  {
+    sections: [
+      {
+        id: "narrative",
+        title: "Narrative",
+        // One card per narrative, stacked — the section body is a plain block otherwise.
+        className: "column gap-md",
+      },
+      {
+        id: "details",
+        title: "Submission Details",
+      },
     ],
-  ];
-}
+  },
+  {
+    id: "tasks",
+    title: "Task Submissions",
+  },
+];
 
-function getDashboardData(submission) {
-  return {
-    taskSubmissions: submission.task_submissions ?? [],
-  };
-}
-
-// ─── UTILS ───────────────────────────────────────────────────────────────────
-
-// What the submission is, at a glance: which suites it covers, how far scoring has got,
-// and whether anyone can read it. The suites come from the tasks it carries, the same way
-// the tables derive them.
-function getBadges(submission) {
-  return [
-    buildSuiteBadgeList(suitesFromSubmission(submission)),
-    buildVisibleBadge(submission.is_public),
-    buildStatusBadge(submission.status),
-  ];
-}
-
-function getSubtitle(submission) {
-  return [
-    { text: submission.model_name, icon: getIcon("model") },
-    { text: submission.team_name, icon: getIcon("team") },
-    {
-      text: submission.created_at
-        ? `Created ${formatDate(submission.created_at)}`
-        : null,
-      icon: getIcon("created"),
-    },
-  ].filter((entry) => entry.text);
-}
-
-// ─── DASHBOARD SECTIONS ──────────────────────────────────────────────────────
+// ─── DASHBOARD ───────────────────────────────────────────────────────────────
 
 function renderStatsSection(statistics) {
-  sectionBody("stats").innerHTML = buildStatCards(statistics);
+  renderHtml(getSectionBody("stats"), buildStatCards(statistics));
 }
 
-function renderScoresSection(submission) {
-  const rows = toScoreRows([submission]);
-  const container = sectionBody("scores");
-
-  if (!rows.length) {
-    showEmpty(container, "No scored tasks yet.");
-    return;
-  }
-
-  renderStaticTaskScoresTable({
-    container,
-    rows,
-    showSubmission: false,
-    limit: SCORE_LIMIT,
-    viewAll: { view: "scores" },
-  });
-}
-
-function renderDetailsSection(submission, fields) {
-  const keys = SUMMARY_KEYS.filter((key) => key in fields);
-  const midpoint = Math.ceil(keys.length / 2);
-
-  const columns = [keys.slice(0, midpoint), keys.slice(midpoint)]
-    .map(
-      (fieldNames) => `
-        <span class="column gap-md">
-          ${buildDisplayFields(fieldNames, submission, fields)}
-        </span>
-      `,
-    )
-    .join("");
-
-  sectionBody("details").innerHTML = `
-    <div class="card corner-link">
-      <!-- grid-2, not .row: .row is space-between, which pins the second column to the
-           card's right edge instead of starting it at the halfway mark. -->
-      <div class="grid-2">
-        ${columns}
-      </div>
-
-      <!-- Where the section heading's own link goes; the router picks it up by data-view.
-           The card's corner-link class lifts this onto the last row of fields. -->
-      <a class="link" href="#" data-view="details">View all details →</a>
+function buildNarrativeCard(label, narrative) {
+  return `
+    <div class="card column left gap-sm">
+      <p class="field-value">${escapeHtml(label)}</p>
+      <p class="field-label scroll-y">${narrative ? escapeHtml(narrative) : "—"}</p>
     </div>
   `;
 }
 
-function renderTasksSection(submission, taskSubmissions) {
-  const container = sectionBody("tasks");
+// The private narrative only for a member: the API blanks it for everyone else — see
+// withhold_private in app/schemas/submissions.py.
+function renderNarrativeSection(submission, canEdit) {
+  renderHtml(
+    getSectionBody("narrative"),
+    buildNarrativeCard("Public narrative", submission.narrative_public) +
+      (canEdit
+        ? buildNarrativeCard("Private narrative", submission.narrative_private)
+        : ""),
+  );
+}
 
-  if (!taskSubmissions.length) {
-    showEmpty(container, "No tasks yet.");
+function renderDetailsSection(submission, fields) {
+  renderHtml(
+    getSectionBody("details"),
+    buildDetailsCard({
+      record: submission,
+      fields,
+      keys: SUMMARY_KEYS,
+      columns: 2,
+    }),
+  );
+}
+
+function renderTasksSection(submission) {
+  const container = getSectionBody("tasks");
+
+  if (!submission.task_submissions?.length) {
+    renderHtml(container, buildEmptyMessage("No tasks yet."));
     return;
   }
 
-  renderStaticTaskSubmissionsTable({
+  renderHtml(
     container,
-    submission,
-    limit: SCORE_LIMIT,
-    viewAll: { view: "tasks" },
-  });
+    buildStaticTaskSubmissionsTable({
+      rows: toTaskSubmissionRows(submission),
+      limit: MAX_TASKS,
+      viewAll: { view: "tasks" },
+    }),
+  );
 }
 
-// ─── VIEWS ───────────────────────────────────────────────────────────────────
-
 function renderDashboardView(context, router) {
-  const { submission, fields, dashboardData, canEdit } = context;
-  const { taskSubmissions } = dashboardData;
+  const { submission, fields, canEdit } = context;
 
   renderPage(
     buildPage({
-      header: buildHeader(canEdit ? [EDIT_ACTION] : []),
-      body: buildStats() + buildSections(DASHBOARD_SECTIONS),
+      header: buildHeader(canEdit ? [buildEditButton()] : []),
+      body: buildSections(DASHBOARD_SECTIONS),
     }),
   );
 
   renderHeader(
     submission.label,
-    getSubtitle(submission),
-    getBadges(submission),
+    getSubmissionSubtitle(submission),
+    getSubmissionBadges(submission),
   );
 
-  renderStatsSection(getStatistics(submission, taskSubmissions));
-  renderScoresSection(submission);
+  renderStatsSection(getSubmissionStatistics(submission));
+  renderNarrativeSection(submission, canEdit);
   renderDetailsSection(submission, fields);
-  renderTasksSection(submission, taskSubmissions);
+  renderTasksSection(submission);
 
   // Edit button that goes directly to full submission editing view
   if (canEdit) attachEditLink(router);
 }
 
-function renderDetailsView({
-  submission,
-  fields,
-  canEdit,
-  edit = false,
-  created = false,
-}) {
-  renderPage(
-    buildPage({
-      back: BACK,
-      header: buildHeader(canEdit ? EDIT_ACTIONS : []),
-      body: buildBody(),
-    }),
-  );
+// ─── DETAILS VIEW ────────────────────────────────────────────────────────────
 
-  renderHeader(submission.label, getSubtitle(submission));
-  renderDetails(submission, fields, SUBMISSION_PANELS);
-
-  // Only when submission_create.html sent us here.
-  if (created) showSuccess(pageMessage(), "Submission successfully created.");
-
-  // renderDetails has already written the read-only fields, so a reader who may not edit
-  // has the whole view without the editor being wired at all.
-  if (!canEdit) return;
-
-  attachRecordEditor({
+function renderDetailsView({ submission, fields, canEdit, edit, created }) {
+  const page = renderRecordDetailsView({
     noun: "submission",
     record: submission,
     fields,
     panels: SUBMISSION_PANELS,
-    save: (draft) => updateSubmission(submission.id, draft),
-    renderTitle: (saved) => renderHeader(saved.label, getSubtitle(saved)),
+    back: BACK,
+    canEdit,
     edit,
+    created,
+
+    renderTitle: (shown) =>
+      renderHeader(shown.label, getSubmissionSubtitle(shown)),
+  });
+
+  return page?.attachEditor({
+    save: (draft) => updateSubmission(submission.id, draft),
   });
 }
+
+// ─── TASKS VIEW ──────────────────────────────────────────────────────────────
 
 function renderTasksView({ submission, canEdit }) {
-  renderPage(
-    buildPage({
-      back: BACK,
-      header: buildHeader(),
-      body: buildBody(),
-    }),
-  );
+  return renderRecordListView({
+    back: BACK,
+    renderTitle: () =>
+      renderHeader(submission.label, getSubmissionSubtitle(submission)),
+    noun: "task",
+    empty: "No tasks yet.",
 
-  renderHeader(submission.label, getSubtitle(submission));
+    rows: toTaskSubmissionRows(submission),
 
-  if (!submission.task_submissions?.length) {
-    showEmpty(sectionBody("body"), "No tasks yet.");
-    return;
-  }
+    createTable: ({ rows, selection }) =>
+      createTaskSubmissionsTable({
+        rows,
+        selection,
+        showEdit: canEdit,
+        showFilters: false,
+      }),
 
-  return renderTaskSubmissionsTable({
-    container: sectionBody("body"),
-    submission,
-    showEdit: canEdit,
+    filterControls: getTaskSubmissionFilters,
+
+    modes: SCORE_MODES,
   });
 }
 
-function renderScoresView({ submission }) {
-  renderPage(
-    buildPage({
-      back: BACK,
-      header: buildHeader(),
-      body: buildBody(),
-    }),
+// ─── TASK VIEW ───────────────────────────────────────────────────────────────
+
+function buildApplyToSuite() {
+  return `
+    <label class="row left gap-sm" id="apply-to-suite" hidden>
+      <input type="checkbox" class="field-checkbox" id="apply-to-suite-input">
+      <span class="metadata" id="apply-to-suite-label"></span>
+    </label>
+  `;
+}
+
+function getTaskSubtitle(submission, taskSubmission) {
+  return [
+    suiteLabel(taskSubmission.task_id),
+    submission.label,
+    submission.team_name,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function renderTaskView({
+  submission,
+  taskFields,
+  task,
+  canEdit,
+  edit = false,
+}) {
+  const taskSubmission = (submission.task_submissions ?? []).find(
+    (row) => row.id === task,
   );
 
-  renderHeader(submission.label, getSubtitle(submission));
+  // `task` is a durable param, so this view is entered from the URL as well as from the
+  // table — a deep link, a refresh or a Back can name a task this submission hasn't got.
+  if (!taskSubmission) {
+    renderPage(
+      buildPage({
+        back: TASKS_BACK,
+        header: buildHeader(),
+        body: buildSection({ id: "task" }),
+      }),
+    );
 
-  if (!submission.task_submissions?.length) {
-    showEmpty(sectionBody("body"), "No scored tasks yet.");
-    return;
+    renderHeader(submission.label, submission.team_name ?? "");
+    renderHtml(
+      getSectionBody("task"),
+      buildFailureMessage("That task is not part of this submission."),
+    );
+
+    return null;
   }
 
-  // Neither model nor submission is a column — every row belongs to this one submission.
-  return renderTaskScoresTable({
-    container: sectionBody("body"),
-    rows: toScoreRows([submission]),
-    showModel: false,
-    showSubmission: false,
+  // TASK_FIELDS is the one schema whose fields invalidate each other — changing the
+  // paradigm can rule out the supervision regime already chosen. Reporting that is
+  // attachRecordEditor's default, which is why no onCleared appears here.
+  const page = renderRecordDetailsView({
+    noun: "task",
+    record: taskSubmission,
+    fields: taskFields,
+    panels: TASK_PANELS,
+    back: TASKS_BACK,
+    canEdit,
+    edit,
+
+    actions: [
+      buildEditButton(),
+      buildApplyToSuite(),
+      buildCancelButton({ hidden: true }),
+      buildSaveButton({ hidden: true }),
+    ],
+
+    renderTitle: (shown) =>
+      renderHeader(shown.task_id, getTaskSubtitle(submission, shown)),
+  });
+
+  if (!page) return null;
+
+  const siblings = suiteSiblings(submission, taskSubmission);
+  const applyToSuite = document.getElementById("apply-to-suite");
+  const applyToSuiteInput = document.getElementById("apply-to-suite-input");
+
+  document.getElementById("apply-to-suite-label").textContent =
+    `Apply to all ${suiteLabel(taskSubmission.task_id) ?? "matching"} tasks (${siblings.length})`;
+
+  function showApplyToSuite(visible) {
+    applyToSuite.hidden = !visible;
+
+    if (!visible) applyToSuiteInput.checked = false;
+  }
+
+  // Set by `save`, read by `onSaved`: the editor's save must return the one record it
+  // merges, so the full list of updated rows has no way through except a variable here.
+  let updated = [];
+
+  return page.attachEditor({
+    // `task_id` and the model aren't editable fields, but TASK_FIELDS reads both when
+    // deciding which methodology options are legal.
+    context: () => ({
+      task_id: taskSubmission.task_id,
+      model: submission.model,
+    }),
+
+    onEdit: () => showApplyToSuite(true),
+
+    // One bulk request for both the single-task and suite-wide cases, so the server stays
+    // responsible for applying it atomically.
+    save: async (draft) => {
+      const targets = applyToSuiteInput.checked ? siblings : [taskSubmission];
+
+      updated = await updateTaskSubmissions(
+        submission.id,
+        targets.map((target) => target.id),
+        taskPayload(draft),
+      );
+
+      return updated.find((row) => row.id === taskSubmission.id) ?? updated[0];
+    },
+
+    onSaved: () => {
+      mergeUpdated(submission, updated);
+      showApplyToSuite(false);
+
+      // Names what the server reported it changed, not what the page asked for.
+      const names = updated.map((row) => row.task_id).sort();
+
+      renderMessage(
+        buildSuccessMessage(
+          names.length === 1
+            ? `Updated ${names[0]}.`
+            : `Updated ${buildCount(names.length, "task")}: ${names.join(", ")}.`,
+        ),
+      );
+
+      updated = [];
+    },
+
+    onCancel: () => showApplyToSuite(false),
   });
 }
 
 // ─── LOAD ────────────────────────────────────────────────────────────────────
 
-const VIEWS = {
-  dashboard: renderDashboardView,
-  details: renderDetailsView,
-  tasks: renderTasksView,
-  scores: renderScoresView,
-  task: renderTaskView,
-  score: renderScoreBreakdownView,
-};
-
 loadRecordPage({
   views: VIEWS,
   noun: "submission",
   flags: ["edit", "created"],
-  // `task` for the methodology view, `score` for the per-recording breakdown. Both name a
-  // task submission; they are separate params so a Back out of one doesn't land in the other.
-  params: ["task", "score"],
+  // `task` names the task submission the methodology view is showing. Durable: it survives
+  // a refresh and a Back, which is why that view checks the id is one of this submission's.
+  params: ["task"],
 
   // A public submission is readable by anyone — see GET /api/submissions/{id}, which
   // withholds the team-only fields rather than the whole record.
@@ -362,7 +428,6 @@ loadRecordPage({
       // `signedIn` is this browser having a session — a dev-mode API answers every request
       // as its stub user, so without it a signed-out visitor would be offered edit controls.
       canEdit: signedIn && submission.is_mine === true,
-      dashboardData: getDashboardData(submission),
     };
   },
 });

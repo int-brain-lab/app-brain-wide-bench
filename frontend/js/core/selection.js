@@ -1,22 +1,8 @@
-// What a reader has picked, in the order they picked it.
-//
-// A Map rather than a Set because each pick carries something with it — the entry a
-// comparison was given, not just its key — and because insertion order is part of the
-// answer: the first thing picked leads the comparison, which is what makes it the reference
-// on the models list and on the compare page.
-//
-// The cap is enforced here rather than by whatever is on screen. That is the whole point of
-// the store: a picked row can be filtered out of a table, or be on another page of the
-// cards, or be in a table that has since been destroyed and rebuilt — so what is picked
-// cannot be read back off the view, and the view has to reconcile to this instead.
+// What a reader has picked, keyed on the entry key, in pick order.
 
 /**
- * @param max      how many can be held at once. Extras are refused, not swapped in: quietly
- *                 dropping someone's first pick to make room for their sixth is worse than
- *                 doing nothing.
- * @param onChange () => void, once per mutation that actually changed the set. A no-op
- *                 mutation — re-adding what is already held, removing what isn't — is
- *                 silent, so a view reconciling in response can't loop.
+ * @param max      how many can be held at once. Extras are refused, not swapped in.
+ * @param onChange () => void, once per mutation that changed the set.
  */
 function createSelection({ max = Infinity, onChange = () => {} } = {}) {
   const held = new Map();
@@ -63,12 +49,10 @@ function createSelection({ max = Infinity, onChange = () => {} } = {}) {
   }
 
   /**
-   * Set the whole selection at once, for a view that reports what it has rather than what
-   * just changed — a table handing back every selected row.
+   * Set the whole selection at once. Entries already held keep their places; new ones are
+   * appended.
    *
-   * The order held wins over the order given: a table reports its rows in its own order,
-   * which sorting or filtering can change under a reader who has picked nothing new. So
-   * entries already held keep their places and only the genuinely new ones are appended.
+   * @param incoming every entry that should now be held.
    */
   function replace(incoming) {
     const wanted = new Map(incoming.map((entry) => [entry.key, entry]));
@@ -80,8 +64,6 @@ function createSelection({ max = Infinity, onChange = () => {} } = {}) {
       .slice(0, max)
       .map((key) => [key, held.get(key) ?? wanted.get(key)]);
 
-    // Compared before writing, so a table re-reporting the same rows after a sort doesn't
-    // notify anything or, through a listener that reconciles, start a loop.
     if (!changed(next)) return false;
 
     held.clear();

@@ -21,7 +21,9 @@
 // comparison anyone can send to someone else, not as a stack of history entries left
 // behind by working the controls.
 
-import { escapeHtml, refreshIcons, showEmpty } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
+import { refreshIcons, renderHtml } from "../core/render.js";
+import { buildEmptyMessage } from "../components/messages.js";
 import { dispose } from "../core/disposable.js";
 import { getIcon } from "../components/icons.js";
 import { buildSuiteBadgeList } from "../components/badges.js";
@@ -29,26 +31,26 @@ import { suiteFromTask } from "../core/suites.js";
 import { sortSuites } from "../tables/formatters.js";
 import { latestScoresByTask } from "../core/scoreData.js";
 import { getModels, loadModel } from "../api/modelApi.js";
-import { loadPage } from "../templates/page-loader.js";
-import { renderModelsTable } from "../tables/modelTable.js";
-import {
-  MAX_MODELS,
-  createModelComparison,
-} from "../comparisons/models.js";
-import { bindTable } from "../widgets/comparison.js";
+import { toModelRows } from "../utils/modelUtils.js";
+import { loadPage } from "../templates/page.js";
+import { createModelsTable } from "../tables/modelTable.js";
+import { MAX_MODELS, createModelComparison } from "../comparisons/models.js";
+import { bindTableSelection } from "../widgets/comparison.js";
+import { renderHeader, renderPage } from "../templates/pageChrome.js";
 import {
   buildHeader,
   buildPage,
   buildSection,
   buildSections,
-  renderHeader,
-  renderPage,
-  sectionBody,
-} from "../templates/record-page.js";
+  getSection,
+  getSectionBody,
+} from "../components/sections.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
 const MODEL_PAGE = "/html/models/models.html";
+
+const BACK_TEXT = "← Back to model";
 
 // `with` rather than `models`: it reads as the sentence the URL is making, and `models` is
 // already what the page's own model list is called.
@@ -175,18 +177,19 @@ function getSubtitle(model, suite) {
   ].filter((entry) => entry.text);
 }
 
+// ─── LINKS ───────────────────────────────────────────────────────────────────
+
+function getModelHref(model) {
+  return `${MODEL_PAGE}?id=${encodeURIComponent(model.id)}`;
+}
+
 // ─── PAGE ────────────────────────────────────────────────────────────────────
 
 function renderComparePage({ model, models }) {
   renderPage(
     buildPage({
-      header: buildHeader([
-        {
-          href: `${MODEL_PAGE}?id=${encodeURIComponent(model.id)}`,
-          label: "Back to model",
-          icon: getIcon("model"),
-        },
-      ]),
+      back: { text: BACK_TEXT, href: getModelHref(model) },
+      header: buildHeader(),
 
       body:
         buildSection({ id: "suite", title: "Task suite" }) +
@@ -220,7 +223,7 @@ function renderComparePage({ model, models }) {
   // table above is bound to it, so a ✕ inside the comparison unticks the row that put it
   // there.
   const comparison = createModelComparison({
-    container: sectionBody("comparison"),
+    container: getSectionBody("comparison"),
 
     toEntry: (row) => ({
       key: row.id,
@@ -237,11 +240,11 @@ function renderComparePage({ model, models }) {
     ],
   });
 
-  const picking = bindTable(comparison);
+  const picking = bindTableSelection(comparison);
 
   function showSections(ids, shown) {
     for (const id of ids) {
-      const section = sectionBody(id)?.closest("section");
+      const section = getSection(id);
 
       if (section) section.hidden = !shown;
     }
@@ -262,7 +265,7 @@ function renderComparePage({ model, models }) {
   // ─── SECTIONS ──────────────────────────────────────────────────────────────
 
   function renderSuite() {
-    const container = sectionBody("suite");
+    const container = getSectionBody("suite");
 
     container.innerHTML = buildSelect(
       "suite",
@@ -295,9 +298,8 @@ function renderComparePage({ model, models }) {
     dispose(table);
     comparison.clear();
 
-    table = renderModelsTable({
-      container: sectionBody("models"),
-      models: modelsOnSuite(models, reference.id, state.suite),
+    const { element, table: instance } = createModelsTable({
+      rows: toModelRows(modelsOnSuite(models, reference.id, state.suite)),
       // The page picks the suite above; a second suite select here could only ever empty
       // the table.
       showSuiteFilter: false,
@@ -309,6 +311,9 @@ function renderComparePage({ model, models }) {
         claimLinks: true,
       },
     });
+
+    table = instance;
+    getSectionBody("models").replaceChildren(element);
 
     // After the build rather than straight away: Tabulator constructs its rows
     // asynchronously, and a selectRow before that has nothing to select. Selecting is what
@@ -329,7 +334,7 @@ function renderComparePage({ model, models }) {
 
     // The comparison refuses a pick past its cap, so the table may be showing a highlight it
     // doesn't hold; this takes it back.
-    picking.reconcile();
+    picking.sync();
 
     // Written from what the comparison holds rather than from what the table reported, so a
     // refused pick never reaches the URL.
@@ -355,7 +360,7 @@ function renderComparePage({ model, models }) {
     showSections([...CONTROL_SECTIONS, ...RESULT_SECTIONS], false);
     showSections(["intro"], true);
 
-    showEmpty(sectionBody("intro"), message);
+    renderHtml(getSectionBody("intro"), buildEmptyMessage(message));
   }
 
   /**

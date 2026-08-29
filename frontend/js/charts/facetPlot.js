@@ -42,7 +42,7 @@ function panelKey(entry) {
   return `${entry.group}|${entry.metric}`;
 }
 
-// ─── AXES ───────────────────────────────────────────────────────────────────
+// ─── AXES ────────────────────────────────────────────────────────────────────
 
 /**
  * Every point any series has, in the order the axis should show them.
@@ -124,7 +124,7 @@ function panelRanges(entries) {
   return ranges;
 }
 
-// ─── SERIES ─────────────────────────────────────────────────────────────────
+// ─── SERIES ──────────────────────────────────────────────────────────────────
 
 // A dot: the series' colour, told apart from a repeat of it by its shape, and ringed in the
 // surface colour so two series landing on the same value stay two marks rather than one
@@ -200,7 +200,7 @@ function toDatasets(entries, labels, mark) {
   };
 }
 
-// ─── PANELS ─────────────────────────────────────────────────────────────────
+// ─── PANELS ──────────────────────────────────────────────────────────────────
 
 // Two ways to cut the same series into panels:
 //

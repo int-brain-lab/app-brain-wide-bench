@@ -4,6 +4,11 @@ function refreshIcons() {
   globalThis.lucide?.createIcons?.();
 }
 
+// Null when there is no such element, unlike resolveContainer, which throws.
+function getElement(id) {
+  return document.getElementById(id);
+}
+
 function clearContent(container, { hide = false } = {}) {
   const element = resolveContainer(container);
 
@@ -16,6 +21,8 @@ function clearContent(container, { hide = false } = {}) {
   return element;
 }
 
+// `hidden` belongs to whoever placed the element — the shell owns #top-nav and #side-nav,
+// a list view owns its panes — so it is only ever cleared on request.
 function renderHtml(container, html, { show = false, refresh = false } = {}) {
   const element = resolveContainer(container);
 
@@ -41,4 +48,4 @@ function setText(container, text) {
   return element;
 }
 
-export { clearContent, refreshIcons, renderHtml, setText };
+export { clearContent, getElement, refreshIcons, renderHtml, setText };

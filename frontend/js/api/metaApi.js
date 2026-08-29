@@ -1,6 +1,6 @@
 import { apiFetch } from "./client.js";
 
-// ─── API ────────────────────────────────────────────────────────────────────
+// ─── API ─────────────────────────────────────────────────────────────────────
 
 // Everything the forms need that isn't anyone's data: the dropdown options and their help
 // text, the per-field help text, the task table, and what each suite predicts. Public — a

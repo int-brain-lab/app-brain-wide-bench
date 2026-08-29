@@ -1,13 +1,13 @@
 import { apiFetch, apiFetchOptional } from "./client.js";
 import { normalizeObject, trimmed } from "../core/validation.js";
 
-// ─── PAYLOADS ────────────────────────────────────────────────────────────────────
+// ─── PAYLOADS ────────────────────────────────────────────────────────────────
 
 function buildModelPayload(state) {
   return normalizeObject(state, { name: trimmed });
 }
 
-// ─── API ────────────────────────────────────────────────────────────────────
+// ─── API ─────────────────────────────────────────────────────────────────────
 
 // `teamId` narrows the list to one team, for its own page. Visibility is unchanged by it:
 // the endpoint still answers with what this caller may see.

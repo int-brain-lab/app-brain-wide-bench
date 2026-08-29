@@ -4,8 +4,9 @@
 // that the cards, the filters above them and the table beside them all read one shape. The
 // two happen to carry the same fields here.
 
-import { escapeHtml } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
 import { buildRoleBadge } from "../components/badges.js";
+import { createCardGrid } from "./cardGrid.js";
 import { buildCount } from "../components/count.js";
 
 function buildTeamCards(teams) {
@@ -31,4 +32,14 @@ function buildTeamCards(teams) {
     .join("");
 }
 
-export { buildTeamCards };
+/** @param options as createCardGrid. */
+function createTeamCardGrid(options) {
+  return createCardGrid({
+    buildCards: buildTeamCards,
+    noun: "team",
+
+    ...options,
+  });
+}
+
+export { buildTeamCards, createTeamCardGrid };

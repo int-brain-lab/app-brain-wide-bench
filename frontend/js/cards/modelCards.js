@@ -3,13 +3,15 @@
 // Built from a model *row* — tables/modelTable.js's toModelRows — not from the API record,
 // so that the cards, the filters above them and the table beside them all read one shape.
 
-import { escapeHtml, formatDate } from "../core/utils.js";
+import { formatDate } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
 import {
   buildMineBadge,
   buildPretrainedBadge,
   buildSuiteBadgeList,
 } from "../components/badges.js";
 import { buildCount } from "../components/count.js";
+import { createCardGrid } from "./cardGrid.js";
 
 // `showMine` on marks the cards on the viewer's own teams, for the public listing that
 // mixes them with everyone else's. Off by default, so the dashboard and "My models" — where
@@ -45,4 +47,17 @@ function buildModelCards(models, options) {
   return models.map((model) => buildModelCard(model, options)).join("");
 }
 
-export { buildModelCards };
+/**
+ * @param showMine as buildModelCard.
+ * @param options  the rest, as createCardGrid.
+ */
+function createModelCardGrid({ showMine = false, ...options } = {}) {
+  return createCardGrid({
+    buildCards: (rows) => buildModelCards(rows, { showMine }),
+    noun: "model",
+
+    ...options,
+  });
+}
+
+export { buildModelCards, createModelCardGrid };

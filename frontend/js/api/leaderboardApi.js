@@ -1,6 +1,6 @@
 import { apiFetchOptional } from "./client.js";
 
-// ─── API ────────────────────────────────────────────────────────────────────
+// ─── API ─────────────────────────────────────────────────────────────────────
 
 // The public leaderboard: one entry per model, carrying its newest public score for each
 // task and the rank it earned. The collapsing is the server's, because it is what the

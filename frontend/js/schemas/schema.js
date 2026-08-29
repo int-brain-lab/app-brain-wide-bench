@@ -18,35 +18,38 @@ function fieldsForPanel(fields, panel, editableOnly = true) {
   );
 }
 
-// Builds the groups buildGroupCards draws, from a panel layout — declared alongside the
-// schema it describes as [{panel, title, inline, columns}].
+// One panel with its keys resolved — the panel group buildPanelCard draws. Null when the
+// panel has no keys to draw: a `component` panel has none, and a panel of read-only fields
+// has none under `editableOnly`.
 //
-// `editableOnly` mirrors fieldsForPanel's third argument inverted: false (the
-// default) keeps `editable: false` keys, which an edit form still wants as
-// read-only context rows. A panel whose keys all filter out is dropped rather
-// than rendering an empty card.
-//
-// `columns`, if given, overrides every panel's own value — this is how one layout
-// serves both modes: the display view takes the panels as declared, and the edit
-// form passes `{columns: 1}` so inputs get the card's full width.
-function panelGroups(fields, panels, { editableOnly = false, columns } = {}) {
-  return panels
-    .map(({ panel, title, inline, columns: panelColumns }) => ({
-      title,
-      inline,
-      columns: columns ?? panelColumns,
-      keys: fieldsForPanel(fields, panel, editableOnly),
-    }))
-    .filter((group) => group.keys.length);
+// `columns`, if given, overrides the panel's own — this is how one layout serves both
+// modes: the display view takes the panel as declared, and an edit form passes 1 so inputs
+// get the card's full width.
+function toPanelGroup(fields, name, panel, { editableOnly = false, columns } = {}) {
+  const keys = fieldsForPanel(fields, name, editableOnly);
+
+  if (!keys.length) return null;
+
+  return {
+    title: panel.title,
+    inline: panel.inline,
+    columns: columns ?? panel.columns,
+    keys,
+  };
 }
 
-// Build a working copy of the editable fields, seeded from `source` (e.g. a
-// fetched record, for editing) or field defaults (for creating). Arrays are
-// always cloned so two state objects never alias the same `field.default`
-// (or the same source) array.
+// Every panel of a layout — declared alongside the schema it describes as
+// {name: {type, title, inline, columns}} — in the order the panels appear. Panels with
+// nothing to draw are dropped rather than rendering an empty card.
 //
-// A projection of the schema, which is why it sits here rather than with the functions that
-// go on to mutate what it returns: `editable` and `default` are the only things it reads.
+// `editableOnly` mirrors fieldsForPanel's third argument inverted: false (the default)
+// keeps `editable: false` keys, which an edit form still wants as read-only context rows.
+function toPanelGroups(fields, panels, options = {}) {
+  return Object.entries(panels)
+    .map(([name, panel]) => toPanelGroup(fields, name, panel, options))
+    .filter(Boolean);
+}
+
 function createFieldState(fields, source = {}) {
   return Object.fromEntries(
     Object.entries(fields)
@@ -58,4 +61,4 @@ function createFieldState(fields, source = {}) {
   );
 }
 
-export { createFieldState, fieldsForPanel, panelGroups };
+export { createFieldState, fieldsForPanel, toPanelGroup, toPanelGroups };

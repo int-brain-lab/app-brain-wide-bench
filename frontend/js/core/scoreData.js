@@ -1,8 +1,8 @@
 // Score aggregation for a single record's submissions.
 //
 // The shaping step that sits between the API and anything that draws scores — the suite
-// bars, the stat cards, the mean a dashboard shows. scoreTable.js flattens submissions into
-// one row per task; this module collapses them the other way, into one number per suite.
+// bars, the stat cards, the mean a dashboard shows. taskScoreUtils.js flattens submissions
+// into one row per task; this module collapses them the other way, into one per suite.
 //
 // Two app-wide rules live here, both deliberate:
 //
@@ -19,7 +19,7 @@
 import { mean } from "./utils.js";
 import { suiteFromTask } from "./suites.js";
 
-// ─── LATEST ─────────────────────────────────────────────────────────────────
+// ─── LATEST ──────────────────────────────────────────────────────────────────
 
 // Each task takes its score from the newest submission that scored it, so a model is read
 // as where it currently stands rather than as its most recent upload — the same collapse
@@ -57,7 +57,7 @@ function latestScoresByTask(submissions) {
   );
 }
 
-// ─── AGGREGATION ────────────────────────────────────────────────────────────
+// ─── AGGREGATION ─────────────────────────────────────────────────────────────
 
 // { ts1: { "ts1-reward": 0.42, … }, ts2: { … } } — nested so callers can have either the
 // per-task detail or, via getMeanScores, one figure per suite.

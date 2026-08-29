@@ -7,14 +7,14 @@ const USER_FIELDS = {
   name: {
     label: "Name",
     input: "text",
-    panel: 1,
+    panel: "details",
     default: "",
   },
 
   affiliation: {
     label: "Affiliation",
     input: "text",
-    panel: 1,
+    panel: "details",
     default: "",
   },
 
@@ -22,28 +22,28 @@ const USER_FIELDS = {
     label: "Email",
     input: "text",
     editable: false,
-    panel: 2,
+    panel: "provider",
   },
 
   provider: {
     label: "Sign-in provider",
     input: "text",
     editable: false,
-    panel: 2,
+    panel: "provider",
   },
 
   orcid_id: {
     label: "ORCID",
     input: "text",
     editable: false,
-    panel: 2,
+    panel: "provider",
   },
 
   created_at: {
     label: "Member since",
     input: "datetime-local",
     editable: false,
-    panel: 2,
+    panel: "provider",
   },
 };
 
@@ -53,9 +53,9 @@ const USER_FIELDS = {
 //
 // Same role as MODEL_PANELS and TEAM_PANELS — the display view takes these as declared and
 // the edit form overrides `columns` to 1, so one list serves both.
-const USER_PANELS = [
-  { panel: 1, title: "Your details", columns: 2 },
-  { panel: 2, title: "From your sign-in provider", columns: 2 },
-];
+const USER_PANELS = {
+  details: { type: "fields", title: "Your details", columns: 2 },
+  provider: { type: "fields", title: "From your sign-in provider", columns: 2 },
+};
 
 export { USER_FIELDS, USER_PANELS };

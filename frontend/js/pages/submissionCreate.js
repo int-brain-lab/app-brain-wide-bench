@@ -11,7 +11,6 @@
 
 import { loadSubmissionFields } from "../schemas/submissionSchema.js";
 import { loadModel } from "../api/modelApi.js";
-import { showFailure, showMessage } from "../core/message.js";
 import { buildTaskPanel, createTaskSection } from "../widgets/taskPanel.js";
 import {
   buildUploadPanel,
@@ -22,8 +21,14 @@ import {
   presignSubmission,
   uploadToPresignedUrl,
 } from "../api/submissionApi.js";
-import { loadCreatePage } from "../templates/create-page.js";
-import { pageMessage, showPageError } from "../templates/record-page.js";
+import { loadCreatePage } from "../templates/createPage.js";
+import { CONTAINER_ID, renderMessage } from "../templates/pageChrome.js";
+import {
+  buildFailureMessage,
+  buildInfoMessage,
+  buildPageErrorMessage,
+} from "../components/messages.js";
+import { getElement, renderHtml } from "../core/render.js";
 import { getMeta } from "../api/metaApi.js";
 import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
 
@@ -32,34 +37,38 @@ import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
 //
 // Panel 3 refuses requires a file and that all detected tasks are valid.
 function buildPanels(context) {
-  return [
-    {
-      panel: 1,
+  return {
+    model: {
+      type: "fields",
       title: "1. Choose a submission name and the model it belongs to",
     },
-    {
-      panel: 2,
+
+    information: {
+      type: "fields",
       title: "2. Set submission visibility and optional narratives",
     },
-    {
-      panel: 3,
+
+    upload: {
+      type: "component",
+      title: "3. Upload a zip file and detect tasks",
+      build: buildUploadPanel,
+
       // The file is this panel's, not the schema's — it never renders as a field, and the
       // upload widget is what knows whether there is one.
       complete: () =>
         Boolean(context.file) && context.unknownTaskIds.length === 0,
-      build: buildUploadPanel,
-      title: "3. Upload a zip file and detect tasks",
     },
-    {
-      panel: 4,
-      complete: () => context.taskPanel?.allConfirmed(),
-      build: buildTaskPanel,
+
+    tasks: {
+      type: "component",
       title: "4. Configure task parameters",
+      build: buildTaskPanel,
+      complete: () => context.taskPanel?.allConfirmed(),
     },
-  ];
+  };
 }
 
-// ─── MODEL ──────────────────────────────────────────────────────────────────
+// ─── MODEL ───────────────────────────────────────────────────────────────────
 
 // The selected model supplies team_id/model_name for the submission and the
 // model-dependent rules used by the task methodology fields.
@@ -88,7 +97,7 @@ async function loadSelectedModel(modelId, state, taskSection) {
     // previously selected model.
     taskSection.setModel(null);
 
-    showFailure(pageMessage(), "Loading model details failed.", error);
+    renderMessage(buildFailureMessage("Loading model details failed.", error));
   }
 }
 
@@ -118,17 +127,18 @@ async function loadKnownTasks() {
   } catch (error) {
     console.error(error);
 
-    showFailure(
-      pageMessage(),
-      "Loading the task list failed — task validation is unavailable.",
-      error,
+    renderMessage(
+      buildFailureMessage(
+        "Loading the task list failed — task validation is unavailable.",
+        error,
+      ),
     );
 
     return new Map();
   }
 }
 
-// ─── SUBMIT ─────────────────────────────────────────────────────────────────
+// ─── SUBMIT ──────────────────────────────────────────────────────────────────
 
 // Three server round-trips, each with its own progress line, so the messaging stays here
 // rather than in the form — only this page knows how far along it is. The form catches a
@@ -141,7 +151,7 @@ async function submitSubmission(state, taskSection) {
 
   const presigned = await presignSubmission(state, taskSection);
 
-  showMessage(pageMessage(), "Uploading file…");
+  renderMessage(buildInfoMessage("Uploading file…"));
 
   await uploadToPresignedUrl(presigned.upload_url, file);
 
@@ -153,7 +163,7 @@ async function submitSubmission(state, taskSection) {
   );
 }
 
-// ─── INITIALISATION ─────────────────────────────────────────────────────────
+// ─── INITIALISATION ──────────────────────────────────────────────────────────
 
 // `unknownTaskIds` and `taskPanel` start empty here and are filled in by `setup` and by the
 // upload panel's `onFile`; the panels close over the context so they read them as they are
@@ -162,7 +172,12 @@ async function loadSubmissionContext() {
   const fields = await loadSubmissionFields();
 
   if (!fields.model_id.options.length) {
-    showPageError("You have no models yet — a model is required to submit.");
+    renderHtml(
+      getElement(CONTAINER_ID),
+      buildPageErrorMessage(
+        "You have no models yet — a model is required to submit.",
+      ),
+    );
     return null;
   }
 
@@ -219,9 +234,9 @@ async function setupPanels(form, context) {
 
 loadCreatePage({
   noun: "submission",
-  backTo: {
-    href: "/html/submissions/submission_list.html",
+  back: {
     text: "← Back to submissions",
+    href: "/html/submissions/submission_list.html",
   },
   load: loadSubmissionContext,
   fields: (context) => context.fields,

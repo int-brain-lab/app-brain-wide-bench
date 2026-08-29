@@ -1,9 +1,9 @@
 import { initials } from "../core/utils.js";
-import { renderHtml } from "../core/render.js";
+import { refreshIcons, renderHtml } from "../core/render.js";
 import { getIcon } from "../components/icons.js";
 import { apiFetch, isAuthenticated, logout } from "../api/client.js";
 import { renderLogo } from "./navTop.js";
-// ─── CONSTANTS ─────────────────────────────────────────────────────────────
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 // "My" throughout, because every one of these is scoped to the viewer — the public
 // counterparts below list the same domains unscoped, and the labels are what tells them
@@ -60,7 +60,7 @@ const PUBLIC_NAV_ITEMS = [
   { label: "Home", href: "/index.html", icon: getIcon("home") },
 ];
 
-// ─── API ────────────────────────────────────────────────────────────────────
+// ─── API ─────────────────────────────────────────────────────────────────────
 
 async function loadCurrentUser() {
   try {
@@ -75,13 +75,13 @@ async function loadCurrentUser() {
   }
 }
 
-// ─── DOM ────────────────────────────────────────────────────────────────────
+// ─── DOM ─────────────────────────────────────────────────────────────────────
 
 function sidebar() {
   return document.getElementById("side-nav");
 }
 
-// ─── HELPERS ────────────────────────────────────────────────────────────────
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
 
 // The whole path, not just the filename. Nav hrefs became root-relative when pages
 // stopped all living at the same depth (models are under /html/models/), and this is
@@ -92,7 +92,7 @@ function currentPage() {
   return path === "/" ? "/index.html" : path;
 }
 
-// ─── RENDERING ──────────────────────────────────────────────────────────────
+// ─── RENDERING ───────────────────────────────────────────────────────────────
 
 function renderSidebarItem(item, page) {
   const active = item.href === page;
@@ -136,7 +136,7 @@ function renderSidebar() {
   `;
 }
 
-// ─── USER ───────────────────────────────────────────────────────────────────
+// ─── USER ────────────────────────────────────────────────────────────────────
 
 // Exported so the settings page can re-run it after a rename — the initials are taken from
 // the name, so they go stale with it. The lookup is optional because an external caller
@@ -155,7 +155,7 @@ async function fillSidebarUser() {
   }
 }
 
-// ─── INITIALISATION ─────────────────────────────────────────────────────────
+// ─── INITIALISATION ──────────────────────────────────────────────────────────
 
 async function initialiseSidebar() {
   const nav = sidebar();
@@ -173,7 +173,7 @@ async function initialiseSidebar() {
 
   await fillSidebarUser();
 
-  globalThis.lucide?.createIcons?.();
+  refreshIcons();
 }
 
 initialiseSidebar();

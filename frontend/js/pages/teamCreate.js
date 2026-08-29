@@ -14,22 +14,26 @@ import {
   createMembersSection,
 } from "../widgets/teamMembers.js";
 import { TEAM_FIELDS } from "../schemas/teamSchema.js";
-import { showFailure, showMessage } from "../core/utils.js";
-import { loadCreatePage } from "../templates/create-page.js";
-import { pageMessage, showPageError } from "../templates/record-page.js";
+import { loadCreatePage } from "../templates/createPage.js";
+import {
+  CONTAINER_ID,
+  renderMessage,
+  clearMessage,
+} from "../templates/pageChrome.js";
+import {
+  buildFailureMessage,
+  buildInfoMessage,
+  buildPageErrorMessage,
+} from "../components/messages.js";
+import { getElement, renderHtml } from "../core/render.js";
 
 // Panel 2 requires nothing of its own: a team with no one but its creator is valid, and the
 // creator is added by the server regardless. Its `build` marks it as the page's own, so the
-// members section's listeners survive every re-render of panel 1.
-const TEAM_PANELS = [
-  {
-    panel: 1,
-  },
-  {
-    panel: 2,
-    build: buildMembersPanel,
-  },
-];
+// members section's listeners survive every re-render of the team panel.
+const TEAM_PANELS = {
+  team: { type: "fields" },
+  members: { type: "component", build: buildMembersPanel },
+};
 
 // Stands in for the team that doesn't exist yet. The creator is listed from the start
 // because POST /api/teams adds them as the first member — showing them is reporting
@@ -40,7 +44,10 @@ async function loadCreator() {
   const me = await loadMe();
 
   if (!me) {
-    showPageError("Could not load your account.");
+    renderHtml(
+      getElement(CONTAINER_ID),
+      buildPageErrorMessage("Could not load your account."),
+    );
     return null;
   }
 
@@ -76,11 +83,12 @@ async function submitTeam(state, draft, members) {
 
   // Deliberately no destination: this message is the only record of who didn't make it,
   // and the team's own page can't say what was attempted.
-  showFailure(
-    pageMessage(),
-    "Team created, but some members could not be added — they may not have signed in yet. " +
-      "Add them from the team page.",
-    new Error(failed.join("; ")),
+  renderMessage(
+    buildFailureMessage(
+      "Team created, but some members could not be added — they may not have signed in yet. " +
+        "Add them from the team page.",
+      new Error(failed.join("; ")),
+    ),
   );
 
   return null;
@@ -88,7 +96,7 @@ async function submitTeam(state, draft, members) {
 
 loadCreatePage({
   noun: "team",
-  backTo: { href: "/html/teams/team_list.html", text: "← Back to teams" },
+  back: { text: "← Back to teams", href: "/html/teams/team_list.html" },
   panels: TEAM_PANELS,
   fields: TEAM_FIELDS,
   load: loadCreator,
@@ -96,10 +104,15 @@ loadCreatePage({
   setup: (form, context) => {
     context.members = createMembersSection({
       getTeam: () => context.draft,
-      onMessage: (message, failed) =>
-        failed
-          ? showFailure(pageMessage(), message)
-          : showMessage(pageMessage(), message),
+      onMessage: (message, failed) => {
+        if (!message) {
+          clearMessage();
+        } else if (failed) {
+          renderMessage(buildFailureMessage(message));
+        } else {
+          renderMessage(buildInfoMessage(message));
+        }
+      },
       canRemove: (member) => member.id !== context.me.id,
     });
 

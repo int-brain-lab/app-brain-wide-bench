@@ -9,22 +9,16 @@
 
 import { loadModelFields } from "../schemas/modelSchema.js";
 import { createModel } from "../api/modelApi.js";
-import { loadCreatePage } from "../templates/create-page.js";
+import { loadCreatePage } from "../templates/createPage.js";
 
-const MODEL_PANELS = [
-  {
-    panel: 1,
+const MODEL_PANELS = {
+  identity: {
+    type: "fields",
     title: "1. Choose a model name and the team it belongs to",
   },
-  {
-    panel: 2,
-    title: "2. Add links to your models",
-  },
-  {
-    panel: 3,
-    title: "3. Describe your model parameters",
-  },
-];
+  links: { type: "fields", title: "2. Add links to your models" },
+  specification: { type: "fields", title: "3. Describe your model parameters" },
+};
 
 async function submitModel(state) {
   const model = await createModel(state);
@@ -36,7 +30,7 @@ async function submitModel(state) {
 
 loadCreatePage({
   noun: "model",
-  backTo: { href: "/html/models/model_list.html", text: "← Back to models" },
+  back: { text: "← Back to models", href: "/html/models/model_list.html" },
   panels: MODEL_PANELS,
   fields: () => loadModelFields(),
   submit: (state) => submitModel(state),

@@ -1,4 +1,5 @@
-import { escapeHtml, score } from "../core/utils.js";
+import { score } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
 import { SUITES } from "../core/suites.js";
 
 // r2 and poisson_d2 are unbounded below, so a real score can be negative — and
@@ -45,7 +46,7 @@ function buildSuiteScoreBars(meanScores, ranks) {
   `;
 }
 
-// ─── MODEL BARS ─────────────────────────────────────────────────────────────
+// ─── MODEL BARS ──────────────────────────────────────────────────────────────
 
 // The comparison page's overview: one bar per model on a single suite, best first.
 //
