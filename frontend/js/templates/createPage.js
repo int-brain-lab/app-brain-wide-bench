@@ -38,7 +38,7 @@ const PANELS_ID = "panels";
  *
  * @param noun        *singular* — "model". Names the page, the submit button and the
  *                    failure message.
- * @param title       page heading. Defaults to "Create new <noun>".
+ * @param title       page heading. Null falls back to "Create new <noun>".
  * @param description page subheading.
  * @param back        `{ text, href }` for the page's back link and Cancel button. An href
  *                    rather than a view: Cancel leaves the page.
@@ -60,7 +60,7 @@ const PANELS_ID = "panels";
  */
 async function loadCreatePage({
   noun,
-  title = `Create new ${noun}`,
+  title,
   description = "",
   back,
 
@@ -112,7 +112,7 @@ async function loadCreatePage({
         }),
       );
 
-      renderHeader(title, description);
+      renderHeader(title ?? `Create new ${noun}`, description);
 
       const container = getElement(PANELS_ID);
 

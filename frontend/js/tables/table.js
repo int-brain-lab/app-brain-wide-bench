@@ -54,11 +54,14 @@ function previewRows(rows, compare, limit) {
 }
 
 /**
+ * A table as plain markup — no filters, no paging, no Tabulator.
+ *
  * @param columns Tabulator column definitions — `title`, `field`, `formatter`.
  * @param rows    already mapped, ordered and sliced — see previewRows.
  * @param noun    *singular* noun — the footer adds the "s". Omit for no footer.
  * @param total   rows before the slice, for "3 out of 12". Defaults to `rows.length`.
  * @param viewAll {href} or {view} for the footer's "View all" link. Omit for no link.
+ *
  * @returns the markup.
  */
 function buildStaticTable({
@@ -101,29 +104,31 @@ function buildStaticTable({
 // ─── TABLE ───────────────────────────────────────────────────────────────────
 
 /**
+ * A live Tabulator grid over a set of rows.
+ *
+ * @param container      element, or the id of one, to build into. Omit for a table the
+ *                       caller mounts itself — see `element` below.
  * @param rows           plain row objects — map the API records first.
  * @param columns        Tabulator column definitions.
  * @param noun           *singular* noun — the count and the empty-state text add the "s".
- * @param initialSort    Tabulator initialSort, optional.
- * @param initialFilter  Tabulator initialFilter, optional — in place before the first
- *                       render, for a grid narrowed by a control outside it.
+ * @param initialSort    Tabulator initialSort. Omit to leave the rows in their given order.
+ * @param initialFilter  Tabulator initialFilter, in place before the first render, for a
+ *                       grid narrowed by a control outside it. Omit for none.
+ * @param paginationSize rows per page.
  * @param index          the row field Tabulator identifies a row by, for a caller that
  *                       later selects or deselects one by value. Defaults to "id".
- * @param paginationSize rows per page.
- * @param onRowClick     optional (rowData, {event, element}) => void, on every row click.
- *                       The element is the row's own.
- * @param selection      optional {max, onChange, claimLinks} — makes rows pickable by
- *                       clicking them, at most `max` at a time, and calls
+ * @param onRowClick     (rowData, {event, element}) => void, on every row click. The
+ *                       element is the row's own. Omit for no click handling.
+ * @param selection      {max, onChange, claimLinks} — makes rows pickable by clicking
+ *                       them, at most `max` at a time, and calls
  *                       `onChange(rows, {selected, deselected})` with the selected row data
  *                       and the row components that changed. A pick shows as the row's own
  *                       highlight — see `.tabulator-selected` in style.css.
  *                       `claimLinks: true` picks the row on a click on a link inside it
- *                       instead of following the link.
+ *                       instead of following the link. Omit for a table nothing selects.
  * @param header         markup above the grid, inside the same root — see
  *                       createFilterableTable, which puts the filter bar there.
- * @param container      optional element, or the id of one, to build into. Omit for a table
- *                       the caller mounts itself — see `element` below.
- * @param caller         name used in error messages.
+ *
  * @returns { element, table } — the root holding the grid, and the Tabulator instance.
  */
 function createTable({
@@ -165,7 +170,10 @@ function createTable({
     const count = root.querySelector("[data-role='count']");
     if (!count) return;
 
-    setText(count, buildTableCount(table.getDataCount("display"), rows.length, noun));
+    setText(
+      count,
+      buildTableCount(table.getDataCount("display"), rows.length, noun),
+    );
   }
 
   const table = new Tabulator(root.querySelector("[data-role='grid']"), {
@@ -240,16 +248,13 @@ function createTable({
  *                       required}]. `name` keys the filter state; `match(row, value)`
  *                       decides a row; `options` is required for a select; `required`
  *                       drops the blank option and starts on options[0]. Empty for no bar.
- * @param onControlChange optional (name, value, {table, setControlOptions}) => void, run
- *                       after a control changes and the rows have been refiltered.
+ * @param onControlChange (name, value, {table, setControlOptions}) => void, run after a
+ *                       control changes and the rows have been refiltered. Omit for none.
  * @param rest           as createTable.
+ *
  * @returns { element, table } — as createTable; the root holds the bar and the grid.
  */
-function createFilterableTable({
-  controls = [],
-  onControlChange,
-  ...rest
-}) {
+function createFilterableTable({ controls = [], onControlChange, ...rest }) {
   const { element, table } = createTable({
     ...rest,
     header: buildFilterBar(controls),

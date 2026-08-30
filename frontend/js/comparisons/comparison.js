@@ -1,7 +1,7 @@
 // Several things side by side, whatever they are.
 //
 // Owns the picks, the detail behind each one, the ✕ and the empty state. What is drawn from
-// them is the `render` its caller supplies — see comparisons/.
+// them is the `render` its caller supplies — see modelComparison.js and its siblings.
 //
 //   set(rows)              the whole selection
 //   pick / toggle / drop   one at a time

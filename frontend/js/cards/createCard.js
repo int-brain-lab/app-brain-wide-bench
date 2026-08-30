@@ -1,27 +1,15 @@
 // The "new model / new submission / new team" affordance on the list pages.
 //
-// Two shapes for one control:
-//
-//   as a row    a full-width strip under the list, which is what both views of a list page
-//               use — it can't be a real table row, since Tabulator owns the list container
-//               and its rows come from the data, so it's a sibling styled to meet the
-//               table's bottom edge. Once the cards page, a cell in the grid would either
-//               repeat on every page or hide on all but one.
-//   as a cell   appended to a grid of cards, so it sits beside the records at their width
-//               and stretches to their row height. For a fixed grid that doesn't page —
-//               the sections on the model and team pages.
-//
-// Both call createIcons: the label carries a Lucide `plus` placeholder, and createIcons
-// consumes placeholders, so it has to run after this markup lands rather than once at page
-// load — the nav modules' own call may well have already happened by then.
+// Two shapes: a strip under a table, and a cell appended to a grid of cards. The label
+// carries a Lucide placeholder, so both need refreshIcons after the markup lands.
 
 import { escapeHtml } from "../core/html.js";
-import { getIcon } from "../components/icons.js";
 import { refreshIcons } from "../core/render.js";
+import { getIcon } from "../components/icons.js";
 
-function buildCreateCard({ href, label }, extraClass = "") {
+function buildCreateCard({ href, label }) {
   return `
-    <a class="create-card ${extraClass}" href="${escapeHtml(href)}">
+    <a class="create-card" href="${escapeHtml(href)}">
       <i class="btn-icon" data-lucide="${getIcon("add")}"></i>
       <span>${escapeHtml(label)}</span>
     </a>
@@ -29,11 +17,11 @@ function buildCreateCard({ href, label }, extraClass = "") {
 }
 
 /**
- * Append the card into the grid that already holds the record cards, so it becomes the
- * last cell. Call after the grid's own innerHTML has been written.
+ * The card as the last cell of a grid that already holds the record cards.
  *
- * No `options` means no affordance — a list read by a signed-out visitor has nothing to
- * create with, and every caller would otherwise need the same guard.
+ * @param container the grid, its own innerHTML already written.
+ * @param options   as buildCreateCard. Omit for no affordance — a signed-out reader has
+ *                  nothing to create with.
  */
 function appendCreateCard(container, options) {
   if (!options) return;
@@ -42,5 +30,4 @@ function appendCreateCard(container, options) {
   refreshIcons();
 }
 
-/** Write the full-width variant into its own container, below the table. */
 export { appendCreateCard, buildCreateCard };

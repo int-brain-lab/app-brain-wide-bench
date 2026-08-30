@@ -1,5 +1,5 @@
 import { escapeHtml } from "../core/html.js";
-import { SUITES } from "../core/suites.js";
+import { suiteLabel, SUITES } from "../core/suites.js";
 import { buildIcon } from "./icons.js";
 
 function statusBadgeClass(status) {
@@ -23,7 +23,7 @@ function buildSuiteBadgeList(suites, size = "") {
   const badges = suites
     .map(
       (suite) =>
-        `<span class="badge ${size} ${escapeHtml(suite)}">${escapeHtml(suite.toUpperCase())}</span>`,
+        `<span class="badge ${size} ${escapeHtml(suite)}">${escapeHtml(suiteLabel(suite))}</span>`,
     )
     .join("");
 
@@ -53,7 +53,7 @@ function buildSuiteCoverageBadges(suites, size = "") {
     // the same uniformity as everywhere else in this file.
     const variant = covered.has(suite) ? escapeHtml(suite) : "neutral";
 
-    return `<span class="badge ${size} ${variant}">${escapeHtml(suite.toUpperCase())}</span>`;
+    return `<span class="badge ${size} ${variant}">${escapeHtml(suiteLabel(suite))}</span>`;
   }).join("");
 }
 

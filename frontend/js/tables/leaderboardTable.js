@@ -16,6 +16,7 @@
 // switch: it narrows to models that have a rank for it, and it drives the position. Its
 // blank option, "Overall", narrows nothing and ranks across every task.
 
+import { suiteLabel } from "../core/suites.js";
 import { mean } from "../core/utils.js";
 import {
   toSuiteGroups,
@@ -28,14 +29,13 @@ import {
   buildStaticTable,
 } from "./table.js";
 import { matchIncludes } from "../components/filters.js";
+import { score } from "../core/utils.js";
 import {
   modelFormatter,
   numericSorter,
   rankFormatter,
   rankOrder,
-  rankSorter,
   rankValue,
-  score,
 } from "./formatters.js";
 
 // ─── ROWS ────────────────────────────────────────────────────────────────────
@@ -52,8 +52,8 @@ function toLeaderboardRow(standing, suites, myTeamIds) {
     // The newest submission behind the standing — what the row links to. The scores beside
     // it may each come from an older one, which is why they carry their own submission id.
     submissionId: standing.id,
-    title: standing.model_name,
-    affiliation: standing.team_name,
+    model_name: standing.model_name,
+    team_name: standing.team_name,
     // Both for the pills beside the name — see modelFormatter. Nothing filters or sorts on
     // either.
     isPretrained: standing.is_pretrained ?? null,
@@ -230,7 +230,7 @@ function suiteMetrics(suites) {
     { value: "", label: "Overall" },
     ...suites.map((suite) => ({
       value: suite.suite,
-      label: suite.suite.toUpperCase(),
+      label: suiteLabel(suite.suite),
     })),
   ];
 }
@@ -260,7 +260,7 @@ function getLeaderboardColumns(suites, getMetric) {
       title: "#",
       field: "rank",
       formatter: rankFormatter,
-      sorter: rankSorter,
+      sorter: rankOrder,
       // Not clickable — the position is what the table is already ordered by — but still
       // sorted programmatically, which is what `sorter` is here for.
       headerSort: false,
@@ -308,7 +308,7 @@ function getLeaderboardColumns(suites, getMetric) {
       title: suite.label,
       field: suite.key,
       formatter: (cell) => rankValue(cell.getValue()),
-      sorter: rankSorter,
+      sorter: rankOrder,
       hozAlign: "right",
       headerHozAlign: "right",
       cssClass: "rank-cell",

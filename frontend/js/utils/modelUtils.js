@@ -1,12 +1,17 @@
 // A model as the pages read it: its rows, the filters over them, and the figures its
 // header and dashboard show.
 
+import { formatDate } from "../core/utils.js";
+import {
+  SUITES,
+  suitesFromModel,
+  suitesFromSubmission,
+} from "../core/suites.js";
 import {
   buildPretrainedBadge,
   buildSuiteBadgeList,
   buildVisibleBadge,
 } from "../components/badges.js";
-import { getIcon } from "../components/icons.js";
 import {
   matchEquals,
   matchInArray,
@@ -14,12 +19,7 @@ import {
   optionsFromRows,
   SUITE_OPTIONS,
 } from "../components/filters.js";
-import { formatDate } from "../core/utils.js";
-import {
-  countTasks,
-  getMeanScores,
-  scoresBySuite,
-} from "../core/scoreData.js";
+import { getIcon } from "../components/icons.js";
 
 // ─── ROWS ────────────────────────────────────────────────────────────────────
 
@@ -36,73 +36,23 @@ function toModelRow(model) {
   };
 }
 
-export function toModelRows(models) {
+function toModelRows(models) {
   return models.map(toModelRow);
-}
-
-function toModelMap(models) {
-  const modelMap = new Map();
-  for (const model of models) {
-    modelMap.set(model.id, toModelRow(model));
-  }
-  return modelMap;
-}
-
-function modelRowToMap(modelRows) {
-  const modelMap = new Map();
-  for (const model of modelRows) {
-    modelMap.set(model.id, model);
-  }
-  return modelMap;
-}
-
-// ─── DISPLAY ─────────────────────────────────────────────────────────────────
-
-export function getModelSubtitle(model) {
-  return [
-    { text: model.team_name, icon: getIcon("team") },
-    {
-      text: model.created_at ? `Created ${formatDate(model.created_at)}` : null,
-      icon: getIcon("created"),
-    },
-  ].filter((entry) => entry.text);
-}
-
-export function getModelBadges(model) {
-  return [
-    buildSuiteBadgeList(model.task_suites ?? model.suites ?? []),
-    buildPretrainedBadge(model.is_pretrained),
-    buildVisibleBadge(model.is_mine),
-  ];
-}
-
-export function getModelStatistics(model) {
-  const { submissions, meanScores, taskCount } = getDashboardData(model);
-
-  return [
-    ["submissions", submissions.length, getIcon("submission")],
-    ["task suites", Object.keys(meanScores).length - 1, getIcon("suite")],
-    ["tasks", taskCount, getIcon("task")],
-  ];
-}
-
-function getDashboardData(model) {
-  const submissions = model.submissions ?? [];
-  const suiteScores = scoresBySuite(submissions);
-  const meanScores = getMeanScores(suiteScores);
-
-  return {
-    submissions,
-    meanScores,
-    taskCount: countTasks(suiteScores),
-  };
 }
 
 // ─── FILTERS ─────────────────────────────────────────────────────────────────
 
-// `showSuiteFilter` off for a caller whose rows are already one suite's — the compare page,
-// which picks the suite above the table. Left on, the select could only ever empty it.
-export function getModelFilters(rows, { showSuiteFilter = true } = {}) {
+/**
+ * The filter bar over a set of model rows.
+ *
+ * @param rows           every row, so the selects can offer only values that appear.
+ * @param showSuiteFilter off for a caller whose rows are already one suite's — the compare
+ *                       page, which picks the suite above the table. Left on, the select
+ *                       could only ever empty it.
+ *
+ * @returns the controls, in bar order — see components/filters.js.
+ */
+function getModelFilters(rows, { showSuiteFilter = true } = {}) {
   return [
     {
       type: "search",
@@ -130,3 +80,71 @@ export function getModelFilters(rows, { showSuiteFilter = true } = {}) {
       : []),
   ];
 }
+
+// ─── COVERAGE ────────────────────────────────────────────────────────────────
+
+// What a model's submissions between them cover. A task submitted more than once counts
+// once, and a submission's own `task_suites` is trusted where it has one — see
+// suitesFromSubmission.
+function getModelCoverage(model) {
+  const submissions = model.submissions ?? [];
+  const covered = new Set();
+  const taskIds = new Set();
+
+  for (const submission of submissions) {
+    for (const suite of suitesFromSubmission(submission)) {
+      covered.add(suite);
+    }
+
+    for (const task of submission.task_submissions ?? []) {
+      taskIds.add(task.task_id);
+    }
+  }
+
+  return {
+    submissionCount: submissions.length,
+    // In SUITES order rather than encounter order, so two models never list the same
+    // coverage differently.
+    suites: SUITES.filter((suite) => covered.has(suite)),
+    taskCount: taskIds.size,
+  };
+}
+
+// ─── DISPLAY ─────────────────────────────────────────────────────────────────
+
+function getModelSubtitle(model) {
+  return [
+    { text: model.team_name, icon: getIcon("team") },
+    {
+      text: model.created_at ? `Created ${formatDate(model.created_at)}` : null,
+      icon: getIcon("created"),
+    },
+  ].filter((entry) => entry.text);
+}
+
+function getModelBadges(model) {
+  return [
+    buildSuiteBadgeList(suitesFromModel(model)),
+    buildPretrainedBadge(model.is_pretrained),
+    buildVisibleBadge(model.is_mine),
+  ];
+}
+
+function getModelStatistics(model) {
+  const { submissionCount, suites, taskCount } = getModelCoverage(model);
+
+  return [
+    ["submissions", submissionCount, getIcon("submission")],
+    ["task suites", suites.length, getIcon("suite")],
+    ["tasks", taskCount, getIcon("task")],
+  ];
+}
+
+export {
+  getModelBadges,
+  getModelCoverage,
+  getModelFilters,
+  getModelStatistics,
+  getModelSubtitle,
+  toModelRows,
+};

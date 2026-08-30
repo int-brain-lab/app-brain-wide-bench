@@ -197,7 +197,7 @@ function createTaskBreakdown({
 }
 
 // A breakdown is fed by one row rather than by a set of picks, so attach and apply have
-// nothing to do. The shape is bindTableSelection's — see widgets/comparison.js.
+// nothing to do. The shape is bindTableSelection's — see comparisons/comparison.js.
 function bindTableDetail(breakdown, toEntry) {
   return {
     selection: () => ({

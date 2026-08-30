@@ -1,28 +1,7 @@
 // Model record page — dashboard, details, submissions and scores for one model.
 
-import { buildRankCard } from "../cards/rankCard.js";
-import { buildCreateCard } from "../cards/createCard.js";
-import { buildDetailsCard } from "../cards/detailsCard.js";
-import { buildStatCards } from "../cards/statCards.js";
-import { createSubmissionCardGrid } from "../cards/submissionCards.js";
-import {
-  buildCompareButton,
-  buildCreateButton,
-  buildEditButton,
-} from "../components/buttons.js";
-import { getSubmissionFilters } from "../utils/submissionUtils.js";
-import { getTaskScoreFilters } from "../utils/taskScoreUtils.js";
 import { renderHtml } from "../core/render.js";
-import { buildEmptyMessage } from "../components/messages.js";
 import { markRankedRows } from "../core/rankData.js";
-import {
-  createSubmissionsTable,
-  buildStaticSubmissionsTable,
-} from "../tables/submissionTable.js";
-import {
-  createTaskScoresTable,
-  buildStaticTaskScoresTable,
-} from "../tables/taskScoreTable.js";
 import { getModelRanking, loadModel, updateModel } from "../api/modelApi.js";
 import {
   loadModelFields,
@@ -30,26 +9,48 @@ import {
   MODEL_PANELS,
 } from "../schemas/modelSchema.js";
 import {
-  attachEditLink,
-  renderRecordDetailsView,
-} from "../templates/recordDetails.js";
-
-import { loadRecordPage } from "../templates/recordPage.js";
-import { renderRecordListView } from "../templates/recordList.js";
-import { renderHeader, renderPage } from "../templates/pageChrome.js";
-import {
-  buildSections,
-  getSectionBody,
-  buildHeader,
-  buildPage,
-} from "../components/sections.js";
-import { SCORE_MODES, toScoreRows } from "../utils/taskScoreUtils.js";
-import {
   getModelBadges,
   getModelStatistics,
   getModelSubtitle,
 } from "../utils/modelUtils.js";
-import { toSubmissionRows } from "../utils/submissionUtils.js";
+import {
+  getSubmissionFilters,
+  toSubmissionRows,
+} from "../utils/submissionUtils.js";
+import { getTaskScoreFilters, toScoreRows } from "../utils/taskScoreUtils.js";
+import {
+  buildStaticSubmissionsTable,
+  createSubmissionsTable,
+} from "../tables/submissionTable.js";
+import {
+  buildStaticTaskScoresTable,
+  createTaskScoresTable,
+} from "../tables/taskScoreTable.js";
+import { SCORE_MODES } from "../comparisons/scoreModes.js";
+import { buildCreateCard } from "../cards/createCard.js";
+import { buildDetailsCard } from "../cards/detailsCard.js";
+import { buildRankCard } from "../cards/rankCard.js";
+import { buildStatCards } from "../cards/statCards.js";
+import { createSubmissionCardGrid } from "../cards/submissionCards.js";
+import {
+  buildCompareButton,
+  buildCreateButton,
+  buildEditButton,
+} from "../components/buttons.js";
+import { buildEmptyMessage } from "../components/messages.js";
+import {
+  buildHeader,
+  buildPage,
+  buildSections,
+  getSectionBody,
+} from "../components/sections.js";
+import {
+  attachEditLink,
+  renderRecordDetailsView,
+} from "../templates/recordDetails.js";
+import { loadRecordPage } from "../templates/recordPage.js";
+import { renderRecordListView } from "../templates/recordList.js";
+import { renderHeader, renderPage } from "../templates/pageChrome.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
@@ -115,7 +116,7 @@ function renderStatsSection(statistics) {
   renderHtml(getSectionBody("stats"), buildStatCards(statistics));
 }
 
-function renderRankingSection(ranking, model, canEdit) {
+function renderRankingSection(model, ranking, canEdit) {
   renderHtml(
     getSectionBody("ranking"),
     buildRankCard(ranking, {
@@ -124,9 +125,9 @@ function renderRankingSection(ranking, model, canEdit) {
   );
 }
 
-function renderScoresSection(submissions, ranking) {
+function renderScoresSection(model, ranking) {
   const container = getSectionBody("scores");
-  const rows = markRankedRows(toScoreRows(submissions), ranking);
+  const rows = markRankedRows(toScoreRows(model.submissions), ranking);
 
   if (!rows.length) {
     renderHtml(container, buildEmptyMessage("No scores yet."));
@@ -152,12 +153,10 @@ function renderDetailsSection(model, fields) {
   );
 }
 
-// The card stands in for the table, and the heading keeps its button: a model with no
-// submissions is the state the page most wants to move the reader out of.
-function renderSubmissionsSection(model, submissions) {
+function renderSubmissionsSection(model) {
   const container = getSectionBody("submissions");
 
-  if (!submissions.length) {
+  if (!model.submissions.length) {
     renderHtml(
       container,
       buildCreateCard({
@@ -173,7 +172,7 @@ function renderSubmissionsSection(model, submissions) {
   renderHtml(
     container,
     buildStaticSubmissionsTable({
-      rows: toSubmissionRows(submissions),
+      rows: toSubmissionRows(model.submissions),
       limit: MAX_SUBMISSIONS,
       viewAll: { view: "submissions" },
     }),
@@ -182,7 +181,6 @@ function renderSubmissionsSection(model, submissions) {
 
 function renderDashboardView(context, router) {
   const { model, fields, ranking, canEdit } = context;
-  const statistics = getModelStatistics(model);
 
   const compare = buildCompareButton({
     href: getCompareHref(model),
@@ -211,15 +209,13 @@ function renderDashboardView(context, router) {
 
   renderHeader(model.name, getModelSubtitle(model), getModelBadges(model));
 
-  renderStatsSection(statistics);
-  renderRankingSection(ranking, model, canEdit);
-  renderScoresSection(model.submissions, ranking);
+  renderStatsSection(getModelStatistics(model));
+  renderRankingSection(model, ranking, canEdit);
+  renderScoresSection(model, ranking);
   renderDetailsSection(model, fields);
-  renderSubmissionsSection(model, model.submissions);
+  renderSubmissionsSection(model);
 
-  if (canEdit) {
-    attachEditLink(router);
-  }
+  if (canEdit) attachEditLink(router);
 }
 
 // ─── DETAILS VIEW ────────────────────────────────────────────────────────────
@@ -243,7 +239,9 @@ function renderDetailsView({ model, fields, canEdit, edit, created }) {
     renderTitle: (shown) => renderHeader(shown.name, getModelSubtitle(shown)),
   });
 
-  return page?.attachEditor({
+  if (!page) return null;
+
+  return page.attachEditor({
     save: (draft) => updateModel(model.id, draft),
   });
 }
@@ -252,9 +250,9 @@ function renderDetailsView({ model, fields, canEdit, edit, created }) {
 
 function renderSubmissionsView({ model }) {
   return renderRecordListView({
+    noun: "submission",
     back: BACK,
     renderTitle: () => renderHeader(model.name, getModelSubtitle(model)),
-    noun: "submission",
     empty: "No submissions yet.",
 
     rows: toSubmissionRows(model.submissions ?? []),
@@ -278,9 +276,9 @@ function renderScoresView({ model, ranking }) {
   };
 
   return renderRecordListView({
+    noun: "score",
     back: BACK,
     renderTitle: () => renderHeader(model.name, getModelSubtitle(model)),
-    noun: "score",
     empty: "No scored tasks yet.",
 
     rows: markRankedRows(toScoreRows(model.submissions ?? []), ranking),
@@ -303,10 +301,12 @@ function renderScoresView({ model, ranking }) {
 
 loadRecordPage({
   views: VIEWS,
-  noun: "model",
   flags: ["edit", "created"],
 
-  // A model with a public submission is readable by anyone.
+  noun: "model",
+
+  // A model page is readable by anyone — see GET /api/models/{id}, which withholds the
+  // team-only fields rather than the whole record.
   requiresAuth: false,
 
   load: async (modelId, { signedIn }) => {
@@ -324,6 +324,7 @@ loadRecordPage({
       model,
       fields,
       ranking,
+      // `signedIn` as well as `is_mine`: a dev-mode API answers every request as its stub user.
       canEdit: signedIn && model.is_mine === true,
     };
   },

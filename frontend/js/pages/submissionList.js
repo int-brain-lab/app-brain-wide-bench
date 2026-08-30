@@ -1,11 +1,13 @@
 // The submissions list, in the two scopes the pages ask for:
 //
-//   data-scope="mine"  submission_list.html         —  the viewer's own teams' submissions, signed in only
-//   data-scope="all"   submission_list_public.html  —  every submission they may see, signed out too
+//   data-scope="mine"  submission_list.html         —  the viewer's own teams', signed in
+//   data-scope="all"   submission_list_public.html  —  every one they may see, signed out
 
-import { toSubmissionRows } from "../utils/submissionUtils.js";
-import { getSubmissions, getMySubmissions } from "../api/submissionApi.js";
-import { getSubmissionFilters } from "../utils/submissionUtils.js";
+import { getMySubmissions, getSubmissions } from "../api/submissionApi.js";
+import {
+  getSubmissionFilters,
+  toSubmissionRows,
+} from "../utils/submissionUtils.js";
 import { createSubmissionsTable } from "../tables/submissionTable.js";
 import { createSubmissionCardGrid } from "../cards/submissionCards.js";
 import { loadListPage } from "../templates/listPage.js";
@@ -20,11 +22,7 @@ loadListPage({
   getRecords: MINE ? getMySubmissions : getSubmissions,
   recordsToRows: toSubmissionRows,
 
-  createCards: () =>
-    createSubmissionCardGrid({
-      showMine: !MINE,
-      cardsPerPage: 8,
-    }),
+  createCards: () => createSubmissionCardGrid(),
 
   createTable: ({ rows }) =>
     createSubmissionsTable({
@@ -33,6 +31,6 @@ loadListPage({
       showFilters: false,
     }),
 
-  filterControls: getSubmissionFilters,
   createLink: "/html/submissions/submission_create.html",
+  filterControls: getSubmissionFilters,
 });

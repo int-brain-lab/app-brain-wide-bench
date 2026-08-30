@@ -2,40 +2,36 @@
 //
 // Two views: the overview, and every task score across every model.
 
-import { toSubmissionRows } from "../utils/submissionUtils.js";
-import { toTeamRows } from "../utils/teamUtils.js";
-import { getMyTeams } from "../api/teamApi.js";
 import { renderHtml } from "../core/render.js";
-import { buildCreateCard } from "../cards/createCard.js";
-import { buildCreateButton } from "../components/buttons.js";
+import { getMyModels } from "../api/modelApi.js";
+import { getMySubmissions } from "../api/submissionApi.js";
+import { getMyTaskSubmissions } from "../api/taskSubmissionApi.js";
+import { getMyTeams } from "../api/teamApi.js";
 import { loadMe } from "../api/userApi.js";
+import { toModelRows } from "../utils/modelUtils.js";
+import { toSubmissionRows } from "../utils/submissionUtils.js";
+import {
+  getTaskScoreFilters,
+  toScoreResultRows,
+} from "../utils/taskScoreUtils.js";
+import { toTeamRows } from "../utils/teamUtils.js";
 import {
   getUserStatistics,
   getWelcome,
   isNewAccount,
 } from "../utils/userUtils.js";
-import { getMySubmissions } from "../api/submissionApi.js";
-import { getMyModels } from "../api/modelApi.js";
-import { toModelRows } from "../utils/modelUtils.js";
-import { getMyTaskSubmissions } from "../api/taskSubmissionApi.js";
-import { buildStaticSubmissionsTable } from "../tables/submissionTable.js";
 import { buildStaticModelsTable } from "../tables/modelTable.js";
-import { buildStaticTeamsTable } from "../tables/teamTable.js";
-
+import { buildStaticSubmissionsTable } from "../tables/submissionTable.js";
 import {
   buildStaticTaskScoresTable,
   createTaskScoresTable,
 } from "../tables/taskScoreTable.js";
-import { getTaskScoreFilters } from "../utils/taskScoreUtils.js";
-import { toScoreResultRows } from "../utils/taskScoreUtils.js";
-import { SCORE_MODES } from "../utils/taskScoreUtils.js";
-import { buildCount } from "../components/count.js";
-
+import { buildStaticTeamsTable } from "../tables/teamTable.js";
+import { SCORE_MODES } from "../comparisons/scoreModes.js";
+import { buildCreateCard } from "../cards/createCard.js";
 import { buildStatCards } from "../cards/statCards.js";
-
-import { loadRecordPage } from "../templates/recordPage.js";
-import { renderRecordListView } from "../templates/recordList.js";
-import { renderHeader, renderPage } from "../templates/pageChrome.js";
+import { buildCreateButton } from "../components/buttons.js";
+import { buildCount } from "../components/count.js";
 import {
   buildHeader,
   buildPage,
@@ -44,6 +40,9 @@ import {
   getSection,
   getSectionBody,
 } from "../components/sections.js";
+import { loadRecordPage } from "../templates/recordPage.js";
+import { renderRecordListView } from "../templates/recordList.js";
+import { renderHeader, renderPage } from "../templates/pageChrome.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
@@ -259,26 +258,29 @@ function renderDashboardView({ user, models, teams, submissions, scoreRows }) {
 // ─── SCORES VIEW ─────────────────────────────────────────────────────────────
 
 function renderScoresView({ models, scoreRows }) {
-  const shown = { showModel: true, showSubmission: true };
+  const display = { showModel: true, showSubmission: true };
 
   return renderRecordListView({
+    noun: "score",
     back: BACK,
-
     renderTitle: () =>
       renderHeader(
         "Task scores",
         `${buildCount(scoreRows.length, "task")} across ${buildCount(models.length, "model")}`,
       ),
-
-    noun: "score",
     empty: "No scored tasks yet.",
 
     rows: scoreRows,
 
     createTable: ({ rows, selection }) =>
-      createTaskScoresTable({ ...shown, rows, selection, showFilters: false }),
+      createTaskScoresTable({
+        ...display,
+        rows,
+        selection,
+        showFilters: false,
+      }),
 
-    filterControls: (rows) => getTaskScoreFilters(rows, shown),
+    filterControls: (rows) => getTaskScoreFilters(rows, display),
 
     modes: SCORE_MODES,
   });
@@ -288,6 +290,7 @@ function renderScoresView({ models, scoreRows }) {
 
 loadRecordPage({
   views: VIEWS,
+
   noun: "dashboard",
   requiresId: false,
 

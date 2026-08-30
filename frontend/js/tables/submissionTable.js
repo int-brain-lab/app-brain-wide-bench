@@ -1,25 +1,24 @@
-// Filterable submissions table
+// Filterable submissions table.
 //
-// The table allows you to search by submission name and filter by suite or submission status
+// The table allows you to search by submission name and filter by suite or status.
 //
-// This code just defines the columns, rows and controls. Table infrastructure lives in utils/tables.js
+// The columns only. Rows and filters are in utils/submissionUtils.js, and the table
+// infrastructure in table.js.
 
+import { getSubmissionFilters } from "../utils/submissionUtils.js";
 import {
+  buildStaticTable,
   createFilterableTable,
   previewRows,
-  buildStaticTable,
 } from "./table.js";
-import { getSubmissionFilters } from "../utils/submissionUtils.js";
 import {
   dateFormatter,
   dateSorter,
-  linkFormatter,
+  buildLinkFormatter,
   metadataFormatter,
   statusFormatter,
   suiteBadgesFormatter,
 } from "./formatters.js";
-
-
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
@@ -45,7 +44,10 @@ function getSubmissionColumns({ showModel = false } = {}) {
     {
       title: "Label",
       field: "label",
-      formatter: linkFormatter("/html/submissions/submissions.html", "label"),
+      formatter: buildLinkFormatter(
+        "/html/submissions/submissions.html",
+        "label",
+      ),
       widthGrow: 2,
     },
     ...modelColumns,
@@ -72,10 +74,13 @@ function getSubmissionColumns({ showModel = false } = {}) {
 // ─── TABLE ───────────────────────────────────────────────────────────────────
 
 /**
+ * The live submissions table, filterable above the grid.
+ *
  * @param rows        rows from toSubmissionRows.
  * @param showModel   add Model and Team columns. For a list spanning models.
  * @param showFilters keep the filter bar above the grid. False for a caller with a bar of
  *                    its own over both its views — see templates/listPage.js.
+ *
  * @returns { element, table } — as createModelsTable; the caller mounts the element.
  */
 function createSubmissionsTable({
@@ -86,10 +91,9 @@ function createSubmissionsTable({
   return createFilterableTable({
     rows,
     columns: getSubmissionColumns({ showModel }),
-    controls: showFilters ? getSubmissionFilters() : [],
+    controls: showFilters ? getSubmissionFilters(rows) : [],
     noun: "submission",
     initialSort: [{ column: "updated_at", dir: "desc" }],
-    caller: "createSubmissionsTable",
   });
 }
 
@@ -103,6 +107,7 @@ function createSubmissionsTable({
  * @param showModel   as createSubmissionsTable.
  * @param limit       how many rows to show. Omit for all of them.
  * @param viewAll     as buildStaticTable — where the footer's "View all" link goes.
+ *
  * @returns the markup. The caller writes it where it wants it.
  */
 function buildStaticSubmissionsTable({
@@ -126,7 +131,4 @@ function buildStaticSubmissionsTable({
   });
 }
 
-export {
-  createSubmissionsTable,
-  buildStaticSubmissionsTable,
-};
+export { createSubmissionsTable, buildStaticSubmissionsTable };

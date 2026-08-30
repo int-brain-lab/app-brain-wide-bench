@@ -1,24 +1,23 @@
 // Filterable task-score table: one row per scored task, across however many submissions
 // the caller passes in.
 //
-// The columns only. Rows are in utils/taskScoreUtils.js, filters in
-// filters/taskScoreFilters.js, and the table infrastructure in table.js.
+// The columns only. Rows and filters are in utils/taskScoreUtils.js, and the table
+// infrastructure in table.js.
 
-import {
-  createFilterableTable,
-  previewRows,
-  buildStaticTable,
-} from "./table.js";
 import { getTaskScoreFilters } from "../utils/taskScoreUtils.js";
 import {
-  linkFormatter,
+  buildStaticTable,
+  createFilterableTable,
+  previewRows,
+} from "./table.js";
+import {
+  buildLinkFormatter,
   taskNameFormatter,
   numericSorter,
-  rankedFormatter,
-  scoreSemFormatter,
-  taskSuiteFormatter,
+  rankUsageFormatter,
+  buildScoreSemFormatter,
+  buildTaskSuiteFormatter,
 } from "./formatters.js";
-
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
@@ -38,7 +37,7 @@ function getScoreColumns({
         {
           title: "Model",
           field: "model_name",
-          formatter: linkFormatter(
+          formatter: buildLinkFormatter(
             "/html/models/models.html",
             "model_name",
             "model_id",
@@ -53,7 +52,7 @@ function getScoreColumns({
         {
           title: "Submission",
           field: "submission_label",
-          formatter: linkFormatter(
+          formatter: buildLinkFormatter(
             "/html/submissions/submissions.html",
             "submission_label",
             "submission_id",
@@ -71,7 +70,7 @@ function getScoreColumns({
         {
           title: "Used in ranking",
           field: "ranked",
-          formatter: rankedFormatter,
+          formatter: rankUsageFormatter,
           headerSort: false,
           width: 170,
         },
@@ -86,13 +85,13 @@ function getScoreColumns({
       // stays a field on the row either way, which is what the select above filters on.
       title: "Task",
       field: "task_name",
-      formatter: taskSuiteFormatter(taskNameFormatter),
+      formatter: buildTaskSuiteFormatter(taskNameFormatter),
       widthGrow: 2,
     },
     ...modelColumn,
     ...submissionColumn,
     {
-      // Mean, sem and the metric all three in one cell — see scoreSemFormatter. The field
+      // Mean, sem and the metric all three in one cell — see buildScoreSemFormatter. The field
       // stays `mean_score` so the sort is on the number, not on the spread or the badge
       // printed beside it.
       //
@@ -101,7 +100,7 @@ function getScoreColumns({
       // at opposite ends of the row.
       title: "Score",
       field: "mean_score",
-      formatter: scoreSemFormatter("sem", { metricField: "metric" }),
+      formatter: buildScoreSemFormatter("sem", { metricField: "metric" }),
       sorter: numericSorter,
       width: 220,
     },
@@ -112,17 +111,20 @@ function getScoreColumns({
 // ─── TABLE ───────────────────────────────────────────────────────────────────
 
 /**
- * @param rows        rows from toScoreRows (records nesting their tasks) or
- *                    toScoreResultRows (already-flat task submissions).
- * @param showSubmission  keep the Submission column and its filter. Pass false when
- *                    every row belongs to the same submission.
- * @param showModel   add the Model column and its filter. For rows spanning models.
- * @param showRanking add the "Used in ranking" column. Rows must be stamped by
- *                    markRankedRows first — see getScoreColumns.
- * @param selection   as createFilterableTable. What is picked is shown by highlighting the
- *                    row, one or several, rather than by a column of checkboxes.
- * @param showFilters keep the filter bar above the grid. False for a caller with a bar of
- *                    its own — see templates/listView.js.
+ * The live task-scores table, filterable above the grid.
+ *
+ * @param rows           rows from toScoreRows (records nesting their tasks) or
+ *                       toScoreResultRows (already-flat task submissions).
+ * @param showSubmission keep the Submission column and its filter. Pass false when every
+ *                       row belongs to the same submission.
+ * @param showModel      add the Model column and its filter. For rows spanning models.
+ * @param showRanking    add the "Used in ranking" column. Rows must be stamped by
+ *                       markRankedRows first — see getScoreColumns.
+ * @param showFilters    keep the filter bar above the grid. False for a caller with a bar
+ *                       of its own — see templates/listView.js.
+ * @param selection      as createFilterableTable. What is picked is shown by highlighting
+ *                       the row, one or several, rather than by a column of checkboxes.
+ *
  * @returns { element, table } — the caller mounts the element.
  */
 function createTaskScoresTable({
@@ -141,8 +143,8 @@ function createTaskScoresTable({
     controls: showFilters ? getTaskScoreFilters(rows, shown) : [],
     noun: "task",
     initialSort: [{ column: "mean_score", dir: "desc" }],
+    index: "id",
     selection,
-    caller: "createTaskScoresTable",
   });
 }
 
@@ -152,14 +154,14 @@ function createTaskScoresTable({
  * Plain-markup counterpart to createTaskScoresTable, for a fixed preview — no filters,
  * no paging, and no Tabulator needed on the page.
  *
- * @param rows        as createTaskScoresTable.
- * @param showSubmission  as createTaskScoresTable.
- * @param showModel   as createTaskScoresTable.
- * @param showRanking as createTaskScoresTable.
- * @param limit       how many rows to show. Omit for all of them.
- * @param viewAll     as buildStaticTable — where the footer's "View all" link goes.
- * @returns every row it was given, not just the slice it rendered. The total is already
- *          in the footer; this is for a caller that needs the rows themselves.
+ * @param rows           as createTaskScoresTable.
+ * @param showSubmission as createTaskScoresTable.
+ * @param showModel      as createTaskScoresTable.
+ * @param showRanking    as createTaskScoresTable.
+ * @param limit          how many rows to show. Omit for all of them.
+ * @param viewAll        as buildStaticTable — where the footer's "View all" link goes.
+ *
+ * @returns the markup. The caller writes it where it wants it.
  */
 function buildStaticTaskScoresTable({
   rows,

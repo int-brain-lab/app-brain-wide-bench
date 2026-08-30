@@ -4,7 +4,7 @@
 //   recordings   every recording behind those scores — separate plots, one overlaid plot,
 //                or a heatmap
 //
-// The picks, the fetches and the ✕ are widgets/comparison.js, which this hands a `render`
+// The picks, the fetches and the ✕ are comparison.js, which this hands a `render`
 // to; how a host's rows name a score is the host's, as `toEntry`.
 //
 // The metric is per score rather than per comparison: two scores of the same task can be
@@ -28,7 +28,7 @@ import {
 import { displayValue } from "../forms/fields.js";
 import { suiteFromTask } from "../core/suites.js";
 import { recordingMetricNames } from "../tables/recordingScoreTable.js";
-import { buildRowHeader, createComparison } from "../widgets/comparison.js";
+import { buildRowHeader, createComparison } from "./comparison.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 

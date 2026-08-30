@@ -9,7 +9,7 @@
 // the cards on a list page render from rows too. One shape, one set of matchers.
 
 import { escapeHtml } from "../core/html.js";
-import { SUITES } from "../core/suites.js";
+import { suiteLabel, SUITES } from "../core/suites.js";
 
 // ─── MATCHERS ────────────────────────────────────────────────────────────────
 
@@ -17,7 +17,7 @@ import { SUITES } from "../core/suites.js";
 // exactly when nothing on the page covers that suite.
 const SUITE_OPTIONS = SUITES.map((suite) => ({
   value: suite,
-  label: suite.toUpperCase(),
+  label: suiteLabel(suite),
 }));
 
 // Each of these builds a control's `match`. They are only ever called with a non-empty

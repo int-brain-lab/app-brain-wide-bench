@@ -1,17 +1,20 @@
+// A submission as the pages read it: its rows, the filters over them, and the figures
+// its header and dashboard show.
+
+import { suitesFromSubmission } from "../core/suites.js";
+import { formatDate } from "../core/utils.js";
 import {
   buildStatusBadge,
   buildSuiteBadgeList,
   buildVisibleBadge,
 } from "../components/badges.js";
-import { getIcon } from "../components/icons.js";
-import { suitesFromSubmission } from "../core/suites.js";
-import { formatDate } from "../core/utils.js";
 import {
   matchEquals,
   matchInArray,
   matchIncludes,
   SUITE_OPTIONS,
 } from "../components/filters.js";
+import { getIcon } from "../components/icons.js";
 
 // ─── ROWS ────────────────────────────────────────────────────────────────────
 
@@ -29,7 +32,7 @@ function toSubmissionRow(submission) {
   };
 }
 
-export function toSubmissionRows(submissions) {
+function toSubmissionRows(submissions) {
   return submissions.map(toSubmissionRow);
 }
 
@@ -42,7 +45,9 @@ const STATUS_OPTIONS = STATUSES.map((status) => ({
   label: status,
 }));
 
-export function getSubmissionFilters() {
+// `rows` is unused: every option here is fixed by the schema rather than by what the
+// rows happen to contain. Taken anyway, so all five filter builders share one shape.
+function getSubmissionFilters(rows) {
   return [
     {
       type: "search",
@@ -69,7 +74,7 @@ export function getSubmissionFilters() {
 
 // ─── DISPLAY ─────────────────────────────────────────────────────────────────
 
-export function getSubmissionStatistics(submission) {
+function getSubmissionStatistics(submission) {
   const taskSubmissions = submission.task_submissions ?? [];
 
   return [
@@ -84,10 +89,7 @@ export function getSubmissionStatistics(submission) {
   ];
 }
 
-// What the submission is, at a glance: which suites it covers, how far scoring has got,
-// and whether anyone can read it. The suites come from the tasks it carries, the same way
-// the tables derive them.
-export function getSubmissionBadges(submission) {
+function getSubmissionBadges(submission) {
   return [
     buildSuiteBadgeList(suitesFromSubmission(submission)),
     buildVisibleBadge(submission.is_public),
@@ -95,7 +97,7 @@ export function getSubmissionBadges(submission) {
   ];
 }
 
-export function getSubmissionSubtitle(submission) {
+function getSubmissionSubtitle(submission) {
   return [
     { text: submission.model_name, icon: getIcon("model") },
     { text: submission.team_name, icon: getIcon("team") },
@@ -107,3 +109,11 @@ export function getSubmissionSubtitle(submission) {
     },
   ].filter((entry) => entry.text);
 }
+
+export {
+  getSubmissionBadges,
+  getSubmissionFilters,
+  getSubmissionStatistics,
+  getSubmissionSubtitle,
+  toSubmissionRows,
+};

@@ -11,8 +11,7 @@ import { escapeHtml } from "../core/html.js";
 import { buildEmptyMessage, buildMessageCard } from "../components/messages.js";
 import { renderHtml } from "../core/render.js";
 import { buildCount } from "../components/count.js";
-import { CLEARED_MESSAGE } from "../forms/form.js";
-import { createFieldState, fieldsForPanel } from "../schemas/schema.js";
+import { CLEARED_MESSAGE, createFieldState } from "../forms/form.js";
 import { buildFields } from "../forms/fields.js";
 import {
   attachFieldEvents,
@@ -24,7 +23,7 @@ import {
   TASK_FIELDS,
   trainingFieldKeys,
 } from "../schemas/taskSubmissionSchema.js";
-import { SUITES } from "../core/suites.js";
+import { suiteLabel, SUITES } from "../core/suites.js";
 import { buildSuiteBadgeList } from "../components/badges.js";
 
 // TODO move out build from controller
@@ -222,7 +221,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     if (siblings.length < 2) return "";
 
     const taskId = escapeHtml(task.taskId);
-    const suite = escapeHtml(getSuite(task.taskId).toUpperCase());
+    const suite = escapeHtml(suiteLabel(getSuite(task.taskId)));
 
     return `
       <div class="card row left gap-sm">
@@ -264,11 +263,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
           ${buildClearedNotice(task)}
 
           <div class="column gap-md">
-            ${buildFields(
-              fieldsForPanel(TASK_FIELDS, "methodology"),
-              task.state,
-              TASK_FIELDS,
-            )}
+            ${buildFields(trainingFieldKeys(), task.state, TASK_FIELDS)}
           </div>
 
           <!-- One way: editing any field clears the confirmation again (see updateField),

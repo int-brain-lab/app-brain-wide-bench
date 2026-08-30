@@ -19,7 +19,7 @@ import { refreshIcons, renderHtml } from "../core/render.js";
 import {
   bindCardSelection,
   bindTableSelection,
-} from "../widgets/comparison.js";
+} from "../comparisons/comparison.js";
 
 const MODE_NAMES = ["base", "active"];
 

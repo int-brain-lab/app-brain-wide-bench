@@ -10,9 +10,8 @@
 import { isAuthenticated, login } from "../api/client.js";
 import { escapeHtml } from "../core/html.js";
 import { pluralise } from "../core/utils.js";
-import { buildPageErrorMessage } from "../components/messages.js";
-import { getElement, renderHtml } from "../core/render.js";
-import { CONTAINER_ID } from "./pageChrome.js";
+import { getElement } from "../core/render.js";
+import { CONTAINER_ID, renderPageError } from "./pageChrome.js";
 
 // ─── SHELL ───────────────────────────────────────────────────────────────────
 
@@ -92,13 +91,10 @@ function getRecordId(required) {
 // ─── LOAD ────────────────────────────────────────────────────────────────────
 
 function showLoadFailure(noun, subject, requiresId, id) {
-  renderHtml(
-    getElement(CONTAINER_ID),
-    buildPageErrorMessage(
-      requiresId
-        ? `Could not load ${noun} ${id}.`
-        : `Could not load your ${subject}.`,
-    ),
+  renderPageError(
+    requiresId
+      ? `Could not load ${noun} ${id}.`
+      : `Could not load your ${subject}.`,
   );
 }
 
@@ -118,25 +114,26 @@ function handlePrivateRecord(error, noun, requiresAuth) {
 /**
  * The boot sequence every page runs: authenticate, gate, find the id, load, render.
  *
- * @param load         (id, { signedIn }) => context. A falsy result is reported as a load
- *                     failure.
- * @param render       (context, { id, signedIn }) => void. Awaited, so a rendering error is
- *                     reported as a page-load failure rather than an unhandled rejection.
  * @param noun         *singular* — "model". Names the record in every message; a page with
  *                     no id says the plural, since it is showing a collection.
  * @param requiresId   whether the record id must come from `?id=` in the URL. False for a
  *                     page with no one record — a list, or the viewer's own.
  * @param requiresAuth whether the page itself requires signing in. False lets one URL serve
  *                     signed-out and signed-in readers alike.
+ * @param load         (id, { signedIn }) => context. A falsy result is reported as a load
+ *                     failure.
+ * @param render       (context, { id, signedIn }) => void. Awaited, so a rendering error is
+ *                     reported as a page-load failure rather than an unhandled rejection.
  *
  * @returns a promise settled once the page has rendered or reported its failure.
  */
 async function loadPage({
-  load,
-  render,
   noun = "record",
   requiresId = true,
   requiresAuth = true,
+
+  load,
+  render,
 }) {
   // A page with no id in the URL is showing a collection, so it says "your models" and
   // "the models page" where a record page says "model".
@@ -156,10 +153,7 @@ async function loadPage({
     const id = getRecordId(requiresId);
 
     if (requiresId && !id) {
-      renderHtml(
-        getElement(CONTAINER_ID),
-        buildPageErrorMessage(`No ${noun} id in the URL.`),
-      );
+      renderPageError(`No ${noun} id in the URL.`);
       return;
     }
 
@@ -178,10 +172,7 @@ async function loadPage({
       return;
     }
 
-    renderHtml(
-      getElement(CONTAINER_ID),
-      buildPageErrorMessage(`The ${subject} page could not be loaded.`, error),
-    );
+    renderPageError(`The ${subject} page could not be loaded.`, error);
   }
 }
 

@@ -3,6 +3,7 @@
 // sections.js owns the markup for those regions; this module owns the DOM operations that
 // fill them. Views therefore only need to know about these small rendering primitives.
 
+import { buildPageErrorMessage } from "../components/messages.js";
 import { escapeHtml } from "../core/html.js";
 import {
   clearContent,
@@ -27,6 +28,12 @@ const CONTAINER_ID = "container";
 
 function renderPage(html) {
   return renderHtml(CONTAINER_ID, html);
+}
+
+// A page that failed before it could render: the error replaces the container, so nothing
+// half-built is left behind it.
+function renderPageError(message, error) {
+  return renderHtml(CONTAINER_ID, buildPageErrorMessage(message, error));
 }
 
 // ─── MESSAGE ─────────────────────────────────────────────────────────────────
@@ -61,4 +68,11 @@ function renderHeaderPart(element, html) {
   element.hidden = !html;
 }
 
-export { CONTAINER_ID, renderPage, renderHeader, renderMessage, clearMessage };
+export {
+  CONTAINER_ID,
+  renderPage,
+  renderPageError,
+  renderHeader,
+  renderMessage,
+  clearMessage,
+};

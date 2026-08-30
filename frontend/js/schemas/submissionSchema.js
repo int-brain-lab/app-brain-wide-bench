@@ -1,6 +1,7 @@
-import { getMeta } from "../api/metaApi.js";
+// The submission form schema: what a submission is, and the panels it is edited in.
+
+import { applyFieldMeta, getMeta } from "../api/metaApi.js";
 import { getMyModels } from "../api/modelApi.js";
-import { applyFieldMeta } from "./fieldMeta.js";
 
 const SUBMISSION_FIELDS = {
   id: {
@@ -123,7 +124,7 @@ async function loadSubmissionFields() {
 
 export {
   SUBMISSION_FIELDS,
+  SUBMISSION_PANELS,
   loadSubmissionFields,
   loadSubmissionMeta,
-  SUBMISSION_PANELS,
 };

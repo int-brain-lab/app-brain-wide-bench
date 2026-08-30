@@ -24,7 +24,7 @@ import { appendCreateCard } from "../cards/createCard.js";
 import { CLEARED_MESSAGE } from "../forms/form.js";
 import { buildDisplayFields, buildPanelCards } from "../forms/fields.js";
 import { createEditForm } from "../forms/editForm.js";
-import { toPanelGroups } from "../schemas/schema.js";
+import { toPanelGroups } from "../schemas/schemaPanels.js";
 import { getElement, renderHtml } from "../core/render.js";
 import { renderPage, renderMessage, clearMessage } from "./pageChrome.js";
 import {

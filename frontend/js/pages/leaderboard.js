@@ -25,10 +25,10 @@ import { renderLeaderboardTable } from "../tables/leaderboardTable.js";
 import {
   MAX_COMPARED,
   createTaskComparison,
-} from "../comparisons/taskScores.js";
+} from "../comparisons/taskScoreComparison.js";
 import { createTaskBreakdown } from "../widgets/taskBreakdown.js";
-import { createModelComparison } from "../comparisons/models.js";
-import { bindTableSelection } from "../widgets/comparison.js";
+import { createModelComparison } from "../comparisons/modelComparison.js";
+import { bindTableSelection } from "../comparisons/comparison.js";
 import { loadPage } from "../templates/page.js";
 import { refreshIcons, renderHtml } from "../core/render.js";
 import { escapeHtml } from "../core/html.js";

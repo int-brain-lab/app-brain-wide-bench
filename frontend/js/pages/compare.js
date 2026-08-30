@@ -27,15 +27,18 @@ import { buildEmptyMessage } from "../components/messages.js";
 import { dispose } from "../core/disposable.js";
 import { getIcon } from "../components/icons.js";
 import { buildSuiteBadgeList } from "../components/badges.js";
-import { suiteFromTask } from "../core/suites.js";
+import { suiteFromTask, suiteLabel } from "../core/suites.js";
 import { sortSuites } from "../tables/formatters.js";
 import { latestScoresByTask } from "../core/scoreData.js";
 import { getModels, loadModel } from "../api/modelApi.js";
 import { toModelRows } from "../utils/modelUtils.js";
 import { loadPage } from "../templates/page.js";
 import { createModelsTable } from "../tables/modelTable.js";
-import { MAX_MODELS, createModelComparison } from "../comparisons/models.js";
-import { bindTableSelection } from "../widgets/comparison.js";
+import {
+  MAX_MODELS,
+  createModelComparison,
+} from "../comparisons/modelComparison.js";
+import { bindTableSelection } from "../comparisons/comparison.js";
 import { renderHeader, renderPage } from "../templates/pageChrome.js";
 import {
   buildHeader,
@@ -171,7 +174,7 @@ function getSubtitle(model, suite) {
   return [
     { text: model.team_name, icon: getIcon("team") },
     {
-      text: suite ? `Comparing on ${suite.toUpperCase()}` : null,
+      text: suite ? `Comparing on ${suiteLabel(suite)}` : null,
       icon: getIcon("suite"),
     },
   ].filter((entry) => entry.text);
@@ -269,7 +272,7 @@ function renderComparePage({ model, models }) {
 
     container.innerHTML = buildSelect(
       "suite",
-      suites.map((suite) => ({ value: suite, label: suite.toUpperCase() })),
+      suites.map((suite) => ({ value: suite, label: suiteLabel(suite) })),
       state.suite,
     );
 

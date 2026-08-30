@@ -2,25 +2,25 @@
 //
 // The table allows you to search by task and filter by suite.
 //
-// The columns only. Rows are in utils/taskSubmissionUtils.js, filters in
-// filters/taskSubmissionFilters.js, and the table infrastructure in table.js.
+// The columns only. Rows and filters are in utils/taskSubmissionUtils.js, and the table
+// infrastructure in table.js.
 
 import {
   TASK_FIELDS,
   trainingFieldKeys,
 } from "../schemas/taskSubmissionSchema.js";
+import { getTaskSubmissionFilters } from "../utils/taskSubmissionUtils.js";
 import {
+  buildStaticTable,
   createFilterableTable,
   previewRows,
-  buildStaticTable,
 } from "./table.js";
-import { getTaskSubmissionFilters } from "../utils/taskSubmissionUtils.js";
 import {
   editFormatter,
   numericSorter,
   parameterFormatter,
-  scoreSemFormatter,
-  suiteBadgeFormatter,
+  buildScoreSemFormatter,
+  suiteBadgesFormatter,
   taskLinkFormatter,
 } from "./formatters.js";
 
@@ -28,9 +28,8 @@ import {
 
 // `showEdit` appends a per-row Edit button. Off by default.
 //
-// The methodology columns come from TASK_FIELDS' panel 1 rather than a list here, so this
-// table and the task editor can't disagree about what "the parameters" are — adding a
-// `panel: "methodology"` field to the schema adds a column automatically.
+// The methodology columns come from TASK_FIELDS' `methodology` panel rather than a list
+// here, so adding a field to that panel adds a column automatically.
 function getTaskSubmissionColumns({ showEdit = false } = {}) {
   const editColumn = showEdit
     ? [
@@ -55,13 +54,13 @@ function getTaskSubmissionColumns({ showEdit = false } = {}) {
     {
       title: "Suite",
       field: "suite",
-      formatter: suiteBadgeFormatter,
+      formatter: suiteBadgesFormatter,
       width: 100,
     },
     {
       title: "Score",
       field: "mean_score",
-      formatter: scoreSemFormatter("sem", { metricField: "metric" }),
+      formatter: buildScoreSemFormatter("sem", { metricField: "metric" }),
       sorter: numericSorter,
       width: 220,
     },
@@ -80,11 +79,14 @@ function getTaskSubmissionColumns({ showEdit = false } = {}) {
 // ─── TABLE ───────────────────────────────────────────────────────────────────
 
 /**
+ * The live task-submissions table, filterable above the grid.
+ *
  * @param rows        rows from toTaskSubmissionRows.
  * @param showEdit    append the per-row Edit button.
  * @param showFilters keep the filter bar above the grid. False for a caller with a bar of
  *                    its own — see templates/listView.js.
  * @param selection   as createFilterableTable. Keyed on the task submission id.
+ *
  * @returns { element, table } — the caller mounts the element.
  */
 function createTaskSubmissionsTable({
@@ -95,13 +97,12 @@ function createTaskSubmissionsTable({
 }) {
   return createFilterableTable({
     rows,
-    index: "id",
-    selection,
     columns: getTaskSubmissionColumns({ showEdit }),
     controls: showFilters ? getTaskSubmissionFilters(rows) : [],
     noun: "task",
     initialSort: [{ column: "task_id", dir: "asc" }],
-    caller: "createTaskSubmissionsTable",
+    index: "id",
+    selection,
   });
 }
 
@@ -114,6 +115,7 @@ function createTaskSubmissionsTable({
  * @param rows    as createTaskSubmissionsTable.
  * @param limit   how many rows to show. Omit for all of them.
  * @param viewAll as buildStaticTable — where the footer's "View all" link goes.
+ *
  * @returns the markup.
  */
 function buildStaticTaskSubmissionsTable({ rows, limit, viewAll }) {

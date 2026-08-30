@@ -4,7 +4,7 @@
 //   breakdown    every task on the suite, as a plot or as a grid — models across the top
 //   differences  the same again, measured against a baseline the reader picks
 //
-// The picks, the fetches and the ✕ are widgets/comparison.js; this supplies its `render`.
+// The picks, the fetches and the ✕ are comparison.js; this supplies its `render`.
 
 import { escapeHtml } from "../core/html.js";
 import {
@@ -31,8 +31,8 @@ import { displayValue } from "../forms/fields.js";
 import { SUITES, suitesFromSubmission } from "../core/suites.js";
 import { loadModel } from "../api/modelApi.js";
 import { MODEL_FIELDS, loadModelMeta } from "../schemas/modelSchema.js";
-import { fieldsForPanel } from "../schemas/schema.js";
-import { buildRowHeader, createComparison } from "../widgets/comparison.js";
+import { fieldsForPanel } from "../schemas/schemaPanels.js";
+import { buildRowHeader, createComparison } from "./comparison.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 

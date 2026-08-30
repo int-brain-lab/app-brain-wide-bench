@@ -1,6 +1,6 @@
 import { score } from "../core/utils.js";
 import { escapeHtml } from "../core/html.js";
-import { SUITES } from "../core/suites.js";
+import { suiteLabel, SUITES } from "../core/suites.js";
 
 // r2 and poisson_d2 are unbounded below, so a real score can be negative — and
 // `width: -14%` is not a short bar, it is no bar at all, silently identical to "no score".
@@ -20,7 +20,7 @@ function buildSuiteScoreBar(suite, score, rank) {
   return `
     <div class="card column gap-md ${hasScore ? "" : "disabled"}">
       <div class="row gap-md">
-        <span class="badge ${escapeHtml(suite)}">${escapeHtml(suite.toUpperCase())}</span>
+        <span class="badge ${escapeHtml(suite)}">${escapeHtml(suiteLabel(suite))}</span>
         <div class="bar-track wide-bar">
           <div class="bar wide-bar ${escapeHtml(suite)}" style="width:${widthPct}%"></div>
         </div>

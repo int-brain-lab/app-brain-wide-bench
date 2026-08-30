@@ -59,6 +59,20 @@ function toggleHelpPin(key) {
 
 // ─── VALUES ──────────────────────────────────────────────────────────────────
 
+// The state a form starts from: the editable fields, taken from `source` where it has
+// them and from each field's default where it doesn't. Arrays are copied, so editing a
+// draft never reaches the record behind it.
+function createFieldState(fields, source = {}) {
+  return Object.fromEntries(
+    Object.entries(fields)
+      .filter(([, field]) => field.editable !== false)
+      .map(([key, field]) => {
+        const value = source[key] ?? field.default ?? null;
+        return [key, Array.isArray(value) ? [...value] : value];
+      }),
+  );
+}
+
 function parseFieldValue(field, value) {
   if (value === "") return null;
 
@@ -273,6 +287,7 @@ export {
   attachFieldEvents,
   clearedLabels,
   createFieldForm,
+  createFieldState,
   disabledOptionValues,
   isDisabled,
   isHelpPinned,

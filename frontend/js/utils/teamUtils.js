@@ -1,10 +1,13 @@
+// A team as the pages read it: its rows, the filters over them, and the figures its
+// header and dashboard show.
+
 import { buildCount } from "../components/count.js";
-import { getIcon } from "../components/icons.js";
 import {
   matchEquals,
   matchIncludes,
   optionsFromRows,
 } from "../components/filters.js";
+import { getIcon } from "../components/icons.js";
 
 // ─── ROWS ────────────────────────────────────────────────────────────────────
 
@@ -20,7 +23,7 @@ function toTeamRow(team) {
   };
 }
 
-export function toTeamRows(teams) {
+function toTeamRows(teams) {
   return teams.map(toTeamRow);
 }
 
@@ -28,7 +31,7 @@ export function toTeamRows(teams) {
 
 // Roles come from the rows rather than a fixed list: on the public list most teams carry
 // none, and an "Owner" option that matches nothing would be a control that does nothing.
-export function getTeamFilters(rows) {
+function getTeamFilters(rows) {
   return [
     {
       type: "search",
@@ -48,7 +51,7 @@ export function getTeamFilters(rows) {
 
 // ─── DISPLAY ─────────────────────────────────────────────────────────────────
 
-export function getTeamStatistics(team) {
+function getTeamStatistics(team) {
   return [
     ["members", team.n_members ?? 0, getIcon("team")],
     ["models", team.n_models ?? 0, getIcon("model")],
@@ -59,13 +62,21 @@ export function getTeamStatistics(team) {
 // A separate question from `canEdit`: renaming the team is any member's, but deciding who
 // is *in* it is the owner's, and the server refuses the rest with a 403. Offering the
 // controls to a collaborator would only produce that error on save.
-export function isTeamOwner(team) {
+function isTeamOwner(team) {
   return team.role === "owner";
 }
 
-export function getTeamSubtitle(team) {
+function getTeamSubtitle(team) {
   return [
     { text: buildCount(team.n_members, "member"), icon: getIcon("member") },
     { text: buildCount(team.n_models, "model"), icon: getIcon("model") },
   ].filter((entry) => entry.text);
 }
+
+export {
+  getTeamFilters,
+  getTeamStatistics,
+  getTeamSubtitle,
+  isTeamOwner,
+  toTeamRows,
+};

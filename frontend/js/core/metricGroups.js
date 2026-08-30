@@ -14,7 +14,7 @@
 // disappear exactly when nothing has been scored in it, and the task table is the authority
 // on which metric a task uses.
 
-import { SUITES } from "./suites.js";
+import { suiteLabel, SUITES } from "./suites.js";
 
 /**
  * The suites, for the rank columns and the select above them.
@@ -34,7 +34,7 @@ function toSuiteGroups(tasks) {
       suites.set(suite, {
         suite,
         key: `${suite}_rank`,
-        label: `${suite.toUpperCase()} rank`,
+        label: `${suiteLabel(suite)} rank`,
         taskIds: [],
       });
     }

@@ -1,7 +1,7 @@
 // The figure-and-label tiles across the top of every dashboard.
 //
-// Takes `[label, value, icon]` triples rather than objects because every caller builds the
-// row as a literal list and the order is the layout.
+// `[label, value, icon]` triples: every caller writes the row as a literal list, and the
+// order is the layout.
 
 import { escapeHtml } from "../core/html.js";
 

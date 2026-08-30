@@ -3,16 +3,16 @@
 // One view rather than a record page's several, so it calls loadPage directly and draws
 // the details view itself.
 
-import { fillSidebarUser } from "../nav/navSide.js";
-import { buildSuccessMessage } from "../components/messages.js";
 import { refreshIcons } from "../core/render.js";
-import { renderRecordDetailsView } from "../templates/recordDetails.js";
 import { loadMe, updateMe } from "../api/userApi.js";
 import { USER_FIELDS, USER_PANELS } from "../schemas/userSchema.js";
-import { renderHeader, renderMessage } from "../templates/pageChrome.js";
+import { buildSuccessMessage } from "../components/messages.js";
+import { fillSidebarUser } from "../nav/navSide.js";
+import { renderRecordDetailsView } from "../templates/recordDetails.js";
 import { loadPage } from "../templates/page.js";
+import { renderHeader, renderMessage } from "../templates/pageChrome.js";
 
-// ─── VIEW ────────────────────────────────────────────────────────────────────
+// ─── DETAILS VIEW ────────────────────────────────────────────────────────────
 
 function renderDetailsView(user) {
   const page = renderRecordDetailsView({

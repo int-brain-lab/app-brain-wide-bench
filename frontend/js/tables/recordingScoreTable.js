@@ -16,7 +16,7 @@ import { matchIncludes } from "../components/filters.js";
 import {
   metricsBadgeFormatter,
   numericSorter,
-  scoreSemFormatter,
+  buildScoreSemFormatter,
 } from "./formatters.js";
 
 // ts3 names its metrics `<brain region>/<metric>` — "TH/f1-score", "macro/precision".
@@ -170,7 +170,7 @@ function metricColumns(names) {
   return names.map((name) => ({
     title: name,
     field: `${name}_mean`,
-    formatter: scoreSemFormatter(`${name}_sem`),
+    formatter: buildScoreSemFormatter(`${name}_sem`),
     sorter: numericSorter,
     widthGrow: 1,
   }));
@@ -201,7 +201,7 @@ function metricRowColumns() {
       // Mean and sem in one cell, as the task-scores grid shows them.
       title: "Score",
       field: "mean",
-      formatter: scoreSemFormatter("sem"),
+      formatter: buildScoreSemFormatter("sem"),
       sorter: numericSorter,
       width: 150,
     },
@@ -270,7 +270,6 @@ function renderRecordingScoresTable({ container, recordings }) {
     // layout puts the aggregate "macro" row last.
     initialSort: layout.initialSort,
     paginationSize: 5,
-    caller: "renderRecordingScoresTable",
   });
 
   return table;

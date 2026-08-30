@@ -4,9 +4,9 @@
 //
 // createCardGrid is built once and kept; the caller attaches its element.
 
+import { clearContent, refreshIcons, renderHtml } from "../core/render.js";
 import { buildTableCount } from "../components/count.js";
 import { buildEmptyMessage } from "../components/messages.js";
-import { clearContent, refreshIcons, renderHtml } from "../core/render.js";
 
 const MAX_PAGE_BUTTONS = 5;
 
@@ -141,6 +141,7 @@ function buildGridHtml({
  * @param noun         *singular*, for the footer — "model". The count adds the "s".
  * @param cardsPerPage how many cards a page holds.
  * @param getKey       (row) => the key a card is identified by.
+ *
  * @returns { element, setRows, setFilter, setSelection, destroy }. `element` is the grid's
  *          own, detached until the caller places it, and never replaced.
  */

@@ -3,9 +3,8 @@
 //   data-scope="mine"  team_list.html         —  the viewer's own teams, signed in only
 //   data-scope="all"   team_list_public.html  —  every team they may see, signed out too
 
-import { toTeamRows } from "../utils/teamUtils.js";
-import { getTeams, getMyTeams } from "../api/teamApi.js";
-import { getTeamFilters } from "../utils/teamUtils.js";
+import { getMyTeams, getTeams } from "../api/teamApi.js";
+import { getTeamFilters, toTeamRows } from "../utils/teamUtils.js";
 import { createTeamsTable } from "../tables/teamTable.js";
 import { createTeamCardGrid } from "../cards/teamCards.js";
 import { loadListPage } from "../templates/listPage.js";
@@ -22,10 +21,7 @@ loadListPage({
   getRecords: MINE ? getMyTeams : getTeams,
   recordsToRows: toTeamRows,
 
-  createCards: () =>
-    createTeamCardGrid({
-      cardsPerPage: 8,
-    }),
+  createCards: () => createTeamCardGrid(),
 
   createTable: ({ rows }) =>
     createTeamsTable({
@@ -33,6 +29,6 @@ loadListPage({
       showFilters: false,
     }),
 
-  filterControls: getTeamFilters,
   createLink: "/html/teams/team_create.html",
+  filterControls: getTeamFilters,
 });

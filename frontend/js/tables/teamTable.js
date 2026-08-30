@@ -1,17 +1,17 @@
-// Filterable teams table
+// Filterable teams table.
 //
 // The table allows you to search by team name and filter by your role on it.
 //
 // The columns only. Rows and filters are in utils/teamUtils.js, and the table
 // infrastructure in table.js.
 
+import { getTeamFilters } from "../utils/teamUtils.js";
 import {
+  buildStaticTable,
   createFilterableTable,
   previewRows,
-  buildStaticTable,
 } from "./table.js";
-import { getTeamFilters } from "../utils/teamUtils.js";
-import { linkFormatter, roleBadgeFormatter } from "./formatters.js";
+import { buildLinkFormatter, roleBadgeFormatter } from "./formatters.js";
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
@@ -20,7 +20,7 @@ function getTeamColumns() {
     {
       title: "Team",
       field: "name",
-      formatter: linkFormatter("/html/teams/teams.html", "name"),
+      formatter: buildLinkFormatter("/html/teams/teams.html", "name"),
       widthGrow: 2,
     },
     {
@@ -50,22 +50,21 @@ function getTeamColumns() {
 // ─── TABLE ───────────────────────────────────────────────────────────────────
 
 /**
- * @param rows      rows from toTeamRows.
- * @param showFilters  keep the filter bar above the grid. False for a caller with a bar of
- *                  its own over both its views — see templates/listPage.js.
+ * The live teams table, filterable above the grid.
+ *
+ * @param rows        rows from toTeamRows.
+ * @param showFilters keep the filter bar above the grid. False for a caller with a bar of
+ *                    its own over both its views — see templates/listPage.js.
+ *
  * @returns { element, table } — as createModelsTable; the caller mounts the element.
  */
-function createTeamsTable({
-  rows,
-  showFilters = true,
-}) {
+function createTeamsTable({ rows, showFilters = true }) {
   return createFilterableTable({
     rows,
     columns: getTeamColumns(),
     controls: showFilters ? getTeamFilters(rows) : [],
     noun: "team",
     initialSort: [{ column: "name", dir: "asc" }],
-    caller: "createTeamsTable",
   });
 }
 
@@ -78,6 +77,7 @@ function createTeamsTable({
  * @param rows    as createTeamsTable.
  * @param limit   how many rows to show. Omit for all of them.
  * @param viewAll as buildStaticTable — where the footer's "View all" link goes.
+ *
  * @returns the markup.
  */
 function buildStaticTeamsTable({ rows, limit, viewAll }) {

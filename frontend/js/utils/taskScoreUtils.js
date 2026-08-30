@@ -1,14 +1,7 @@
-// What a page needs to put a task-scores table beside the two things a score row leads to:
-// its breakdown — every recording the score was measured on — and a comparison of several
-// scores side by side.
+// A task score as the pages read it: its rows and the filters over them.
 //
-// Both halves are their own module: widgets/taskBreakdown.js and comparisons/taskScores.js.
+// The panels a score row opens are comparisons/scoreModes.js.
 
-import { createTaskComparison } from "../comparisons/taskScores.js";
-import {
-  bindTableDetail,
-  createTaskBreakdown,
-} from "../widgets/taskBreakdown.js";
 import { suiteFromTask } from "../core/suites.js";
 import {
   matchEquals,
@@ -16,9 +9,6 @@ import {
   optionsFromRows,
   SUITE_OPTIONS,
 } from "../components/filters.js";
-
-const BROWSE_PROMPT =
-  "Select a task score in the table to see how it was measured.";
 
 // ─── ROWS ────────────────────────────────────────────────────────────────────
 
@@ -60,57 +50,31 @@ function toScoreRow(result) {
 
 // For records that nest their tasks — a submission detail, or a model detail's
 // submissions.
-export function toScoreRows(submissions) {
+function toScoreRows(submissions) {
   return flattenSubmissions(submissions).map(toScoreRow);
 }
 
 // For GET /api/users/me/task-submissions, which is already one task per row.
-export function toScoreResultRows(results) {
+function toScoreResultRows(results) {
   return (results ?? []).map(toScoreRow);
 }
 
-// ─── ENTRIES ─────────────────────────────────────────────────────────────────
-
-// What either widget needs to start on a row: the rest — the breakdown, the methodology —
-// each fetches for itself.
-function toScoreEntry(row) {
-  return {
-    key: row.id,
-    taskId: row.task_id,
-    submissionId: row.submission_id,
-    submissionLabel: row.submission_label,
-    modelName: row.model_name,
-    metric: row.metric,
-  };
-}
-
-// ─── MODES ───────────────────────────────────────────────────────────────────
-
-// One row at a time in browse mode, six in compare — see templates/listView.js.
-const SCORE_MODES = {
-  base: {
-    create: (container) =>
-      createTaskBreakdown({ container, prompt: BROWSE_PROMPT }),
-    bindTable: (breakdown) => bindTableDetail(breakdown, toScoreEntry),
-  },
-
-  active: {
-    label: "Compare tasks",
-    title: "Compare task scores",
-    create: (container) =>
-      createTaskComparison({ container, toEntry: toScoreEntry }),
-  },
-};
-
-export { SCORE_MODES, toScoreEntry };
-
 // ─── FILTERS ─────────────────────────────────────────────────────────────────
 
-// `suite` is a single value per row here, not the array the submission and model tables
-// carry, so it matches with matchEquals rather than matchInArray. It and `metric` are
-// filters without columns: both moved into other cells as badges, and a filter on a field
-// the reader can see is still a filter on something visible.
-export function getTaskScoreFilters(
+/**
+ * The filter bar over a set of task-score rows.
+ *
+ * `suite` is a single value per row here, not the array the submission and model tables
+ * carry, so it matches with matchEquals rather than matchInArray.
+ *
+ * @param rows           every row, so the selects can offer only values that appear.
+ * @param showSubmission include the submission select. Off where every row is one
+ *                       submission's.
+ * @param showModel      include the model select. On where the rows span several models.
+ *
+ * @returns the controls, in bar order — see components/filters.js.
+ */
+function getTaskScoreFilters(
   rows,
   { showSubmission = true, showModel = false } = {},
 ) {
@@ -167,3 +131,5 @@ export function getTaskScoreFilters(
     ...submissionControl,
   ];
 }
+
+export { getTaskScoreFilters, toScoreResultRows, toScoreRows };

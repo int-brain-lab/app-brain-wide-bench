@@ -1,59 +1,49 @@
 // Submission record page — dashboard, details, tasks and scores for one submission.
 
-import {
-  buildEmptyMessage,
-  buildFailureMessage,
-  buildSuccessMessage,
-} from "../components/messages.js";
 import { renderHtml } from "../core/render.js";
+import { suiteFromTask, suiteLabel } from "../core/suites.js";
 import { escapeHtml } from "../core/html.js";
-
-import {
-  attachEditLink,
-  renderRecordDetailsView,
-} from "../templates/recordDetails.js";
+import { loadSubmission, updateSubmission } from "../api/submissionApi.js";
+import { updateTaskSubmissions } from "../api/taskSubmissionApi.js";
 import {
   loadSubmissionFields,
   loadSubmissionMeta,
   SUBMISSION_PANELS,
 } from "../schemas/submissionSchema.js";
-import { loadSubmission, updateSubmission } from "../api/submissionApi.js";
 import {
-  buildStaticTaskSubmissionsTable,
-  createTaskSubmissionsTable,
-} from "../tables/taskSubmissionTable.js";
-import {
-  getTaskSubmissionFilters,
-  mergeUpdated,
-  suiteLabel,
-  suiteSiblings,
-  toTaskSubmissionRows,
-} from "../utils/taskSubmissionUtils.js";
-import { updateTaskSubmissions } from "../api/taskSubmissionApi.js";
-import { buildCount } from "../components/count.js";
+  loadTaskFields,
+  TASK_PANELS,
+  toMethodologyValues,
+} from "../schemas/taskSubmissionSchema.js";
 import {
   getSubmissionBadges,
   getSubmissionStatistics,
   getSubmissionSubtitle,
 } from "../utils/submissionUtils.js";
-
 import {
-  loadTaskFields,
-  TASK_PANELS,
-  taskPayload,
-} from "../schemas/taskSubmissionSchema.js";
-
-import { SCORE_MODES } from "../utils/taskScoreUtils.js";
-
-import { buildStatCards } from "../cards/statCards.js";
+  getTaskSubmissionFilters,
+  mergeUpdated,
+  suiteSiblings,
+  toTaskSubmissionRows,
+} from "../utils/taskSubmissionUtils.js";
+import {
+  buildStaticTaskSubmissionsTable,
+  createTaskSubmissionsTable,
+} from "../tables/taskSubmissionTable.js";
+import { SCORE_MODES } from "../comparisons/scoreModes.js";
 import { buildDetailsCard } from "../cards/detailsCard.js";
-import { loadRecordPage } from "../templates/recordPage.js";
-import { renderRecordListView } from "../templates/recordList.js";
+import { buildStatCards } from "../cards/statCards.js";
 import {
-  renderPage,
-  renderHeader,
-  renderMessage,
-} from "../templates/pageChrome.js";
+  buildCancelButton,
+  buildEditButton,
+  buildSaveButton,
+} from "../components/buttons.js";
+import { buildCount } from "../components/count.js";
+import {
+  buildEmptyMessage,
+  buildFailureMessage,
+  buildSuccessMessage,
+} from "../components/messages.js";
 import {
   buildHeader,
   buildPage,
@@ -62,10 +52,16 @@ import {
   getSectionBody,
 } from "../components/sections.js";
 import {
-  buildCancelButton,
-  buildEditButton,
-  buildSaveButton,
-} from "../components/buttons.js";
+  attachEditLink,
+  renderRecordDetailsView,
+} from "../templates/recordDetails.js";
+import { loadRecordPage } from "../templates/recordPage.js";
+import { renderRecordListView } from "../templates/recordList.js";
+import {
+  renderHeader,
+  renderMessage,
+  renderPage,
+} from "../templates/pageChrome.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
@@ -200,7 +196,6 @@ function renderDashboardView(context, router) {
   renderDetailsSection(submission, fields);
   renderTasksSection(submission);
 
-  // Edit button that goes directly to full submission editing view
   if (canEdit) attachEditLink(router);
 }
 
@@ -221,7 +216,9 @@ function renderDetailsView({ submission, fields, canEdit, edit, created }) {
       renderHeader(shown.label, getSubmissionSubtitle(shown)),
   });
 
-  return page?.attachEditor({
+  if (!page) return null;
+
+  return page.attachEditor({
     save: (draft) => updateSubmission(submission.id, draft),
   });
 }
@@ -230,10 +227,10 @@ function renderDetailsView({ submission, fields, canEdit, edit, created }) {
 
 function renderTasksView({ submission, canEdit }) {
   return renderRecordListView({
+    noun: "task",
     back: BACK,
     renderTitle: () =>
       renderHeader(submission.label, getSubmissionSubtitle(submission)),
-    noun: "task",
     empty: "No tasks yet.",
 
     rows: toTaskSubmissionRows(submission),
@@ -265,7 +262,7 @@ function buildApplyToSuite() {
 
 function getTaskSubtitle(submission, taskSubmission) {
   return [
-    suiteLabel(taskSubmission.task_id),
+    suiteLabel(suiteFromTask(taskSubmission.task_id)),
     submission.label,
     submission.team_name,
   ]
@@ -312,9 +309,6 @@ function renderTaskView({
     record: taskSubmission,
     fields: taskFields,
     panels: TASK_PANELS,
-    back: TASKS_BACK,
-    canEdit,
-    edit,
 
     actions: [
       buildEditButton(),
@@ -322,6 +316,10 @@ function renderTaskView({
       buildCancelButton({ hidden: true }),
       buildSaveButton({ hidden: true }),
     ],
+
+    back: TASKS_BACK,
+    canEdit,
+    edit,
 
     renderTitle: (shown) =>
       renderHeader(shown.task_id, getTaskSubtitle(submission, shown)),
@@ -334,7 +332,7 @@ function renderTaskView({
   const applyToSuiteInput = document.getElementById("apply-to-suite-input");
 
   document.getElementById("apply-to-suite-label").textContent =
-    `Apply to all ${suiteLabel(taskSubmission.task_id) ?? "matching"} tasks (${siblings.length})`;
+    `Apply to all ${suiteLabel(suiteFromTask(taskSubmission.task_id)) ?? "matching"} tasks (${siblings.length})`;
 
   function showApplyToSuite(visible) {
     applyToSuite.hidden = !visible;
@@ -364,7 +362,7 @@ function renderTaskView({
       updated = await updateTaskSubmissions(
         submission.id,
         targets.map((target) => target.id),
-        taskPayload(draft),
+        toMethodologyValues(draft),
       );
 
       return updated.find((row) => row.id === taskSubmission.id) ?? updated[0];
@@ -396,11 +394,13 @@ function renderTaskView({
 
 loadRecordPage({
   views: VIEWS,
-  noun: "submission",
   flags: ["edit", "created"],
+
   // `task` names the task submission the methodology view is showing. Durable: it survives
   // a refresh and a Back, which is why that view checks the id is one of this submission's.
   params: ["task"],
+
+  noun: "submission",
 
   // A public submission is readable by anyone — see GET /api/submissions/{id}, which
   // withholds the team-only fields rather than the whole record.
@@ -424,9 +424,7 @@ loadRecordPage({
       submission,
       fields,
       taskFields,
-      // Both halves, as in modelView: `is_mine` is team membership as the API sees it, and
-      // `signedIn` is this browser having a session — a dev-mode API answers every request
-      // as its stub user, so without it a signed-out visitor would be offered edit controls.
+      // `signedIn` as well as `is_mine`: a dev-mode API answers every request as its stub user.
       canEdit: signedIn && submission.is_mine === true,
     };
   },

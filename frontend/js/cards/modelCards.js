@@ -1,10 +1,10 @@
 // One card per model, for the model list and the team dashboard.
 //
-// Built from a model *row* — tables/modelTable.js's toModelRows — not from the API record,
-// so that the cards, the filters above them and the table beside them all read one shape.
+// Built from a model row — utils/modelUtils.js's toModelRows — so the cards, the filters
+// above them and the table beside them read one shape.
 
-import { formatDate } from "../core/utils.js";
 import { escapeHtml } from "../core/html.js";
+import { formatDate } from "../core/utils.js";
 import {
   buildMineBadge,
   buildPretrainedBadge,
@@ -13,9 +13,8 @@ import {
 import { buildCount } from "../components/count.js";
 import { createCardGrid } from "./cardGrid.js";
 
-// `showMine` on marks the cards on the viewer's own teams, for the public listing that
-// mixes them with everyone else's. Off by default, so the dashboard and "My models" — where
-// every card is theirs — don't badge every one of them.
+// `showMine` marks the cards on the viewer's own teams, for a listing that mixes them
+// with everyone else's. Off by default: on a listing that is all theirs it says nothing.
 function buildModelCard(model, { showMine = false } = {}) {
   const submissionCount = model.n_submissions ?? 0;
 
@@ -48,8 +47,12 @@ function buildModelCards(models, options) {
 }
 
 /**
+ * The model card grid, built once and kept.
+ *
  * @param showMine as buildModelCard.
  * @param options  the rest, as createCardGrid.
+ *
+ * @returns as createCardGrid.
  */
 function createModelCardGrid({ showMine = false, ...options } = {}) {
   return createCardGrid({
@@ -60,4 +63,4 @@ function createModelCardGrid({ showMine = false, ...options } = {}) {
   });
 }
 
-export { buildModelCards, createModelCardGrid };
+export { createModelCardGrid };

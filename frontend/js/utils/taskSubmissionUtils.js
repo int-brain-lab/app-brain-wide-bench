@@ -1,8 +1,8 @@
+// A task submission as the pages read it: its rows, the filters over them, and the suite
+// a task belongs to.
+
 import { suiteFromTask } from "../core/suites.js";
-import {
-  TASK_FIELDS,
-  trainingFieldKeys,
-} from "../schemas/taskSubmissionSchema.js";
+import { trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
 import {
   matchEquals,
   matchIncludes,
@@ -12,21 +12,14 @@ import {
 
 // ─── ROWS ────────────────────────────────────────────────────────────────────
 
-// The methodology fields, taken from TASK_FIELDS' panel 1 rather than listed here, so
-// this table and the task editor can't disagree about what "the parameters" are —
-// adding a `panel: "methodology"` field to the schema adds a column here automatically.
-function parameterKeys() {
-  return trainingFieldKeys();
-}
-
-// The parameters are spread onto the row rather than nested, because a Tabulator
+// The methodology fields are spread onto the row rather than nested, because a Tabulator
 // column addresses its value by a flat `field` name.
 //
 // `submission_id` rides along unused by any column: the Task link needs both ids, and
 // a formatter can only reach what's on the row.
 function toTaskSubmissionRow(submission, taskSubmission) {
   const parameters = Object.fromEntries(
-    parameterKeys().map((key) => [key, taskSubmission[key]]),
+    trainingFieldKeys().map((key) => [key, taskSubmission[key]]),
   );
 
   return {
@@ -47,7 +40,7 @@ function toTaskSubmissionRow(submission, taskSubmission) {
 
 // Plural counterpart. The submission is the same for every row — it carries the id the
 // edit link needs — so it stays outside the map rather than being repeated per task.
-export function toTaskSubmissionRows(
+function toTaskSubmissionRows(
   submission,
   taskSubmissions = submission.task_submissions ?? [],
 ) {
@@ -58,7 +51,7 @@ export function toTaskSubmissionRows(
 
 // ─── FILTERS ─────────────────────────────────────────────────────────────────
 
-export function getTaskSubmissionFilters(rows) {
+function getTaskSubmissionFilters(rows) {
   return [
     {
       type: "search",
@@ -87,11 +80,7 @@ export function getTaskSubmissionFilters(rows) {
 
 // ─── SUITES ──────────────────────────────────────────────────────────────────
 
-export function suiteLabel(taskId) {
-  return suiteFromTask(taskId)?.toUpperCase() ?? null;
-}
-
-export function suiteSiblings(submission, taskSubmission) {
+function suiteSiblings(submission, taskSubmission) {
   const suite = suiteFromTask(taskSubmission.task_id);
 
   return (submission.task_submissions ?? []).filter(
@@ -102,7 +91,7 @@ export function suiteSiblings(submission, taskSubmission) {
 // A suite-wide save writes rows the page still holds at their old values, and the tasks and
 // scores views render from that same array — so the response is merged back in place rather
 // than only into the edited record.
-export function mergeUpdated(submission, updated) {
+function mergeUpdated(submission, updated) {
   for (const row of updated) {
     const existing = (submission.task_submissions ?? []).find(
       (task) => task.id === row.id,
@@ -111,3 +100,10 @@ export function mergeUpdated(submission, updated) {
     if (existing) Object.assign(existing, row);
   }
 }
+
+export {
+  getTaskSubmissionFilters,
+  mergeUpdated,
+  suiteSiblings,
+  toTaskSubmissionRows,
+};

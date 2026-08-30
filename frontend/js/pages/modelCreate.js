@@ -7,8 +7,8 @@
 //
 // Every panel is schema-driven, so this page contributes no markup of its own.
 
-import { loadModelFields } from "../schemas/modelSchema.js";
 import { createModel } from "../api/modelApi.js";
+import { loadModelFields } from "../schemas/modelSchema.js";
 import { loadCreatePage } from "../templates/createPage.js";
 
 const MODEL_PANELS = {
@@ -23,15 +23,16 @@ const MODEL_PANELS = {
 async function submitModel(state) {
   const model = await createModel(state);
 
-  // TODO do I need to throw an error if model is null or undefined?
-  //  Or will createModel throw an error itself?
   return `/html/models/models.html?id=${encodeURIComponent(model.id)}&view=details&created`;
 }
 
 loadCreatePage({
   noun: "model",
+  title: "Create a new model",
+  description: "Name it, link to it, and describe its parameters.",
   back: { text: "← Back to models", href: "/html/models/model_list.html" },
+
+  fields: loadModelFields,
   panels: MODEL_PANELS,
-  fields: () => loadModelFields(),
-  submit: (state) => submitModel(state),
+  submit: submitModel,
 });

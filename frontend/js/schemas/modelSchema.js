@@ -1,7 +1,8 @@
-import { getMeta } from "../api/metaApi.js";
+// The model form schema: what a model is, and the panels it is edited in.
+
+import { applyFieldMeta, getMeta } from "../api/metaApi.js";
 import { getMyTeams } from "../api/teamApi.js";
 import { getIcon } from "../components/icons.js";
-import { applyFieldMeta } from "./fieldMeta.js";
 
 const MODEL_FIELDS = {
   id: {

@@ -8,9 +8,9 @@
 // provide their own markup through `build()` and are not re-rendered after mounting,
 // allowing them to keep their own state and listeners.
 
-import { createFieldState, toPanelGroup } from "../schemas/schema.js";
+import { toPanelGroup } from "../schemas/schemaPanels.js";
 import { buildFields, buildPanelCard } from "./fields.js";
-import { clearedLabels, createFieldForm } from "./form.js";
+import { clearedLabels, createFieldForm, createFieldState } from "./form.js";
 import { escapeHtml } from "../core/html.js";
 import { renderHtml } from "../core/render.js";
 

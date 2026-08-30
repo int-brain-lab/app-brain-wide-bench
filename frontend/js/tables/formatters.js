@@ -1,19 +1,14 @@
-// Every cell renderer and column sorter the tables use, in one place — table.js has the
-// scaffolding and each domain table has its rows, columns and controls, and several of
-// these are shared across tables with nothing else in common.
+// Shared Tabulator formatters, sorters and the builders that make them.
 //
-// Tabulator inserts a formatter's returned string as HTML, so every formatter here is an
-// innerHTML sink and model names, labels, team names and affiliations are all user-supplied
-// — hence escapeHtml on every interpolation.
+// Table scaffolding lives in table.js; domain tables provide their own columns and rows.
+// Formatters return HTML, so every dynamic value must be escaped.
 //
-// A formatter reads its cell through `getValue()` / `getData()` only: buildStaticTable
-// fakes a cell with exactly those two methods, so anything reaching for cell.getElement()
-// would work in one renderer and not the other.
+// A `*Formatter` is passed to a column by reference. A `build*Formatter` is called first,
+// with what that column needs, and returns one.
 
-import { formatDate } from "../core/utils.js";
 import { escapeHtml } from "../core/html.js";
-import { buildIcon, getIcon } from "../components/icons.js";
 import { SUITES } from "../core/suites.js";
+import { formatDate, score } from "../core/utils.js";
 import {
   buildMetricBadge,
   buildMetricBadgeList,
@@ -23,18 +18,59 @@ import {
   buildStatusBadge,
   buildSuiteBadgeList,
 } from "../components/badges.js";
+import { buildIcon, getIcon } from "../components/icons.js";
 
 // ─── VALUES ──────────────────────────────────────────────────────────────────
 
-function score(value) {
-  return value == null ? "—" : value.toFixed(3);
+const EMPTY_VALUE = "—";
+
+function emptyMetadata() {
+  return `<span class="metadata">${EMPTY_VALUE}</span>`;
+}
+
+const MEDAL_CLASSES = {
+  1: "rank-gold",
+  2: "rank-silver",
+  3: "rank-bronze",
+};
+
+function rankBadge(rank) {
+  if (rank == null) return emptyMetadata();
+
+  const medalClass = MEDAL_CLASSES[rank];
+
+  return medalClass
+    ? `<span class="${medalClass}">${escapeHtml(rank)}</span>`
+    : String(rank);
+}
+
+function rankValue(value) {
+  return value == null
+    ? emptyMetadata()
+    : `<span class="rank-value">${escapeHtml(value.toFixed(2))}</span>`;
+}
+
+function buildMeanSem(mean, sem) {
+  if (mean == null) return emptyMetadata();
+
+  const spread =
+    sem == null
+      ? ""
+      : ` <span class="metadata">± ${escapeHtml(score(sem))}</span>`;
+
+  return `<span class="value">${escapeHtml(score(mean))}</span>${spread}`;
+}
+
+function taskLinkAttributes(row) {
+  return `
+    href="#"
+    data-view="task"
+    data-task="${escapeHtml(row.id)}"
+  `;
 }
 
 // ─── SORTERS ─────────────────────────────────────────────────────────────────
 
-// Tabulator's built-in "number" sorter leaves a null wherever the browser's comparison
-// lands it. Nulls sort smallest here, so under the desc sort these columns use, "no score"
-// ends up last rather than interleaved with real ones.
 function numericSorter(a, b) {
   if (a == null && b == null) return 0;
   if (a == null) return -1;
@@ -43,10 +79,14 @@ function numericSorter(a, b) {
   return a - b;
 }
 
-// A rank column inverts both of numericSorter's assumptions: smaller is better, and absent
-// is *worst* rather than smallest — an unranked model floated to the top of an ascending
-// sort would read as leading the board. `rankOrder` is the bare comparison, so a plain sort
-// elsewhere can order by position without going through Tabulator.
+function dateSorter(a, b) {
+  if (!a && !b) return 0;
+  if (!a) return -1;
+  if (!b) return 1;
+
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 function rankOrder(a, b) {
   if (a == null && b == null) return 0;
   if (a == null) return 1;
@@ -55,49 +95,56 @@ function rankOrder(a, b) {
   return a - b;
 }
 
-// Tabulator applies the sort direction itself, so this is written for ascending — the only
-// direction a rank is normally read in. Clicking the header to descending does put the
-// unranked rows first, which is the honest consequence of one comparator per column.
-function rankSorter(a, b) {
-  return rankOrder(a, b);
+function compareScoreSorter(a, b) {
+  return numericSorter(a?.mean ?? null, b?.mean ?? null);
 }
 
-// Tabulator's built-in "datetime" sorter needs luxon, which this app doesn't load. ISO 8601
-// strings already order correctly under a plain comparison; a missing date sorts smallest,
-// which puts those rows last under a desc sort.
-function dateSorter(a, b) {
-  if (!a && !b) return 0;
-  if (!a) return -1;
-  if (!b) return 1;
-  return a < b ? -1 : a > b ? 1 : 0;
+function diffSorter(a, b) {
+  return numericSorter(a?.diff ?? null, b?.diff ?? null);
 }
 
-// ─── GENERAL ─────────────────────────────────────────────────────────────────
+function sortSuites(suites = []) {
+  return SUITES.filter((suite) => suites.includes(suite));
+}
 
-// Curried on the page rather than taking a full href, so a caller can't pass an unencoded
-// id — it always goes through encodeURIComponent here.
-function linkFormatter(page, labelField, idField = "id") {
+// ─── BUILDERS ────────────────────────────────────────────────────────────────
+
+/**
+ * A formatter linking each row to its own page.
+ *
+ * @param page       the page the link goes to; the row id becomes its `?id=`.
+ * @param labelField the row field the link text comes from.
+ * @param idField    the row field holding the id. Defaults to "id".
+ *
+ * @returns a Tabulator formatter.
+ */
+function buildLinkFormatter(page, labelField, idField = "id") {
   return (cell) => {
     const row = cell.getData();
 
-    return `<a href="${page}?id=${encodeURIComponent(row[idField])}">${escapeHtml(row[labelField])}</a>`;
+    return `
+      <a href="${page}?id=${encodeURIComponent(row[idField])}">
+        ${escapeHtml(row[labelField] ?? EMPTY_VALUE)}
+      </a>
+    `;
   };
 }
 
-// The model name, with its pills beside it on the models grid. Beside rather than under,
-// unlike taskMetricFormatter on the compare grid: model names are short and this column
-// carries widthGrow 2, so the pills cost the column nothing.
-//
-// Facts about the model first, then "Yours", which is about the reader — the same order the
-// model page's own header uses.
-//
-// `showMine` off for a listing that is entirely the viewer's own. Both `is_pretrained` and
-// `is_mine` have to be fields on the row for this to find them — see toModelRow.
-function modelNameFormatter(page, { showMine = false } = {}) {
-  const link = linkFormatter(page, "name");
+/**
+ * A formatter putting a model's name, its link and its badges in one cell.
+ *
+ * @param page     the model page the name links to.
+ * @param showMine mark the rows on the viewer's own teams. Omit on a listing that is
+ *                 entirely theirs, where it would say nothing.
+ *
+ * @returns a Tabulator formatter.
+ */
+function buildModelNameFormatter(page, { showMine = false } = {}) {
+  const link = buildLinkFormatter(page, "name");
 
   return (cell) => {
     const row = cell.getData();
+
     const badges = [
       buildPretrainedBadge(row.is_pretrained, "sm"),
       showMine ? buildMineBadge(row.is_mine, "sm") : "",
@@ -107,44 +154,102 @@ function modelNameFormatter(page, { showMine = false } = {}) {
   };
 }
 
+/**
+ * A formatter showing a mean with its spread, and optionally the metric it was measured in.
+ *
+ * @param semField    the row field holding the standard error.
+ * @param metricField the row field naming the metric, shown as a badge beside the value.
+ *                    Omit where every row shares one metric.
+ *
+ * @returns a Tabulator formatter.
+ */
+function buildScoreSemFormatter(semField, { metricField = null } = {}) {
+  return (cell) => {
+    const row = cell.getData();
+
+    const value = buildMeanSem(cell.getValue(), row[semField]);
+
+    if (!metricField || !row[metricField]) {
+      return value;
+    }
+
+    return `
+      <span class="row left gap-sm">
+        <span>${value}</span>
+        ${buildMetricBadge(row[metricField], "sm")}
+      </span>
+    `;
+  };
+}
+
+/**
+ * A formatter putting the row's suite badge in front of another formatter's output.
+ *
+ * @param inner the formatter drawing the rest of the cell.
+ *
+ * @returns a Tabulator formatter.
+ */
+function buildTaskSuiteFormatter(inner) {
+  return (cell) => {
+    const suite = cell.getData().suite;
+
+    return `
+      <span class="row left gap-md">
+        ${suite ? buildSuiteBadgeList([suite], "sm") : ""}
+        ${inner(cell)}
+      </span>
+    `;
+  };
+}
+
+// ─── FORMATTERS ──────────────────────────────────────────────────────────────
+
 function metadataFormatter(cell) {
-  return `<span class="metadata">${escapeHtml(cell.getValue() ?? "—")}</span>`;
+  return `<span class="metadata">${escapeHtml(cell.getValue() ?? EMPTY_VALUE)}</span>`;
 }
 
 function dateFormatter(cell) {
   return `<span class="metadata">${escapeHtml(formatDate(cell.getValue()))}</span>`;
 }
 
-// ─── SUITES ──────────────────────────────────────────────────────────────────
+function modelFormatter(cell) {
+  const row = cell.getData();
 
+  const badges = [
+    buildPretrainedBadge(row.isPretrained, "sm"),
+    buildMineBadge(row.isMine, "sm"),
+  ].join("");
+
+  return `
+    <a
+      href="/html/models/models.html?id=${encodeURIComponent(row.modelId)}"
+      class="column"
+    >
+      <span class="row left gap-sm">
+        <span class="label">${escapeHtml(row.model_name)}</span>
+        ${badges}
+      </span>
+      <span class="metadata">${escapeHtml(row.team_name)}</span>
+    </a>
+  `;
+}
+
+// Takes either the array a model or submission row carries, or the single suite on a task
+// row.
 function suiteBadgesFormatter(cell) {
-  return `<span class="row left gap-sm">${buildSuiteBadgeList(cell.getValue() ?? [], "sm")}</span>`;
+  const value = cell.getValue();
+  const suites = Array.isArray(value) ? value : value == null ? [] : [value];
+
+  return suites.length
+    ? `<span class="row left gap-sm">${buildSuiteBadgeList(suites, "sm")}</span>`
+    : EMPTY_VALUE;
 }
 
-// Singular counterpart, for a row belonging to exactly one suite (a task) rather than
-// covering several (a submission, a model).
-function suiteBadgeFormatter(cell) {
-  const suite = cell.getValue();
-
-  return suite ? buildSuiteBadgeList([suite], "sm") : "—";
-}
-
-// SUITES order rather than discovery order, so the badges line up down the column.
-function sortSuites(suites) {
-  return SUITES.filter((suite) => suites.includes(suite));
-}
-
-// ─── METRICS AND SCORES ──────────────────────────────────────────────────────
-
-// Takes a single name or an array: a task row carries just its primary metric today, but
-// TaskScoreOut also has a `metrics` dict, so a cell showing several needs no new formatter.
 function metricsBadgeFormatter(cell) {
   const value = cell.getValue();
   const metrics = Array.isArray(value) ? value : value == null ? [] : [value];
 
-  if (metrics.length === 0) return "—";
-
-  return buildMetricBadgeList(metrics);
+  return metrics.length ? buildMetricBadgeList(metrics) : EMPTY_VALUE;
 }
 
 function scoreFormatter(cell) {
@@ -152,36 +257,30 @@ function scoreFormatter(cell) {
 }
 
 function taskNameFormatter(cell) {
-  return `<span class="label">${escapeHtml(cell.getValue().slice(4))}</span>`;
-}
+  const value = cell.getValue();
 
-// ─── SUBMISSIONS ─────────────────────────────────────────────────────────────
+  return value
+    ? `<span class="label">${escapeHtml(value.slice(4))}</span>`
+    : EMPTY_VALUE;
+}
 
 function statusFormatter(cell) {
   return buildStatusBadge(cell.getValue(), "sm");
 }
 
-// ─── TEAMS ───────────────────────────────────────────────────────────────────
-
-// buildRoleBadge renders nothing without a role, which on a listing of every team is most
-// rows — so the em dash stands in, as it does for any other empty cell.
 function roleBadgeFormatter(cell) {
-  return buildRoleBadge(cell.getValue(), "sm") || "—";
-}
-
-// ─── TASK SUBMISSIONS ────────────────────────────────────────────────────────
-
-// Not an href: these rows only ever render inside the submission record page, so they
-// route through it. `data-task` is the declared view param the router copies from the
-// link's dataset into the URL.
-function taskLinkAttributes(row) {
-  return `href="#" data-view="task" data-task="${escapeHtml(row.id)}"`;
+  return buildRoleBadge(cell.getValue(), "sm") || EMPTY_VALUE;
 }
 
 function taskLinkFormatter(cell) {
   const row = cell.getData();
+  const taskId = row.task_id;
 
-  return `<a ${taskLinkAttributes(row)}>${escapeHtml(row.task_id.slice(4))}</a>`;
+  return `
+    <a ${taskLinkAttributes(row)}>
+      ${escapeHtml(taskId ? taskId.slice(4) : EMPTY_VALUE)}
+    </a>
+  `;
 }
 
 function editFormatter(cell) {
@@ -199,211 +298,69 @@ function parameterFormatter(cell) {
   if (Array.isArray(value)) {
     return value.length
       ? `<span class="metadata">${escapeHtml(value.join(", "))}</span>`
-      : `<span class="metadata">—</span>`;
+      : emptyMetadata();
   }
 
   return value == null || value === ""
-    ? `<span class="metadata">—</span>`
+    ? emptyMetadata()
     : `<span class="metadata">${escapeHtml(value)}</span>`;
-}
-
-// ─── LEADERBOARD ─────────────────────────────────────────────────────────────
-
-const MEDAL_CLASSES = { 1: "rank-gold", 2: "rank-silver", 3: "rank-bronze" };
-
-// A null rank is a model that hasn't placed — partial coverage on the overall figure, or no
-// score for the task being ranked. An em dash rather than an empty cell, so the row reads as
-// deliberately unranked instead of broken.
-//
-// Cell-free, because a position is written the same way wherever it appears and the model
-// page's rank tile is not a table.
-function rankBadge(rank) {
-  if (rank == null) return `<span class="metadata">—</span>`;
-
-  const medal = MEDAL_CLASSES[rank];
-
-  return medal
-    ? `<span class="${medal}">${escapeHtml(rank)}</span>`
-    : String(rank);
 }
 
 function rankFormatter(cell) {
   return rankBadge(cell.getValue());
 }
 
-// Which of the two rankings this score is currently carrying. The app's own visibility
-// icons, so the eye means the same thing here as it does on a submission's badge, and the
-// title is what carries the wording a column this narrow has no room for.
-//
-// A score that has been superseded for its task carries neither, and reads as a dash
-// rather than as an empty cell: "not counted" is an answer, not a missing value.
-function rankedFormatter(cell) {
+function rankUsageFormatter(cell) {
   const used = cell.getValue();
 
   const icons = [
-    used?.public
-      ? buildIcon("public", {
-          className: "rank-icon public",
-          title: "Counted in the public ranking",
-        })
-      : "",
-    used?.private
-      ? buildIcon("private", {
-          className: "rank-icon private",
-          title: "Counted in the private ranking",
-        })
-      : "",
+    used?.public &&
+      buildIcon("public", {
+        className: "rank-icon public",
+        title: "Counted in the public ranking",
+      }),
+
+    used?.private &&
+      buildIcon("private", {
+        className: "rank-icon private",
+        title: "Counted in the private ranking",
+      }),
   ].filter(Boolean);
 
-  if (!icons.length) return `<span class="metadata">—</span>`;
-
-  // Two icons abutting read as one state; the word is what makes them two.
-  return `<span class="row left gap-sm">${icons.join(`<span class="metadata">and</span>`)}</span>`;
-}
-
-// The leaderboard's model cell: name over affiliation, with its pills beside the name.
-// Beside rather than on a third line — the cell is already two lines and the affiliation
-// belongs under the name it qualifies.
-//
-// No `showMine` flag, unlike modelNameFormatter: the board is everyone's work by definition,
-// so marking the reader's own is always worth doing. A signed-out reader owns none of it and
-// sees no such pill.
-//
-// Both fields have to be on the row for this to find them — see toLeaderboardRow.
-function modelFormatter(cell) {
-  const row = cell.getData();
-  const badges = [
-    buildPretrainedBadge(row.isPretrained, "sm"),
-    buildMineBadge(row.isMine, "sm"),
-  ].join("");
+  if (!icons.length) return emptyMetadata();
 
   return `
-    <a href="/html/models/models.html?id=${encodeURIComponent(row.modelId)}" class="column">
-      <div class="row left gap-sm">
-        <span class="label">${escapeHtml(row.title)}</span>
-        ${badges}
-      </div>
-      <div class="metadata">${escapeHtml(row.affiliation)}</div>
-    </a>
+    <span class="row left gap-sm">
+      ${icons.join(`<span class="metadata">and</span>`)}
+    </span>
   `;
 }
 
-// How a rank is written wherever one appears — a suite column, a task column, the average
-// across all of them. Two decimals because these are means over recordings, so "2.00" and
-// "2.14" are a real distinction and trimming it would hide the thing the averaging is for.
-function rankValue(value) {
-  return value == null
-    ? `<span class="metadata">—</span>`
-    : `<span class="rank-value">${escapeHtml(value.toFixed(2))}</span>`;
-}
-
-// ─── COMPARISON ──────────────────────────────────────────────────────────────
-
-// The comparison grids put a whole { mean, sem, metric } object in each task cell rather
-// than a bare number, so these read the half they want off the value. Both sorters go
-// through numericSorter, which is what keeps an unscored task last under a desc sort.
-
-function compareScoreSorter(a, b) {
-  return numericSorter(a?.mean ?? null, b?.mean ?? null);
-}
-
-function diffSorter(a, b) {
-  return numericSorter(a?.diff ?? null, b?.diff ?? null);
-}
-
-// "0.612 ± 0.014", with the spread in metadata type so a column of them reads as one
-// number each. A scored task with a single seed has a mean and no sem, and shows the mean
-// alone rather than "± —".
-//
-// Shared by the two grids that show a score this way, which disagree about where the pair
-// lives on the row — hence a builder plus a formatter each rather than one formatter.
-function buildMeanSem(mean, sem) {
-  if (mean == null) return `<span class="metadata">—</span>`;
-
-  const spread =
-    sem == null
-      ? ""
-      : ` <span class="metadata">± ${escapeHtml(score(sem))}</span>`;
-
-  return `<span class="value">${escapeHtml(score(mean))}</span>${spread}`;
-}
-
-// The compare grid holds both numbers in one field: a column there is one model, and the
-// pair is what that model scored.
 function meanSemFormatter(cell) {
   const value = cell.getValue();
 
   return buildMeanSem(value?.mean ?? null, value?.sem ?? null);
 }
 
-// For a grid keeping the two as separate fields. The column is keyed to the mean, so it
-// sorts on the number rather than on the spread printed beside it; `semField` names the
-// other half, which the recording breakdown spells per metric ("bacc_sem") rather than
-// plain "sem".
-//
-// `metricField` puts the metric after the spread, for a grid where it has no column of its
-// own: a score and the thing it measures are one fact, and read together they need no
-// second column and no second glance. The pair keeps its own wrapper so the badge sits
-// beside "0.612 ± 0.014" rather than between the two halves of it.
-function scoreSemFormatter(semField, { metricField = null } = {}) {
-  return (cell) => {
-    const row = cell.getData();
-    const pair = buildMeanSem(cell.getValue(), row[semField]);
-    const metric = metricField ? row[metricField] : null;
-
-    if (!metric) return pair;
-
-    return `<span class="row left gap-sm"><span>${pair}</span>${buildMetricBadge(metric, "sm")}</span>`;
-  };
-}
-
-// A signed difference against the baseline model. The sign is explicit on a gain — a column
-// mixing "0.04" and "-0.04" makes the reader supply the plus themselves — and coloured,
-// because which direction is better is the one thing the grid is for.
 function diffFormatter(cell) {
   const value = cell.getValue();
+  const diff = value?.diff;
 
-  if (value?.diff == null) return `<span class="metadata">—</span>`;
+  if (diff == null) return emptyMetadata();
 
-  const direction =
-    value.diff > 0 ? "diff-up" : value.diff < 0 ? "diff-down" : "diff-flat";
-  const sign = value.diff > 0 ? "+" : "";
+  const direction = diff > 0 ? "diff-up" : diff < 0 ? "diff-down" : "diff-flat";
 
-  return `<span class="${direction}">${sign}${escapeHtml(score(value.diff))}</span>`;
+  const sign = diff > 0 ? "+" : "";
+
+  return `
+    <span class="${direction}">
+      ${sign}${escapeHtml(score(diff))}
+    </span>
+  `;
 }
 
-/**
- * The task with the suite it belongs to, for a grid where the suite has no column of its
- * own — the same trade taskMetricFormatter makes below, and the same placement: under the
- * name rather than beside it, because the ids run to twenty-five characters and a badge on
- * the same line would set the column's width from the longest pair rather than the longest
- * name.
- *
- * @param inner the formatter for the name itself.
- */
-function taskSuiteFormatter(inner) {
-  return (cell) => {
-    const suite = cell.getData().suite;
-
-    return `
-      <span class="row gap-md left">
-        ${suite ? buildSuiteBadgeList([suite], "sm") : ""}
-        ${inner(cell)}
-      </span>
-    `;
-  };
-}
-
-// The task with the metric it is scored in, for a grid where the metric has no column of
-// its own. Under the name rather than beside it: the ids run to twenty-five characters and
-// a badge on the same line sets the column's width from the longest pair rather than the
-// longest name. It also gives the row the same two-line shape as the model headers above.
-//
-// The metric still has to be a field on the row — it is what the select above the grid
-// filters on — it just has nowhere of its own to appear.
 function taskMetricFormatter(cell) {
   const metric = cell.getData().metric;
-
   const badge = metric ? buildMetricBadgeList([metric]) : "";
 
   return `
@@ -415,37 +372,35 @@ function taskMetricFormatter(cell) {
 }
 
 export {
-  score,
-  numericSorter,
-  rankOrder,
-  rankSorter,
-  dateSorter,
-  linkFormatter,
-  modelNameFormatter,
-  metadataFormatter,
+  buildLinkFormatter,
+  buildMeanSem,
+  buildModelNameFormatter,
+  buildScoreSemFormatter,
+  buildTaskSuiteFormatter,
+  compareScoreSorter,
   dateFormatter,
-  suiteBadgesFormatter,
-  suiteBadgeFormatter,
-  sortSuites,
-  metricsBadgeFormatter,
-  scoreFormatter,
-  taskNameFormatter,
-  taskSuiteFormatter,
-  roleBadgeFormatter,
-  statusFormatter,
-  taskLinkAttributes,
-  taskLinkFormatter,
+  dateSorter,
+  diffFormatter,
+  diffSorter,
   editFormatter,
+  meanSemFormatter,
+  metadataFormatter,
+  metricsBadgeFormatter,
+  modelFormatter,
+  numericSorter,
   parameterFormatter,
   rankBadge,
-  rankedFormatter,
   rankFormatter,
-  modelFormatter,
+  rankOrder,
+  rankUsageFormatter,
   rankValue,
-  compareScoreSorter,
-  diffSorter,
-  meanSemFormatter,
-  scoreSemFormatter,
-  diffFormatter,
+  roleBadgeFormatter,
+  scoreFormatter,
+  sortSuites,
+  statusFormatter,
+  suiteBadgesFormatter,
+  taskLinkAttributes,
+  taskLinkFormatter,
   taskMetricFormatter,
+  taskNameFormatter,
 };

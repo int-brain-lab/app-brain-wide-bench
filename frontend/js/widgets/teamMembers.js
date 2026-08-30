@@ -18,6 +18,7 @@ import {
   updateTeamMember,
 } from "../api/teamApi.js";
 import { searchUsers } from "../api/userApi.js";
+import { buildRoleBadge } from "../components/badges.js";
 import { buildTableCount } from "../components/count.js";
 import { initials } from "../core/utils.js";
 import { escapeHtml } from "../core/html.js";
@@ -51,6 +52,40 @@ function buildMembersPanel() {
       </div>
 
       <div id="member-list"></div>
+    </div>
+  `;
+}
+
+// The read-only table, for a page showing members it cannot change. The editable one is
+// createMembersSection's, and carries the role selects and Remove buttons.
+function buildMemberTable(members) {
+  const rows = members
+    .map(
+      (member) => `
+        <tr>
+          <td>${escapeHtml(member.name || "—")}</td>
+          <td>${escapeHtml(member.email)}</td>
+          <td>${buildRoleBadge(member.role)}</td>
+        </tr>
+      `,
+    )
+    .join("");
+
+  return `
+    <div class="table">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="table-footer">
+        ${buildTableCount(members.length, members.length, "member")}
+      </div>
     </div>
   `;
 }
@@ -440,4 +475,4 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
   };
 }
 
-export { buildMembersPanel, createMembersSection };
+export { buildMemberTable, buildMembersPanel, createMembersSection };

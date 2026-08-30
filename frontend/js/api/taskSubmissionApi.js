@@ -2,12 +2,9 @@ import { apiFetch } from "./client.js";
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 
-// The field options and the task list used to live here, as /api/meta/enums and a second
-// copy of /api/tasks. Both are in the one /api/meta document now — see api/metaApi.js.
-
-// Update multiple taskSubmissions at once. `updates` is sent as given — which keys the
+// Update several task submissions at once. `updates` is sent as given: which keys the
 // server accepts is the schema's business, so the caller shapes the body with
-// taskPayload() rather than this module reaching into TASK_FIELDS.
+// toMethodologyValues().
 async function updateTaskSubmissions(submissionId, taskSubmissionIds, updates) {
   return await apiFetch(`/api/submissions/${submissionId}/tasks`, {
     method: "PATCH",
@@ -15,9 +12,8 @@ async function updateTaskSubmissions(submissionId, taskSubmissionIds, updates) {
   });
 }
 
-// The methodology fields are only on the detail response — a task submission embedded in
-// a model or a submission carries its id, task and score and nothing else. Fetched per
-// selection rather than widening every listing that nests tasks.
+// The methodology fields are only on the detail response: a task submission nested in a
+// model or a submission carries its id, task and score and nothing else.
 async function loadTaskSubmission(submissionId, taskSubmissionId) {
   return await apiFetch(
     `/api/submissions/${submissionId}/tasks/${taskSubmissionId}`,

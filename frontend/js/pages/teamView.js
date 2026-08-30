@@ -1,53 +1,50 @@
 // Team record page — dashboard and details for one team.
 
 import { renderHtml } from "../core/render.js";
-import { escapeHtml } from "../core/html.js";
+import { getModels } from "../api/modelApi.js";
+import { loadTeam, updateTeam } from "../api/teamApi.js";
+import { TEAM_FIELDS, TEAM_PANELS } from "../schemas/teamSchema.js";
+import { toModelRows } from "../utils/modelUtils.js";
+import {
+  getTeamStatistics,
+  getTeamSubtitle,
+  isTeamOwner,
+} from "../utils/teamUtils.js";
+import { buildStaticModelsTable } from "../tables/modelTable.js";
+import { buildCreateCard } from "../cards/createCard.js";
+import { buildStatCards } from "../cards/statCards.js";
+import {
+  buildCreateButton,
+  buildEditButton,
+  buildMembersButton,
+} from "../components/buttons.js";
 import {
   buildEmptyMessage,
   buildFailureMessage,
   buildInfoMessage,
 } from "../components/messages.js";
 import {
-  buildCreateButton,
-  buildEditButton,
-  buildMembersButton,
-} from "../components/buttons.js";
-import { buildTableCount } from "../components/count.js";
-import {
-  attachEditLink,
-  renderRecordDetailsView,
-} from "../templates/recordDetails.js";
-import { TEAM_FIELDS, TEAM_PANELS } from "../schemas/teamSchema.js";
-import { loadTeam, updateTeam } from "../api/teamApi.js";
-import {
-  getTeamStatistics,
-  getTeamSubtitle,
-  isTeamOwner,
-} from "../utils/teamUtils.js";
-import { getModels } from "../api/modelApi.js";
-import { toModelRows } from "../utils/modelUtils.js";
-import { buildStaticModelsTable } from "../tables/modelTable.js";
-import {
-  buildMembersPanel,
-  createMembersSection,
-} from "../widgets/teamMembers.js";
-
-import { buildStatCards } from "../cards/statCards.js";
-import { buildCreateCard } from "../cards/createCard.js";
-import { buildRoleBadge } from "../components/badges.js";
-import { loadRecordPage } from "../templates/recordPage.js";
-import {
-  renderPage,
-  renderHeader,
-  renderMessage,
-  clearMessage,
-} from "../templates/pageChrome.js";
-import {
   buildHeader,
   buildPage,
   buildSections,
   getSectionBody,
 } from "../components/sections.js";
+import {
+  buildMemberTable,
+  buildMembersPanel,
+  createMembersSection,
+} from "../widgets/teamMembers.js";
+import {
+  attachEditLink,
+  renderRecordDetailsView,
+} from "../templates/recordDetails.js";
+import { loadRecordPage } from "../templates/recordPage.js";
+import {
+  clearMessage,
+  renderHeader,
+  renderMessage,
+  renderPage,
+} from "../templates/pageChrome.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
@@ -64,10 +61,6 @@ const VIEWS = {
   details: renderDetailsView,
 };
 
-// Models first: it is what a visitor came for, and the only section a non-member sees.
-//
-// No "view all" link on it, deliberately: the models list is every team's, and pointing a
-// team page at it would quietly change what the reader is looking at.
 const MODELS_SECTION = {
   id: "models",
   title: "Models",
@@ -98,43 +91,10 @@ const CREATE_MODEL_HREF = "/html/models/model_create.html";
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
 
-function buildMemberRow(member) {
-  return `
-    <tr>
-      <td>${escapeHtml(member.name || "—")}</td>
-      <td>${escapeHtml(member.email)}</td>
-      <td>${buildRoleBadge(member.role)}</td>
-    </tr>
-  `;
-}
-
-function buildMemberTable(members) {
-  return `
-    <div class="table">
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Role</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${members.map(buildMemberRow).join("")}
-        </tbody>
-      </table>
-      <div class="table-footer">${buildTableCount(members.length, members.length, "member")}</div>
-    </div>
-  `;
-}
-
 function renderStatsSection(statistics) {
   renderHtml(getSectionBody("stats"), buildStatCards(statistics));
 }
 
-// No Team column: every row is this team's, which the page's own heading already says.
-// The card stands in for the table, and the heading keeps its button: a team with no
-// models is the state the page most wants to move the reader out of.
 function renderModelsSection(models) {
   const container = getSectionBody("models");
 
@@ -155,6 +115,7 @@ function renderModelsSection(models) {
     container,
     buildStaticModelsTable({
       rows: toModelRows(models),
+      // No Team column: every row is this team's.
       showTeam: false,
       limit: MAX_MODELS,
     }),
@@ -230,14 +191,14 @@ function renderDetailsView({ team, fields, canEdit, edit, created }) {
     edit,
     created,
 
-    // A reader who may not edit gets no members block: it would report an empty team rather
-    // than an unreadable one, and every write it offers would 403.
-    sections: canEdit ? [MEMBERS_SECTION_BODY] : [],
-
     createCard: {
       href: CREATE_MODEL_HREF,
       label: "Register your first model for this team",
     },
+
+    // A reader who may not edit gets no members block: it would report an empty team rather
+    // than an unreadable one, and every write it offers would 403.
+    sections: canEdit ? [MEMBERS_SECTION_BODY] : [],
 
     renderTitle: (shown) => renderHeader(shown.name, getTeamSubtitle(shown)),
   });
@@ -307,8 +268,9 @@ function renderDetailsView({ team, fields, canEdit, edit, created }) {
 
 loadRecordPage({
   views: VIEWS,
-  noun: "team",
   flags: ["edit", "created"],
+
+  noun: "team",
 
   // A team page is readable by anyone — see GET /api/teams/{id}, which withholds the
   // member list rather than the whole record.
@@ -326,8 +288,7 @@ loadRecordPage({
       return null;
     }
 
-    // Both halves, as on the model and submission pages: `is_mine` is team membership as
-    // the API sees it, `signedIn` is this browser having a session at all.
+    // `signedIn` as well as `is_mine`: a dev-mode API answers every request as its stub user.
     return {
       team,
       models,

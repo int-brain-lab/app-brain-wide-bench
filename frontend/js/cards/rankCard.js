@@ -1,35 +1,29 @@
-// The model page's ranking section: where this model places, and where it would place if
-// its private work were published.
+// Where a model places, and where it would place if its private work were published.
 //
-// One row per figure, and each row is the same sentence twice — the public standing, then
-// the standing the reader's own private work would earn. Written as `rank/field` rather
-// than "3rd of 12" so the two sit side by side and the second is read against the first.
-//
-// The mover on the right is the point of the section: it is what publishing would change,
-// and it is the only thing on the row that isn't just a number.
+// One row per figure, each carrying both standings as `rank/field` so the second reads
+// against the first, and the mover saying what publishing would change.
 
 import { escapeHtml } from "../core/html.js";
-import { getIcon } from "../components/icons.js";
 import { toRankRows } from "../core/rankData.js";
+import { getIcon } from "../components/icons.js";
 
-// Overall takes the neutral grey: it is not a suite, and grey is already what the badges
-// use for "not one of the coloured three" — see buildSuiteCoverageBadges.
+// Overall is not a suite, so it takes the badges' neutral grey.
 function variantOf(figure) {
   return figure === "overall" ? "neutral" : figure;
 }
 
-// An em dash for a side that hasn't placed, so the chip still says which side it is: the
-// pair reads "public — / private 1/3", which is exactly the case publishing would fix.
+// An em dash for a side that hasn't placed, so the chip still says which side it is.
 function positionOf({ rank, nRanked }) {
   return rank == null ? "—" : `${rank}/${nRanked}`;
 }
 
 /**
- * What publishing would do to this row, in places.
+ * What publishing would do to this row, in places. A smaller rank is a better one.
  *
- * Only where both sides have placed: from nothing to somewhere isn't a number of places,
- * and the chips already say so. A smaller rank is a better one, so a private side that
- * reads lower is a climb.
+ * @param publicSide  the row's public side, as toRankRows gives it.
+ * @param privateSide the same row's private side.
+ *
+ * @returns the markup, or "" unless both sides have placed.
  */
 function buildMover({ publicSide, privateSide }) {
   if (publicSide.rank == null || privateSide.rank == null) return "";
@@ -61,14 +55,13 @@ function buildChips(row, showPrivate) {
 }
 
 /**
- * @param row        one entry from toRankRows.
- * @param showPrivate whether the reader was given the private side at all.
- * @param submitHref where a submit button goes, or nothing for a reader who isn't on the
- *                   model's team and so has nothing to submit.
+ * One suite's row: its badge, both standings, and the mover or a way out.
  *
- * A suite with no result on either side has no positions to report, so it says so and
- * offers the way out of that state instead. The overall row never does: it is unplaced
- * because the model hasn't entered every suite, and a button there couldn't say which.
+ * @param row         one entry from toRankRows.
+ * @param showPrivate whether the reader was given the private side at all.
+ * @param submitHref  where a submit button goes. Omit for a reader with nothing to submit.
+ *
+ * @returns the markup.
  */
 function buildRankRow(row, showPrivate, submitHref) {
   const placed = (row.publicSide.rank ?? row.privateSide.rank) != null;
@@ -103,13 +96,14 @@ function buildRankRow(row, showPrivate, submitHref) {
 // ─── CARD ────────────────────────────────────────────────────────────────────
 
 /**
- * @param ranking    the GET /api/models/{id}/ranking payload, or nothing if it failed to
- *                   load — the section still draws, with every figure unplaced.
+ * The ranking card: one row per suite, plus the overall. The private chip appears only
+ * where the API gave one — it withholds that side from a reader off the model's team.
+ *
+ * @param ranking    the GET /api/models/{id}/ranking payload. Omit if it failed to load —
+ *                   the card still draws, every figure unplaced.
  * @param submitHref as buildRankRow.
  *
- * The private chip appears only where the API gave one: it withholds that side from a
- * reader who isn't on the model's team, and an empty chip would read as "nothing pending"
- * rather than "not yours to see".
+ * @returns the markup.
  */
 function buildRankCard(ranking, { submitHref = null } = {}) {
   const showPrivate = Boolean(ranking?.private);

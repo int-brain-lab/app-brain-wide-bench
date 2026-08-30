@@ -8,9 +8,8 @@
 // Edits are made against a draft, so Cancel is free and a failed save cannot modify the
 // record shown by the page.
 
-import { createFieldState } from "../schemas/schema.js";
 import { buildFields, buildPanelCards } from "./fields.js";
-import { clearedLabels, createFieldForm } from "./form.js";
+import { clearedLabels, createFieldForm, createFieldState } from "./form.js";
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 

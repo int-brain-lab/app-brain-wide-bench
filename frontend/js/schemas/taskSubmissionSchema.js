@@ -1,17 +1,12 @@
-import { getMeta } from "../api/metaApi.js";
-import { suiteFromTask } from "../core/suites.js";
-import { applyFieldMeta } from "./fieldMeta.js";
-import { fieldsForPanel } from "./schema.js";
+// The per-task methodology schema: what a submission says about how each task was run.
 
-// What each suite asks a model to predict, from /api/meta — which is why it is a `let`
-// filled by loadTaskFields rather than a constant here. It used to be a constant here, and
-// the same three pairs are a fact about the benchmark that the scoring code also needs, so
-// the server is where they belong.
-//
-// The rules below read it synchronously during a render, which is safe because every caller
-// awaits loadTaskFields before rendering anything. Empty until then, which reads as "no
-// target modality" and disables nothing — the failure of a rule that ran too early would be
-// a permissive form, so this is asserted by the loader ordering rather than left to chance.
+import { suiteFromTask } from "../core/suites.js";
+import { applyFieldMeta, getMeta } from "../api/metaApi.js";
+import { fieldsForPanel } from "./schemaPanels.js";
+
+// What each suite asks a model to predict, from /api/meta — hence a `let` filled by
+// loadTaskFields. The rules below read it synchronously during a render, which is safe
+// because every caller awaits that loader first. Empty until then, which disables nothing.
 let suiteOutputModality = {};
 
 const TASK_FIELDS = {
@@ -130,15 +125,17 @@ const TASK_FIELDS = {
   },
 };
 
-// Fill the options and the help text from /api/meta, and take the suite output modalities
-// while we are there. Every caller awaits this before rendering — see suiteOutputModality.
+// One card, since every editable task field is methodology. Declared anyway so the
+// task editor builds its layout the same way the model and submission ones do.
+const TASK_PANELS = {
+  methodology: { type: "fields", title: "Methodology", columns: 2 },
+};
+
+// Options, help text and the suite output modalities, from /api/meta. Every caller awaits
+// this before rendering. In place rather than returning a copy — see applyFieldMeta.
 //
-// Each field names the enum it wants (`enum: "calibration"`) rather than the endpoint
-// answering per field name, which is what lets extra_input_modality and the model form's
-// two pretrained-modality pickers share one list instead of three that can disagree.
-//
-// Still in place rather than returning a copy: TASK_FIELDS is imported directly by the task
-// panel, the task table and the task submission view. See applyFieldMeta.
+// No loadTaskMeta counterpart, unlike the model and submission schemas: every option here
+// is public, so there is no signed-in variant to split off.
 async function loadTaskFields() {
   const meta = await getMeta();
 
@@ -152,34 +149,24 @@ async function loadTaskFields() {
   return applyFieldMeta(TASK_FIELDS, meta, "task_submission");
 }
 
-// The per-task methodology ("training") fields: everything on the methodology panel. Both
-// the submit wizard's carousel and the submission card's task editor render exactly this
-// set, and it's also the shape of a task-submission PATCH — so the list lives here with the
-// schema rather than being re-derived at each call site.
+// Everything on the methodology panel — what the submit wizard, the task editor and a
+// task-submission PATCH all take, so the list lives here rather than at each call site.
 function trainingFieldKeys() {
   return fieldsForPanel(TASK_FIELDS, "methodology");
 }
 
-// The body of a task-submission PATCH: the methodology keys, and only those, read off a
-// form's state. It lives here rather than in the API module because knowing which keys the
-// server takes is knowing the schema — and having it there made api/ import this file,
-// which was a circular import between the two.
-function taskPayload(state) {
+// The methodology keys, and only those, read off a form's state. Here rather than in the
+// API module: which keys the server takes is schema knowledge, and api/ sits below this.
+function toMethodologyValues(state) {
   return Object.fromEntries(
     trainingFieldKeys().map((key) => [key, state[key]]),
   );
 }
 
-// One card, since every editable task field is methodology. Declared anyway so the
-// task editor builds its layout the same way the model and submission ones do.
-const TASK_PANELS = {
-  methodology: { type: "fields", title: "Methodology", columns: 2 },
-};
-
 export {
   TASK_FIELDS,
   TASK_PANELS,
   loadTaskFields,
-  taskPayload,
+  toMethodologyValues,
   trainingFieldKeys,
 };
