@@ -29,7 +29,7 @@ import { getIcon } from "../components/icons.js";
 import { buildSuiteBadgeList } from "../components/badges.js";
 import { suiteFromTask, suiteLabel } from "../core/suites.js";
 import { sortSuites } from "../tables/formatters.js";
-import { latestScoresByTask } from "../core/scoreData.js";
+import { latestScoresByTask } from "../comparisons/compareData.js";
 import { getModels, loadModel } from "../api/modelApi.js";
 import { toModelRows } from "../utils/modelUtils.js";
 import { loadPage } from "../templates/page.js";

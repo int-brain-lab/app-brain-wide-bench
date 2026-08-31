@@ -2,22 +2,17 @@ import { apiFetchOptional } from "./client.js";
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 
-// The public leaderboard: one entry per model, carrying its newest public score for each
-// task and the rank it earned. The collapsing is the server's, because it is what the
-// ranks are computed over — see app/ranking.py.
-//
-// No auth: this is the one endpoint the app serves to anonymous visitors, which is also
-// why every formatter downstream escapes what it interpolates.
-//
-// Returns undefined on failure rather than throwing, matching modelApi/teamApi — the
-// callers already treat a falsy result as "show the error state".
 /**
- * @param filters {isPretrained}. Anything left undefined is not sent, which is what "no
- *                filter" means to the endpoint — an omitted parameter, not an empty one.
+ * The public leaderboard: one entry per model, its newest public score per task, and the
+ * rank it earned. No auth — the one endpoint served to anonymous visitors.
  *
- * The filters are the server's business rather than the table's because the ranks come back
- * computed over whatever survives them: narrowing in the browser would leave every rank
- * describing a field that is no longer on screen.
+ * @param isPretrained narrow to pretrained models, or not. Omit for no filter: an absent
+ *                     parameter is what the endpoint reads as "no filter", not an empty
+ *                     one. Filtering is the server's because the ranks come back computed
+ *                     over whatever survives it.
+ *
+ * @returns the entries, or undefined on failure — callers treat a falsy result as the
+ *          error state.
  */
 async function getLeaderboard({ isPretrained } = {}) {
   const params = new URLSearchParams();

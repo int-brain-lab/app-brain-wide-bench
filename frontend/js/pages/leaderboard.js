@@ -19,7 +19,7 @@
 // failure are the same job on every page, and this one was doing its own version of it.
 
 import { getLeaderboard } from "../api/leaderboardApi.js";
-import { getTasks } from "../api/taskApi.js";
+import { getTasks } from "../api/metaApi.js";
 import { getMyTeams } from "../api/teamApi.js";
 import { renderLeaderboardTable } from "../tables/leaderboardTable.js";
 import {

@@ -4,7 +4,7 @@
 // against the first, and the mover saying what publishing would change.
 
 import { escapeHtml } from "../core/html.js";
-import { toRankRows } from "../core/rankData.js";
+import { toRankRows } from "../utils/modelUtils.js";
 import { getIcon } from "../components/icons.js";
 
 // Overall is not a suite, so it takes the badges' neutral grey.

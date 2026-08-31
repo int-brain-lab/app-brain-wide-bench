@@ -4,7 +4,7 @@
 // Scores and ranks are shown at different grains, deliberately. A rank column is one whole
 // suite, because ranks are unitless and a mean of them across metrics is a summary that
 // holds. A score is shown one task at a time, because a suite-level score would average
-// bacc with r2 — see core/metricGroups.js. So suite mode is three rank columns, and task
+// bacc with r2 — see utils/leaderboardUtils.js. So suite mode is three rank columns, and task
 // mode is one task's score beside its rank.
 //
 // The two linked selects are what this table has that the others don't:
@@ -22,12 +22,8 @@ import {
   toSuiteGroups,
   toTaskMetrics,
   toTaskOptions,
-} from "../core/metricGroups.js";
-import {
-  createFilterableTable,
-  previewRows,
-  buildStaticTable,
-} from "./table.js";
+} from "../utils/leaderboardUtils.js";
+import { createFilterableTable } from "./table.js";
 import { matchIncludes } from "../components/filters.js";
 import { score } from "../core/utils.js";
 import {
@@ -316,20 +312,6 @@ function getLeaderboardColumns(suites, getMetric) {
   ];
 }
 
-// The same three suite ranks the full table shows, minus the sorters and the widths a
-// static preview has no use for.
-function getLeaderboardPreviewColumns(suites) {
-  return [
-    { title: "#", field: "rank", formatter: rankFormatter },
-    { title: "Model", field: "title", formatter: modelFormatter },
-    ...suites.map((suite) => ({
-      title: suite.label,
-      field: suite.key,
-      formatter: (cell) => rankValue(cell.getValue()),
-    })),
-  ];
-}
-
 // ─── CONTROLS ────────────────────────────────────────────────────────────────
 
 function getLeaderboardControls(suites) {
@@ -497,45 +479,4 @@ function renderLeaderboardTable({
   return table;
 }
 
-// ─── STATIC TABLE ────────────────────────────────────────────────────────────
-
-/**
- * Plain-markup counterpart to renderLeaderboardTable, for a fixed preview — no filters,
- * no paging, and no Tabulator needed on the page. Ordered by the position
- * toLeaderboardRows assigned, the only order a preview without a metric selector has.
- *
- * @param standings   as renderLeaderboardTable.
- * @param tasks       as renderLeaderboardTable.
- * @param limit       how many rows to show. Omit for all of them.
- * @param viewAll     as buildStaticTable — where the footer's "View all" link goes.
- * @param myTeamIds   as renderLeaderboardTable. Omit for no "Yours" pill, which is what a
- *                    preview that isn't worth an extra request for the memberships does.
- * @returns every row it built, not just the slice it rendered, so a caller can report
- *          a total alongside the preview.
- */
-function buildStaticLeaderboardTable({
-  standings,
-  tasks,
-  limit,
-  viewAll,
-  myTeamIds,
-}) {
-  const suites = toSuiteGroups(tasks);
-  const rows = toLeaderboardRows(standings, suites, myTeamIds);
-
-  const shown = previewRows(rows, byPosition, limit);
-
-  return buildStaticTable({
-    columns: getLeaderboardPreviewColumns(suites),
-    rows: shown,
-    noun: "model",
-    total: rows.length,
-    viewAll,
-  });
-}
-
-export {
-  renderLeaderboardTable,
-  buildStaticLeaderboardTable,
-  toLeaderboardRows,
-};
+export { renderLeaderboardTable };

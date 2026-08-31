@@ -42,7 +42,9 @@ async function presignSubmission(state, taskSection) {
   });
 }
 
-async function createSubmission(submissionId) {
+// The last of the three steps: presign, upload, then this. Takes the id presign returned
+// rather than form state, unlike createModel and createTeam.
+async function finaliseSubmission(submissionId) {
   return await apiFetch(`/api/submissions/${submissionId}/submit`, {
     method: "POST",
   });
@@ -75,5 +77,5 @@ export {
   updateSubmission,
   presignSubmission,
   uploadToPresignedUrl,
-  createSubmission,
+  finaliseSubmission,
 };

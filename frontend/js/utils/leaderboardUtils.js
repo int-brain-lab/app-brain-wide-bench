@@ -1,4 +1,4 @@
-// Tasks grouped by suite, and the metric each one is scored in.
+// The leaderboard's columns and controls, read off the task catalogue.
 //
 // The leaderboard summarises a suite by the mean of its *ranks*, never by the mean of its
 // scores. TS1 alone carries `bacc`, `poisson_d2` and `r2`, which share neither a scale nor
@@ -14,7 +14,9 @@
 // disappear exactly when nothing has been scored in it, and the task table is the authority
 // on which metric a task uses.
 
-import { suiteLabel, SUITES } from "./suites.js";
+import { SUITES, suiteLabel } from "../core/suites.js";
+
+// ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
 /**
  * The suites, for the rank columns and the select above them.
@@ -61,7 +63,10 @@ function toTaskMetrics(tasks) {
   );
 }
 
-// Every task, ordered by suite and then by id, for a control that lists tasks individually.
+// ─── CONTROLS ────────────────────────────────────────────────────────────────
+
+// Every task, ordered by suite and then by id, for a control that lists tasks
+// individually.
 function toTaskOptions(suites) {
   return suites.flatMap((suite) =>
     [...suite.taskIds]

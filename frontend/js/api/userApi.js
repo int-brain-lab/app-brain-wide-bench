@@ -1,12 +1,10 @@
 import { apiFetch, apiFetchOptional } from "./client.js";
-import { trimmed } from "../core/validation.js";
+import { normalizeObject, trimmed } from "../core/validation.js";
 
 // ─── PAYLOADS ────────────────────────────────────────────────────────────────
+
 function buildUserPayload(state) {
-  return {
-    ...state,
-    label: trimmed(state.username?.label),
-  };
+  return normalizeObject(state, { name: trimmed });
 }
 
 // ─── API ─────────────────────────────────────────────────────────────────────
@@ -16,7 +14,7 @@ async function loadMe() {
 }
 
 async function updateMe(patch) {
-  return apiFetch("/api/users/me", {
+  return await apiFetch("/api/users/me", {
     method: "PATCH",
     body: JSON.stringify(buildUserPayload(patch)),
   });

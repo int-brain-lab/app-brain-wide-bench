@@ -1,7 +1,7 @@
 // Model record page — dashboard, details, submissions and scores for one model.
 
 import { renderHtml } from "../core/render.js";
-import { markRankedRows } from "../core/rankData.js";
+import { markRankedRows } from "../utils/modelUtils.js";
 import { getModelRanking, loadModel, updateModel } from "../api/modelApi.js";
 import {
   loadModelFields,

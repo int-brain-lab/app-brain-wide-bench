@@ -26,7 +26,7 @@ import {
   toCompareEntries,
   toDiffRows,
   toScoreRows,
-} from "../core/compareData.js";
+} from "./compareData.js";
 import { displayValue } from "../forms/fields.js";
 import { SUITES, suitesFromSubmission } from "../core/suites.js";
 import { loadModel } from "../api/modelApi.js";

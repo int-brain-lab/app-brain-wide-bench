@@ -2,6 +2,7 @@ import { apiFetch } from "./client.js";
 import { normalizeObject, trimmed } from "../core/validation.js";
 
 // ─── PAYLOADS ────────────────────────────────────────────────────────────────
+
 function buildTeamPayload(state) {
   return normalizeObject(state, { name: trimmed });
 }

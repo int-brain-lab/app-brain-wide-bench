@@ -45,6 +45,8 @@ let auth0Client = null;
 // callback is handled exactly once.
 let authReady = null;
 
+// ─── AUTH ────────────────────────────────────────────────────────────────────
+
 function ensureAuth() {
   authReady ??= initAuth();
 
@@ -139,6 +141,8 @@ async function logout() {
   });
 }
 
+// ─── TOKEN ───────────────────────────────────────────────────────────────────
+
 async function getToken() {
   await ensureAuth();
 
@@ -170,15 +174,21 @@ async function getToken() {
   }
 }
 
-// Fetch wrapper that injects the bearer token when available.
+// ─── FETCH ───────────────────────────────────────────────────────────────────
+
+// Injects the bearer token when there is one.
 async function apiFetch(path, options = {}) {
   const headers = new Headers(options.headers || {});
   const token = await getToken();
+
   if (token) headers.set("Authorization", `Bearer ${token}`);
+
   if (options.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
+
   const res = await fetch(CONFIG.apiBase + path, { ...options, headers });
+
   if (!res.ok) {
     const text = await res.text();
     const error = new Error(`${res.status} ${res.statusText}: ${text}`);

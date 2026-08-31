@@ -52,8 +52,8 @@ async function createModel(state) {
 export {
   getModels,
   getMyModels,
-  getModelRanking,
   loadModel,
+  getModelRanking,
   updateModel,
   createModel,
 };

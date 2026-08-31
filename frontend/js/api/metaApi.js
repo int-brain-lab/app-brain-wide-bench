@@ -19,6 +19,23 @@ async function getMeta() {
   return cached;
 }
 
+// The benchmark's task table: every task, its suite and the metric it is scored in. Static
+// reference data, so it rides on the meta document rather than costing a request of its own.
+//
+// Undefined on failure rather than throwing, matching the other read helpers — its callers
+// treat a falsy result as the error state.
+async function getTasks() {
+  try {
+    const { tasks } = await getMeta();
+
+    return tasks;
+  } catch (error) {
+    console.error(error);
+
+    return undefined;
+  }
+}
+
 // ─── SCHEMAS ─────────────────────────────────────────────────────────────────
 
 // A schema declares what it wants, not what the answer is: `enum: "modality"` names a list
@@ -59,4 +76,4 @@ function applyFieldMeta(fields, meta, record) {
   return fields;
 }
 
-export { applyFieldMeta, getMeta };
+export { applyFieldMeta, getMeta, getTasks };

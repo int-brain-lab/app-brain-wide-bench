@@ -4,16 +4,6 @@ function trimmed(value) {
   return typeof value === "string" ? value.trim() : value;
 }
 
-function emptyToNull(value) {
-  return value === "" ? null : value;
-}
-
-function trimmedOrNull(value) {
-  const normalized = trimmed(value);
-
-  return emptyToNull(normalized);
-}
-
 function normalizeObject(object, normalizers = {}) {
   const normalized = { ...object };
 
@@ -28,4 +18,4 @@ function normalizeObject(object, normalizers = {}) {
   return normalized;
 }
 
-export { emptyToNull, normalizeObject, trimmed, trimmedOrNull };
+export { normalizeObject, trimmed };

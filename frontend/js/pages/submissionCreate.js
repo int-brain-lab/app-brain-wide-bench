@@ -12,7 +12,7 @@
 import { getMeta } from "../api/metaApi.js";
 import { loadModel } from "../api/modelApi.js";
 import {
-  createSubmission,
+  finaliseSubmission,
   presignSubmission,
   uploadToPresignedUrl,
 } from "../api/submissionApi.js";
@@ -137,7 +137,7 @@ async function submitSubmission(state, taskSection) {
 
   await uploadToPresignedUrl(presigned.upload_url, file);
 
-  await createSubmission(presigned.submission_id);
+  await finaliseSubmission(presigned.submission_id);
 
   return (
     `/html/submissions/submissions.html` +

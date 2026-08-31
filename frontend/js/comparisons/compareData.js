@@ -1,26 +1,61 @@
 // Shaping for the comparison page: several models' scores on one suite, as a matrix.
 //
-// scoreData.js collapses one model into a figure per suite; this takes several models and
-// keeps the per-task detail, because the whole page is the spread between them. The output
-// is deliberately table-shaped — one row per task, one field per model id — so the two
-// grids in compareTable.js bind to it with no further reshaping.
+// The output is table-shaped — one row per task, one field per model id — so the two grids
+// in compareTable.js bind to it with no reshaping. Tasks are the rows because a suite has
+// many more tasks than a comparison has models, which also makes the metric a property of
+// the row and filtering by it a plain row filter.
 //
-// Tasks are the rows and models the columns because a suite has many more tasks than a
-// comparison has models: eleven columns don't fit and eleven rows are an ordinary table.
-// It also makes the metric a property of the row, so filtering by it is a plain row filter.
+// Four rules the page depends on:
 //
-// Two rules the page depends on:
-//
-//   1. The task rows are the *union* across the models being compared, not the selected
-//      model's own tasks. A comparator scoring something the selected model never attempted
-//      is worth seeing; it shows as "—" in the selected model's column.
-//   2. A model's mean is over the tasks it actually scored, so a model missing two tasks
-//      isn't given zeros for them. That makes two means over different task sets, which is
-//      why `scored`/`total` travel alongside — the overview shows the coverage.
+//   1. A task's score is the *latest* submitted for it, never the best, and latest per
+//      task — the same collapse app/ranking.py does before ranking, which is what lets a
+//      rank sit beside a score.
+//   2. A missing score is `null`, not `0`, so an unattempted suite doesn't drag a mean down.
+//   3. The task rows are the *union* across the models compared, not the selected model's
+//      own. A comparator scoring something it never attempted shows as "—" in its column.
+//   4. A model's mean is over the tasks it actually scored, so `scored`/`total` travel
+//      alongside for the overview's coverage.
 
-import { mean } from "./utils.js";
-import { suiteFromTask } from "./suites.js";
-import { latestScoresByTask } from "./scoreData.js";
+import { mean } from "../core/utils.js";
+import { suiteFromTask } from "../core/suites.js";
+
+// ─── LATEST ──────────────────────────────────────────────────────────────────
+
+// Each task takes its score from the newest submission that scored it, so a model is read
+// as where it currently stands rather than as its most recent upload — the same collapse
+// app/ranking.py does before ranking, which is what lets a rank sit beside a score here.
+function latestScoresByTask(submissions) {
+  const latest = new Map();
+
+  for (const submission of submissions ?? []) {
+    // NaN on an absent or unparseable date, which `|| 0` turns into "oldest" — otherwise
+    // every comparison against it is false and the task keeps whichever score came first.
+    const at = Date.parse(submission.created_at ?? 0) || 0;
+
+    for (const { task_id, score } of submission.task_submissions ?? []) {
+      if (score?.primary_metric_mean == null) continue;
+
+      const held = latest.get(task_id);
+
+      if (held && held.at >= at) continue;
+
+      latest.set(task_id, {
+        at,
+        mean: score.primary_metric_mean,
+        // Nullable on a scored task too — a single-seed run has a mean but no spread.
+        sem: score.primary_metric_sem ?? null,
+        metric: score.primary_metric ?? null,
+      });
+    }
+  }
+
+  return Object.fromEntries(
+    [...latest].map(([taskId, { mean, sem, metric }]) => [
+      taskId,
+      { mean, sem, metric },
+    ]),
+  );
+}
 
 // ─── ENTRIES ─────────────────────────────────────────────────────────────────
 
@@ -89,46 +124,6 @@ function compareTasks(entries) {
   return [...metrics]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([taskId, metric]) => ({ taskId, metric }));
-}
-
-// For the metric select above each grid. From the tasks on screen, not the Metric enum: an
-// option that hides every column would be the only thing it could do.
-function compareMetrics(tasks) {
-  return [...new Set(tasks.map((task) => task.metric).filter(Boolean))]
-    .sort((a, b) => a.localeCompare(b))
-    .map((metric) => ({ value: metric, label: metric }));
-}
-
-/**
- * The same entries restricted to one metric: each model's tasks narrowed to the ones
- * measured in it, and its mean and coverage recomputed over what is left. `""` for all of
- * them returns the entries untouched.
- *
- * The grids need nothing like this — a metric is a property of their rows, so they filter
- * — but the overview's bar is a single number derived from all of them, and a mean over
- * eight tasks cannot be narrowed to three after the fact. It has to be taken again.
- */
-function entriesForMetric(entries, metric) {
-  if (!metric) return entries;
-
-  return entries.map((entry) => {
-    const tasks = Object.fromEntries(
-      Object.entries(entry.tasks).filter(([, task]) => task.metric === metric),
-    );
-
-    return {
-      ...entry,
-      tasks,
-      mean: mean(Object.values(tasks).map((task) => task.mean)),
-      scored: Object.keys(tasks).length,
-    };
-  });
-}
-
-// Its counterpart for the task list, so the overview's "3/3 tasks" counts the same set the
-// mean beside it was taken over.
-function tasksForMetric(tasks, metric) {
-  return metric ? tasks.filter((task) => task.metric === metric) : tasks;
 }
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
@@ -209,11 +204,9 @@ function toDiffRows(entries, tasks, baselineId) {
 }
 
 export {
+  latestScoresByTask,
   toCompareEntries,
   compareTasks,
-  compareMetrics,
-  entriesForMetric,
-  tasksForMetric,
   compareModels,
   toScoreRows,
   toDiffRows,
