@@ -3,146 +3,45 @@
 //
 // Rows, columns and controls only — the table plumbing is in table.js.
 //
-// The data is `TaskScore.metrics.recordings`, written by the scorers in app/scoring: one
-// entry per (label, task, recording), each carrying `{metric: {mean, sem, n}}` where `n` is
-// the seed count that entry was aggregated from.
-//
-// What a row *is* depends on the suite, so the row dimension is chosen from the data rather
-// than passed in — see `rowMode`.
+// The rows are a store's categories — recordings for ts1 and ts2, brain regions for ts3 —
+// and the columns its metrics. Which of those a category is was settled when the store was
+// built, in utils/recordingScoreUtils.js, so nothing here asks about the suite.
 
 import { escapeHtml } from "../core/html.js";
-import { createFilterableTable } from "./table.js";
 import { matchIncludes } from "../components/filters.js";
+import { createFilterableTable } from "./table.js";
 import {
   metricsBadgeFormatter,
   numericSorter,
   buildScoreSemFormatter,
 } from "./formatters.js";
 
-// ts3 names its metrics `<brain region>/<metric>` — "TH/f1-score", "macro/precision".
-const REGION_SEPARATOR = "/";
-
-// ─── SHAPE ───────────────────────────────────────────────────────────────────
-
-// First-seen order across every entry rather than the keys of the first one: the scorers
-// emit metrics in ReadoutSpec order, which puts the task's primary metric first, and taking
-// the union means an entry that lost a metric can't hide it from the table.
-function metricNames(recordings) {
-  const names = [];
-
-  for (const recording of recordings ?? []) {
-    for (const name of Object.keys(recording.metrics ?? {})) {
-      if (!names.includes(name)) names.push(name);
-    }
-  }
-
-  return names;
-}
-
-/**
- * Which dimension the rows run down. Read off the data, because it is a property of the
- * suite rather than of the caller:
- *
- *   "recording"  ts1 and ts2 score each recording separately — a row is a recording, a
- *                column pair is a metric.
- *   "region"     ts3 classifies the whole held-out population at once, so there is no
- *                recording. Its metric names carry the dimension instead: a row is a brain
- *                region and a column pair is the metric suffix, which turns 33 metrics on
- *                one row into 11 rows of 3.
- *   "metric"     neither — a row per metric. The fallback, so a score whose metric names
- *                follow no convention still renders something readable.
- */
-function rowMode(recordings) {
-  if ((recordings ?? []).some((recording) => recording.recording_id))
-    return "recording";
-
-  const names = metricNames(recordings);
-
-  return names.length && names.every((name) => name.includes(REGION_SEPARATOR))
-    ? "region"
-    : "metric";
-}
-
-function splitMetric(name) {
-  const at = name.indexOf(REGION_SEPARATOR);
-
-  return [name.slice(0, at), name.slice(at + 1)];
-}
-
 // ─── ROWS ────────────────────────────────────────────────────────────────────
 
-// `n_seeds` is the largest `n` across a row's metrics: they agree in practice, and taking
-// the max means a metric that failed on one seed reports the seeds the row actually has
-// rather than understating them for the whole row.
-function withSeeds(row, stats) {
-  return stats?.n == null ? row.n_seeds : Math.max(row.n_seeds ?? 0, stats.n);
+// One row per category, each metric flattened into the `<name>_mean` / `<name>_sem` pair the
+// columns read. `field` is what the key column is called.
+function toRows(store, field) {
+  return [...store.index].map(([key, at]) => ({
+    [field]: key,
+    label: store.label,
+    n_seeds: store.seeds[at],
+    ...Object.fromEntries(
+      Object.entries(store.metrics).flatMap(([name, values]) => [
+        [`${name}_mean`, values.mean[at]],
+        [`${name}_sem`, values.sem[at]],
+      ]),
+    ),
+  }));
 }
 
-// One row per recording, each metric flattened into the `<name>_mean` / `<name>_sem` pair
-// the columns read.
-function toRecordingRows(recordings) {
-  return (recordings ?? []).map((recording) => {
-    const row = {
-      recording_id: recording.recording_id ?? null,
-      label: recording.label ?? null,
-      n_seeds: null,
-    };
-
-    for (const [name, stats] of Object.entries(recording.metrics ?? {})) {
-      row[`${name}_mean`] = stats?.mean ?? null;
-      row[`${name}_sem`] = stats?.sem ?? null;
-      row.n_seeds = withSeeds(row, stats);
-    }
-
-    return row;
-  });
-}
-
-// One row per brain region, columns keyed by the metric suffix. A Map so the regions keep
-// the order the scorer emitted them in, which puts the aggregate "macro" row last.
-function toRegionRows(recordings) {
-  const rows = new Map();
-
-  for (const recording of recordings ?? []) {
-    for (const [name, stats] of Object.entries(recording.metrics ?? {})) {
-      const [region, metric] = splitMetric(name);
-      const row = rows.get(region) ?? { region, n_seeds: null };
-
-      row[`${metric}_mean`] = stats?.mean ?? null;
-      row[`${metric}_sem`] = stats?.sem ?? null;
-      row.n_seeds = withSeeds(row, stats);
-
-      rows.set(region, row);
-    }
-  }
-
-  return [...rows.values()];
-}
-
-// The fallback shape: metric down the rows, one column each for mean and SEM.
-function toMetricRows(recordings) {
-  return (recordings ?? []).flatMap((recording) =>
-    Object.entries(recording.metrics ?? {}).map(([name, stats]) => ({
-      metric: name,
-      mean: stats?.mean ?? null,
-      sem: stats?.sem ?? null,
-      n_seeds: stats?.n ?? null,
-    })),
-  );
-}
-
-// Column suffixes for the region layout — "precision", "recall", "f1-score" — in first-seen
-// order, so every region's columns line up.
-function metricSuffixes(recordings) {
-  const suffixes = [];
-
-  for (const name of metricNames(recordings)) {
-    const [, metric] = splitMetric(name);
-
-    if (!suffixes.includes(metric)) suffixes.push(metric);
-  }
-
-  return suffixes;
+// The fallback shape: a category is a metric, so each row reads its own diagonal cell.
+function toMetricRows(store) {
+  return [...store.index].map(([metric, at]) => ({
+    metric,
+    mean: store.metrics[metric]?.mean[at] ?? null,
+    sem: store.metrics[metric]?.sem[at] ?? null,
+    n_seeds: store.seeds[at],
+  }));
 }
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
@@ -218,17 +117,17 @@ const LAYOUTS = {
     noun: "recording",
     searchField: "recording_id",
     searchPlaceholder: "Search recordings...",
-    rows: toRecordingRows,
-    columns: (recordings) =>
-      keyedColumns("Recording", "recording_id", metricNames(recordings)),
+    rows: (store) => toRows(store, "recording_id"),
+    columns: (store) =>
+      keyedColumns("Recording", "recording_id", Object.keys(store.metrics)),
   },
   region: {
     noun: "region",
     searchField: "region",
     searchPlaceholder: "Search regions...",
-    rows: toRegionRows,
-    columns: (recordings) =>
-      keyedColumns("Region", "region", metricSuffixes(recordings)),
+    rows: (store) => toRows(store, "region"),
+    columns: (store) =>
+      keyedColumns("Region", "region", Object.keys(store.metrics)),
   },
   metric: {
     noun: "metric",
@@ -246,17 +145,17 @@ const LAYOUTS = {
 /**
  * Mounts the breakdown table for one task score.
  *
- * @param container   element, or the id of one. Its contents are replaced.
- * @param recordings  `score.metrics.recordings` from the API.
+ * @param container element, or the id of one. Its contents are replaced.
+ * @param store    from toRecordingStore — the score's breakdown.
  * @returns the Tabulator instance.
  */
-function renderRecordingScoresTable({ container, recordings }) {
-  const layout = LAYOUTS[rowMode(recordings)];
+function renderRecordingScoresTable({ container, store }) {
+  const layout = LAYOUTS[store.group];
 
   const { table } = createFilterableTable({
     container,
-    rows: layout.rows(recordings),
-    columns: layout.columns(recordings),
+    rows: layout.rows(store),
+    columns: layout.columns(store),
     controls: [
       {
         type: "search",
@@ -275,82 +174,4 @@ function renderRecordingScoresTable({ container, recordings }) {
   return table;
 }
 
-/**
- * What the table will show and how much of it, for a caller that wants to say so before
- * mounting it — or to decide what belongs above it. `mode` is documented on `rowMode`.
- */
-function describeRecordingScores(recordings) {
-  const mode = rowMode(recordings);
-
-  return {
-    mode,
-    noun: LAYOUTS[mode].noun,
-    count: LAYOUTS[mode].rows(recordings).length,
-  };
-}
-
-// ─── FOR A CHART ─────────────────────────────────────────────────────────────
-//
-// The same two questions the table answers — what runs down the rows, and what metrics
-// were measured — asked by something that draws rather than tabulates. They live here
-// because the answers depend on the suite's shape, which is this module's subject; the
-// chart is then only about drawing.
-
-/**
- * The metrics a caller may choose between for one score.
- *
- * Suffixes in the region layout, where the full name carries the region too — a TS3 score
- * measures three metrics on eleven regions, not thirty-three metrics.
- */
-function recordingMetricNames(recordings) {
-  return rowMode(recordings) === "region"
-    ? metricSuffixes(recordings)
-    : metricNames(recordings);
-}
-
-/**
- * One point per row of the table, for `metric`.
- *
- * @returns [{ key, label, mean, sem }] — `key` identifies the point across scores so two
- *          series line up on the same recording, and `label` is what an axis shows.
- */
-function toRecordingPoints(recordings, metric) {
-  const mode = rowMode(recordings);
-
-  if (mode === "region") {
-    return toRegionRows(recordings).map((row) => ({
-      key: row.region,
-      label: row.region,
-      mean: row[`${metric}_mean`] ?? null,
-      sem: row[`${metric}_sem`] ?? null,
-    }));
-  }
-
-  if (mode === "recording") {
-    return toRecordingRows(recordings).map((row) => ({
-      key: row.recording_id,
-      // Recording ids are uuids, so an axis gets the head of one and the tooltip the whole
-      // thing — 29 full uuids across an axis is unreadable at any width.
-      label: String(row.recording_id).slice(0, 8),
-      mean: row[`${metric}_mean`] ?? null,
-      sem: row[`${metric}_sem`] ?? null,
-    }));
-  }
-
-  // The fallback shape has one row *per metric*, so a chosen metric is a single point.
-  return toMetricRows(recordings)
-    .filter((row) => row.metric === metric)
-    .map((row) => ({
-      key: row.metric,
-      label: row.metric,
-      mean: row.mean,
-      sem: row.sem,
-    }));
-}
-
-export {
-  renderRecordingScoresTable,
-  describeRecordingScores,
-  recordingMetricNames,
-  toRecordingPoints,
-};
+export { renderRecordingScoresTable };

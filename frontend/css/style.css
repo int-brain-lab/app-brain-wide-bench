@@ -792,8 +792,8 @@ CARDS
   margin-top: 0;
 }
 
-/* Facets side by side: one panel per metric, read across rather than down — see
-   charts/compareChart.js. `auto-fit` here where .chart-grid above is fixed at three,
+/* Facets side by side: one plot per metric, read across rather than down — see
+   plots/modelPlots.js. `auto-fit` here where .chart-grid above is fixed at three,
    because the count is however many metrics a suite turns out to have, and two of them
    should span the width rather than leave a third of it empty. The 320px floor is where a
    panel stops being readable, and below it they wrap rather than shrink further. */
@@ -804,6 +804,68 @@ CARDS
 }
 
 .chart-row .chart-facet + .chart-facet {
+  margin-top: 0;
+}
+
+/* Side by side, each plot as wide as the categories it holds, so one category is the same
+   width in every plot — see plots/modelPlots.js, where a suite has four tasks measured in
+   r2 and one in poisson_d2.
+
+   Flex rather than grid, because the growth has to start above the axis gutter: a basis of
+   the gutter plus a grow of the category count divides what is left in proportion, where
+   equal grid tracks would give the one-task plot as much room as the four-task one. The
+   gutter is what Chart.js reserves for the y-axis title and its value labels. */
+/* Centred, because arrangePlots caps the row at what its content needs: below that cap the
+   row is narrower than the page it sits on, and a figure floated left of empty space reads as
+   one that failed to load the rest of itself.
+
+   `width: 100%` is load-bearing, not a default spelled out. The shared key makes this row a
+   child of a `.column`, and a flex item with an auto cross-axis margin is not stretched — the
+   margins absorb the free space instead. Left to `width: auto` it shrink-wraps to its
+   contents, which is every plot at its min-width and none of them grown. */
+.chart-weighted {
+  --plot-gutter: 56px;
+
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--gap-md);
+  width: 100%;
+  margin-inline: auto;
+}
+
+.chart-weighted .chart-facet {
+  flex-basis: var(--plot-gutter);
+  flex-shrink: 1;
+  min-width: 200px;
+}
+
+.chart-weighted .chart-facet + .chart-facet {
+  margin-top: 0;
+}
+
+/* One key for a row of plots that share their series, in place of a legend inside each. */
+.chart-key {
+  flex-wrap: wrap;
+}
+
+.chart-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: none;
+}
+
+/* Two across, for plots that are read closely: the overlaid comparison, where one plot
+   holds every selected score. Fixed at two rather than `auto-fit`, because the point is the
+   width each plot gets, not how many fit — and below the floor they wrap to one. */
+.chart-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(320px, 1fr));
+  gap: var(--gap-md);
+}
+
+.chart-pair .chart-facet + .chart-facet {
   margin-top: 0;
 }
 

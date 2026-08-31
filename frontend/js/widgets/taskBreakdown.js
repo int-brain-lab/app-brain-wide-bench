@@ -18,12 +18,13 @@ import {
   viewFromClick,
 } from "../components/viewToggle.js";
 import { resolveContainer } from "../core/dom.js";
+import { EMPTY_STORE, toRecordingStore } from "../utils/recordingScoreUtils.js";
+import { renderRecordingScoresTable } from "../tables/recordingScoreTable.js";
 import {
-  recordingMetricNames,
-  renderRecordingScoresTable,
-} from "../tables/recordingScoreTable.js";
-import { renderRecordingCharts } from "../charts/recordingChart.js";
-import { SERIES_INK } from "../charts/palette.js";
+  createRecordingPlots,
+  toScoreSeries,
+} from "../plots/recordingScorePlots.js";
+import { SERIES_INK } from "../plots/palette.js";
 import { buildDisplayFields } from "../forms/fields.js";
 import {
   loadTaskFields,
@@ -56,7 +57,7 @@ function createTaskBreakdown({
 
   let seed = null;
   let detail = null;
-  let recordings = [];
+  let store = EMPTY_STORE;
   let view = DEFAULT_VIEW;
   let charts = [];
   let fields = null;
@@ -67,19 +68,6 @@ function createTaskBreakdown({
   function clearCharts() {
     disposeAll(charts);
     charts = [];
-  }
-
-  // One panel per metric, all of them for the one score. No palette: these are the same
-  // result measured several ways rather than several results, so one colour throughout and
-  // no legend — the axis names the metric and the heading names the score.
-  function toMetricSeries() {
-    return recordingMetricNames(recordings).map((metric) => ({
-      key: metric,
-      colour: SERIES_INK,
-      label: seed.taskId,
-      metric,
-      recordings,
-    }));
   }
 
   function renderView() {
@@ -94,7 +82,7 @@ function createTaskBreakdown({
       return;
     }
 
-    if (!recordings.length) {
+    if (!store.index.size) {
       renderHtml(
         slot,
         buildEmptyMessage(
@@ -105,17 +93,29 @@ function createTaskBreakdown({
     }
 
     if (view === "plot") {
-      charts = renderRecordingCharts({
-        container: slot,
-        entries: toMetricSeries(),
-        charts,
+      // One plot per metric, all of them for the one score. No palette: these are the same
+      // result measured several ways rather than several results, so one colour throughout
+      // and no legend — the axis names the metric and the heading names the score.
+      const plots = createRecordingPlots({
+        entries: Object.keys(store.metrics).map((metric) =>
+          toScoreSeries(store, metric, {
+            colour: SERIES_INK,
+            label: seed.taskId,
+          }),
+        ),
+        // Read across: the metrics are the same recordings measured differently, and a score
+        // has few enough of them to sit side by side.
+        layout: "row",
         legend: false,
       });
+
+      slot.replaceChildren(plots.element);
+      charts = plots.charts;
 
       return;
     }
 
-    renderRecordingScoresTable({ container: slot, recordings });
+    renderRecordingScoresTable({ container: slot, store });
   }
 
   // The methodology behind the numbers, in the same words the comparison grid uses. Absent
@@ -148,7 +148,7 @@ function createTaskBreakdown({
   async function show(entry) {
     seed = entry;
     detail = null;
-    recordings = [];
+    store = EMPTY_STORE;
 
     // Needed by the methodology fields, and loaded once for the life of the widget.
     if (!fields) fields = await loadTaskFields();
@@ -167,7 +167,7 @@ function createTaskBreakdown({
     if (seed !== entry) return;
 
     detail = detailed;
-    recordings = detailed.score?.metrics?.recordings ?? [];
+    store = toRecordingStore(detailed.score?.metrics?.recordings);
 
     render();
   }
@@ -176,7 +176,7 @@ function createTaskBreakdown({
     clearCharts();
     seed = null;
     detail = null;
-    recordings = [];
+    store = EMPTY_STORE;
     renderHtml(root, buildEmptyMessage(prompt));
   }
 

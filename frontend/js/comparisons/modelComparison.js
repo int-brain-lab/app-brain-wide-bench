@@ -16,10 +16,7 @@ import { renderHtml } from "../core/render.js";
 import { PLOT_TABLE_VIEWS, buildViewToggle } from "../components/viewToggle.js";
 import { buildComparisonGrid } from "../tables/comparisonGrid.js";
 import { renderCompareTable } from "../tables/compareTable.js";
-import {
-  renderCompareCharts,
-  renderDiffCharts,
-} from "../charts/compareChart.js";
+import { createDiffPlots, createModelPlots } from "../plots/modelPlots.js";
 import {
   compareModels,
   compareTasks,
@@ -287,14 +284,10 @@ function createModelComparison(options) {
     renderToggle(root, "breakdown", views.breakdown, refresh);
 
     if (views.breakdown === "plot") {
-      track(
-        renderCompareCharts({
-          container: body,
-          entries: compared,
-          tasks,
-          charts: [],
-        }),
-      );
+      const plots = createModelPlots({ entries: compared, tasks });
+
+      body.replaceChildren(plots.element);
+      track(plots.charts);
 
       return;
     }
@@ -340,15 +333,14 @@ function createModelComparison(options) {
     const target = body.querySelector("[data-role='diff-body']");
 
     if (views.differences === "plot") {
-      track(
-        renderDiffCharts({
-          container: target,
-          entries: compared,
-          tasks,
-          baselineId: baseline,
-          charts: [],
-        }),
-      );
+      const plots = createDiffPlots({
+        entries: compared,
+        tasks,
+        baselineId: baseline,
+      });
+
+      target.replaceChildren(plots.element);
+      track(plots.charts);
 
       return;
     }

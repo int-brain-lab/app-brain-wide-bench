@@ -1,13 +1,13 @@
-// Chart plumbing, analogous to table.js.
+// Chart.js, analogous to table.js and Tabulator.
 //
-// This module owns the Chart.js instance, shared defaults and custom Chart.js plugins.
-// Domain modules provide the data and domain-specific axis configuration.
-//
-// Nothing here knows what a recording or task is, and series colours always come from the
-// caller so the chart and the UI that names a series stay consistent.
+// This module owns the Chart.js instance, the house defaults and the custom plugins. The
+// plot kinds above it — scatter.js, bar.js — supply the datasets and the marks; nothing
+// here knows what a recording or a task is, and colours always come from the caller so a
+// plot and the UI that names a series stay consistent.
 
-import { resolveContainer } from "../core/dom.js";
 import { dispose } from "../core/disposable.js";
+import { resolveContainer } from "../core/dom.js";
+import { score } from "../core/utils.js";
 
 // ─── DEFAULTS ────────────────────────────────────────────────────────────────
 
@@ -113,38 +113,6 @@ function mergeOptions(options, defaults) {
   }
 
   return merged;
-}
-
-// ─── PATTERNS ────────────────────────────────────────────────────────────────
-
-/**
- * Create a repeating diagonal hatch using the series colour and chart surface.
- *
- * The hatch gives filled marks a second visual channel without making the colour itself
- * appear lighter or less important.
- */
-function hatch(colour) {
-  const tile = document.createElement("canvas");
-
-  tile.width = 6;
-  tile.height = 6;
-
-  const ctx = tile.getContext("2d");
-
-  ctx.fillStyle = colour;
-  ctx.fillRect(0, 0, tile.width, tile.height);
-
-  ctx.strokeStyle = SURFACE;
-  ctx.lineWidth = 2;
-
-  ctx.beginPath();
-  ctx.moveTo(-1, 7);
-  ctx.lineTo(7, -1);
-  ctx.moveTo(2, 10);
-  ctx.lineTo(10, 2);
-  ctx.stroke();
-
-  return ctx.createPattern(tile, "repeat");
 }
 
 // ─── ERROR BARS ──────────────────────────────────────────────────────────────
@@ -288,12 +256,105 @@ function createChart({
   return new Chart(canvas, {
     type,
     data,
-    options: mergeOptions(
-      options,
-      createDefaults({ legend, tooltip }),
-    ),
+    options: mergeOptions(options, createDefaults({ legend, tooltip })),
     plugins: [errorBars, legendGap],
   });
+}
+
+/**
+ * A chart over categories, with the house axes and tooltip: the shape both canvas plot
+ * kinds are. Built detached, for the caller to place.
+ *
+ * @param type      Chart.js chart type.
+ * @param labels    the axis, as category keys — the keys themselves, so two series line up
+ *                  on the same category even where the axis shows an abbreviation of it.
+ * @param datasets  from toDatasets in figure.js.
+ * @param axisTitle what the y axis is measured in.
+ * @param tickLabel (key, index) => what the axis shows for that category, or null to leave
+ *                  it unlabelled — Chart.js draws no tick label for a null.
+ * @param span      {min, max} suggested for the y axis. Omit to let the values frame
+ *                  themselves.
+ * @param yGrid     y-axis grid overrides — see createBarPlot, which draws zero as a line.
+ * @param title     a heading inside the plot. Omit for none.
+ * @param height    plot height in px.
+ * @param showAxis  false where the axis is repeated below, or unreadable at this width.
+ * @param legend    whether the plot names its series.
+ * @param caller    name used in the Chart.js availability error.
+ * @returns { element, chart }.
+ */
+function createCategoryChart({
+  type,
+  labels,
+  datasets,
+  axisTitle,
+  tickLabel,
+  span,
+  yGrid = {},
+  title = null,
+  height,
+  showAxis = true,
+  legend = true,
+  caller = "createCategoryChart",
+}) {
+  const element = document.createElement("div");
+
+  element.className = "chart-facet";
+
+  const chart = createChart({
+    container: element,
+    type,
+    data: { labels, datasets },
+    legend,
+    height,
+    tooltip: {
+      callbacks: {
+        // The whole key, where the axis had room only for a short form of it.
+        title: (items) => items[0]?.label ?? "",
+        label: (item) => {
+          const sem = item.dataset.sems?.[item.dataIndex];
+
+          return `${item.dataset.label}: ${score(item.raw)}${sem == null ? "" : ` ± ${score(sem)}`}`;
+        },
+      },
+    },
+    options: {
+      plugins: title
+        ? { title: { display: true, text: title, align: "start", color: AXIS } }
+        : {},
+      scales: {
+        x: {
+          type: "category",
+          // The marks stay where the labels are off: they say where the categories are and
+          // how many, which a plot too narrow to name them still owes the reader. Chart.js
+          // draws them from the grid config, so `drawOnChartArea` is what keeps the vertical
+          // gridlines away — `grid.display: false` would take the marks with them.
+          grid: {
+            display: true,
+            drawOnChartArea: false,
+            drawTicks: true,
+            tickLength: 4,
+            tickColor: AXIS,
+          },
+          ticks: {
+            display: showAxis,
+            color: AXIS,
+            // Every category, and the caller decides which of them are named: autoSkip
+            // would drop them by width, which moves the labels as the panel resizes.
+            autoSkip: false,
+            callback: (_, index) => tickLabel(labels[index], index),
+          },
+        },
+        y: {
+          title: { display: true, text: axisTitle, color: AXIS },
+          ...yGrid,
+          ...(span ? { suggestedMin: span.min, suggestedMax: span.max } : {}),
+        },
+      },
+    },
+    caller,
+  });
+
+  return { element, chart };
 }
 
 /**
@@ -308,7 +369,7 @@ export {
   GRID,
   SEM_INK,
   SURFACE,
+  createCategoryChart,
   createChart,
   destroyChart,
-  hatch,
 };

@@ -1,13 +1,23 @@
-// A heatmap, in HTML rather than on a canvas.
+// A grid of coloured cells, in HTML rather than on a canvas.
 //
 // Chart.js has no matrix chart — it needs a second plugin for one view — and a grid of
 // coloured boxes is a grid of coloured boxes: cells are elements, so the row labels are
 // real text, a cell can be hovered for its value, and the whole thing prints and copies.
 //
-// Generic in the same way chart.js is: it knows about columns, rows and a ramp, and nothing
-// about recordings or scores. What a cell means is the caller's — see recordingChart.js.
+// A different question from the plots rather than a prettier answer to theirs. A dot plot
+// says how much; this says where — a column dark across every row is a category that is hard
+// for all of them, and a pale row is a series that is behind everywhere rather than
+// somewhere.
 
 import { escapeHtml } from "../core/html.js";
+import { score } from "../core/utils.js";
+import {
+  groupSeries,
+  plotKey,
+  positionsIn,
+  sharedAxes,
+  sharedRanges,
+} from "./figure.js";
 import { SEQUENTIAL } from "./palette.js";
 
 // The bucket a value falls in, as an index into the ramp. Discrete rather than a continuous
@@ -69,6 +79,7 @@ function buildKey(range, format) {
  * @param title   what the block is measuring — the metric.
  * @param format  how a bound is written in the key.
  * @param labels  false to leave the column labels off, for an axis of unreadable ids.
+ * @returns the markup.
  */
 function buildHeatmap({
   columns,
@@ -110,4 +121,67 @@ function buildHeatmap({
     </div>`;
 }
 
-export { buildHeatmap };
+/**
+ * One block per metric, series down the rows and categories across.
+ *
+ * Blocked exactly as the plots are, and for the same two reasons: a cell's colour is a
+ * scale, so two metrics can't share one, and a region is not a recording so they can't share
+ * an axis — see figure.js.
+ *
+ * @param entries     the series.
+ * @param tickLabel   (key, {group, index, count, columns}) => what a column is headed with
+ *                    — as arrangePlots in figure.js. A block spans the page, so one column.
+ * @param showColumns (group) => whether that block heads its columns at all, for an axis of
+ *                    unreadable ids.
+ * @param cellTitle   (key, mean, sem) => a cell's hover text.
+ * @returns the markup.
+ */
+function buildHeatmaps({
+  entries,
+  tickLabel = (key) => key,
+  showColumns = () => true,
+  cellTitle = (key, mean, sem) =>
+    mean == null
+      ? `${key} — not measured`
+      : `${key} · ${score(mean)}${sem == null ? "" : ` ± ${score(sem)}`}`,
+}) {
+  const blocks = groupSeries(entries, "metric");
+  const axes = sharedAxes(entries, "value");
+  const ranges = sharedRanges(entries);
+
+  return blocks
+    .map(([metric, members]) => {
+      const group = members[0].group;
+      const labels = axes.get(group) ?? [];
+      const positions = members.map((entry) => positionsIn(entry, labels));
+
+      return buildHeatmap({
+        title: metric,
+        range: ranges.get(plotKey(members[0])) ?? { min: 0, max: 1 },
+        format: (value) => score(value),
+        labels: showColumns(group),
+        columns: labels.map((key, column) => ({
+          key,
+          label: tickLabel(key, {
+            group,
+            index: column,
+            count: labels.length,
+            columns: 1,
+          }),
+        })),
+        rows: members.map((entry, index) => ({
+          label: entry.label,
+          cells: labels.map((key, column) => {
+            const at = positions[index][column];
+            const mean = at < 0 ? null : entry.values.mean[at];
+            const sem = at < 0 ? null : entry.values.sem[at];
+
+            return { value: mean ?? null, title: cellTitle(key, mean, sem) };
+          }),
+        })),
+      });
+    })
+    .join("");
+}
+
+export { buildHeatmap, buildHeatmaps };

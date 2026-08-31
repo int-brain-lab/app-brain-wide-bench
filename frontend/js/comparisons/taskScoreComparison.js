@@ -11,15 +11,17 @@
 // recorded under different metrics, and the reader picks which one each is drawn in.
 
 import { escapeHtml } from "../core/html.js";
+import { renderHtml } from "../core/render.js";
 import { buildMessageCard } from "../components/messages.js";
 import { buildSuiteBadgeList } from "../components/badges.js";
 import { buildViewToggle } from "../components/viewToggle.js";
 import { buildComparisonGrid } from "../tables/comparisonGrid.js";
 import {
-  renderRecordingCharts,
-  renderRecordingHeatmaps,
-} from "../charts/recordingChart.js";
-import { SERIES_INK, seriesStyle } from "../charts/palette.js";
+  buildRecordingHeatmaps,
+  createRecordingPlots,
+  toScoreSeries,
+} from "../plots/recordingScorePlots.js";
+import { seriesColour } from "../plots/palette.js";
 import { loadTaskSubmission } from "../api/taskSubmissionApi.js";
 import {
   loadTaskFields,
@@ -27,7 +29,7 @@ import {
 } from "../schemas/taskSubmissionSchema.js";
 import { displayValue } from "../forms/fields.js";
 import { suiteFromTask } from "../core/suites.js";
-import { recordingMetricNames } from "../tables/recordingScoreTable.js";
+import { EMPTY_STORE, toRecordingStore } from "../utils/recordingScoreUtils.js";
 import { buildRowHeader, createComparison } from "./comparison.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
@@ -59,29 +61,39 @@ function slot(root, name) {
 // ─── ENTRIES ─────────────────────────────────────────────────────────────────
 
 // Read off the detail rather than stamped onto the entry when it lands: a score unticked and
-// reticked is a new entry answered from the cache, which never runs the fetch again.
-function recordingsOf(entry) {
-  return entry.detail?.score?.metrics?.recordings ?? [];
+// reticked is a new entry answered from the cache, which never runs the fetch again. Keyed on
+// the detail for the same reason, so the one that came back from the cache keeps its store.
+const stores = new WeakMap();
+
+function storeOf(entry) {
+  const detail = entry.detail;
+
+  if (!detail) return EMPTY_STORE;
+
+  if (!stores.has(detail))
+    stores.set(detail, toRecordingStore(detail.score?.metrics?.recordings));
+
+  return stores.get(detail);
 }
 
 // The reader's choice where they have made one and it still exists, the row's own metric
 // otherwise, and the first recorded one where neither holds.
 function metricOf(entry) {
-  const names = recordingMetricNames(recordingsOf(entry));
+  const names = Object.keys(storeOf(entry).metrics);
 
   if (!names.length || names.includes(entry.metric)) return entry.metric;
 
   return names[0];
 }
 
-function toSeriesEntry(entry, index, { overlaid = false } = {}) {
-  return {
-    key: entry.key,
-    ...(overlaid ? seriesStyle(index) : { colour: SERIES_INK }),
+// Coloured by its place in the comparison, whichever way the plots are read: a score keeps
+// one colour whether it shares a plot with the others or has one of its own, so a reader
+// switching between the two views doesn't have to find it again.
+function toSeriesEntry(entry, index) {
+  return toScoreSeries(storeOf(entry), metricOf(entry), {
+    colour: seriesColour(index),
     label: `${entry.modelName ?? entry.submissionLabel ?? ""} · ${entry.taskId}`,
-    metric: metricOf(entry),
-    recordings: recordingsOf(entry),
-  };
+  });
 }
 
 // ─── METHODOLOGY ─────────────────────────────────────────────────────────────
@@ -91,7 +103,7 @@ function toSeriesEntry(entry, index, { overlaid = false } = {}) {
 function buildMetricCell(entry) {
   const metric = metricOf(entry);
 
-  const options = recordingMetricNames(recordingsOf(entry))
+  const options = Object.keys(storeOf(entry).metrics)
     .map(
       (name) => `
       <option value="${escapeHtml(name)}" ${name === metric ? "selected" : ""}>
@@ -218,27 +230,29 @@ function createTaskComparison(options) {
     const plot = slot(root, "plot");
 
     if (view === "heatmap") {
-      renderRecordingHeatmaps({
-        container: plot,
-        entries: entries.map((entry) => toSeriesEntry(entry)),
-      });
+      renderHtml(
+        plot,
+        buildRecordingHeatmaps({
+          entries: entries.map((entry, index) => toSeriesEntry(entry, index)),
+        }),
+      );
 
       return;
     }
 
     const overlaid = view === "overlaid";
 
-    track(
-      renderRecordingCharts({
-        container: plot,
-        entries: entries.map((entry, index) =>
-          toSeriesEntry(entry, index, { overlaid }),
-        ),
-        charts: [],
-        facet: overlaid ? "metric" : "score",
-        size: overlaid ? "tall" : "regular",
-      }),
-    );
+    const plots = createRecordingPlots({
+      entries: entries.map((entry, index) => toSeriesEntry(entry, index)),
+      facet: overlaid ? "metric" : "score",
+      // Overlaid, a plot holds every score at once and is read closely, so two across gives
+      // each the width for its series without pushing the second metric below the fold.
+      layout: overlaid ? "pair" : undefined,
+      size: overlaid ? "tall" : "regular",
+    });
+
+    plot.replaceChildren(plots.element);
+    track(plots.charts);
   }
 
   function render({ root, entries, refresh, track }) {
