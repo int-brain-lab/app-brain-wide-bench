@@ -8,15 +8,17 @@
 // row rather than another column squeezing the rest, and a row can carry what identifies it —
 // the name, the team, and the colour the same model is drawn in everywhere else.
 
-import { taskLabel } from "../core/suites.js";
+import { suiteFromTask, taskLabel } from "../core/suites.js";
 import { escapeHtml } from "../core/html.js";
-import { buildMetricBadgeList } from "../components/badges.js";
+import {
+  buildMetricBadge,
+  buildSuiteBadge,
+} from "../components/badges.js";
 import { createTable } from "./table.js";
 import {
-  compareScoreSorter,
   diffFormatter,
-  diffSorter,
   meanSemFormatter,
+  meanSorter,
 } from "./formatters.js";
 
 // Colour reaches markup as a custom property, and escapeHtml does not sanitise CSS, so what
@@ -56,19 +58,31 @@ function modelFormatter(cell) {
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
-// The task without its suite — every column carries the same one — over the metric it is
-// measured in. The metric belongs to the task, so it is named once here rather than on every
-// cell beneath it.
-function taskHeader({ taskId, metric }) {
+// The task over the metric it is measured in. The metric belongs to the task, so it is named
+// once here rather than on every cell beneath it.
+//
+// `suite` where the columns span more than one, and the task name drops it either way: on a
+// single suite the badge would be the same word down every column, which is the repetition
+// taskLabel strips the prefix to avoid. Across suites it is the only thing telling two tasks
+// of the same metric apart.
+function taskHeader({ taskId, metric }, showSuite) {
+  const suite = showSuite ? suiteFromTask(taskId) : null;
+
   return `
     <span class="column gap-xs right">
       <span>${escapeHtml(taskLabel(taskId))}</span>
-      ${metric ? buildMetricBadgeList([metric], "sm") : ""}
+      <span class="row left gap-sm">
+        ${suite ? buildSuiteBadge(suite, "sm") : ""}
+        ${metric ? buildMetricBadge(metric, "sm") : ""}
+      </span>
     </span>
   `;
 }
 
 function getCompareColumns(tasks, { formatter, sorter }) {
+  const showSuite =
+    new Set(tasks.map((task) => suiteFromTask(task.taskId))).size > 1;
+
   return [
     {
       title: "Model",
@@ -82,7 +96,7 @@ function getCompareColumns(tasks, { formatter, sorter }) {
       frozen: true,
     },
     ...tasks.map((task) => ({
-      title: taskHeader(task),
+      title: taskHeader(task, showSuite),
       // The header is markup, so Tabulator has to be told not to escape it.
       titleFormatter: "html",
       field: task.taskId,
@@ -113,10 +127,12 @@ function getCompareColumns(tasks, { formatter, sorter }) {
  *          `table` has to be destroyed before it is replaced.
  */
 function createCompareTable({ rows, tasks, mode = "score" }) {
+  // One sorter either way: a difference is a `{ mean, sem }` like a score is, since both come
+  // from the same mode in compareData. Only the rendering differs — signed and coloured.
   const cells =
     mode === "diff"
-      ? { formatter: diffFormatter, sorter: diffSorter }
-      : { formatter: meanSemFormatter, sorter: compareScoreSorter };
+      ? { formatter: diffFormatter, sorter: meanSorter }
+      : { formatter: meanSemFormatter, sorter: meanSorter };
 
   return createTable({
     rows,

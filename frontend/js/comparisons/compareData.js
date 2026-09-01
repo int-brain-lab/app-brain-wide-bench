@@ -59,12 +59,15 @@ function latestScoresByTask(submissions) {
 
 // ─── ENTRIES ─────────────────────────────────────────────────────────────────
 
-// One model, reduced to its scores on a single suite. `model` is a ModelDetail — the
-// GET /api/models/{id} payload, whose submissions carry the task scores.
-function toCompareEntry(model, suite) {
+// One model, reduced to its scores. `model` is a ModelDetail — the GET /api/models/{id}
+// payload, whose submissions carry the task scores.
+//
+// `suite` narrows them to one; omit it for every task the model has scored, which is what a
+// comparison shows until the reader asks for less.
+function toCompareEntry(model, suite = "") {
   const tasks = Object.fromEntries(
     Object.entries(latestScoresByTask(model.submissions)).filter(
-      ([taskId]) => suiteFromTask(taskId) === suite,
+      ([taskId]) => !suite || suiteFromTask(taskId) === suite,
     ),
   );
 
@@ -80,25 +83,18 @@ function toCompareEntry(model, suite) {
 }
 
 /**
- * @param models    ModelDetail objects — the selected model and its comparators, in any
- *                  order.
- * @param suite     which suite the page is scoped to.
- * @param selectedId  the model being compared *against*.
- * @returns entries ordered for display: the selected model first, then the rest by mean
- *          descending. A model with no score on the suite sorts last rather than being
- *          dropped — it was explicitly chosen, and silently omitting it would read as a
- *          bug in the picker.
+ * @param models     ModelDetail objects, in the order they were picked.
+ * @param suite      which suite to narrow to, or "" for all of them.
+ * @param selectedId the model being compared *against*, which is badged rather than moved.
+ * @returns one entry per model, in the order given. Pick order rather than ranked: a mean
+ *          over a mixed set of metrics is not a ranking, and the reader chose the order the
+ *          picker is in. A model with no score on the suite is kept — it was explicitly
+ *          chosen, and silently omitting it would read as a bug in the picker.
  */
 function toCompareEntries(models, suite, selectedId) {
-  const entries = models
+  return models
     .map((model) => toCompareEntry(model, suite))
     .map((entry) => ({ ...entry, isSelected: entry.modelId === selectedId }));
-
-  return entries.sort((a, b) => {
-    if (a.isSelected !== b.isSelected) return a.isSelected ? -1 : 1;
-
-    return (b.mean ?? -Infinity) - (a.mean ?? -Infinity);
-  });
 }
 
 // ─── TASKS ───────────────────────────────────────────────────────────────────

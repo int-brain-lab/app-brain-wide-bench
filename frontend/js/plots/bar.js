@@ -25,6 +25,53 @@ function barMark(entry) {
   };
 }
 
+/**
+ * The bars of a category packed to the left of their group, the empty slots falling at the end.
+ *
+ * A category is divided by the number of series whether or not each has a value there, so a
+ * task only two of five models scored would otherwise draw two bars with holes between them —
+ * and a hole in a bar chart reads as a bar of no height. Packed, the bars are the same width in
+ * every category and the space is after them.
+ *
+ * Chart.js gives a series one slot per category, so the packing is done by moving values
+ * between the datasets and carrying each bar's colour and name along with it. Which means a
+ * dataset is no longer one series: `barNames` says whose each bar is, for the tooltip, and
+ * nothing may read a dataset's own `label` or colour — the key these plots carry is HTML, built
+ * from the series rather than from the datasets. See createSeriesKey in figure.js.
+ *
+ * The cost is that a series is no longer always in the same position within a group: a model
+ * after a missing one shifts left. Colour is what identifies a series here, which is what the
+ * palette is sized for.
+ */
+function packLeft(datasets) {
+  const categories = datasets[0]?.data.length ?? 0;
+
+  const packed = datasets.map((dataset) => ({
+    ...dataset,
+    data: [],
+    sems: [],
+    backgroundColor: [],
+    borderColor: [],
+    barNames: [],
+  }));
+
+  for (let at = 0; at < categories; at += 1) {
+    const present = datasets.filter((dataset) => dataset.data[at] != null);
+
+    packed.forEach((target, slot) => {
+      const source = present[slot];
+
+      target.data.push(source ? source.data[at] : null);
+      target.sems.push(source ? source.sems[at] : null);
+      target.backgroundColor.push(source ? source.backgroundColor : "#0000");
+      target.borderColor.push(source ? source.borderColor : "#0000");
+      target.barNames.push(source ? source.label : "");
+    });
+  }
+
+  return packed;
+}
+
 // Zero is drawn as a line rather than as one gridline among several — on a plot of
 // differences it is the boundary between ahead and behind, and a reader shouldn't have to
 // find it by reading the ticks.
@@ -53,7 +100,7 @@ function createBarPlot({
   return createCategoryChart({
     type: "bar",
     labels,
-    datasets: toDatasets(series, labels, barMark),
+    datasets: packLeft(toDatasets(series, labels, barMark)),
     axisTitle,
     tickLabel,
     span: range

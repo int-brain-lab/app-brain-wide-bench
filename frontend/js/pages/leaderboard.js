@@ -1,52 +1,58 @@
 // Page entry for html/leaderboard/leaderboard.html.
 //
-// Thin, like modelList.js and submissionList.js: fetch, then hand the payload to the table
-// module. The rows, columns, controls and the grouping/metric behaviour are all in
-// leaderboardTable.js; the fetch is in leaderboardApi.js.
+// Fetch the board, map it once, then hand the rows to the table. The rows and the ranking
+// over them are utils/leaderboardUtils.js and the columns are tables/leaderboardTable.js;
+// what this page owns is which tasks the board is ranked over.
+//
+// Two lists above it, and only one of them decides anything: the tasks. The suites are a
+// shortcut into that list — ticking one ticks its tasks — because a reader almost always
+// wants a whole suite and occasionally wants part of one. Re-ranking needs no request: the
+// server sends a rank per task and ranking a model within a task doesn't depend on which
+// other tasks are on screen, so the mean is recomputed here.
 //
 // It also owns the reader's own team ids. /api/leaderboard has no notion of a caller — that
 // is what keeps one public board cacheable — so marking which rows are the reader's is an
 // intersection done here, from a second request for their memberships.
-//
-// What this page owns beyond that is the field filter. It sits above the table rather than
-// inside it because it is a different kind of narrowing: the table's own model search hides
-// rows and leaves every rank alone, while this one changes who a model is ranked against
-// and so has to go back to the server for new ranks.
-//
-// The chrome is the shared one — header, body section, message region — so the leaderboard
-// reports an empty result or a failure exactly as the list pages do. It boots through
-// loadPage for the same reason: resolving the session, choosing the shell and reporting a
-// failure are the same job on every page, and this one was doing its own version of it.
 
 import { getLeaderboard } from "../api/leaderboardApi.js";
 import { getTasks } from "../api/metaApi.js";
 import { getMyTeams } from "../api/teamApi.js";
-import { renderLeaderboardTable } from "../tables/leaderboardTable.js";
-import {
-  MAX_COMPARED,
-  createTaskComparison,
-} from "../comparisons/taskScoreComparison.js";
-import { createTaskBreakdown } from "../widgets/taskBreakdown.js";
-import { createModelComparison } from "../comparisons/modelComparison.js";
-import { bindTableSelection } from "../comparisons/comparison.js";
-import { loadPage } from "../templates/page.js";
-import { refreshIcons, renderHtml } from "../core/render.js";
-import { escapeHtml } from "../core/html.js";
+import { dispose } from "../core/disposable.js";
+import { getElement, renderHtml } from "../core/render.js";
+import { SUITES, suiteFromTask, suiteLabel } from "../core/suites.js";
 import {
   buildEmptyMessage,
   buildFailureMessage,
   buildInfoMessage,
 } from "../components/messages.js";
-import { dispose } from "../core/disposable.js";
-import { getIcon } from "../components/icons.js";
-import { renderHeader, renderPage } from "../templates/pageChrome.js";
 import {
-  buildSection,
-  getSection,
-  getSectionBody,
+  buildCheckList,
+  buildSelect,
+  checkedIn,
+  setCheckedIn,
+} from "../components/filters.js";
+import {
+  COMPARE_BUTTON_ID,
+  buildButton,
+  buildCompareButton,
+} from "../components/buttons.js";
+import { getIcon } from "../components/icons.js";
+import { createModelComparison } from "../comparisons/modelComparison.js";
+import { bindTableSelection } from "../comparisons/comparison.js";
+import {
   buildHeader,
   buildPage,
+  buildSections,
+  getSection,
+  getSectionBody,
 } from "../components/sections.js";
+import {
+  toLeaderboardRows,
+  toTaskMetrics,
+} from "../utils/leaderboardUtils.js";
+import { createLeaderboardTable } from "../tables/leaderboardTable.js";
+import { loadPage } from "../templates/page.js";
+import { renderHeader, renderPage } from "../templates/pageChrome.js";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
@@ -54,421 +60,415 @@ const TITLE = "Leaderboard";
 const DESCRIPTION =
   "Public, completed submissions scored against held-out test data.";
 
-const PRETRAINED_PARAM = "pretrained";
+const TASKS_SECTION = "board-tasks";
+const FILTERS_SECTION = "board-filters";
+const BOARD_SECTION = "board";
+const COMPARE_SECTION = "board-compare";
 
-// Hardcoded rather than derived from the rows, the same way SUITE_OPTIONS is: an option
-// that disappeared exactly when nothing on the board matched it would be the one worth
-// offering. "" first so it is what the select opens on.
-//
-// Only the two answers, so a model whose flag was never filled in is in "All models" and
-// nowhere else — the endpoint treats an unanswered question as neither value.
+// The lists are found by `data-role`, not by the bar's `data-filter`: neither narrows rows,
+// and a delegated listener must never mistake one for a filter control.
+const SUITE_LIST = "suite";
+const TASK_LIST = "task";
+const PRETRAINED = "pretrained";
+const HOOK = "role";
+
+const APPLY_ID = "apply-filters";
+
+// Hardcoded rather than derived from the rows: an option that disappeared exactly when
+// nothing on the board matched it would be the one worth offering. Only the two answers —
+// the blank option is every model, and a model whose flag was never filled in is in that and
+// nowhere else, because the endpoint reads an unanswered question as neither value.
 const PRETRAINED_OPTIONS = [
-  { value: "", label: "All models" },
   { value: "true", label: "Pretrained" },
   { value: "false", label: "Not pretrained" },
 ];
 
-// ─── FILTER ──────────────────────────────────────────────────────────────────
+// What a shareable board is: which tasks it is ranked over. The suites are not in the URL —
+// they are a way of ticking tasks, and the tasks say what was ticked.
+const TASKS_PARAM = "tasks";
+const PRETRAINED_PARAM = "pretrained";
 
-function readFilters() {
-  const value = new URLSearchParams(location.search).get(PRETRAINED_PARAM);
+// ─── STATE ───────────────────────────────────────────────────────────────────
 
-  return {
-    isPretrained: PRETRAINED_OPTIONS.some((o) => o.value === value)
-      ? value
-      : "",
-  };
+function readTasks(available) {
+  const asked = (
+    new URLSearchParams(location.search).get(TASKS_PARAM) ?? ""
+  ).split(",");
+
+  const known = asked.filter((taskId) => available.includes(taskId));
+
+  // Every task by default: the board opens on the whole benchmark, and narrowing is the
+  // reader's to ask for.
+  return known.length ? known : available;
 }
 
-// replaceState, not pushState: working a dropdown shouldn't build a stack of history
-// entries to press Back through. The URL still survives a refresh and can still be sent.
-function writeFilters({ isPretrained }) {
-  const params = new URLSearchParams(location.search);
+function writeTasks(taskIds, available) {
+  const url = new URL(location.href);
 
-  if (isPretrained) params.set(PRETRAINED_PARAM, isPretrained);
-  else params.delete(PRETRAINED_PARAM);
+  // Nothing in the URL for the default, so a shared link is the short one until the reader
+  // has actually chosen something.
+  if (taskIds.length === available.length) url.searchParams.delete(TASKS_PARAM);
+  else url.searchParams.set(TASKS_PARAM, taskIds.join(","));
 
-  history.replaceState(
-    history.state,
-    "",
-    params.size ? `?${params}` : location.pathname,
+  history.replaceState(null, "", url);
+}
+
+function readPretrained() {
+  const asked = new URLSearchParams(location.search).get(PRETRAINED_PARAM);
+
+  return PRETRAINED_OPTIONS.some((option) => option.value === asked)
+    ? asked
+    : "";
+}
+
+// replaceState, not pushState: working a filter shouldn't build a stack of history entries to
+// press Back through. The URL still survives a refresh and can still be sent.
+function writePretrained(value) {
+  const url = new URL(location.href);
+
+  if (value) url.searchParams.set(PRETRAINED_PARAM, value);
+  else url.searchParams.delete(PRETRAINED_PARAM);
+
+  history.replaceState(null, "", url);
+}
+
+// ─── LISTS ───────────────────────────────────────────────────────────────────
+
+// Grouped by suite and in SUITES order, so the list reads the way every other suite list in
+// the app does. The label drops the suite prefix, which the group heading carries instead.
+function toTaskGroups(taskIds) {
+  return SUITES.map((suite) => ({
+    label: suiteLabel(suite),
+    options: taskIds
+      .filter((taskId) => suiteFromTask(taskId) === suite)
+      .map((taskId) => ({
+        value: taskId,
+        label: taskId.slice(taskId.indexOf("-") + 1),
+      })),
+  })).filter((group) => group.options.length);
+}
+
+// A suite is ticked where every one of its tasks is: a partly-chosen suite is not chosen,
+// because ticking it is what chooses all of them.
+function suitesOf(taskIds, bySuite) {
+  return [...bySuite.keys()].filter((suite) =>
+    bySuite.get(suite).every((taskId) => taskIds.includes(taskId)),
   );
 }
 
-function buildFilterBar(selected, comparing) {
-  const options = PRETRAINED_OPTIONS.map(
-    (option) => `
-      <option value="${escapeHtml(option.value)}" ${option.value === selected ? "selected" : ""}>
-        ${escapeHtml(option.label)}
-      </option>
-    `,
-  ).join("");
+function buildLists(available, taskIds, bySuite) {
+  return `
+    <div class="column gap-md">
+      ${buildCheckList({
+        name: SUITE_LIST,
+        hook: HOOK,
+        options: SUITES.filter((suite) => bySuite.has(suite)).map((suite) => ({
+          value: suite,
+          label: suiteLabel(suite),
+        })),
+        selected: suitesOf(taskIds, bySuite),
+      })}
+      ${buildCheckList({
+        name: TASK_LIST,
+        hook: HOOK,
+        options: toTaskGroups(available),
+        selected: taskIds,
+        columns: 3,
+      })}
+    </div>`;
+}
 
-  // The filter on the left, the mode on the right: one narrows the board, the other changes
-  // what a click on a row does, and they are different kinds of control.
+// ─── COMPARING ───────────────────────────────────────────────────────────────
+
+// Lit while the board's rows are picks rather than links, matching the list pages' own
+// compare button — see toggleComparison in templates/listView.js.
+function markComparing(on) {
+  getElement(COMPARE_BUTTON_ID)?.classList.toggle("primary", on);
+}
+
+// ─── FILTERS ─────────────────────────────────────────────────────────────────
+
+// The filter and the button that applies it. Applied on the button rather than on the
+// dropdown, because narrowing the field is a request: the ranks come back computed over
+// whatever survives, so a change here is a new board rather than a redraw of this one.
+//
+// Which is also why the task lists above apply themselves — those need no request, and a
+// control that waits when it doesn't have to is a control that reads as broken.
+function buildFilters(selected) {
   return `
     <div class="row">
       <span class="row left gap-md">
         <span class="metadata">Restrict the field</span>
         <span class="inline-select">
-          <select class="input-select" data-role="pretrained">${options}</select>
+          ${buildSelect({
+            name: PRETRAINED,
+            hook: HOOK,
+            options: PRETRAINED_OPTIONS,
+            selected,
+            placeholder: "All models",
+          })}
         </span>
       </span>
-      <button type="button" class="btn with-icon ${comparing ? "primary-inv" : ""}" data-role="mode">
-        <i class="btn-icon" data-lucide="${escapeHtml(getIcon("compare"))}"></i>
-        ${comparing ? "Done comparing" : "Compare tasks"}
-      </button>
-    </div>
-  `;
+      ${buildButton({
+        id: APPLY_ID,
+        label: "Apply filters",
+        icon: getIcon("filter"),
+        // Nothing to apply until the dropdown differs from what the board was fetched with.
+        disabled: true,
+      })}
+    </div>`;
 }
 
-// ─── INITIALISATION ──────────────────────────────────────────────────────────
+// ─── PAGE ────────────────────────────────────────────────────────────────────
 
 function renderLeaderboardPage({ tasks, myTeamIds }) {
   renderPage(
     buildPage({
       header: buildHeader(),
-      body:
-        buildSection({ id: "filters" }) +
-        buildSection({ id: "leaderboard" }) +
-        buildSection({ id: "compare", title: "Compare on this task" }),
+      body: buildSections([
+        { id: TASKS_SECTION, title: "Ranked over" },
+        { id: FILTERS_SECTION, title: "Filters" },
+        {
+          id: BOARD_SECTION,
+          title: "Standings",
+          actions: [buildCompareButton({ label: "Compare models" })],
+        },
+        { id: COMPARE_SECTION, title: "Compare models", hidden: true },
+      ]),
     }),
   );
 
   renderHeader(TITLE, DESCRIPTION);
 
-  const filters = readFilters();
+  const available = tasks.map((task) => task.id).sort();
+  const metrics = toTaskMetrics(tasks);
 
-  // Replacing the section's contents detaches a Tabulator's element but doesn't free it;
-  // its own registry keeps the instance and its ResizeObserver alive, one orphan per
-  // filter change.
-  let table = null;
+  // `{ suite: [taskId] }`, for the suite list and for what ticking one means.
+  const bySuite = new Map();
 
-  // Built once for the page rather than per render: it holds the reader's choice of view
-  // and whatever it has already fetched, and the board underneath it is rebuilt on every
-  // filter change.
-  //
-  // Hidden until there is something in it — the section heading claims a comparison, and
-  // an empty one under a board nobody has selected from is a promise the page hasn't kept.
-  const compareSection = getSection("compare");
+  for (const taskId of available) {
+    const suite = suiteFromTask(taskId);
 
-  // The section holds one of two things, so it says which — a heading promising a
-  // comparison over a single score's breakdown would be describing the wrong thing.
-  function showCompareSection(visible, title = "Compare on this task") {
-    compareSection.hidden = !visible;
-    compareSection.querySelector(".section-title").textContent = title;
+    if (suite) bySuite.set(suite, [...(bySuite.get(suite) ?? []), taskId]);
   }
 
-  // A pane per comparison rather than one shared element. Each widget delegates clicks from
-  // its own root, so a shared root means every widget hears every other one's ✕ — and one
-  // handed a key from a widget it isn't listening to looks up nothing, which is how a single
-  // removal used to clear the whole board.
-  const PANES = ["tasks", "browse", "models"];
-
-  // Two elements per pane, because a widget's empty state un-hides the element it draws
-  // into. The one the page hides therefore can't be one a widget owns.
-  getSectionBody("compare").innerHTML = PANES.map(
-    (name) => `<div data-pane="${name}" hidden><div></div></div>`,
-  ).join("");
-
-  function pane(name) {
-    return getSectionBody("compare").querySelector(`[data-pane='${name}']`);
-  }
-
-  function paneBody(name) {
-    return pane(name).firstElementChild;
-  }
-
-  // Only one is ever open, and the other two keep whatever they last drew: a reader who
-  // unticks everything and ticks again finds the comparison as they left it.
-  function showPane(name) {
-    for (const key of PANES) pane(key).hidden = key !== name;
-  }
-
-  // What a fresh compare mode invites, which depends on what the board is showing: one
-  // task makes the rows scores to compare against each other, anything coarser makes them
-  // models to compare across a suite.
-  // Both branches say it through the widget's own empty state rather than writing one over
-  // the top of it: the cap and the wording are the comparison's, and the page only decides
-  // which of the two is being invited.
-  function promptToCompare(metric) {
-    if (!taskFor(metric)) {
-      showCompareSection(true, "Compare models");
-      showPane("models");
-      models.clear();
-
-      return;
-    }
-
-    showCompareSection(true);
-    showPane("tasks");
-    comparison.clear();
-  }
-
-  const comparison = createTaskComparison({
-    container: paneBody("tasks"),
-    toEntry: toTaskEntry,
-    // A board row is a model's standing on the chosen task, so "rows" rather than the
-    // "task scores" the scores page calls the same things.
-    prompt: `Select up to ${MAX_COMPARED} rows to compare their scores on this task.`,
-  });
-
-  // One per pane: comparing is a mode, the two comparisons are what the metric select
-  // decides between, and browsing is what a row click does outside compare mode altogether.
-  const breakdown = createTaskBreakdown({ container: paneBody("browse") });
-
-  const models = createModelComparison({
-    container: paneBody("models"),
-    toEntry: toModelEntry,
-  });
-
-  // A binding each, and only the one the metric calls for is attached: the same tick means a
-  // score on a task and a whole model on anything coarser, so the two must never both be
-  // reconciling the board.
-  const picking = {
-    // A comparison knows a score by the task submission that produced it; the board knows a
-    // row by the standing it belongs to. This is all that the map between them ever was.
-    tasks: bindTableSelection(comparison, { rowIndex: (entry) => entry.rowId }),
-    models: bindTableSelection(models),
-  };
-
-  function usePicking(metric) {
-    const active = taskFor(metric) ? "tasks" : "models";
-
-    picking[active].attach(table);
-    picking[active === "tasks" ? "models" : "tasks"].attach(null);
-
-    return picking[active];
-  }
-
-  // Which row is open, marked on the row itself: outside compare mode nothing is selected,
-  // so there is no highlight of Tabulator's to borrow.
-  let openRow = null;
-
-  function markOpen(element) {
-    openRow?.classList.remove("row-open");
-    openRow = element ?? null;
-    openRow?.classList.add("row-open");
-  }
-
-  showCompareSection(false);
-
-  // A leaderboard row is a model's standing, so its score on the chosen task names the
-  // entry that produced it — see LeaderboardScore. That is all a comparison needs to
-  // start; it fetches the breakdown and the methodology itself.
-  //
-  // Nothing for a row with no score on that task, and nothing at all where the board isn't
-  // showing one: the comparison drops what it can't take rather than comparing nothing.
-  function toTaskEntry(row, metric = currentMetric()) {
-    const taskId = taskFor(metric);
-    const score = taskId && row.scores?.[taskId];
-
-    return (
-      score && {
-        key: score.task_submission_id,
-        // The board knows a row by its standing's newest submission, which is the only
-        // handle the table has; the comparison knows it by the score inside. Carried so a ✕
-        // can untick the right row — all the map between them ever was.
-        rowId: row.submissionId,
-        taskId,
-        submissionId: score.submission_id,
-        modelName: row.title,
-        metric: score.metric,
-      }
-    );
-  }
-
-  // Which of the two comparisons a tick is for. The metric select decides: a task makes a
-  // row one score, and anything coarser — a suite, or Overall — makes it a whole model.
-  function taskFor(metric) {
-    return tasks.some((task) => task.id === metric) ? metric : null;
-  }
-
-  // A board row names a model and carries none of its specification, which is what the
-  // comparison fetches for itself. The row's own id is its standing's newest submission —
-  // the only handle the table has — so that is the key, and the row index with it.
+  // A row is one model, and the model is what the table is indexed by — so a tick and a pick
+  // are the same key, and the comparison's own cache key is that key too. The rest is what it
+  // shows before its fetch lands.
   function toModelEntry(row) {
     return {
-      key: row.submissionId,
+      key: row.modelId,
       modelId: row.modelId,
-      name: row.title,
-      teamName: row.affiliation,
+      name: row.model_name,
+      teamName: row.team_name,
     };
   }
 
-  // A model's name is a link to its page, and a click that landed on it is going there —
-  // opening a breakdown underneath as well would be two answers to one click.
-  function onRowClick(row, metric, { event, element }) {
-    if (event.target.closest("a")) return;
-
-    const entry = toTaskEntry(row, metric);
-
-    // Nothing to open: the board is showing a suite or the overall figure, where a row is
-    // several scores rather than one.
-    if (!entry) return;
-
-    markOpen(element);
-    showCompareSection(true, "Task detail");
-    showPane("browse");
-    breakdown.show(entry);
-  }
-
-  function onSelection(rows, { metric }) {
-    const active = usePicking(metric);
-
-    // No task means the rows are models rather than scores, and the comparison for that is
-    // a different one — the specification of each, and how they scored across the suite.
-    if (!taskFor(metric)) {
-      comparison.clear();
-      showCompareSection(true, "Compare models");
-      showPane("models");
-      models.set(rows, metric);
-    } else {
-      models.clear();
-
-      // Re-stated rather than assumed: the heading may still be the model comparison's, from
-      // a compare mode that opened on a suite before the reader picked a task. With nothing
-      // ticked the comparison puts its own invitation there, which is why this doesn't have
-      // to say anything about an empty selection.
-      showCompareSection(true);
-      showPane("tasks");
-      comparison.set(rows);
-    }
-
-    // The comparison refuses a pick past its cap and drops a row it has no entry for, so the
-    // board may be showing ticks it doesn't hold. This is what takes those back.
-    active.sync();
-  }
-
-  // Whether rows are pickable, and the payload they are picked from. The mode is a
-  // property of the page rather than of a fetch: switching it re-mounts the board from
-  // what is already in hand, since the rows haven't changed — only what a click does.
   let comparing = false;
-  let standings = null;
 
-  // The metric select belongs to the table's filter bar, so the page reads it back rather
-  // than keeping a second copy that could disagree with the control on screen.
-  function currentMetric() {
-    return (
-      getSectionBody("leaderboard").querySelector("[data-filter='metric']")
-        ?.value ?? ""
-    );
-  }
+  // Built on the first compare and kept: it holds the picks and whatever it has already
+  // fetched, and the board underneath is rebuilt on every change.
+  let comparison = null;
+  let picking = null;
 
-  function mountTable() {
-    dispose(table);
+  function ensureComparison() {
+    if (comparison) return picking;
 
-    // A new mode or a new board closes whatever was open.
-    comparison.clear();
-    models.clear();
-    breakdown.clear();
-    markOpen(null);
-
-    if (comparing) promptToCompare(currentMetric());
-    else showCompareSection(false);
-
-    table = renderLeaderboardTable({
-      container: getSectionBody("leaderboard"),
-      standings,
-      tasks,
-      myTeamIds,
-      // One or the other, never both: in compare mode a row click picks the row for the
-      // comparison, and the rest of the time it opens the row's breakdown underneath. Both
-      // bound at once would be two answers to one click.
-      ...(comparing
-        ? {
-            selection: {
-              max: MAX_COMPARED,
-              onChange: onSelection,
-              claimLinks: true,
-            },
-          }
-        : { onRowClick }),
+    comparison = createModelComparison({
+      container: getSectionBody(COMPARE_SECTION),
+      toEntry: toModelEntry,
     });
 
-    // After the board exists, and after the metric has been read back off its own filter
-    // bar: which comparison a tick belongs to is what decides which binding follows it.
-    if (comparing) usePicking(currentMetric());
-    else for (const binding of Object.values(picking)) binding.attach(null);
+    picking = bindTableSelection(comparison);
+
+    return picking;
   }
 
-  function setMode(next) {
-    comparing = next;
+  let chosen = readTasks(available);
 
-    getSectionBody("filters").innerHTML = buildFilterBar(
-      filters.isPretrained,
-      comparing,
-    );
-    refreshIcons();
+  // What the board on screen was fetched with, as against what the dropdown currently says —
+  // the difference is what the Apply button is for.
+  let applied = readPretrained();
+  let standings = null;
 
-    if (standings?.length) mountTable();
-    else showCompareSection(false);
-  }
+  // Replacing the section's contents detaches a Tabulator's element but doesn't free it: its
+  // own registry keeps the instance and its ResizeObserver alive, one orphan per redraw.
+  let table = null;
 
-  // A reader can change the filter faster than the fetch returns, and without this the
-  // slower answer lands last and draws a board nobody asked for.
-  let latest = 0;
+  function renderBoard() {
+    const body = getSectionBody(BOARD_SECTION);
 
-  async function renderBoard() {
-    const token = ++latest;
+    // Detached before it is destroyed: the binding holds the instance and subscribes to the
+    // comparison, so a disposed table left attached would be reconciled against on the next
+    // pick — see destroyTable in templates/listView.js.
+    picking?.attach(null);
 
     dispose(table);
     table = null;
 
-    renderHtml(
-      getSectionBody("leaderboard"),
-      buildInfoMessage("Loading scores…"),
-    );
-
-    standings = await getLeaderboard(filters);
-
-    if (token !== latest) return;
-
     if (!standings) {
-      renderHtml(
-        getSectionBody("leaderboard"),
-        buildFailureMessage("Loading the leaderboard failed."),
-      );
+      renderHtml(body, buildFailureMessage("The leaderboard failed to load."));
+
       return;
     }
 
-    // An empty payload isn't a failure, but why it is empty differs: nothing scored yet is
-    // a fact about the benchmark, and nothing matching is a fact about the filter. Saying
-    // the wrong one sends the reader looking in the wrong place.
-    if (standings.length === 0) {
-      renderHtml(
-        getSectionBody("leaderboard"),
-        buildEmptyMessage(
-          filters.isPretrained
-            ? "No models match this filter yet — most submissions haven't recorded whether their model is pretrained."
-            : "No public submissions have been scored yet.",
-        ),
-      );
+    if (!chosen.length) {
+      renderHtml(body, buildEmptyMessage("Choose a task to rank the board by."));
+
       return;
     }
 
-    mountTable();
+    const rows = toLeaderboardRows(standings, chosen, myTeamIds);
+
+    if (!rows.length) {
+      renderHtml(body, buildEmptyMessage("No models have been scored yet."));
+
+      return;
+    }
+
+    // Selection behaviour is fixed when a Tabulator is created, which is why entering or
+    // leaving compare mode rebuilds the board rather than reconfiguring it.
+    const binding = comparing ? ensureComparison() : null;
+
+    const mounted = createLeaderboardTable({
+      rows,
+      taskIds: chosen,
+      metrics,
+      selection: binding?.selection() ?? null,
+    });
+
+    body.replaceChildren(mounted.element);
+    table = mounted.table;
+
+    // Attached after the build, so the ticks already in the comparison are put back on the
+    // rows that carry them — a board rebuilt by a task change keeps its picks.
+    picking?.attach(comparing ? table : null);
   }
 
-  setMode(false);
+  // The lists are written once and read back on every change: the boxes are the state, so
+  // the only thing a render owes them is the suites the task choice adds up to.
+  function renderLists() {
+    renderHtml(
+      getSectionBody(TASKS_SECTION),
+      buildLists(available, chosen, bySuite),
+    );
+  }
 
-  // Delegated, because the bar is rewritten whenever the mode changes and the button in
-  // it is what changes.
-  getSectionBody("filters").addEventListener("input", (event) => {
-    const pretrained = event.target.closest("[data-role='pretrained']");
+  // Written once too, and thereafter the dropdown holds the pending value while `applied`
+  // holds the fetched one. `refresh` because the button carries an icon.
+  function renderFilters() {
+    renderHtml(getSectionBody(FILTERS_SECTION), buildFilters(applied), {
+      refresh: true,
+    });
+  }
 
-    if (!pretrained) return;
+  function pendingPretrained() {
+    return (
+      getSectionBody(FILTERS_SECTION).querySelector(
+        `[data-${HOOK}='${PRETRAINED}']`,
+      )?.value ?? ""
+    );
+  }
 
-    filters.isPretrained = pretrained.value;
-    writeFilters(filters);
-    renderBoard();
-  });
+  function applyButton() {
+    return getElement(APPLY_ID);
+  }
 
-  getSectionBody("filters").addEventListener("click", (event) => {
-    if (event.target.closest("[data-role='mode']")) setMode(!comparing);
-  });
+  // The board is fetched, not redrawn: the ranks are computed over whatever survives the
+  // filter, so a narrowed field is a different set of numbers.
+  function loadBoard() {
+    const button = applyButton();
 
-  return renderBoard();
+    if (button) button.disabled = true;
+
+    renderHtml(
+      getSectionBody(BOARD_SECTION),
+      buildInfoMessage("Loading the board…"),
+    );
+
+    return getLeaderboard({ isPretrained: applied }).then((loaded) => {
+      standings = loaded;
+      renderBoard();
+
+      // Live again only where pressing it would do something: a board that failed to load is
+      // worth asking for again with the same filter, one that arrived is not.
+      const after = applyButton();
+
+      if (after) {
+        after.disabled = Boolean(standings) && pendingPretrained() === applied;
+      }
+    });
+  }
+
+  function attachEvents() {
+    const root = getSectionBody(TASKS_SECTION);
+
+    root.addEventListener("change", (event) => {
+      const box = event.target;
+
+      if (box.dataset?.[HOOK] === SUITE_LIST) {
+        // A suite ticks or unticks its own tasks, leaving the others alone: a reader adding
+        // TS2 to a part-chosen TS1 means "and TS2", not "only TS2".
+        const own = bySuite.get(box.value) ?? [];
+
+        chosen = box.checked
+          ? [...chosen, ...own.filter((taskId) => !chosen.includes(taskId))]
+          : chosen.filter((taskId) => !own.includes(taskId));
+
+        setCheckedIn(root, TASK_LIST, chosen, HOOK);
+      } else if (box.dataset?.[HOOK] === TASK_LIST) {
+        chosen = checkedIn(root, TASK_LIST, HOOK);
+
+        // The suites follow the tasks rather than the other way about, so unticking one task
+        // of a suite unticks the suite without touching the rest.
+        setCheckedIn(root, SUITE_LIST, suitesOf(chosen, bySuite), HOOK);
+      } else {
+        return;
+      }
+
+      // In the order the board reads, not the order they were ticked.
+      chosen = available.filter((taskId) => chosen.includes(taskId));
+
+      writeTasks(chosen, available);
+      renderBoard();
+    });
+
+    const filters = getSectionBody(FILTERS_SECTION);
+
+    // On the section rather than on the select: both live for the life of the page, so either
+    // would do, and the section is what a future filter would be added under.
+    filters.addEventListener("change", () => {
+      const button = applyButton();
+
+      if (button) button.disabled = pendingPretrained() === applied;
+    });
+
+    filters.addEventListener("click", (event) => {
+      if (!event.target.closest(`#${APPLY_ID}`)) return;
+
+      applied = pendingPretrained();
+
+      writePretrained(applied);
+      loadBoard();
+    });
+
+    getElement(COMPARE_BUTTON_ID)?.addEventListener("click", () => {
+      comparing = !comparing;
+
+      markComparing(comparing);
+      getSection(COMPARE_SECTION).hidden = !comparing;
+
+      renderBoard();
+    });
+  }
+
+  renderLists();
+  renderFilters();
+  attachEvents();
+
+  // The controls are drawn from the task table, which is already in hand, so they are usable
+  // before the board arrives — and the board is what every later render replaces.
+  return loadBoard();
 }
 
 loadPage({
@@ -479,14 +479,13 @@ loadPage({
   requiresAuth: false,
 
   load: async (id, { signedIn }) => {
-    // Fetched once and kept: the task table is what the columns are built from, and it does
-    // not change with the filter — only the rows do. A failure here is the page failing,
-    // which is loadPage's to report.
+    // The task table is what the columns are built from, and it doesn't change with the
+    // choice — only which of them are shown does. A failure here is the page failing, which
+    // is loadPage's to report.
     //
-    // The memberships are fetched once too, and only when there is a session to fetch them
-    // for. A failure there leaves the set empty, so the board renders without the "Yours"
-    // pill rather than not at all — knowing which rows are yours is the least of what this
-    // page is for.
+    // The memberships are fetched only when there is a session to fetch them for, and a
+    // failure leaves the set empty: the board then renders without the "Yours" pill rather
+    // than not at all.
     const [tasks, teams] = await Promise.all([
       getTasks(),
       signedIn ? getMyTeams() : [],

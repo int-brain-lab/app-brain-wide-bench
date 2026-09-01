@@ -44,21 +44,22 @@ function rankBadge(rank) {
     : String(rank);
 }
 
-function rankValue(value) {
-  return value == null
-    ? emptyMetadata()
-    : `<span class="rank-value">${escapeHtml(value.toFixed(2))}</span>`;
-}
-
-function buildMeanSem(mean, sem) {
+/**
+ * @param stacked the spread on its own line under the value, for a cell too narrow to hold
+ *                both on one — the compare grid gives a task an eighth of the page.
+ */
+function buildMeanSem(mean, sem, { stacked = false } = {}) {
   if (mean == null) return emptyMetadata();
 
-  const spread =
-    sem == null
-      ? ""
-      : ` <span class="metadata">± ${escapeHtml(score(sem))}</span>`;
+  const value = `<span class="value">${escapeHtml(score(mean))}</span>`;
 
-  return `<span class="value">${escapeHtml(score(mean))}</span>${spread}`;
+  if (sem == null) return value;
+
+  const spread = `<span class="metadata">± ${escapeHtml(score(sem))}</span>`;
+
+  return stacked
+    ? `<span class="column gap-xs right">${value}${spread}</span>`
+    : `${value} ${spread}`;
 }
 
 function taskLinkAttributes(row) {
@@ -70,14 +71,50 @@ function taskLinkAttributes(row) {
 }
 
 // ─── SORTERS ─────────────────────────────────────────────────────────────────
+//
+// Tabulator swaps the two rows for a descending sort rather than negating what a sorter
+// returns — `a = "asc" == dir ? first : second` — so a sorter always compares as if
+// ascending. Which also means a sorter with a fixed idea of where empties go has to undo
+// that swap itself, and that is the whole reason `valueSorter` takes `dir`.
 
-function numericSorter(a, b) {
-  if (a == null && b == null) return 0;
-  if (a == null) return -1;
-  if (b == null) return 1;
+/**
+ * A comparison over values that may be missing.
+ *
+ * @param compare   (a, b) => the ascending order of two present values.
+ * @param emptyLast the missing at the bottom of the table whichever way it is sorted. For a
+ *                  column where absence is not a low value but a different kind of answer —
+ *                  an unranked model hasn't placed below the others so much as not competed,
+ *                  and an unscored task isn't a score of zero. Omit and the missing sort as
+ *                  the smallest, which is Tabulator's own habit.
+ * @returns a Tabulator sorter.
+ */
+function valueSorter(compare, { emptyLast = false } = {}) {
+  return (a, b, aRow, bRow, column, dir) => {
+    const missing = emptyLast && dir === "desc" ? -1 : 1;
 
-  return a - b;
+    if (a == null && b == null) return 0;
+    if (a == null) return emptyLast ? missing : -1;
+    if (b == null) return emptyLast ? -missing : 1;
+
+    return compare(a, b);
+  };
 }
+
+const ascending = (a, b) => a - b;
+
+// Numbers, the missing sorting as the smallest — a plain count or a size, where nothing to
+// show and the least of it read the same way.
+const numericSorter = valueSorter(ascending);
+
+// A rank, or any figure where nothing to show is not the least of it.
+const rankSorter = valueSorter(ascending, { emptyLast: true });
+
+// A `{ mean, sem }` cell — the score tables and the comparison grids hold the whole object so
+// that both halves print from one field.
+const meanSorter = valueSorter(
+  (a, b) => a.mean - b.mean,
+  { emptyLast: true },
+);
 
 function dateSorter(a, b) {
   if (!a && !b) return 0;
@@ -85,25 +122,6 @@ function dateSorter(a, b) {
   if (!b) return 1;
 
   return a < b ? -1 : a > b ? 1 : 0;
-}
-
-function rankOrder(a, b) {
-  if (a == null && b == null) return 0;
-  if (a == null) return 1;
-  if (b == null) return -1;
-
-  return a - b;
-}
-
-function compareScoreSorter(a, b) {
-  return numericSorter(a?.mean ?? null, b?.mean ?? null);
-}
-
-// A difference is a `{ mean, sem }` like a score is — the grid and the chart are handed the
-// same cell, from the same mode in compareData. Its sem is always null: the spread of a
-// difference is not either model's.
-function diffSorter(a, b) {
-  return numericSorter(a?.mean ?? null, b?.mean ?? null);
 }
 
 function sortSuites(suites = []) {
@@ -255,10 +273,6 @@ function metricsBadgeFormatter(cell) {
   return metrics.length ? buildMetricBadgeList(metrics) : EMPTY_VALUE;
 }
 
-function scoreFormatter(cell) {
-  return score(cell.getValue());
-}
-
 function taskNameFormatter(cell) {
   const value = cell.getValue();
 
@@ -339,10 +353,14 @@ function rankUsageFormatter(cell) {
   `;
 }
 
+// The compare grid's cells, where a task holds an eighth of the page: the spread goes under
+// the value rather than beside it.
 function meanSemFormatter(cell) {
   const value = cell.getValue();
 
-  return buildMeanSem(value?.mean ?? null, value?.sem ?? null);
+  return buildMeanSem(value?.mean ?? null, value?.sem ?? null, {
+    stacked: true,
+  });
 }
 
 function diffFormatter(cell) {
@@ -361,31 +379,18 @@ function diffFormatter(cell) {
   `;
 }
 
-function taskMetricFormatter(cell) {
-  const metric = cell.getData().metric;
-  const badge = metric ? buildMetricBadgeList([metric]) : "";
-
-  return `
-    <span class="column gap-xs">
-      <span class="label">${escapeHtml(cell.getValue())}</span>
-      ${badge}
-    </span>
-  `;
-}
-
 export {
   buildLinkFormatter,
   buildMeanSem,
   buildModelNameFormatter,
   buildScoreSemFormatter,
   buildTaskSuiteFormatter,
-  compareScoreSorter,
   dateFormatter,
   dateSorter,
   diffFormatter,
-  diffSorter,
   editFormatter,
   meanSemFormatter,
+  meanSorter,
   metadataFormatter,
   metricsBadgeFormatter,
   modelFormatter,
@@ -393,16 +398,14 @@ export {
   parameterFormatter,
   rankBadge,
   rankFormatter,
-  rankOrder,
+  rankSorter,
   rankUsageFormatter,
-  rankValue,
   roleBadgeFormatter,
-  scoreFormatter,
   sortSuites,
   statusFormatter,
+  valueSorter,
   suiteBadgesFormatter,
   taskLinkAttributes,
   taskLinkFormatter,
-  taskMetricFormatter,
   taskNameFormatter,
 };

@@ -204,8 +204,10 @@ function groupSeries(entries, facet) {
 //   pair   two across. For plots a reader wants close but big: half the width is enough for
 //          several series on one pair of axes, and two of them fit above the fold.
 //   weighted
-//          side by side, each as wide as the categories it holds — so one category is the
-//          same width in every plot, and a plot of four tasks is four times a plot of one.
+//          a grid of category-wide tracks, each plot spanning as many as it holds — so one
+//          category is the same width in every plot, and a plot of four tasks is four times a
+//          plot of one. A line holds CATEGORIES_PER_LINE of them and the rest wrap, so a
+//          suite's plots fill a line and the next suite's start the one below.
 //   grid   three across, wrapping. For many, where each is its own small figure.
 const LAYOUTS = {
   stack: "column",
@@ -255,36 +257,26 @@ function plotColumns(layout, count) {
   return COLUMNS[layout] ?? Math.min(count, ROW_COLUMNS);
 }
 
-// The most of a weighted row one plot is given, as a percentage — three fill it, as
-// .chart-grid's three do.
-const PLOT_SHARE = 100 / ROW_COLUMNS;
+// What a full line of the weighted arrangement holds, in categories. A constant, and
+// deliberately: it is the width one category is drawn at, so it must not move with whoever
+// happens to be picked. Tuned to the biggest suite, whose plots then fill the page — a suite
+// with fewer takes proportionally less and centres, and one with more wraps.
+const CATEGORIES_PER_LINE = 8;
 
-// How many categories fill the row, whatever they are spread across: a group of bars needs
-// about a sixth of the page to be read against its neighbours.
-const FULL_CATEGORIES = 6;
+// How many categories each plot holds, in the order the plots are drawn.
+function plotSizes(plots, axes) {
+  return plots.map(
+    ([, members]) => (axes.get(members[0].group) ?? []).length || 1,
+  );
+}
 
 /**
- * How wide a weighted row is allowed to be.
- *
- * The larger of what its plots want and what its categories want, because either can be the
- * one that needs the room: a suite with three metrics of one task each needs three gutters,
- * and a suite whose eight tasks are all measured the same way needs the width for eight
- * groups of bars in a single plot. Never less than a plot's third, so one metric of one task
- * is a figure in the middle of the page rather than a bar stretched across it.
+ * How wide the arrangement is: what the tracks it uses are worth against a full line. A
+ * selection covering three tracks of eight takes three eighths of the page and centres, so a
+ * category is drawn at the same width whether or not the rest are on screen.
  */
-function weightedWidth(plots, axes) {
-  const categories = plots.reduce(
-    (total, [, members]) => total + (axes.get(members[0].group) ?? []).length,
-    0,
-  );
-
-  const share = Math.max(
-    plots.length * PLOT_SHARE,
-    (categories / FULL_CATEGORIES) * 100,
-    PLOT_SHARE,
-  );
-
-  return `${Math.min(100, share).toFixed(2)}%`;
+function weightedWidth(used) {
+  return `${Math.min(100, (used / CATEGORIES_PER_LINE) * 100).toFixed(2)}%`;
 }
 
 function plotHeight(size, { layout, count }) {
@@ -381,10 +373,23 @@ function arrangePlots({
   const height = plotHeight(size, { layout, count: plots.length });
   const columns = plotColumns(layout, plots.length);
 
-  // Capped on the row rather than on each plot: clamping the plots themselves would freeze
-  // them all at the cap, and the widths they are weighted to would be lost.
-  if (layout === "weighted")
-    arranged.style.maxWidth = weightedWidth(plots, axes);
+  // A grid of category-wide tracks, each plot spanning as many as it holds: the tracks divide
+  // the line, so the gaps come out of the grid rather than out of the plots, and a plot that
+  // doesn't fit what is left wraps whole.
+  const sizes = layout === "weighted" ? plotSizes(plots, axes) : [];
+
+  // What this selection asks of a line. Fewer tracks than a full line means a narrower grid
+  // rather than wider tracks — the same categories at the same width, centred in the page.
+  // More means the grid is a full line and the overflow wraps.
+  const used = Math.min(
+    sizes.reduce((total, size) => total + size, 0),
+    CATEGORIES_PER_LINE,
+  );
+
+  if (layout === "weighted") {
+    arranged.style.setProperty("--plot-tracks", String(used));
+    arranged.style.maxWidth = weightedWidth(used);
+  }
 
   const charts = plots.map(([name, members], index) => {
     const group = members[0].group;
@@ -410,9 +415,8 @@ function arrangePlots({
       legend: legend === true,
     });
 
-    // What is left over after each plot's axis gutter, divided in proportion — see
-    // .chart-weighted, which sets the gutter as the flex basis.
-    if (layout === "weighted") plot.element.style.flexGrow = labels.length;
+    if (layout === "weighted")
+      plot.element.style.gridColumn = `span ${sizes[index]}`;
 
     arranged.appendChild(plot.element);
 

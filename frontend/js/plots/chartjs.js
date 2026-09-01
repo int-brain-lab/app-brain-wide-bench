@@ -312,8 +312,12 @@ function createCategoryChart({
         title: (items) => items[0]?.label ?? "",
         label: (item) => {
           const sem = item.dataset.sems?.[item.dataIndex];
+          // `barNames` where the bars have been packed and a dataset is no longer one series
+          // — see packLeft in bar.js.
+          const name =
+            item.dataset.barNames?.[item.dataIndex] ?? item.dataset.label;
 
-          return `${item.dataset.label}: ${score(item.raw)}${sem == null ? "" : ` ± ${score(sem)}`}`;
+          return `${name}: ${score(item.raw)}${sem == null ? "" : ` ± ${score(sem)}`}`;
         },
       },
     },

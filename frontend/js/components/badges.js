@@ -17,15 +17,17 @@ function statusBadgeClass(status) {
 // as a flex item, so it consumes one of its parent's gaps and indents whatever follows it —
 // a pretrained pill on a model with no suites yet. It is also what lets buildBadges' filter
 // drop a record with no suites instead of joining a bare row, as its comment intends.
+function buildSuiteBadge(suite, size = "") {
+  return `<span class="badge ${size} ${escapeHtml(suite)}">${escapeHtml(suiteLabel(suite))}</span>`;
+}
+
+// One badge and a list of them are separate calls for the reason buildMetricBadge gives: the
+// list is a flex row, which is a block, and a caller putting one badge *beside* something on
+// one line needs it without the row around it.
 function buildSuiteBadgeList(suites, size = "") {
   if (!suites.length) return "";
 
-  const badges = suites
-    .map(
-      (suite) =>
-        `<span class="badge ${size} ${escapeHtml(suite)}">${escapeHtml(suiteLabel(suite))}</span>`,
-    )
-    .join("");
+  const badges = suites.map((suite) => buildSuiteBadge(suite, size)).join("");
 
   return `<span class="row left gap-sm">${badges}</span>`;
 }
@@ -119,6 +121,7 @@ function buildPretrainedBadge(isPretrained, size = "") {
 }
 
 export {
+  buildSuiteBadge,
   buildSuiteBadgeList,
   buildMetricBadge,
   buildMetricBadgeList,

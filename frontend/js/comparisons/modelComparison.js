@@ -187,6 +187,7 @@ function createModelComparison({ container, ...options }) {
   let tasks = [];
 
 
+
   function clearCharts() {
     disposeAll(breakdownCharts);
     disposeAll(differenceCharts);
@@ -207,12 +208,15 @@ function createModelComparison({ container, ...options }) {
   }
 
 
-  // The suite in force: the host's, else the reader's while it is still available, else the
-  // first available.
+  // The suite in force, or "" for all of them — which is the default, and what the reader
+  // gets back by choosing the blank option. A host that scopes the page to one suite wins
+  // over both: see `set(rows, suite)` in pages/compare.js.
   function getSuite() {
     if (comparison.activeContext) return comparison.activeContext;
-    const available = availableSuites(comparison.entries());
-    return available.includes(selectedSuite) ? selectedSuite : (available[0] ?? "");
+
+    return availableSuites(comparison.entries()).includes(selectedSuite)
+      ? selectedSuite
+      : "";
   }
 
 
@@ -235,12 +239,17 @@ function createModelComparison({ container, ...options }) {
     ));
   }
 
+  // The blank first option is the default rather than an escape from a choice: a comparison
+  // opens on every suite at once, and picking one narrows it.
   function buildSuiteOptions(availableSuites, selectedSuite) {
     const select = getElement("suite").querySelector(`[data-role='suite']`);
-    const options = buildOptions(availableSuites.map((suite) => ({
-      value: suite,
-      label: suiteLabel(suite)
-    })), {selected: selectedSuite});
+    const options = buildOptions(
+      availableSuites.map((suite) => ({
+        value: suite,
+        label: suiteLabel(suite),
+      })),
+      { selected: selectedSuite, placeholder: "All suites" },
+    );
     renderHtml(select, options);
   }
 
@@ -273,7 +282,9 @@ function createModelComparison({ container, ...options }) {
     breakdownCharts = [];
 
     if (!tasks.length) {
-      renderHtml(section, buildEmptyMessage("No scored tasks on this suite."));
+      // Not "on this suite": the comparison shows every suite unless the reader has narrowed
+      // it, so the emptiness may be the models' rather than the suite's.
+      renderHtml(section, buildEmptyMessage("None of these models has a scored task yet."));
 
       return;
     }
@@ -282,7 +293,7 @@ function createModelComparison({ container, ...options }) {
     const mode = scoreMode();
 
     if (view === PLOT_VIEW) {
-      const plots = createModelPlots({entries: comparedModels, tasks, mode});
+      const plots = createModelPlots({ entries: comparedModels, tasks, mode });
 
       section.replaceChildren(plots.element);
       breakdownCharts = plots.charts;

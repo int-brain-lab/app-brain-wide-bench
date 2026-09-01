@@ -25,7 +25,7 @@
 // carries its own tick labels, since its tasks are its own — which is createBarPlots' own
 // default.
 
-import { taskLabel } from "../core/suites.js";
+import { suiteFromTask, taskLabel } from "../core/suites.js";
 import { createBarPlots } from "./bar.js";
 
 // Grouping and titling both key on it, so a task whose score never named its metric lands
@@ -34,21 +34,28 @@ function metricOf(task) {
   return task.metric || "score";
 }
 
+// A plot holds one suite's tasks measured in one metric. The suite as well as the metric,
+// because the same metric on two suites is not one scale: ts1's poisson_d2 is a behavioural
+// readout and ts2's is neural reconstruction, and one axis holding both would invite the
+// comparison the numbers don't support.
+function plotOf(task) {
+  return `${suiteFromTask(task.taskId) ?? ""}|${metricOf(task)}`;
+}
+
 /**
- * One series per model per metric: the plots are per metric, and a model spanning two of
- * them is two series that happen to share a name and a colour.
+ * One series per model per plot: the plots are per suite and metric, and a model spanning two
+ * of them is two series that happen to share a name and a colour.
  *
  * @param mode a mode from compareData — `{ valueOf, axisTitle, skip }`. `skip` is a plain
  *             filter, because a model's colour is carried on its entry rather than taken from
  *             its place in the list.
  */
 function toModelSeries(entries, tasks, { valueOf, axisTitle, skip = null }) {
-  const metrics = [...new Set(tasks.map(metricOf))];
+  const plots = [...new Set(tasks.map(plotOf))];
 
-  return metrics.flatMap((metric) => {
-    const taskIds = tasks
-      .filter((task) => metricOf(task) === metric)
-      .map((task) => task.taskId);
+  return plots.flatMap((plot) => {
+    const held = tasks.filter((task) => plotOf(task) === plot);
+    const taskIds = held.map((task) => task.taskId);
 
     return entries
       .filter((entry) => entry.modelId !== skip)
@@ -58,8 +65,8 @@ function toModelSeries(entries, tasks, { valueOf, axisTitle, skip = null }) {
         return {
           colour: entry.colour,
           label: entry.modelName,
-          metric: axisTitle(metric),
-          group: metric,
+          metric: axisTitle(metricOf(held[0])),
+          group: plot,
           index: new Map(taskIds.map((taskId, at) => [taskId, at])),
           // Nothing to show is a gap rather than a zero, exactly as the grids leave the
           // cell "—" rather than printing a number they don't have.

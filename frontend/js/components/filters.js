@@ -5,11 +5,16 @@
 // Nothing here knows about either — a control is a `match(row, value)` and the values are a
 // plain object, so whoever mounted the bar decides what a change does.
 //
-// `buildSelect` and `buildSearch` are also usable on their own, by a caller with one control
-// and no bar: each takes the parts of a control it needs rather than a control, and the
-// caller wires it up — see comparisons/modelComparison.js, which attaches its own listeners.
-// The two `buildFilterBar*` below are the bar's own translation from a control to those
-// parts.
+// `buildSelect`, `buildSearch` and `buildCheckList` are also usable on their own, by a caller
+// with one control and no bar: each takes the parts of a control it needs rather than a
+// control, and the caller wires it up — see comparisons/modelComparison.js, which attaches its
+// own listeners, and pages/leaderboard.js, whose lists choose what the board is ranked over
+// rather than narrowing anything. The two `buildFilterBar*` below are the bar's own translation
+// from a control to those parts.
+//
+// The bar itself takes a select or a search. A check list is multi-valued, and both the bar's
+// markup and createFilterState's one-value-per-control state would have to grow to hold one —
+// which no caller has needed yet.
 //
 // Every control matches against *rows* — what a domain's `toXRows` produced — which is why
 // the cards on a list page render from rows too. One shape, one set of matchers.
@@ -141,6 +146,101 @@ function buildSearch({ name, hook = "filter", placeholder = "", value = "" }) {
   `;
 }
 
+// ─── CHECK LISTS ─────────────────────────────────────────────────────────────
+//
+// A group of checkboxes read as one value: which of a fixed set of things is picked. The
+// multi-valued control, and it carries no state of its own — the boxes are the state, and
+// `checkedIn` reads them back off whatever element the caller put them in. Which means a
+// caller listening on a persistent ancestor can rebuild the boxes under it as often as it
+// likes, the way createFilterState does with a bar's controls.
+//
+// Options may be grouped, for a set that has an order of its own — the tasks of a suite — and
+// a group heads its own column of boxes rather than nesting.
+
+function buildBox(name, hook, option, selected) {
+  return `
+    <label class="value row left gap-sm">
+      <input
+        class="field-checkbox"
+        type="checkbox"
+        data-${escapeHtml(hook)}="${escapeHtml(name)}"
+        value="${escapeHtml(option.value)}"
+        ${selected.includes(option.value) ? "checked" : ""}
+      />
+      ${escapeHtml(option.label)}
+    </label>`;
+}
+
+/**
+ * @param name     what a listener finds the group by, on every box in it.
+ * @param hook     the data attribute carrying `name`, without the `data-`. As buildSelect's
+ *                 in components/filters.js.
+ * @param options  [{ value, label }], or [{ label, options }] for a headed group of them.
+ * @param selected the values that start ticked.
+ * @param columns  how many across the groups sit. Omit for one per row.
+ * @returns the markup.
+ */
+function buildCheckList({
+  name,
+  hook = "filter",
+  options,
+  selected = [],
+  columns = 0,
+}) {
+  const groups = options.some((option) => option.options)
+    ? options
+    : [{ label: "", options }];
+
+  const layout = columns > 1 ? `grid-${columns}` : "column gap-md";
+
+  return `
+    <div class="${layout}">
+      ${groups
+        .map(
+          (group) => `
+        <div class="column gap-sm">
+          ${group.label ? `<span class="metadata">${escapeHtml(group.label)}</span>` : ""}
+          ${group.options.map((option) => buildBox(name, hook, option, selected)).join("")}
+        </div>`,
+        )
+        .join("")}
+    </div>`;
+}
+
+/**
+ * The values ticked in `root`, in the order the boxes are in.
+ *
+ * @param name as buildCheckList.
+ * @param hook as buildCheckList.
+ */
+function checkedIn(root, name, hook = "filter") {
+  return [
+    ...root.querySelectorAll(`input[data-${hook}="${name}"]:checked`),
+  ].map((box) => box.value);
+}
+
+/**
+ * Whether a click or a change landed on this group — for a listener delegated to an element
+ * the boxes are rebuilt inside.
+ */
+function isCheckOf(event, name, hook = "filter") {
+  return event.target.matches?.(`input[data-${hook}="${name}"]`) ?? false;
+}
+
+/**
+ * Tick exactly `values` in `root`, without firing a change.
+ *
+ * For one group driven by another — a suite ticking its own tasks — where the boxes are
+ * already on screen and rebuilding them would lose the reader's place in the list.
+ */
+function setCheckedIn(root, name, values, hook = "filter") {
+  const wanted = new Set(values);
+
+  for (const box of root.querySelectorAll(`input[data-${hook}="${name}"]`)) {
+    box.checked = wanted.has(box.value);
+  }
+}
+
 // ─── BAR ─────────────────────────────────────────────────────────────────────
 
 // A control as the bar declares it, turned into the parts the builders take. `required` is
@@ -262,13 +362,17 @@ function createFilterState({ controls, root, onChange }) {
 
 export {
   SUITE_OPTIONS,
+  buildCheckList,
   buildFilterBar,
   buildOptions,
   buildSearch,
   buildSelect,
+  checkedIn,
   createFilterState,
+  isCheckOf,
   matchEquals,
   matchInArray,
   matchIncludes,
   optionsFromRows,
+  setCheckedIn,
 };
