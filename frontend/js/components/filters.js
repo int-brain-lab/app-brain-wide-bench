@@ -1,9 +1,15 @@
-// The bar of filters above a list, and the state behind it.
+// The controls a list is narrowed by: one select, a bar of them, and the state behind a bar.
 //
 // Lifted out of tables/table.js so the two ways of reading a list can share one bar: the
 // table filters through Tabulator, the cards filter an array, and neither owns the controls.
 // Nothing here knows about either — a control is a `match(row, value)` and the values are a
 // plain object, so whoever mounted the bar decides what a change does.
+//
+// `buildSelect` and `buildSearch` are also usable on their own, by a caller with one control
+// and no bar: each takes the parts of a control it needs rather than a control, and the
+// caller wires it up — see comparisons/modelComparison.js, which attaches its own listeners.
+// The two `buildFilterBar*` below are the bar's own translation from a control to those
+// parts.
 //
 // Every control matches against *rows* — what a domain's `toXRows` produced — which is why
 // the cards on a list page render from rows too. One shape, one set of matchers.
@@ -54,38 +60,106 @@ function optionsFromRows(rows, field) {
     .map((value) => ({ value, label: value }));
 }
 
-// ─── BAR ─────────────────────────────────────────────────────────────────────
+// ─── CONTROLS ────────────────────────────────────────────────────────────────
 
-function buildOptions(control) {
-  return control.options
-    .map(
-      (option) => `
-    <option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>
+/**
+ * A select's contents.
+ *
+ * @param options     [{ value, label }].
+ * @param selected    the value to mark. Omit for none, which is what a bar wants: its state
+ *                    is createFilterState's, set on the element after the markup exists.
+ * @param placeholder a blank first option, which doubles as the control's label — an unset
+ *                    filter reads as "All suites" without a separate <label>. Omit where
+ *                    every option is a real choice.
+ */
+function buildOptions(options, { selected = null, placeholder = "" } = {}) {
+  const blank = placeholder
+    ? `<option value="">${escapeHtml(placeholder)}</option>`
+    : "";
+
+  return (
+    blank +
+    options
+      .map(
+        (option) => `
+    <option value="${escapeHtml(option.value)}" ${option.value === selected ? "selected" : ""}>${escapeHtml(option.label)}</option>
   `,
-    )
-    .join("");
+      )
+      .join("")
+  );
 }
 
-// The blank first option doubles as the control's label, so an unset filter reads as
-// "All suites" without a separate <label>. `required` omits it: a control that picks
-// *which* thing the table shows — the leaderboard's metric — has no "don't narrow".
-function buildSelect(control) {
+/**
+ * One select, for a bar or on its own.
+ *
+ * @param name     what a listener finds it by.
+ * @param hook     the data attribute carrying `name`, without the `data-`. "filter" is the
+ *                 bar's, and createFilterState listens for it; a select outside a bar names
+ *                 its own, so a bar can never hear a control it doesn't own.
+ * @param options  as buildOptions.
+ * @param selected as buildOptions.
+ * @param placeholder as buildOptions.
+ * @param disabled for a select with nothing to choose between.
+ * @returns the markup.
+ */
+function buildSelect({
+  name,
+  hook = "filter",
+  options,
+  selected = null,
+  placeholder = "",
+  disabled = false,
+}) {
   return `
-    <select class="input-select" data-filter="${escapeHtml(control.name)}">
-      ${control.required ? "" : `<option value="">${escapeHtml(control.placeholder)}</option>`}
-      ${buildOptions(control)}
+    <select
+      class="input-select"
+      data-${escapeHtml(hook)}="${escapeHtml(name)}"
+      ${disabled ? "disabled" : ""}
+    >
+      ${buildOptions(options, { selected, placeholder })}
     </select>
   `;
 }
 
-function buildSearch(control) {
+/**
+ * One search box, for a bar or on its own.
+ *
+ * @param name        as buildSelect.
+ * @param hook        as buildSelect.
+ * @param placeholder what the empty box says it narrows — "Search models...".
+ * @param value       what it starts with. Omit for empty, which is what a bar wants.
+ * @returns the markup.
+ */
+function buildSearch({ name, hook = "filter", placeholder = "", value = "" }) {
   return `
     <input
       class="input-text"
       type="search"
-      data-filter="${escapeHtml(control.name)}"
-      placeholder="${escapeHtml(control.placeholder)}">
+      data-${escapeHtml(hook)}="${escapeHtml(name)}"
+      placeholder="${escapeHtml(placeholder)}"
+      value="${escapeHtml(value)}">
   `;
+}
+
+// ─── BAR ─────────────────────────────────────────────────────────────────────
+
+// A control as the bar declares it, turned into the parts the builders take. `required` is
+// the bar's own notion — a control that picks *which* thing the table shows, like the
+// leaderboard's metric, has no "don't narrow" — so it is read here rather than by
+// buildSelect. Neither builder ever sees `match` or `type`.
+function buildFilterBarSelect(control) {
+  return buildSelect({
+    name: control.name,
+    options: control.options,
+    placeholder: control.required ? "" : control.placeholder,
+  });
+}
+
+function buildFilterBarSearch(control) {
+  return buildSearch({
+    name: control.name,
+    placeholder: control.placeholder,
+  });
 }
 
 // A grid rather than a flex row: the controls carry width:100% from .input-select and
@@ -99,7 +173,13 @@ function buildFilterBar(controls) {
 
   return `
     <div class="${layout}">
-      ${controls.map((control) => (control.type === "select" ? buildSelect(control) : buildSearch(control))).join("")}
+      ${controls
+        .map((control) =>
+          control.type === "select"
+            ? buildFilterBarSelect(control)
+            : buildFilterBarSearch(control),
+        )
+        .join("")}
     </div>
   `;
 }
@@ -152,10 +232,9 @@ function createFilterState({ controls, root, onChange }) {
     if (!control || !select) return;
 
     control.options = options;
-    select.innerHTML = `
-      ${control.required ? "" : `<option value="">${escapeHtml(control.placeholder)}</option>`}
-      ${buildOptions(control)}
-    `;
+    select.innerHTML = buildOptions(options, {
+      placeholder: control.required ? "" : control.placeholder,
+    });
 
     const value =
       selected ??
@@ -184,6 +263,9 @@ function createFilterState({ controls, root, onChange }) {
 export {
   SUITE_OPTIONS,
   buildFilterBar,
+  buildOptions,
+  buildSearch,
+  buildSelect,
   createFilterState,
   matchEquals,
   matchInArray,

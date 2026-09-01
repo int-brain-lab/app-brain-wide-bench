@@ -99,8 +99,11 @@ function compareScoreSorter(a, b) {
   return numericSorter(a?.mean ?? null, b?.mean ?? null);
 }
 
+// A difference is a `{ mean, sem }` like a score is — the grid and the chart are handed the
+// same cell, from the same mode in compareData. Its sem is always null: the spread of a
+// difference is not either model's.
 function diffSorter(a, b) {
-  return numericSorter(a?.diff ?? null, b?.diff ?? null);
+  return numericSorter(a?.mean ?? null, b?.mean ?? null);
 }
 
 function sortSuites(suites = []) {
@@ -343,8 +346,7 @@ function meanSemFormatter(cell) {
 }
 
 function diffFormatter(cell) {
-  const value = cell.getValue();
-  const diff = value?.diff;
+  const diff = cell.getValue()?.mean;
 
   if (diff == null) return emptyMetadata();
 

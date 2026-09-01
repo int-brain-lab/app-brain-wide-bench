@@ -14,6 +14,8 @@ export const SUBMIT_BUTTON_ID = "submit-button";
 export const TABLE_TOGGLE_ID = "table-toggle";
 export const CARD_TOGGLE_ID = "card-toggle";
 
+export const TABLE_VIEW = "table-view"
+export const PLOT_VIEW = "plot-view"
 
 
 /**
@@ -152,24 +154,48 @@ export const EDIT_BUTTONS = [
   buildSaveButton({ hidden: true }),
 ];
 
-export function buildCardTableToggle(
-  {cardId = CARD_TOGGLE_ID, tableId = TABLE_TOGGLE_ID, cardLabel = "Cards", tableLabel = "Table"} = {}
-) {
+/**
+ * The buttons that switch one thing between ways of reading it. Which is lit says which way
+ * is open, so the caller attaches a listener per id and thereafter only sets the class — see
+ * setActiveView in comparisons/modelComparison.js.
+ *
+ * @param buttons [{ id, label, icon }] — `icon` is an app name, resolved here, so a caller
+ *                names the thing rather than the glyph. See components/icons.js.
+ * @returns the markup.
+ */
+export function buildToggle(buttons) {
   return `
     <div class="row right gap-sm">
-      ${buildButton({
-        id: cardId,
-        label: cardLabel,
-        icon: getIcon("cards"),
-      })}
-      ${buildButton({
-        id: tableId,
-        label: tableLabel,
-        icon: getIcon("table"),
-      })}
+      ${buttons
+        .map(({ id, label, icon }) =>
+          buildButton({ id, label, icon: getIcon(icon) }),
+        )
+        .join("")}
     </div>
   `;
 }
+
+// The two the app switches between, each owning its ids so a listener and a button cannot
+// disagree about them.
+const CARD_TABLE_BUTTONS = [
+  { id: CARD_TOGGLE_ID, label: "Cards", icon: "cards" },
+  { id: TABLE_TOGGLE_ID, label: "Table", icon: "table" },
+];
+
+const PLOT_TABLE_BUTTONS = [
+  { id: PLOT_VIEW, label: "Plots", icon: "score" },
+  { id: TABLE_VIEW, label: "Table", icon: "table" },
+];
+
+export function buildCardTableToggle() {
+  return buildToggle(CARD_TABLE_BUTTONS);
+}
+
+export function buildPlotTableToggle() {
+  return buildToggle(PLOT_TABLE_BUTTONS);
+}
+
+
 
 // A create page's footer: Cancel back to where it came from, and the submit button, which
 // starts disabled — the form enables it once every panel is complete.

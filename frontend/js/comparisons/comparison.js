@@ -7,52 +7,16 @@
 //   pick / toggle / drop   one at a time
 //   subscribe(fn)          when the set changes
 //
-// bindTableSelection and bindCardSelection, below, sync a view to the picks.
+// bindTableSelection and bindCardSelection, below, sync a view to the picks. What a row of
+// the comparison looks like is components/comparisonGrid.js, including the ✕ this reads.
 
-import { escapeHtml } from "../core/html.js";
-import { refreshIcons, renderHtml } from "../core/render.js";
-import { buildEmptyMessage } from "../components/messages.js";
 import { disposeAll } from "../core/disposable.js";
 import { resolveContainer } from "../core/dom.js";
+import { refreshIcons, renderHtml } from "../core/render.js";
 import { createSelection } from "../core/selection.js";
 import { highlightSelectedCards } from "../cards/cardGrid.js";
-import { getIcon } from "../components/icons.js";
-
-// ─── ROW HEADERS ─────────────────────────────────────────────────────────────
-
-// Read back by onClick, below.
-function buildDropButton(key, name) {
-  return `
-    <button
-      type="button"
-      class="chip-remove"
-      data-role="drop"
-      data-key="${escapeHtml(key)}"
-      title="Remove ${escapeHtml(name)}"
-      aria-label="Remove ${escapeHtml(name)}"
-    >
-      <i class="field-icon" data-lucide="${escapeHtml(getIcon("remove"))}"></i>
-    </button>`;
-}
-
-/**
- * A comparison grid's row header: the ✕, what the row is, and a quieter line under it.
- *
- * @param key   the entry's, which is what the ✕ hands back.
- * @param title markup — a link, a label, a run of badges.
- * @param meta  text, escaped here.
- * @param name  the thing's name in plain words, for the button's label.
- */
-function buildRowHeader({ key, title, meta = "", name = "" }) {
-  return `
-    <span class="column gap-xs">
-      <span class="row left gap-sm">
-        ${buildDropButton(key, name)}
-        ${title}
-      </span>
-      ${meta ? `<span class="metadata">${escapeHtml(meta)}</span>` : ""}
-    </span>`;
-}
+import { dropFromClick } from "../components/comparisonGrid.js";
+import { buildEmptyMessage } from "../components/messages.js";
 
 // ─── CONTROLLER ──────────────────────────────────────────────────────────────
 
@@ -63,7 +27,11 @@ function buildRowHeader({ key, title, meta = "", name = "" }) {
  * @param loadDetail (entry) => the record to attach as `entry.detail`. Absent until it
  *                   lands, so every render has to expect it missing.
  * @param cacheKey   (entry) => what loadDetail is cached under, across selections.
- * @param render     ({ root, entries, context, refresh, track }) => void, on every change.
+ * @param palette    the colours a pick can take, one per slot — see slotOf in
+ *                   core/selection.js. A pick keeps its colour for as long as it is held,
+ *                   so dropping one leaves the others as they were. Omit for no colouring.
+ * @param render     ({ root, entries, colourOf, context, refresh, track }) => void, on every
+ *                   change.
  *                   `root` holds whatever the last call left there. Anything needing
  *                   teardown goes to `track`; listeners go on elements the render just
  *                   made. `refresh()` draws again.
@@ -76,7 +44,9 @@ function createComparison({
   prompt = "Select things to compare them.",
   loadDetail,
   cacheKey = (entry) => entry.key,
+  palette = [],
   render: draw,
+  clearUp,
   toEntry,
   order = null,
 }) {
@@ -84,6 +54,7 @@ function createComparison({
 
   const selection = createSelection({
     max,
+    slots: palette.length,
     onChange: () => {
       announce();
       render();
@@ -93,7 +64,7 @@ function createComparison({
   // cacheKey => a promise for the detail.
   const details = new Map();
 
-  // What the entries are being compared on, as the host named it. Opaque here.
+  // // What the entries are being compared on, as the host named it. Opaque here.
   let activeContext = "";
 
   // What the last render asked to have torn down.
@@ -109,6 +80,14 @@ function createComparison({
 
   function announce() {
     for (const listener of listeners) listener(selection.keys());
+  }
+
+  // The colour this pick is drawn in, wherever it is drawn: its plot series, its row in the
+  // table it was picked from, its row or column in the comparison itself.
+  function colourOf(key) {
+    const slot = selection.slotOf(key);
+
+    return slot == null ? null : (palette[slot] ?? null);
   }
 
   // ── picking ──
@@ -194,7 +173,7 @@ function createComparison({
     });
   }
 
-  // ── context ──
+  // // ── context ──
 
   function applyContext(context) {
     if ((context ?? "") === activeContext) return false;
@@ -210,15 +189,16 @@ function createComparison({
 
   // ── drawing ──
 
-  function track(handle) {
-    if (handle) tracked = tracked.concat(handle);
-
-    return handle;
-  }
+  // function track(handle) {
+  //   if (handle) tracked = tracked.concat(handle);
+  //
+  //   return handle;
+  // }
 
   function render() {
-    disposeAll(tracked);
-    tracked = [];
+    clearUp()
+    // disposeAll(tracked);
+    // tracked = [];
 
     if (!selection.size) {
       renderHtml(root, buildEmptyMessage(prompt));
@@ -226,13 +206,15 @@ function createComparison({
       return;
     }
 
-    draw({
-      root,
-      entries: entries(),
-      context: activeContext,
-      refresh: render,
-      track,
-    });
+    draw()
+
+    // draw({
+    //   root,
+    //   entries: entries(),
+    //   colourOf,
+    //   context: activeContext,
+    //   refresh: render,
+    // });
 
     refreshIcons();
   }
@@ -240,9 +222,9 @@ function createComparison({
   // ── events ──
 
   function onClick(event) {
-    const button = event.target.closest("[data-role='drop']");
+    const key = dropFromClick(event);
 
-    if (button) drop(button.dataset.key);
+    if (key) drop(key);
   }
 
   root.addEventListener("click", onClick);
@@ -258,6 +240,7 @@ function createComparison({
 
   return {
     clear,
+    colourOf,
     destroy,
     drop,
     entries,
@@ -268,7 +251,7 @@ function createComparison({
     pick,
     refresh: render,
     set,
-    setContext,
+    activeContext,
     get size() {
       return selection.size;
     },
@@ -313,19 +296,52 @@ function bindTableSelection(
     syncing = true;
 
     // Every row, not the displayed ones: a row hidden by a filter is still picked.
-    for (const row of table.getRows()) {
-      const picked = wanted.has(String(row.getIndex()));
+    const turning = table
+      .getRows()
+      .map((row) => [row, wanted.has(String(row.getIndex()))])
+      .filter(([row, picked]) => picked !== row.isSelected());
 
-      if (picked === row.isSelected()) continue;
-
-      if (picked) row.select();
-      else row.deselect();
-    }
+    // Dropped before picked, both passes over the whole set: the table refuses a tick past
+    // its cap rather than rolling the oldest out, so a wholesale replacement has to make room
+    // before it asks for it — see selectableRowsRollingSelection in tables/table.js.
+    for (const [row, picked] of turning) if (!picked) row.deselect();
+    for (const [row, picked] of turning) if (picked) row.select();
 
     syncing = false;
+
+    paint();
   }
 
   comparison.subscribe(sync);
+
+  // The colour each row is marked in — see `--pick-ink` in style.css. Painted here rather
+  // than through a Tabulator rowFormatter, because the formatter is a table option and not
+  // every host builds the table from `selection()`: the leaderboard writes its own, since
+  // which comparison a tick belongs to isn't settled until the board exists.
+  //
+  // Every row, so one that has been dropped gives its colour up — an empty value removes the
+  // property, which puts the app's own edge back.
+  function paint() {
+    if (!table?.initialized) return;
+
+    const inks = new Map(
+      comparison
+        .entries()
+        .map((entry) => [
+          String(rowIndex(entry)),
+          comparison.colourOf(entry.key),
+        ]),
+    );
+
+    for (const row of table.getRows()) {
+      row
+        .getElement()
+        .style.setProperty(
+          "--pick-ink",
+          inks.get(String(row.getIndex())) ?? "",
+        );
+    }
+  }
 
   function selection() {
     return {
@@ -363,6 +379,11 @@ function bindTableSelection(
 
     // Tabulator builds asynchronously; there are no rows to sync against yet.
     table.on("tableBuilt", sync);
+
+    // Sorting, filtering and turning a page rebuild the row elements, which drops what was
+    // painted onto them.
+    table.on("renderComplete", paint);
+
     sync();
   }
 
@@ -395,7 +416,12 @@ function bindCardSelection(comparison) {
   let attached = null;
 
   function repaint() {
-    if (attached) highlightSelectedCards(attached, comparison.keySet());
+    if (attached)
+      highlightSelectedCards(
+        attached,
+        comparison.keySet(),
+        comparison.colourOf,
+      );
   }
 
   comparison.subscribe(repaint);
@@ -415,9 +441,4 @@ function bindCardSelection(comparison) {
   return { attach, selection };
 }
 
-export {
-  bindCardSelection,
-  bindTableSelection,
-  buildRowHeader,
-  createComparison,
-};
+export { bindCardSelection, bindTableSelection, createComparison };

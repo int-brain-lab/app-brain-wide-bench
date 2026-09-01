@@ -12,11 +12,7 @@ import { escapeHtml } from "../core/html.js";
 import { refreshIcons, renderHtml } from "../core/render.js";
 import { buildEmptyMessage } from "../components/messages.js";
 import { disposeAll } from "../core/disposable.js";
-import {
-  PLOT_TABLE_VIEWS,
-  buildViewToggle,
-  viewFromClick,
-} from "../components/viewToggle.js";
+import { buildToggle } from "../components/buttons.js";
 import { resolveContainer } from "../core/dom.js";
 import { EMPTY_STORE, toRecordingStore } from "../utils/recordingScoreUtils.js";
 import { renderRecordingScoresTable } from "../tables/recordingScoreTable.js";
@@ -27,20 +23,41 @@ import {
 import { SERIES_INK } from "../plots/palette.js";
 import { buildDisplayFields } from "../forms/fields.js";
 import {
-  loadTaskFields,
+  TASK_FIELDS,
   trainingFieldKeys,
 } from "../schemas/taskSubmissionSchema.js";
 import { loadTaskSubmission } from "../api/taskSubmissionApi.js";
 
 // The two ways to read one score: the shape of it, or the numbers — the same pair the model
-// comparison offers, and drawn by the same component. The plot leads because the question a
-// reader opens a score with is how it varies across recordings, and 29 rows of numbers
-// answer that slowly.
+// comparison offers. The plot leads because the question a reader opens a score with is how
+// it varies across recordings, and 29 rows of numbers answer that slowly.
 //
+// Its own ids rather than the comparison's: the leaderboard shows a breakdown and a model
+// comparison on one page, and an id belongs to one element.
+const PLOT_VIEW = "breakdown-plot-view";
+const TABLE_VIEW = "breakdown-table-view";
+
+const VIEWS = [
+  { id: PLOT_VIEW, label: "Plot", icon: "score" },
+  { id: TABLE_VIEW, label: "Table", icon: "table" },
+];
+
 // The first of them, so the order on screen and the one a score opens in can't disagree.
 // Sticky for the rest of the visit once a reader chooses: whoever wants the numbers for one
 // score usually wants them for the next.
-const DEFAULT_VIEW = PLOT_TABLE_VIEWS[0].value;
+const DEFAULT_VIEW = PLOT_VIEW;
+
+// Built once per breakdown and written into thereafter: the toggle outlives every score
+// opened, so its listeners are attached when this is written and not again.
+const LAYOUT = `
+  <div class="column gap-md">
+    <div class="row">
+      <span class="column gap-xs" data-role="heading"></span>
+      ${buildToggle(VIEWS)}
+    </div>
+    <div data-role="fields"></div>
+    <div data-role="view"></div>
+  </div>`;
 
 /**
  * @param container element, or the id of one. Its contents are replaced.
@@ -60,7 +77,6 @@ function createTaskBreakdown({
   let store = EMPTY_STORE;
   let view = DEFAULT_VIEW;
   let charts = [];
-  let fields = null;
 
   // Chart.js keeps a registry keyed on the canvas, so an instance whose container is about
   // to be rewritten has to be told: otherwise it goes on answering resizes from a detached
@@ -70,21 +86,25 @@ function createTaskBreakdown({
     charts = [];
   }
 
-  function renderView() {
-    const slot = root.querySelector("[data-role='view']");
+  function slot(name) {
+    return root.querySelector(`[data-role='${name}']`);
+  }
+
+  function renderPanel() {
+    const target = slot("view");
 
     clearCharts();
 
     // The breakdown arrives with the methodology, so both halves of the view wait on one
     // request — and "not fetched yet" reads differently from "this score has none".
     if (!detail) {
-      renderHtml(slot, buildEmptyMessage("Loading the breakdown…"));
+      renderHtml(target, buildEmptyMessage("Loading the breakdown…"));
       return;
     }
 
     if (!store.index.size) {
       renderHtml(
-        slot,
+        target,
         buildEmptyMessage(
           "No per-recording breakdown was stored for this score.",
         ),
@@ -92,7 +112,7 @@ function createTaskBreakdown({
       return;
     }
 
-    if (view === "plot") {
+    if (view === PLOT_VIEW) {
       // One plot per metric, all of them for the one score. No palette: these are the same
       // result measured several ways rather than several results, so one colour throughout
       // and no legend — the axis names the metric and the heading names the score.
@@ -109,39 +129,75 @@ function createTaskBreakdown({
         legend: false,
       });
 
-      slot.replaceChildren(plots.element);
+      target.replaceChildren(plots.element);
       charts = plots.charts;
 
       return;
     }
 
-    renderRecordingScoresTable({ container: slot, store });
+    renderRecordingScoresTable({ container: target, store });
+  }
+
+  function setActiveView(view) {
+    for (const { id } of VIEWS) {
+      // Scoped to this breakdown's own root, so a second one on the page lights its own.
+      root
+        .querySelector(`#${id}`)
+        ?.classList.toggle("primary-inv", id === view);
+    }
+  }
+
+  function renderView(selectedView) {
+    view = selectedView;
+    setActiveView(view);
+
+    // Only the panel: which way the score is read says nothing about its methodology.
+    renderPanel();
+  }
+
+  function attachEvents() {
+    for (const { id } of VIEWS) {
+      root.querySelector(`#${id}`)?.addEventListener("click", () => {
+        if (id !== view) renderView(id);
+      });
+    }
+  }
+
+  // The layout survives every score opened; `clear` replaces it with the prompt, so this
+  // puts it back — and the toggle's listeners go on with the buttons they were made for.
+  function ensureLayout() {
+    if (slot("view")) return;
+
+    renderHtml(root, LAYOUT);
+    attachEvents();
   }
 
   // The methodology behind the numbers, in the same words the comparison grid uses. Absent
   // until its own request lands, which is a line of text rather than an empty card.
   function renderFields() {
-    const slot = root.querySelector("[data-role='fields']");
-
-    if (!slot) return;
-
-    slot.innerHTML = detail
-      ? `<div class="card"><div class="grid-4">${buildDisplayFields(trainingFieldKeys(), detail, fields)}</div></div>`
-      : `<p class="metadata">Loading methodology…</p>`;
+    renderHtml(
+      slot("fields"),
+      detail
+        ? `<div class="card"><div class="grid-4">${buildDisplayFields(trainingFieldKeys(), detail, TASK_FIELDS)}</div></div>`
+        : `<p class="metadata">Loading methodology…</p>`,
+    );
   }
 
   function render() {
-    root.innerHTML = `
-      <h3 class="section-title">${escapeHtml(seed.taskId)}</h3>
+    ensureLayout();
+
+    renderHtml(
+      slot("heading"),
+      `<h3 class="section-title">${escapeHtml(seed.taskId)}</h3>
       <p class="metadata">${escapeHtml(
         [seed.modelName, seed.submissionLabel].filter(Boolean).join(" · "),
-      )}</p>
-      <div data-role="fields"></div>
-      ${buildViewToggle({ active: view, role: "breakdown-view" })}
-      <div data-role="view"></div>`;
+      )}</p>`,
+    );
+
+    setActiveView(view);
 
     renderFields();
-    renderView();
+    renderPanel();
     refreshIcons();
   }
 
@@ -150,9 +206,8 @@ function createTaskBreakdown({
     detail = null;
     store = EMPTY_STORE;
 
-    // Needed by the methodology fields, and loaded once for the life of the widget.
-    if (!fields) fields = await loadTaskFields();
-
+    // Before the fetch: the heading and the toggle are known from the seed, and the two
+    // halves below say they are loading.
     render();
 
     let detailed = {};
@@ -179,17 +234,6 @@ function createTaskBreakdown({
     store = EMPTY_STORE;
     renderHtml(root, buildEmptyMessage(prompt));
   }
-
-  // Delegated, because the view is rewritten on every change and the buttons in it are what
-  // changes: they carry which one is active, so the toggle is part of what is re-rendered.
-  root.addEventListener("click", (event) => {
-    const chosen = viewFromClick(event, "breakdown-view");
-
-    if (chosen && chosen !== view) {
-      view = chosen;
-      render();
-    }
-  });
 
   clear();
 

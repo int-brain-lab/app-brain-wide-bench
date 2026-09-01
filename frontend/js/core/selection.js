@@ -2,10 +2,44 @@
 
 /**
  * @param max      how many can be held at once. Extras are refused, not swapped in.
+ * @param slots    how many slots there are to hand out — see slotOf. 0 for none.
  * @param onChange () => void, once per mutation that changed the set.
  */
-function createSelection({ max = Infinity, onChange = () => {} } = {}) {
+function createSelection({
+  max = Infinity,
+  slots = 0,
+  onChange = () => {},
+} = {}) {
   const held = new Map();
+
+  // key => slot, for as long as the entry is held.
+  const places = new Map();
+
+  // The slot handed out last. A new one takes the next free slot going forward from here,
+  // rather than the lowest free: dropping one and picking another then hands the new pick a
+  // slot of its own instead of the one that has just been given up.
+  let cursor = -1;
+
+  function slotOf(key) {
+    return places.get(key) ?? null;
+  }
+
+  function takeSlot(key) {
+    if (!slots || places.has(key)) return;
+
+    const used = new Set(places.values());
+
+    for (let step = 1; step <= slots; step += 1) {
+      const slot = (cursor + step) % slots;
+
+      if (used.has(slot)) continue;
+
+      places.set(key, slot);
+      cursor = slot;
+
+      return;
+    }
+  }
 
   function has(key) {
     return held.has(key);
@@ -31,6 +65,7 @@ function createSelection({ max = Infinity, onChange = () => {} } = {}) {
     if (held.has(entry.key) || held.size >= max) return false;
 
     held.set(entry.key, entry);
+    takeSlot(entry.key);
     onChange();
 
     return true;
@@ -39,6 +74,7 @@ function createSelection({ max = Infinity, onChange = () => {} } = {}) {
   function remove(key) {
     if (!held.delete(key)) return false;
 
+    places.delete(key);
     onChange();
 
     return true;
@@ -69,6 +105,12 @@ function createSelection({ max = Infinity, onChange = () => {} } = {}) {
     held.clear();
     for (const [key, entry] of next) held.set(key, entry);
 
+    for (const key of [...places.keys()]) {
+      if (!held.has(key)) places.delete(key);
+    }
+
+    for (const key of held.keys()) takeSlot(key);
+
     onChange();
 
     return true;
@@ -86,6 +128,8 @@ function createSelection({ max = Infinity, onChange = () => {} } = {}) {
     if (!held.size) return false;
 
     held.clear();
+    places.clear();
+    cursor = -1;
     onChange();
 
     return true;
@@ -102,6 +146,7 @@ function createSelection({ max = Infinity, onChange = () => {} } = {}) {
     max,
     remove,
     replace,
+    slotOf,
     get size() {
       return held.size;
     },

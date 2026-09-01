@@ -126,88 +126,90 @@ function compareTasks(entries) {
     .map(([taskId, metric]) => ({ taskId, metric }));
 }
 
-// ─── COLUMNS ─────────────────────────────────────────────────────────────────
+// ─── MODES ───────────────────────────────────────────────────────────────────
+//
+// What a cell means, which is the only thing separating the two grids and the two charts:
+// one reads a model's score on a task, the other reads how far it is from the baseline's.
+// Written once, because the grid and the chart drawing the same comparison differently must
+// not be able to disagree about it.
+//
+// A mode is `{ valueOf, axisTitle, skip }`:
+//
+//   valueOf(entry, taskId)  the cell, as `{ mean, sem }`, or null for nothing to show
+//   axisTitle(metric)       what the y axis of that metric's plot is called
+//   skip                    a model id to leave out of the columns and the series
+
+function scoreMode() {
+  return {
+    valueOf: (entry, taskId) => entry.tasks[taskId] ?? null,
+    axisTitle: (metric) => metric,
+    skip: null,
+  };
+}
 
 /**
- * The models to give a column to, in the order they should appear: the page's own model
- * first, then by mean descending — the order toCompareEntries already put them in.
- *
- * @param exclude  a model id to leave out. For the difference grid, whose baseline is the
- *                 thing every other column is measured against and so has no column of
- *                 its own.
+ * @param baselineId whichever model the reader is measuring against, which is the page's own
+ *                   by default but may be any of the compared ones — "how much better is
+ *                   everything than mine?" and "how much better is mine than this one?" are
+ *                   the same comparison read two ways. It gets no column and no series of
+ *                   its own: it would be a row of zeros.
  */
-function compareModels(entries, { exclude = null } = {}) {
-  return entries
-    .filter((entry) => entry.modelId !== exclude)
-    .map(({ modelId, modelName, teamName, mean, scored, isSelected }) => ({
-      modelId,
-      modelName,
-      teamName,
-      mean,
-      scored,
-      isSelected,
-    }));
+function diffMode(entries, baselineId) {
+  const baseline = entries.find((entry) => entry.modelId === baselineId);
+
+  return {
+    // A task only one of the two scored has no difference to state, so the cell is empty
+    // rather than the raw score — a number here and "—" in the grid above would read as a
+    // gap of exactly that size.
+    //
+    // No sem, and deliberately: the spread of a difference is not either model's, and the
+    // usual √(s₁² + s₂²) would assume the two were measured independently when they were
+    // scored on the same recordings.
+    valueOf: (entry, taskId) => {
+      const other = entry.tasks[taskId];
+      const against = baseline?.tasks[taskId];
+
+      return other && against
+        ? { mean: other.mean - against.mean, sem: null }
+        : null;
+    },
+    axisTitle: (metric) => `Δ ${metric}`,
+    skip: baselineId,
+  };
 }
 
 // ─── ROWS ────────────────────────────────────────────────────────────────────
 
-// Tabulator binds a column to a field name, so each model id becomes a field. The value is
-// the whole { mean, sem } object rather than a number — the cell renders both halves, and
-// a sorter reading `.mean` is cheaper than carrying a parallel set of fields.
+// One row per model, in the order they should appear: the page's own model first, then by
+// mean descending — the order toCompareEntries already put them in. `skip` leaves out the
+// difference grid's baseline, which would be a row of zeros.
 //
-// `metric` rides on the row because the metric belongs to the task: it is what the Metric
-// column shows and what the select above the grid filters on.
-function toScoreRows(entries, tasks) {
-  return tasks.map(({ taskId, metric }) => {
-    const row = { taskId, metric };
-
-    for (const entry of entries) {
-      row[entry.modelId] = entry.tasks[taskId] ?? null;
-    }
-
-    return row;
-  });
-}
-
-/**
- * The difference grid's rows: one per task again, each model's cell holding `{ diff }` —
- * that model's score minus the baseline's on the same task.
- *
- * `baselineId` is whichever model the reader is measuring against, which is the page's own
- * by default but may be any of the compared ones — "how much better is everything than
- * mine?" and "how much better is mine than this one?" are the same grid read two ways.
- *
- * A task only one of the two scored has no difference to state, so the cell is null rather
- * than the raw score. A number in one grid and "—" in the other would read as a gap of
- * exactly that size.
- */
-function toDiffRows(entries, tasks, baselineId) {
-  const baseline = entries.find((entry) => entry.modelId === baselineId);
-
-  if (!baseline) return [];
-
-  const others = entries.filter((entry) => entry.modelId !== baselineId);
-
-  return tasks.map(({ taskId, metric }) => {
-    const row = { taskId, metric };
-    const against = baseline.tasks[taskId];
-
-    for (const entry of others) {
-      const other = entry.tasks[taskId];
-
-      row[entry.modelId] =
-        other && against ? { diff: other.mean - against.mean } : null;
-    }
-
-    return row;
-  });
+// Tabulator binds a column to a field name, so each task id becomes a field. The value is the
+// whole { mean, sem } object rather than a number — the cell renders both halves, and a sorter
+// reading `.mean` is cheaper than carrying a parallel set of fields.
+//
+// The model's own fields ride along because the row identifies itself: its name, its team and
+// the colour it is drawn in everywhere else.
+function toCompareRows(entries, tasks, { valueOf, skip = null }) {
+  return entries
+    .filter((entry) => entry.modelId !== skip)
+    .map((entry) => ({
+      modelId: entry.modelId,
+      modelName: entry.modelName,
+      teamName: entry.teamName,
+      isSelected: entry.isSelected,
+      colour: entry.colour,
+      ...Object.fromEntries(
+        tasks.map(({ taskId }) => [taskId, valueOf(entry, taskId)]),
+      ),
+    }));
 }
 
 export {
-  latestScoresByTask,
-  toCompareEntries,
   compareTasks,
-  compareModels,
-  toScoreRows,
-  toDiffRows,
+  diffMode,
+  latestScoresByTask,
+  scoreMode,
+  toCompareEntries,
+  toCompareRows,
 };

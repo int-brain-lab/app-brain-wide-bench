@@ -1,7 +1,7 @@
 // Several models across the tasks of one suite: the comparison's two grids, as bars.
 //
-// The domain half again — compareTable.js turns the same entries into rows and columns,
-// this turns them into series, and figure.js arranges them. A mark is one model's score on
+// The domain half again — compareTable.js turns the same entries and the same mode into rows
+// and columns, this turns them into series, and figure.js arranges them. A mark is one model's score on
 // one task, with the sem the grid prints after the ± as its whisker.
 //
 // Models are the series and tasks the axis, which is the grid transposed: a comparison has
@@ -25,16 +25,8 @@
 // carries its own tick labels, since its tasks are its own — which is createBarPlots' own
 // default.
 
-import { suiteFromTask } from "../core/suites.js";
+import { taskLabel } from "../core/suites.js";
 import { createBarPlots } from "./bar.js";
-import { seriesColour } from "./palette.js";
-
-// Every task on screen carries the suite the comparison is scoped to — "ts1-choice",
-// "ts1-licking_rate" — so the axis shows the part that differs. The tooltip still names the
-// task in full, which is where the key rather than the tick label is read.
-function taskLabel(taskId) {
-  return suiteFromTask(taskId) ? taskId.slice(taskId.indexOf("-") + 1) : taskId;
-}
 
 // Grouping and titling both key on it, so a task whose score never named its metric lands
 // in one plot rather than in a plot per unnamed metric.
@@ -46,15 +38,11 @@ function metricOf(task) {
  * One series per model per metric: the plots are per metric, and a model spanning two of
  * them is two series that happen to share a name and a colour.
  *
- * @param axisTitle  what the y axis of a metric's panel is called, given the metric.
- * @param valueOf    (entry, taskId) => { mean, sem } | null — what this model has to show
- *                   for that task, or nothing.
- * @param skip       a model id to leave out while keeping its place in the colour order.
- *                   The difference chart's baseline: it has no series of its own, and
- *                   taking it out of the numbering instead would recolour every model each
- *                   time the reader changed it.
+ * @param mode a mode from compareData — `{ valueOf, axisTitle, skip }`. `skip` is a plain
+ *             filter, because a model's colour is carried on its entry rather than taken from
+ *             its place in the list.
  */
-function toModelSeries(entries, tasks, { axisTitle, valueOf, skip = null }) {
+function toModelSeries(entries, tasks, { valueOf, axisTitle, skip = null }) {
   const metrics = [...new Set(tasks.map(metricOf))];
 
   return metrics.flatMap((metric) => {
@@ -62,31 +50,25 @@ function toModelSeries(entries, tasks, { axisTitle, valueOf, skip = null }) {
       .filter((task) => metricOf(task) === metric)
       .map((task) => task.taskId);
 
-    return (
-      entries
-        // Coloured by the model's position, which toCompareEntries has already put in the
-        // order the grid's columns use — so a model is the same mark in every plot, in both
-        // charts, and the same column throughout.
-        .map((entry, index) => ({ entry, colour: seriesColour(index) }))
-        .filter(({ entry }) => entry.modelId !== skip)
-        .map(({ entry, colour }) => {
-          const values = taskIds.map((taskId) => valueOf(entry, taskId));
+    return entries
+      .filter((entry) => entry.modelId !== skip)
+      .map((entry) => {
+        const values = taskIds.map((taskId) => valueOf(entry, taskId));
 
-          return {
-            colour,
-            label: entry.modelName,
-            metric: axisTitle(metric),
-            group: metric,
-            index: new Map(taskIds.map((taskId, at) => [taskId, at])),
-            // Nothing to show is a gap rather than a zero, exactly as the grids leave the
-            // cell "—" rather than printing a number they don't have.
-            values: {
-              mean: values.map((value) => value?.mean ?? null),
-              sem: values.map((value) => value?.sem ?? null),
-            },
-          };
-        })
-    );
+        return {
+          colour: entry.colour,
+          label: entry.modelName,
+          metric: axisTitle(metric),
+          group: metric,
+          index: new Map(taskIds.map((taskId, at) => [taskId, at])),
+          // Nothing to show is a gap rather than a zero, exactly as the grids leave the
+          // cell "—" rather than printing a number they don't have.
+          values: {
+            mean: values.map((value) => value?.mean ?? null),
+            sem: values.map((value) => value?.sem ?? null),
+          },
+        };
+      });
   });
 }
 
@@ -108,59 +90,21 @@ const PLOT = {
 /**
  * @param entries from compareData's toCompareEntries — the models, in column order.
  * @param tasks   from compareData's compareTasks — the axis, in the grid's row order.
+ * @param mode    from compareData — what a bar measures, and what the axis of each metric is
+ *                called. What a difference *is* belongs to the domain rather than to the
+ *                drawing, so this module never computes one.
+ * @param scale   "all" for one y range across every plot, where "metric" keeps one per
+ *                metric. Differences are distances from one baseline, so the question a
+ *                reader brings to them is how big — and autoscaled apart, a 0.02 gain in one
+ *                metric would be drawn the same height as a 0.20 gain in another.
  * @returns { element, charts } — as createBarPlots.
  */
-function createModelPlots({ entries, tasks }) {
+function createModelPlots({ entries, tasks, mode, scale = "metric" }) {
   return createBarPlots({
     ...PLOT,
-    entries: toModelSeries(entries, tasks, {
-      axisTitle: (metric) => metric,
-      valueOf: (entry, taskId) => entry.tasks[taskId] ?? null,
-    }),
+    scale,
+    entries: toModelSeries(entries, tasks, mode),
   });
 }
 
-/**
- * The difference grid plotted: how far each model is from the baseline on every task, as
- * bars either side of zero.
- *
- * No whiskers, and deliberately. The spread of a difference is not either model's sem, and
- * the usual √(s₁² + s₂²) would assume the two were measured independently when they were
- * scored on the same recordings — which overstates it. The scores' own spreads are one
- * chart up.
- *
- * One y range across every plot, where the chart above keeps one per metric. A difference is
- * a distance from the baseline rather than a score, so the question a reader brings here is
- * how big it is — and autoscaled apart, a 0.02 gain in one metric would be drawn the same
- * height as a 0.20 gain in another.
- *
- * @param baselineId the model everything is measured against, which gets no series of its
- *                   own: it would be a row of zeros.
- */
-function createDiffPlots({ entries, tasks, baselineId }) {
-  const baseline = entries.find((entry) => entry.modelId === baselineId);
-
-  return createBarPlots({
-    ...PLOT,
-    scale: "all",
-    entries: baseline
-      ? toModelSeries(entries, tasks, {
-          axisTitle: (metric) => `Δ ${metric}`,
-          skip: baselineId,
-          valueOf: (entry, taskId) => {
-            const other = entry.tasks[taskId];
-            const against = baseline.tasks[taskId];
-
-            // A task only one of the two scored has no difference to state — the same rule
-            // toDiffRows applies, and for the same reason: a number in one grid and "—" in
-            // the other would read as a gap of exactly that size.
-            return other && against
-              ? { mean: other.mean - against.mean, sem: null }
-              : null;
-          },
-        })
-      : [],
-  });
-}
-
-export { createDiffPlots, createModelPlots };
+export { createModelPlots };

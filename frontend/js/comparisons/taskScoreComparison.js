@@ -11,52 +11,62 @@
 // recorded under different metrics, and the reader picks which one each is drawn in.
 
 import { escapeHtml } from "../core/html.js";
-import { renderHtml } from "../core/render.js";
-import { buildMessageCard } from "../components/messages.js";
+import { disposeAll } from "../core/disposable.js";
+import { getElement, renderHtml } from "../core/render.js";
 import { buildSuiteBadgeList } from "../components/badges.js";
-import { buildViewToggle } from "../components/viewToggle.js";
-import { buildComparisonGrid } from "../tables/comparisonGrid.js";
+import {
+  buildComparisonGrid,
+  buildRowHeader,
+} from "../components/comparisonGrid.js";
 import {
   buildRecordingHeatmaps,
   createRecordingPlots,
   toScoreSeries,
 } from "../plots/recordingScorePlots.js";
-import { seriesColour } from "../plots/palette.js";
+import { SERIES_COLOURS } from "../plots/palette.js";
 import { loadTaskSubmission } from "../api/taskSubmissionApi.js";
 import {
-  loadTaskFields,
+  TASK_FIELDS,
   trainingFieldKeys,
 } from "../schemas/taskSubmissionSchema.js";
 import { displayValue } from "../forms/fields.js";
 import { suiteFromTask } from "../core/suites.js";
 import { EMPTY_STORE, toRecordingStore } from "../utils/recordingScoreUtils.js";
-import { buildRowHeader, createComparison } from "./comparison.js";
+import { createComparison } from "./comparison.js";
+import {
+  buildSections,
+  getSection,
+  getSectionBody,
+} from "../components/sections.js";
+import { buildToggle } from "../components/buttons.js";
+import { buildOptions } from "../components/filters.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
 // Maximum number of scores that can be compared at once.
 const MAX_COMPARED = 6;
 
-const VIEWS = [
-  { value: "separate", label: "Separate", icon: "cards" },
-  { value: "overlaid", label: "Overlaid", icon: "score" },
-  { value: "heatmap", label: "Heatmap", icon: "suite" },
-];
+// The methodology grid and the recordings under it. Named rather than "summary" and "scores":
+// a section is found by document id, and the model comparison on the same page owns those.
+const METHODOLOGY_SECTION = "methodology";
+const RECORDINGS_SECTION = "recordings";
 
-const VIEW_ROLE = "task-compare-view";
+// The three ways the recordings behind the picked scores can be read: a plot each, one plot
+// holding them all, or a grid of cells. The buttons carry these ids, and a listener is
+// attached to each once — see attachEvents.
+const SEPARATE_VIEW = "separate-view";
+const OVERLAID_VIEW = "overlaid-view";
+const HEATMAP_VIEW = "heatmap-view";
+
+const VIEWS = [
+  { id: SEPARATE_VIEW, label: "Separate", icon: "cards" },
+  { id: OVERLAID_VIEW, label: "Overlaid", icon: "score" },
+  { id: HEATMAP_VIEW, label: "Heatmap", icon: "suite" },
+];
 
 // The metric is a column like the others, and the first of them: it is the one the reader
 // chooses rather than reads, and it decides what the panel below is drawn in.
 const METRIC = "metric";
-
-// The grid, the toggle under it, and the plots under that. Built once per comparison.
-const LAYOUT = `
-  <div data-role="grid"></div>
-  <div data-role="plot"></div>`;
-
-function slot(root, name) {
-  return root.querySelector(`[data-role='${name}']`);
-}
 
 // ─── ENTRIES ─────────────────────────────────────────────────────────────────
 
@@ -86,12 +96,12 @@ function metricOf(entry) {
   return names[0];
 }
 
-// Coloured by its place in the comparison, whichever way the plots are read: a score keeps
-// one colour whether it shares a plot with the others or has one of its own, so a reader
-// switching between the two views doesn't have to find it again.
-function toSeriesEntry(entry, index) {
+// Coloured by the comparison's own reckoning, whichever way the plots are read: a score keeps
+// one colour whether it shares a plot with the others or has one of its own, and keeps it
+// when another score is dropped — so a reader switching views doesn't have to find it again.
+function toSeriesEntry(entry, colourOf) {
   return toScoreSeries(storeOf(entry), metricOf(entry), {
-    colour: seriesColour(index),
+    colour: colourOf(entry.key),
     label: `${entry.modelName ?? entry.submissionLabel ?? ""} · ${entry.taskId}`,
   });
 }
@@ -103,20 +113,22 @@ function toSeriesEntry(entry, index) {
 function buildMetricCell(entry) {
   const metric = metricOf(entry);
 
-  const options = Object.keys(storeOf(entry).metrics)
-    .map(
-      (name) => `
-      <option value="${escapeHtml(name)}" ${name === metric ? "selected" : ""}>
-        ${escapeHtml(name)}
-      </option>`,
-    )
-    .join("");
+  const options = Object.keys(storeOf(entry).metrics).map((name) => ({
+    value: name,
+    label: name,
+  }));
 
   return {
     value: metric ?? "",
+    // Its own `<select>` rather than buildSelect's: the delegated listener finds which score
+    // changed by `data-key`, and buildSelect has no way to carry a second attribute.
     html: `
-      <select class="input-select" data-role="metric" data-key="${escapeHtml(entry.key)}">
-        ${options}
+      <select
+        class="input-select"
+        data-role="metric"
+        data-key="${escapeHtml(entry.key)}"
+      >
+        ${buildOptions(options, { selected: metric })}
       </select>`,
   };
 }
@@ -146,7 +158,7 @@ function buildScoreHeader(entry) {
   });
 }
 
-function buildMethodologyGrid(entries, fields) {
+function buildMethodologyGrid(entries, fields, colourOf) {
   const keys = trainingFieldKeys();
 
   return buildComparisonGrid({
@@ -157,6 +169,7 @@ function buildMethodologyGrid(entries, fields) {
     rows: entries.map((entry) => ({
       key: entry.key,
       header: buildScoreHeader(entry),
+      ink: colourOf(entry.key),
       cells: {
         [METRIC]: buildMetricCell(entry),
         ...Object.fromEntries(
@@ -179,71 +192,64 @@ function buildMethodologyGrid(entries, fields) {
  *                  scores" — the same instruction about the same cap, in the words of
  *                  whatever table is above it.
  */
-function createTaskComparison(options) {
-  // Which of the three ways the recordings are being read. Per comparison, and sticky: a
-  // reader who overlaid one set wants the next overlaid too.
-  let view = "separate";
+function createTaskComparison({ container, ...options }) {
 
-  // The training fields every score is described by. The same for all of them, so they are
-  // fetched once — and on the first render rather than here, so a reader who never compares
-  // never pays for them. `loadingFields` is what stops a second render starting a second
-  // request while the first is still in the air.
-  let fields = null;
-  let loadingFields = null;
+  let view = SEPARATE_VIEW;
 
-  // The grid, and the two controls that live in it: a metric per score, and the toggle for
-  // the plots below. Both listeners go on elements this render just made — the grid itself
-  // survives every render and would collect one per redraw.
-  function renderGrid(root, entries, refresh) {
-    const grid = slot(root, "grid");
+  let comparison = null;
 
-    // The toggle is drawn either way: which way the plots below are read has nothing to do
-    // with the fields, and taking the control away while they land would be a flicker.
-    grid.innerHTML =
-      (fields
-        ? buildMethodologyGrid(entries, fields)
-        : buildMessageCard("Loading methodology…")) +
-      buildViewToggle({ views: VIEWS, active: view, role: VIEW_ROLE });
+  let plotCharts = [];
 
-    for (const select of grid.querySelectorAll("[data-role='metric']")) {
-      select.addEventListener("change", () => {
-        const entry = entries.find((item) => item.key === select.dataset.key);
-
-        if (!entry) return;
-
-        entry.metric = select.value;
-        refresh();
-      });
-    }
-
-    for (const button of grid.querySelectorAll("[data-view]")) {
-      button.addEventListener("click", () => {
-        if (button.dataset.view === view) return;
-
-        view = button.dataset.view;
-        refresh();
-      });
-    }
+  // Chart.js keeps a registry keyed on the canvas, so an instance whose container is about to
+  // be rewritten has to be told.
+  function clearCharts() {
+    disposeAll(plotCharts);
+    plotCharts = [];
   }
 
-  function renderPlot(root, entries, track) {
-    const plot = slot(root, "plot");
+  function clearUp() {
+    clearCharts();
 
-    if (view === "heatmap") {
-      renderHtml(
-        plot,
-        buildRecordingHeatmaps({
-          entries: entries.map((entry, index) => toSeriesEntry(entry, index)),
-        }),
-      );
+    getSection(RECORDINGS_SECTION).hidden = true;
+  }
+
+  // ─── RENDER ────────────────────────────────────────────────────────────────
+
+  // Drawn as each score arrives rather than held until they all have: a row with its
+  // methodology still missing is worth showing, and its plot fills in behind it. `refresh`
+  // because the ✕ on each row is an icon.
+  function renderGrid() {
+    renderHtml(
+      getSectionBody(METHODOLOGY_SECTION),
+      buildMethodologyGrid(
+        comparison.entries(),
+        TASK_FIELDS,
+        comparison.colourOf,
+      ),
+      { refresh: true },
+    );
+  }
+
+  function renderPlot() {
+    const section = getSectionBody(RECORDINGS_SECTION);
+
+    clearCharts();
+
+    // The plots don't wait on the fields — nothing in them is described by one.
+    const entries = comparison
+      .entries()
+      .map((entry) => toSeriesEntry(entry, comparison.colourOf));
+
+    if (view === HEATMAP_VIEW) {
+      renderHtml(section, buildRecordingHeatmaps({ entries }));
 
       return;
     }
 
-    const overlaid = view === "overlaid";
+    const overlaid = view === OVERLAID_VIEW;
 
     const plots = createRecordingPlots({
-      entries: entries.map((entry, index) => toSeriesEntry(entry, index)),
+      entries,
       facet: overlaid ? "metric" : "score",
       // Overlaid, a plot holds every score at once and is read closely, so two across gives
       // each the width for its series without pushing the second metric below the fold.
@@ -251,35 +257,99 @@ function createTaskComparison(options) {
       size: overlaid ? "tall" : "regular",
     });
 
-    plot.replaceChildren(plots.element);
-    track(plots.charts);
+    section.replaceChildren(plots.element);
+    plotCharts = plots.charts;
   }
 
-  function render({ root, entries, refresh, track }) {
-    if (!slot(root, "grid")) root.innerHTML = LAYOUT;
+  function setActiveView(view) {
+    for (const { id } of VIEWS) {
+      getElement(id)?.classList.toggle("primary-inv", id === view);
+    }
+  }
 
-    loadingFields ??= loadTaskFields().then((loaded) => {
-      fields = loaded;
-      refresh();
+  function renderView(selectedView) {
+    view = selectedView;
+    setActiveView(view);
+
+    // Only the panel: which way the recordings are read says nothing about the methodology
+    // above them.
+    renderPlot();
+  }
+
+  function renderSections() {
+    // Put away by clearUp, and back once there is something to read.
+    getSection(RECORDINGS_SECTION).hidden = false;
+
+    setActiveView(view);
+
+    renderGrid();
+    renderPlot();
+  }
+
+  function attachEvents() {
+    for (const { id } of VIEWS) {
+      getElement(id)?.addEventListener("click", () => {
+        if (id !== view) renderView(id);
+      });
+    }
+
+    // On the section rather than on the selects in it: the grid is rebuilt whenever a score
+    // is picked or its detail lands, and a listener on a select would go with the old
+    // element. The section body is the layout's own and outlives every render.
+    getSectionBody(METHODOLOGY_SECTION).addEventListener("change", (event) => {
+      const select = event.target.closest("[data-role='metric']");
+
+      if (!select) return;
+
+      const entry = comparison
+        .entries()
+        .find((item) => item.key === select.dataset.key);
+
+      if (!entry) return;
+
+      entry.metric = select.value;
+
+      renderPlot();
+    });
+  }
+
+  function setup() {
+    renderHtml(
+      container,
+      buildSections([
+        { id: METHODOLOGY_SECTION },
+        {
+          id: RECORDINGS_SECTION,
+          title: "Recordings",
+          actions: [buildToggle(VIEWS)],
+          hidden: true,
+        },
+      ]),
+    );
+
+    attachEvents();
+
+    comparison = createComparison({
+      // The methodology section: with nothing picked, the prompt belongs where the grid would
+      // have been, and the recordings section is hidden anyway. The section body outlives it,
+      // which is what lets the metric listener above be attached once.
+      container: getSectionBody(METHODOLOGY_SECTION),
+      max: MAX_COMPARED,
+      prompt: `Select up to ${MAX_COMPARED} task scores to compare them.`,
+      palette: SERIES_COLOURS,
+
+      loadDetail: (entry) => loadTaskSubmission(entry.submissionId, entry.key),
+
+      render: renderSections,
+      clearUp,
+
+      ...options,
     });
 
-    // Drawn as each score arrives rather than held until they all have: a row with its
-    // methodology still missing is worth showing, and its plot fills in behind it. The
-    // plots don't wait on the fields either — nothing in them is described by one.
-    renderGrid(root, entries, refresh);
-    renderPlot(root, entries, track);
+    return comparison;
   }
 
-  return createComparison({
-    max: MAX_COMPARED,
-    prompt: `Select up to ${MAX_COMPARED} task scores to compare them.`,
-
-    loadDetail: (entry) => loadTaskSubmission(entry.submissionId, entry.key),
-
-    render,
-
-    ...options,
-  });
+  return setup();
 }
 
 export { MAX_COMPARED, createTaskComparison };

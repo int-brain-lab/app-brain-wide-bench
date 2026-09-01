@@ -201,8 +201,15 @@ function createTable({
 
     ...(initialFilter ? { initialFilter } : {}),
 
-    // Tabulator 6's name for it — `selectable` is silently ignored.
-    ...(selection ? { selectableRows: selection.max ?? true } : {}),
+    ...(selection
+      ? {
+          // Tabulator 6's name for it — `selectable` is silently ignored.
+          selectableRows: selection.max ?? true,
+          // At the cap Tabulator's default deselects the oldest row and takes the new tick.
+          // Refused instead, which is what the cards do: a pick stays until it is dropped.
+          selectableRowsRollingSelection: false,
+        }
+      : {}),
   });
 
   // The row cursor keys off this — see `[data-rows-selectable]` in style.css.

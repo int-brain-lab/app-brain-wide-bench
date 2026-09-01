@@ -82,9 +82,20 @@ function clampPage(page, pageCount) {
 // ─── SELECTION ───────────────────────────────────────────────────────────────
 
 // `root` is any ancestor of the cards.
-function highlightSelectedCards(root, keys) {
+/**
+ * @param keys  the picked keys.
+ * @param inkOf (key) => the colour that pick is drawn in, or null. Omit for none — the edge
+ *              then falls back to the app's own, see `--pick-ink` in style.css.
+ */
+function highlightSelectedCards(root, keys, inkOf = () => null) {
   root.querySelectorAll(".card[data-key]").forEach((card) => {
-    card.classList.toggle("selected", keys.has(card.dataset.key));
+    const picked = keys.has(card.dataset.key);
+
+    card.classList.toggle("selected", picked);
+    card.style.setProperty(
+      "--pick-ink",
+      (picked && inkOf(card.dataset.key)) || "",
+    );
   });
 }
 

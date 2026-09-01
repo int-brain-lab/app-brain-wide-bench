@@ -40,10 +40,18 @@ function suiteFromTask(taskId) {
   return SUITES.includes(prefix) ? prefix : null;
 }
 
+// Every task on screen carries the suite it belongs to — "ts1-choice", "ts1-licking_rate" —
+// so where the suite is already named, the label is the part that differs. The id itself is
+// what a tooltip or a key shows.
+function taskLabel(taskId) {
+  return suiteFromTask(taskId) ? taskId.slice(taskId.indexOf("-") + 1) : taskId;
+}
+
 export {
   SUITES,
   suiteFromTask,
   suiteLabel,
+  taskLabel,
   suitesFromModel,
   suitesFromSubmission,
 };
