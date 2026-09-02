@@ -2196,9 +2196,15 @@ COMPARISON
   width: 280px;
 }
 
-/* One model that has been chosen to compare against. `flex: none` so a long name is never
-   squashed by the five beside it — the row wraps instead. */
+/* One thing that has been picked and stays picked — a model chosen to compare against, a
+   value pinned under a select. `flex: none` so a long name is never squashed by the others
+   beside it: the row wraps instead. The padding is lopsided because the ✕ sits on the right
+   and brings its own. */
 .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-sm);
+
   flex: none;
   padding: 4px 6px 4px 12px;
   border: 1px solid var(--border-color);
@@ -2206,6 +2212,14 @@ COMPARISON
   background: var(--surface);
   font-size: var(--font-sm);
   white-space: nowrap;
+}
+
+/* Where a pinned select's chips go. Always in the markup, because it is what a new chip is
+   inserted into — so an empty one is collapsed rather than left to consume one of its
+   parent's gaps under every control. `:has(*)` and not `:empty`, which the whitespace left
+   behind by an insertion would defeat. */
+.pins:not(:has(*)) {
+  display: none;
 }
 
 .chip-remove {

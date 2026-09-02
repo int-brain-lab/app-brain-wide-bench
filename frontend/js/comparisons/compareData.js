@@ -9,7 +9,9 @@
 //
 //   1. A task's score is the *latest* submitted for it, never the best, and latest per
 //      task — the same collapse app/ranking/rank.py does before ranking, which is what lets a
-//      rank sit beside a score.
+//      rank sit beside a score. Who did the collapsing is the host's business: a page holding
+//      a leaderboard response already has it done, and one holding model details has
+//      latestScoresByTask below.
 //   2. A missing score is `null`, not `0`, so an unattempted suite doesn't drag a mean down.
 //   3. The task rows are the *union* across the models compared, not the selected model's
 //      own. A comparator scoring something it never attempted shows as "—" in its column.
@@ -22,8 +24,13 @@ import { suiteFromTask } from "../core/suites.js";
 // ─── LATEST ──────────────────────────────────────────────────────────────────
 
 // Each task takes its score from the newest submission that scored it, so a model is read
-// as where it currently stands rather than as its most recent upload — the same collapse
-// app/ranking/rank.py does before ranking, which is what lets a rank sit beside a score here.
+// as where it currently stands rather than as its most recent upload.
+//
+// For a caller holding model details, which carry every submission. A leaderboard response
+// arrives collapsed already, and by the server's own reckoning: ordered by
+// `(has_date, date, id)` over completed submissions, where this reads `created_at` alone and
+// takes any submission with a score on it. The two agree on everything but a timestamp tie
+// and a submission still being scored.
 function latestScoresByTask(submissions) {
   const latest = new Map();
 
@@ -59,22 +66,26 @@ function latestScoresByTask(submissions) {
 
 // ─── ENTRIES ─────────────────────────────────────────────────────────────────
 
-// One model, reduced to its scores. `model` is a ModelDetail — the GET /api/models/{id}
-// payload, whose submissions carry the task scores.
+// One model, reduced to its scores.
+//
+// `entry` is a comparison entry — it already knows the model's name and team, from the row
+// it was picked in, so neither is waited on. `scores` is `{ task_id: { mean, sem, metric } }`,
+// whoever collapsed it: a leaderboard row's `scores` and latestScoresByTask agree on those
+// three fields, and anything else a producer carries rides along unread.
 //
 // `suite` narrows them to one; omit it for every task the model has scored, which is what a
 // comparison shows until the reader asks for less.
-function toCompareEntry(model, suite = "") {
+function toCompareEntry(entry, scores, suite = "") {
   const tasks = Object.fromEntries(
-    Object.entries(latestScoresByTask(model.submissions)).filter(
+    Object.entries(scores ?? {}).filter(
       ([taskId]) => !suite || suiteFromTask(taskId) === suite,
     ),
   );
 
   return {
-    modelId: model.id,
-    modelName: model.name,
-    teamName: model.team_name ?? null,
+    modelId: entry.modelId,
+    modelName: entry.name,
+    teamName: entry.teamName ?? null,
     // { "ts1-choice": { mean, sem, metric }, … }
     tasks,
     mean: mean(Object.values(tasks).map((task) => task.mean)),
@@ -83,7 +94,11 @@ function toCompareEntry(model, suite = "") {
 }
 
 /**
- * @param models     ModelDetail objects, in the order they were picked.
+ * @param entries    comparison entries, in the order they were picked.
+ * @param scoresOf   (entry) => its scores. Read here rather than held on the entry because
+ *                   an entry outlives the data behind it: the leaderboard refetches its
+ *                   board under the picks, and the selection keeps the entry object it
+ *                   already had.
  * @param suite      which suite to narrow to, or "" for all of them.
  * @param selectedId the model being compared *against*, which is badged rather than moved.
  * @returns one entry per model, in the order given. Pick order rather than ranked: a mean
@@ -91,9 +106,9 @@ function toCompareEntry(model, suite = "") {
  *          picker is in. A model with no score on the suite is kept — it was explicitly
  *          chosen, and silently omitting it would read as a bug in the picker.
  */
-function toCompareEntries(models, suite, selectedId) {
-  return models
-    .map((model) => toCompareEntry(model, suite))
+function toCompareEntries(entries, scoresOf, suite, selectedId) {
+  return entries
+    .map((entry) => toCompareEntry(entry, scoresOf(entry), suite))
     .map((entry) => ({ ...entry, isSelected: entry.modelId === selectedId }));
 }
 
@@ -207,5 +222,6 @@ export {
   latestScoresByTask,
   scoreMode,
   toCompareEntries,
+  toCompareEntry,
   toCompareRows,
 };

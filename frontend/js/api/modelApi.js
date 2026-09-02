@@ -1,4 +1,5 @@
 import { apiFetch, apiFetchOptional } from "./client.js";
+import { buildQuery } from "./params.js";
 import { normalizeObject, trimmed } from "../core/validation.js";
 
 // ─── PAYLOADS ────────────────────────────────────────────────────────────────
@@ -23,6 +24,23 @@ async function getMyModels() {
 
 async function loadModel(modelId) {
   return await apiFetch(`/api/models/${modelId}`);
+}
+
+/**
+ * A model's parameters and the task entries it stands on — see
+ * GET /api/models/{id}/breakdown.
+ *
+ * @param taskSubmissionIds which entries to describe. Omit for the newest scored entry per
+ *                          task, which is where the model stands today. Pass them when the
+ *                          caller is already looking at a set of scores — a leaderboard row
+ *                          names the entries it ranked, and asking for "the newest" here
+ *                          could answer with a different run than the one on screen, since a
+ *                          filtered board stands on the newest *matching* entry.
+ */
+async function loadModelBreakdown(modelId, { taskSubmissionIds } = {}) {
+  const query = buildQuery({ task_submission_id: taskSubmissionIds });
+
+  return await apiFetch(`/api/models/${modelId}/breakdown${query}`);
 }
 
 // Where a model places against the public field, and where it would place with its
@@ -53,6 +71,7 @@ export {
   getModels,
   getMyModels,
   loadModel,
+  loadModelBreakdown,
   getModelRanking,
   updateModel,
   createModel,

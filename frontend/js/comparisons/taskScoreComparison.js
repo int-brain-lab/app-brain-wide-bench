@@ -25,11 +25,11 @@ import {
 } from "../plots/recordingScorePlots.js";
 import { SERIES_COLOURS } from "../plots/palette.js";
 import { loadTaskSubmission } from "../api/taskSubmissionApi.js";
+import { TASK_FIELDS } from "../schemas/taskSubmissionSchema.js";
 import {
-  TASK_FIELDS,
-  trainingFieldKeys,
-} from "../schemas/taskSubmissionSchema.js";
-import { displayValue } from "../forms/fields.js";
+  methodologyCells,
+  methodologyColumns,
+} from "../components/methodologyGrid.js";
 import { suiteFromTask } from "../core/suites.js";
 import { EMPTY_STORE, toRecordingStore } from "../utils/recordingScoreUtils.js";
 import { createComparison } from "./comparison.js";
@@ -63,10 +63,6 @@ const VIEWS = [
   { id: OVERLAID_VIEW, label: "Overlaid", icon: "score" },
   { id: HEATMAP_VIEW, label: "Heatmap", icon: "suite" },
 ];
-
-// The metric is a column like the others, and the first of them: it is the one the reader
-// chooses rather than reads, and it decides what the panel below is drawn in.
-const METRIC = "metric";
 
 // ─── ENTRIES ─────────────────────────────────────────────────────────────────
 
@@ -133,16 +129,6 @@ function buildMetricCell(entry) {
   };
 }
 
-// A value the reader can compare, or nothing. `detail` is absent until each score's own
-// request lands, which reads as "not known yet" rather than "not set".
-function valueOf(entry, key, fields) {
-  if (!entry.detail) return null;
-
-  const value = displayValue(fields[key], entry.detail[key]);
-
-  return value == null || value === "" ? null : String(value);
-}
-
 // Which score this row is. The submission sits under the task because two rows of the same
 // task across two models is the comparison this is for.
 function buildScoreHeader(entry) {
@@ -159,23 +145,18 @@ function buildScoreHeader(entry) {
 }
 
 function buildMethodologyGrid(entries, fields, colourOf) {
-  const keys = trainingFieldKeys();
-
   return buildComparisonGrid({
-    columns: [
-      { key: METRIC, label: "Metric" },
-      ...keys.map((key) => ({ key, label: entries[key]?.label ?? key })),
-    ],
+    columns: methodologyColumns(fields),
     rows: entries.map((entry) => ({
       key: entry.key,
       header: buildScoreHeader(entry),
       ink: colourOf(entry.key),
-      cells: {
-        [METRIC]: buildMetricCell(entry),
-        ...Object.fromEntries(
-          keys.map((key) => [key, { value: valueOf(entry, key, fields) }]),
-        ),
-      },
+      cells: methodologyCells({
+        // Absent until this score's own request lands.
+        record: entry.detail ?? null,
+        fields,
+        metricCell: buildMetricCell(entry),
+      }),
     })),
   });
 }

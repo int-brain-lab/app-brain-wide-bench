@@ -22,7 +22,11 @@ import { buildEmptyMessage } from "../components/messages.js";
 
 /**
  * @param container  element, or the id of one. Its contents are replaced.
- * @param max        how many can be compared at once. Refused past it, not swapped.
+ * @param max        how many can be compared at once. Refused past it, not swapped, unless
+ *                   `rolling`.
+ * @param rolling    a pick past `max` pushes the oldest out — for a controller holding one
+ *                   thing at a time. A table bound to it wants the same flag, since
+ *                   Tabulator enforces its own cap: see bindTableSelection.
  * @param prompt     what to say with nothing picked.
  * @param loadDetail (entry) => the record to attach as `entry.detail`. Absent until it
  *                   lands, so every render has to expect it missing.
@@ -41,6 +45,7 @@ import { buildEmptyMessage } from "../components/messages.js";
 function createComparison({
   container,
   max = Infinity,
+  rolling = false,
   prompt = "Select things to compare them.",
   loadDetail,
   cacheKey = (entry) => entry.key,
@@ -55,6 +60,7 @@ function createComparison({
   const selection = createSelection({
     max,
     slots: palette.length,
+    rolling,
     onChange: () => {
       announce();
       render();
@@ -208,14 +214,6 @@ function createComparison({
 
     draw()
 
-    // draw({
-    //   root,
-    //   entries: entries(),
-    //   colourOf,
-    //   context: activeContext,
-    //   refresh: render,
-    // });
-
     refreshIcons();
   }
 
@@ -272,13 +270,18 @@ function createComparison({
  * @param comparison what to bind to.
  * @param rowIndex   (entry) => the value the table identifies its row by. Defaults to the
  *                   entry's key.
- * @param claimLinks as createFilterableTable.
+ * @param claimLinks as createFilterableTable. Left on, since a table bound to a comparison
+ *                   is usually there to build the selection; a panel whose rows also link
+ *                   somewhere passes false.
+ * @param rolling    as createFilterableTable. On for a controller holding one thing at a
+ *                   time, so a click on another row replaces what is shown rather than
+ *                   being refused.
  * @returns { apply, attach, sync, selection }. `selection()` is the option the table
  *          factories take; `attach(table)` takes the instance, or null to detach.
  */
 function bindTableSelection(
   comparison,
-  { rowIndex = (entry) => entry.key, claimLinks = true } = {},
+  { rowIndex = (entry) => entry.key, claimLinks = true, rolling = false } = {},
 ) {
   let table = null;
 
@@ -347,6 +350,7 @@ function bindTableSelection(
     return {
       max: comparison.max,
       claimLinks,
+      rolling,
       // The deltas, not the whole set: a row hidden by a filter is still picked.
       onChange: (_data, { selected = [], deselected = [] } = {}) => {
         if (syncing) return;

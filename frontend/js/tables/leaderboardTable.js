@@ -112,7 +112,7 @@ function createLeaderboardTable({ rows, taskIds, metrics = {}, selection }) {
     // column the board is sorted by.
     initialSort: [{ column: "rank", dir: "asc" }],
     layout: "fitColumns",
-    paginationSize: 10,
+    paginationSize: 8,
     caller: "createLeaderboardTable",
   });
 }

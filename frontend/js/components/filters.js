@@ -5,22 +5,23 @@
 // Nothing here knows about either — a control is a `match(row, value)` and the values are a
 // plain object, so whoever mounted the bar decides what a change does.
 //
-// `buildSelect`, `buildSearch` and `buildCheckList` are also usable on their own, by a caller
-// with one control and no bar: each takes the parts of a control it needs rather than a
+// `buildSelect`, `buildSearch` and `buildPinnedSelect` are also usable on their own, by a
+// caller with one control and no bar: each takes the parts of a control it needs rather than a
 // control, and the caller wires it up — see comparisons/modelComparison.js, which attaches its
-// own listeners, and pages/leaderboard.js, whose lists choose what the board is ranked over
-// rather than narrowing anything. The two `buildFilterBar*` below are the bar's own translation
+// own listeners, and pages/leaderboard.js, whose controls choose what the board is ranked over
+// as well as what narrows it. The two `buildFilterBar*` below are the bar's own translation
 // from a control to those parts.
 //
-// The bar itself takes a select or a search. A check list is multi-valued, and both the bar's
-// markup and createFilterState's one-value-per-control state would have to grow to hold one —
-// which no caller has needed yet.
+// The bar itself takes a select or a search. A pinned select is multi-valued, and both the
+// bar's markup and createFilterState's one-value-per-control state would have to grow to hold
+// one — which no caller has needed yet.
 //
 // Every control matches against *rows* — what a domain's `toXRows` produced — which is why
 // the cards on a list page render from rows too. One shape, one set of matchers.
 
 import { escapeHtml } from "../core/html.js";
 import { suiteLabel, SUITES } from "../core/suites.js";
+import { getIcon } from "./icons.js";
 
 // ─── MATCHERS ────────────────────────────────────────────────────────────────
 
@@ -146,99 +147,185 @@ function buildSearch({ name, hook = "filter", placeholder = "", value = "" }) {
   `;
 }
 
-// ─── CHECK LISTS ─────────────────────────────────────────────────────────────
+// ─── PINNED SELECTS ──────────────────────────────────────────────────────────
 //
-// A group of checkboxes read as one value: which of a fixed set of things is picked. The
-// multi-valued control, and it carries no state of its own — the boxes are the state, and
-// `checkedIn` reads them back off whatever element the caller put them in. Which means a
-// caller listening on a persistent ancestor can rebuild the boxes under it as often as it
-// likes, the way createFilterState does with a bar's controls.
+// A select whose picks stay: choosing an option pins it as a chip underneath, with a ✕ to
+// take it off again, and the select drops back to its placeholder ready for the next. The
+// multi-valued control for a set too long to show as boxes — eight fields of five options
+// each is forty boxes on screen at rest, where this is eight closed selects until the reader
+// adds to one.
 //
-// Options may be grouped, for a set that has an order of its own — the tasks of a suite — and
-// a group heads its own column of boxes rather than nesting.
+// No state of its own: the chips are the state, and `pinnedIn` reads them back off whatever
+// element the caller put them in. So a caller listening on a persistent ancestor can rebuild
+// the controls under it whenever it likes, and there is no second copy of what is picked to
+// disagree with what is on screen.
+//
+// A pinned option is hidden *and* disabled in the select rather than taken out of it: the
+// list keeps its own order, so unpinning puts the option back where it was rather than at the
+// end. Disabled as well as hidden because `hidden` on an <option> is honoured unevenly, and
+// on its own would leave a pinnable option pinnable twice.
 
-function buildBox(name, hook, option, selected) {
+// The chip list, by the name of the select above it — what pinning re-renders into.
+const PINS = "pins";
+
+// One chip's ✕, and the select's own option, by value.
+const UNPIN = "unpin";
+
+function buildChip(name, option) {
   return `
-    <label class="value row left gap-sm">
-      <input
-        class="field-checkbox"
-        type="checkbox"
-        data-${escapeHtml(hook)}="${escapeHtml(name)}"
-        value="${escapeHtml(option.value)}"
-        ${selected.includes(option.value) ? "checked" : ""}
-      />
+    <span class="chip">
       ${escapeHtml(option.label)}
-    </label>`;
+      <button
+        type="button"
+        class="chip-remove"
+        data-${UNPIN}="${escapeHtml(name)}"
+        value="${escapeHtml(option.value)}"
+        title="Remove ${escapeHtml(option.label)}"
+        aria-label="Remove ${escapeHtml(option.label)}"
+      >
+        <i class="field-icon" data-lucide="${escapeHtml(getIcon("remove"))}"></i>
+      </button>
+    </span>`;
 }
 
 /**
- * @param name     what a listener finds the group by, on every box in it.
- * @param hook     the data attribute carrying `name`, without the `data-`. As buildSelect's
- *                 in components/filters.js.
- * @param options  [{ value, label }], or [{ label, options }] for a headed group of them.
- * @param selected the values that start ticked.
- * @param columns  how many across the groups sit. Omit for one per row.
+ * One of them: a label, the select, and the chips for what is already picked.
+ *
+ * @param name        what a listener finds it by, on the select and on every ✕ under it.
+ * @param hook        the data attribute carrying `name` on the select, without the `data-`.
+ *                    As buildSelect's — the select is one, so a bar's own listener hears it
+ *                    or doesn't by the same rule.
+ * @param label       what the control is called, above it.
+ * @param options     [{ value, label }]. Ungrouped: a set with an order of its own — the
+ *                    tasks of a suite — is its own control rather than a heading inside a
+ *                    shared one, so that what a select offers is the same thing its chips
+ *                    are.
+ * @param selected    the values that start pinned, in the order they should read.
+ * @param placeholder the select's blank first option, which is what it shows at rest. Reads
+ *                    as the state rather than as an instruction — nothing pinned is "Any",
+ *                    the way an unset bar select is "All teams".
  * @returns the markup.
  */
-function buildCheckList({
+function buildPinnedSelect({
   name,
   hook = "filter",
+  label = "",
   options,
   selected = [],
-  columns = 0,
+  placeholder = "Any",
 }) {
-  const groups = options.some((option) => option.options)
-    ? options
-    : [{ label: "", options }];
+  const pinned = new Set(selected);
 
-  const layout = columns > 1 ? `grid-${columns}` : "column gap-md";
+  const byValue = new Map(options.map((option) => [option.value, option]));
 
   return `
-    <div class="${layout}">
-      ${groups
-        .map(
-          (group) => `
-        <div class="column gap-sm">
-          ${group.label ? `<span class="metadata">${escapeHtml(group.label)}</span>` : ""}
-          ${group.options.map((option) => buildBox(name, hook, option, selected)).join("")}
-        </div>`,
-        )
-        .join("")}
+    <div class="column gap-sm">
+      ${label ? `<span class="metadata">${escapeHtml(label)}</span>` : ""}
+      <select
+        class="input-select"
+        data-${escapeHtml(hook)}="${escapeHtml(name)}"
+        ${options.length ? "" : "disabled"}
+      >
+        <option value="">${escapeHtml(placeholder)}</option>
+        ${options
+          .map(
+            (option) => `
+          <option
+            value="${escapeHtml(option.value)}"
+            ${pinned.has(option.value) ? "hidden disabled" : ""}
+          >${escapeHtml(option.label)}</option>`,
+          )
+          .join("")}
+      </select>
+      <span class="row left gap-sm pins" data-${PINS}="${escapeHtml(name)}">
+        ${selected
+          .filter((value) => byValue.has(value))
+          .map((value) => buildChip(name, byValue.get(value)))
+          .join("")}
+      </span>
     </div>`;
 }
 
 /**
- * The values ticked in `root`, in the order the boxes are in.
+ * The values pinned in `root`, in the order they were pinned.
  *
- * @param name as buildCheckList.
- * @param hook as buildCheckList.
+ * @param name as buildPinnedSelect.
  */
-function checkedIn(root, name, hook = "filter") {
+function pinnedIn(root, name) {
   return [
-    ...root.querySelectorAll(`input[data-${hook}="${name}"]:checked`),
-  ].map((box) => box.value);
+    ...root.querySelectorAll(`[data-${PINS}="${name}"] [data-${UNPIN}="${name}"]`),
+  ].map((button) => button.value);
+}
+
+function optionFor(root, name, hook, value) {
+  return root.querySelector(
+    `select[data-${hook}="${name}"] option[value="${CSS.escape(value)}"]`,
+  );
 }
 
 /**
- * Whether a click or a change landed on this group — for a listener delegated to an element
- * the boxes are rebuilt inside.
- */
-function isCheckOf(event, name, hook = "filter") {
-  return event.target.matches?.(`input[data-${hook}="${name}"]`) ?? false;
-}
-
-/**
- * Tick exactly `values` in `root`, without firing a change.
+ * Pin or unpin whatever a change or a click just asked to, in place.
  *
- * For one group driven by another — a suite ticking its own tasks — where the boxes are
- * already on screen and rebuilding them would lose the reader's place in the list.
+ * One entry point for both, because they are the same edit read from either end — a change on
+ * the select pins its value, a click on a ✕ unpins the chip's — and a caller would otherwise
+ * wire two listeners to two functions that have to agree.
+ *
+ * @param event the change or click. Anything landing elsewhere is left alone.
+ * @param root  an ancestor of the control, which is where it is looked for.
+ * @param hook  as buildPinnedSelect.
+ * @returns the name of the select whose pins changed, or null for an event that wasn't one's
+ *          — so a caller can tell "the filters moved" from "the reader clicked the panel".
  */
-function setCheckedIn(root, name, values, hook = "filter") {
-  const wanted = new Set(values);
+function pinFromEvent(event, root, hook = "filter") {
+  // `closest`, not the target itself: a click on a ✕ lands on the icon inside it, which
+  // lucide has by then replaced with an svg of its own.
+  const unpin = event.target?.closest?.(`[data-${UNPIN}]`);
+  const select = unpin ? null : event.target?.closest?.(`select[data-${hook}]`);
 
-  for (const box of root.querySelectorAll(`input[data-${hook}="${name}"]`)) {
-    box.checked = wanted.has(box.value);
+  const control = unpin ?? select;
+
+  if (!control) return null;
+
+  const name = unpin ? unpin.dataset[UNPIN] : select.dataset[hook];
+
+  const pins = root.querySelector(`[data-${PINS}="${name}"]`);
+
+  if (!pins) return null;
+
+  const value = control.value;
+
+  // A change back to the placeholder is not a pin — and it is what pinning leaves the select
+  // showing, so this is also the click on the select itself.
+  if (!value) return null;
+
+  const option = optionFor(root, name, hook, value);
+
+  if (unpin) {
+    unpin.closest(".chip")?.remove();
+
+    if (option) {
+      option.hidden = false;
+      option.disabled = false;
+    }
+
+    return name;
   }
+
+  pins.insertAdjacentHTML(
+    "beforeend",
+    buildChip(name, { value, label: option?.textContent.trim() ?? value }),
+  );
+
+  if (option) {
+    option.hidden = true;
+    option.disabled = true;
+  }
+
+  // Back to the instruction, so the control never reads as though it held one of the values
+  // pinned below it.
+  select.value = "";
+
+  return name;
 }
 
 // ─── BAR ─────────────────────────────────────────────────────────────────────
@@ -362,17 +449,16 @@ function createFilterState({ controls, root, onChange }) {
 
 export {
   SUITE_OPTIONS,
-  buildCheckList,
   buildFilterBar,
   buildOptions,
+  buildPinnedSelect,
   buildSearch,
   buildSelect,
-  checkedIn,
   createFilterState,
-  isCheckOf,
   matchEquals,
   matchInArray,
   matchIncludes,
   optionsFromRows,
-  setCheckedIn,
+  pinFromEvent,
+  pinnedIn,
 };

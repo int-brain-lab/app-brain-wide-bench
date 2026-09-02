@@ -33,12 +33,13 @@ import { SERIES_COLOURS } from "../plots/palette.js";
 import {
   compareTasks,
   diffMode,
+  latestScoresByTask,
   scoreMode,
   toCompareEntries,
   toCompareRows,
 } from "./compareData.js";
 import { displayValue } from "../forms/fields.js";
-import { SUITES, suiteLabel, suitesFromSubmission } from "../core/suites.js";
+import { SUITES, suiteFromTask, suiteLabel } from "../core/suites.js";
 import { loadModel } from "../api/modelApi.js";
 import { MODEL_FIELDS } from "../schemas/modelSchema.js";
 import { fieldsForPanel } from "../schemas/schemaPanels.js";
@@ -113,10 +114,15 @@ function toModelEntry(row) {
 //
 // `tasks` is derived from the models, and returned with them so that the bars and the rows
 // share one axis — and because plots/ cannot reach up here to compute its own.
-function scoresForModel(entries, suite, colourOf) {
-  const loaded = entries.map((entry) => entry.detail).filter(Boolean);
+//
+// A pick whose scores haven't arrived is left out rather than drawn as a column of dashes —
+// it would read as a model that scored nothing. `selectedId` is still the first *pick*, so
+// the badge lands on the right model once its own scores do.
+function scoresForModel(entries, scoresOf, suite, colourOf) {
+  const scored = entries.filter((entry) => scoresOf(entry) != null);
   const comparedModels = toCompareEntries(
-    loaded,
+    scored,
+    scoresOf,
     suite,
     entries[0]?.modelId,
   ).map((entry) => ({ ...entry, colour: colourOf(entry.modelId) }));
@@ -124,12 +130,15 @@ function scoresForModel(entries, suite, colourOf) {
   return { comparedModels, tasks: compareTasks(comparedModels) };
 }
 
-// The suites the selection has scores on, in SUITES order.
-function availableSuites(entries) {
+// The suites the selection has scores on, in SUITES order. From the scores rather than from
+// the submissions behind them, so the select can only offer a suite there is something to
+// draw for — and so it offers the same ones whichever host supplied them.
+function availableSuites(entries, scoresOf) {
   const scored = new Set(
-    entries.flatMap((entry) =>
-      (entry.detail?.submissions ?? []).flatMap(suitesFromSubmission),
-    ),
+    entries
+      .flatMap((entry) => Object.keys(scoresOf(entry) ?? {}))
+      .map(suiteFromTask)
+      .filter(Boolean),
   );
 
   return SUITES.filter((suite) => scored.has(suite));
@@ -161,12 +170,24 @@ function buildBaselineSelect() {
  * @param container as createComparison.
  * @param toEntry   (row) => { key, modelId, name, teamName }. `key` identifies the row in
  *                  the host's view; `modelId` is what gets fetched.
+ * @param scoresOf  (entry) => `{ task_id: { mean, sem, metric } }`, or null while the host
+ *                  has none yet. Defaults to collapsing the model detail this fetches for
+ *                  itself; a host holding the scores already — a leaderboard response has
+ *                  them collapsed, filtered and ranked — passes its own, so that what the
+ *                  comparison shows and what the table above it shows are the same numbers.
+ *                  Called on every render rather than read off the entry once: an entry
+ *                  outlives the data behind it.
  * @param order     as createComparison.
  *
  * A host that passes a suite to `set` owns it; one that passes nothing gets the suite bar
  * below instead.
  */
-function createModelComparison({ container, ...options }) {
+function createModelComparison({
+  container,
+  scoresOf = (entry) =>
+    entry.detail ? latestScoresByTask(entry.detail.submissions) : null,
+  ...options
+}) {
 
   // How both score sections are being read.
   let view = PLOT_VIEW;
@@ -214,7 +235,7 @@ function createModelComparison({ container, ...options }) {
   function getSuite() {
     if (comparison.activeContext) return comparison.activeContext;
 
-    return availableSuites(comparison.entries()).includes(selectedSuite)
+    return availableSuites(comparison.entries(), scoresOf).includes(selectedSuite)
       ? selectedSuite
       : "";
   }
@@ -234,6 +255,7 @@ function createModelComparison({ container, ...options }) {
   function updateScores() {
     ({ comparedModels, tasks } = scoresForModel(
       comparison.entries(),
+      scoresOf,
       getSuite(),
       comparison.colourOf,
     ));
@@ -377,7 +399,7 @@ function createModelComparison({ container, ...options }) {
 
     setActiveView(view);
 
-    buildSuiteOptions(availableSuites(comparison.entries()), selectedSuite);
+    buildSuiteOptions(availableSuites(comparison.entries(), scoresOf), selectedSuite);
     renderBreakdown();
 
     buildBaselineOptions(comparedModels, getBaseline());

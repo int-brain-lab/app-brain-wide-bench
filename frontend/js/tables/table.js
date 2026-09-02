@@ -119,13 +119,19 @@ function buildStaticTable({
  *                       later selects or deselects one by value. Defaults to "id".
  * @param onRowClick     (rowData, {event, element}) => void, on every row click. The
  *                       element is the row's own. Omit for no click handling.
- * @param selection      {max, onChange, claimLinks} — makes rows pickable by clicking
- *                       them, at most `max` at a time, and calls
+ * @param selection      {max, onChange, claimLinks, rolling} — makes rows pickable by
+ *                       clicking them, at most `max` at a time, and calls
  *                       `onChange(rows, {selected, deselected})` with the selected row data
  *                       and the row components that changed. A pick shows as the row's own
  *                       highlight — see `.tabulator-selected` in style.css.
- *                       `claimLinks: true` picks the row on a click on a link inside it
- *                       instead of following the link. Omit for a table nothing selects.
+ *                       `claimLinks` says what a click on a link inside a row does: `true`
+ *                       picks the row instead of following it, which is what a table
+ *                       building a selection wants; `false` follows the link and leaves the
+ *                       selection alone, for a table whose rows both open something beside
+ *                       them and link somewhere else.
+ *                       `rolling: true` lets a pick past the cap push the oldest out, which
+ *                       is what a panel showing one row at a time wants — clicking another
+ *                       row plainly means "that one". Omit for a table nothing selects.
  * @param header         markup above the grid, inside the same root — see
  *                       createFilterableTable, which puts the filter bar there.
  *
@@ -206,8 +212,9 @@ function createTable({
           // Tabulator 6's name for it — `selectable` is silently ignored.
           selectableRows: selection.max ?? true,
           // At the cap Tabulator's default deselects the oldest row and takes the new tick.
-          // Refused instead, which is what the cards do: a pick stays until it is dropped.
-          selectableRowsRollingSelection: false,
+          // Refused unless asked for, which is what the cards do: a pick stays until it is
+          // dropped. A single-row panel asks for it — see `rolling` above.
+          selectableRowsRollingSelection: selection.rolling ?? false,
         }
       : {}),
   });
@@ -228,12 +235,23 @@ function createTable({
       selection.onChange(data, { selected, deselected }),
     );
 
-    // Tabulator's own row-click selection runs either way; this cancels the navigation
-    // that would follow it.
+    // Tabulator's own row-click selection runs either way, so both branches are about a
+    // click that lands on a link: one cancels the navigation, the other cancels the pick.
     if (selection.claimLinks) {
       table.on("rowClick", (event) => {
         if (event.target.closest("a")) event.preventDefault();
       });
+    } else {
+      // Captured on the root, so it runs before the listener Tabulator put on the row and
+      // stops the event reaching it — which is what keeps the row from being picked.
+      // `stopPropagation` leaves the default action alone, so the link still navigates.
+      root.addEventListener(
+        "click",
+        (event) => {
+          if (event.target.closest("a")) event.stopPropagation();
+        },
+        true,
+      );
     }
   }
 

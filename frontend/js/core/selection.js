@@ -1,14 +1,19 @@
 // What a reader has picked, keyed on the entry key, in pick order.
 
 /**
- * @param max      how many can be held at once. Extras are refused, not swapped in.
+ * @param max      how many can be held at once. Extras are refused unless `rolling`.
  * @param slots    how many slots there are to hand out — see slotOf. 0 for none.
  * @param onChange () => void, once per mutation that changed the set.
+ * @param rolling  a pick past the cap pushes the oldest out instead of being refused. For a
+ *                 view holding one thing at a time, where clicking another plainly means
+ *                 "that one"; a comparison refuses instead, so a pick stays until it is
+ *                 dropped.
  */
 function createSelection({
   max = Infinity,
   slots = 0,
   onChange = () => {},
+  rolling = false,
 } = {}) {
   const held = new Map();
 
@@ -62,7 +67,19 @@ function createSelection({
   }
 
   function add(entry) {
-    if (held.has(entry.key) || held.size >= max) return false;
+    if (held.has(entry.key)) return false;
+
+    if (held.size >= max) {
+      if (!rolling) return false;
+
+      // Evicted here rather than through `remove`, so the pick and the drop it made room for
+      // are one mutation and one render. Its slot goes with it, which is what lets the
+      // incoming entry take it.
+      const oldest = keys()[0];
+
+      held.delete(oldest);
+      places.delete(oldest);
+    }
 
     held.set(entry.key, entry);
     takeSlot(entry.key);

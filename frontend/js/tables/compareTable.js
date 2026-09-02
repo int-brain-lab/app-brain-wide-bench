@@ -63,8 +63,8 @@ function modelFormatter(cell) {
 //
 // `suite` where the columns span more than one, and the task name drops it either way: on a
 // single suite the badge would be the same word down every column, which is the repetition
-// taskLabel strips the prefix to avoid. Across suites it is the only thing telling two tasks
-// of the same metric apart.
+// taskLabel exists to avoid. Across suites it is the only thing telling two tasks of the
+// same metric apart.
 function taskHeader({ taskId, metric }, showSuite) {
   const suite = showSuite ? suiteFromTask(taskId) : null;
 

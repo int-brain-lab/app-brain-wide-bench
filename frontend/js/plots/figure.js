@@ -224,19 +224,19 @@ const LAYOUTS = {
 const HEIGHTS = {
   regular: {
     grid: 200,
-    row: 260,
-    pair: 260,
-    weighted: 260,
-    stack: 220,
-    single: 360,
+    row: 160,
+    pair: 160,
+    weighted: 160,
+    stack: 120,
+    single: 260,
   },
   tall: {
-    grid: 260,
-    row: 320,
-    pair: 320,
-    weighted: 320,
-    stack: 320,
-    single: 480,
+    grid: 160,
+    row: 220,
+    pair: 220,
+    weighted: 220,
+    stack: 220,
+    single: 380,
   },
 };
 

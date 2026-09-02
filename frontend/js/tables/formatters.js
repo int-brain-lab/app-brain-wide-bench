@@ -7,7 +7,7 @@
 // with what that column needs, and returns one.
 
 import { escapeHtml } from "../core/html.js";
-import { SUITES } from "../core/suites.js";
+import { SUITES, taskLabel } from "../core/suites.js";
 import { formatDate, score } from "../core/utils.js";
 import {
   buildMetricBadge,
@@ -277,7 +277,7 @@ function taskNameFormatter(cell) {
   const value = cell.getValue();
 
   return value
-    ? `<span class="label">${escapeHtml(value.slice(4))}</span>`
+    ? `<span class="label">${escapeHtml(taskLabel(value))}</span>`
     : EMPTY_VALUE;
 }
 
@@ -295,7 +295,7 @@ function taskLinkFormatter(cell) {
 
   return `
     <a ${taskLinkAttributes(row)}>
-      ${escapeHtml(taskId ? taskId.slice(4) : EMPTY_VALUE)}
+      ${escapeHtml(taskId ? taskLabel(taskId) : EMPTY_VALUE)}
     </a>
   `;
 }

@@ -1,19 +1,7 @@
 import { apiFetchOptional } from "./client.js";
+import { appendFilter } from "./params.js";
 
 // ─── API ─────────────────────────────────────────────────────────────────────
-
-// A list is sent as one repeated parameter — `?training_paradigm=a&training_paradigm=b` — which
-// is what FastAPI reads as a list. Empty and absent are the same thing here: an omitted
-// parameter is what the endpoint reads as "no filter".
-function appendFilter(params, key, value) {
-  if (Array.isArray(value)) {
-    for (const one of value) params.append(key, one);
-
-    return;
-  }
-
-  if (value != null && value !== "") params.set(key, value);
-}
 
 /**
  * The public leaderboard: one entry per model, its newest public score per task, and the rank
