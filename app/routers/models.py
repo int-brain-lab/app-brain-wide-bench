@@ -16,7 +16,7 @@ from app.auth import (
     require_team_member,
 )
 from app.database import get_session
-from app.ranking import Standing, latest_entries, place_standings, standings
+from app.ranking.rank import Standing, latest_entries, place_standings, standings
 from app.routers.submissions import visible_submissions
 from app.models import (
     Model,

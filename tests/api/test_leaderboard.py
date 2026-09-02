@@ -128,7 +128,7 @@ async def test_row_carries_a_rank_per_task(seeded_client):
     """Present on every row, and empty for a score with no per-recording breakdown.
 
     The fixture's task_scores predate the `metrics` JSON, so there is nothing for the Welch
-    test to run on — the endpoint has to say "unranked" rather than fail. app/ranking.py's
+    test to run on — the endpoint has to say "unranked" rather than fail. app/ranking/rank.py's
     own tests cover the case where the breakdown is there.
     """
     row = (await seeded_client.get(LEADERBOARD_URL)).json()[0]
@@ -162,16 +162,23 @@ async def test_filters_out_models_that_are_not_pretrained(seeded_client):
 
 async def test_an_unanswered_pretrained_flag_matches_neither_value(seeded_client, add):
     """Nullable, so "not filled in" is its own state — not a quiet "no"."""
-    model = MODELS["unsubmitted-net"]
+    mystery = Submission(
+        model_id=MODELS["unsubmitted-net"],
+        label="mystery-run",
+        s3_key="submissions/mystery.zip",
+        status=SubmissionStatus.done,
+        is_public=True,
+    )
+
+    # Scored, because an unscored standing is no longer a row at all — see
+    # ``test_a_model_with_nothing_left_is_not_a_row``. The flag is what this is about, so the
+    # row has to exist before either value can be shown not to match it.
+    choice = TaskSubmission(submission_id=mystery.id, task_id="ts1-choice")
 
     await add(
-        Submission(
-            model_id=model,
-            label="mystery-run",
-            s3_key="submissions/mystery.zip",
-            status=SubmissionStatus.done,
-            is_public=True,
-        )
+        mystery,
+        choice,
+        TaskScore(task_submission_id=choice.id, n_seeds=3, primary_metric_mean=0.5),
     )
 
     assert "mystery-run" in labels(await seeded_client.get(LEADERBOARD_URL))
@@ -197,3 +204,143 @@ async def test_membership_makes_no_difference(seeded_client, add, me):
 
     assert labels(response) == ["mlp-ts1-baseline"]
     assert response.json() == anonymous
+
+
+# ── the methodology filters ──────────────────────────────────────────────────
+#
+# A different grain from the pretrained one: these are facts about a task entry, so they take
+# entries out of a standing rather than models out of the field. A model can survive carrying
+# only some of its tasks — and none of them, in which case it is not a row at all.
+#
+# The one public+done fixture submission is mlp-ts1-baseline, whose eight ts1 entries are all
+# TSS and inductive. So a filter naming those keeps it whole, and one naming anything else
+# empties it.
+
+
+async def test_a_task_filter_keeps_the_entries_that_match(seeded_client):
+    response = await seeded_client.get(
+        LEADERBOARD_URL, params={"training_paradigm": "TSS"}
+    )
+
+    [row] = response.json()
+
+    assert len(row["scores"]) == 8
+
+
+async def test_a_task_filter_drops_the_entries_that_do_not(seeded_client):
+    """And with every entry gone the model is not a row: nothing in any column is not a
+    competitor."""
+    response = await seeded_client.get(
+        LEADERBOARD_URL, params={"training_paradigm": "TSU"}
+    )
+
+    assert response.json() == []
+
+
+async def test_several_values_match_any_of_them(seeded_client):
+    """A list of values is a question about either, which is what a list of checkboxes asks."""
+    response = await seeded_client.get(
+        LEADERBOARD_URL, params={"training_paradigm": ["TSS", "TSU"]}
+    )
+
+    [row] = response.json()
+
+    assert len(row["scores"]) == 8
+
+
+async def test_two_filters_both_have_to_hold(seeded_client):
+    """Any of the values within one, all of the filters across them."""
+    both = await seeded_client.get(
+        LEADERBOARD_URL,
+        params={"training_paradigm": "TSS", "calibration": "inductive"},
+    )
+
+    assert len(both.json()) == 1
+
+    one_fails = await seeded_client.get(
+        LEADERBOARD_URL,
+        params={"training_paradigm": "TSS", "calibration": "transductive"},
+    )
+
+    assert one_fails.json() == []
+
+
+async def test_an_unanswered_methodology_field_matches_nothing(seeded_client):
+    """The fixture's entries record no supervision regime, and an unanswered question is not
+    an answer — the same rule the pretrained flag follows."""
+    response = await seeded_client.get(
+        LEADERBOARD_URL, params={"supervision_regime": "zero_shot"}
+    )
+
+    assert response.json() == []
+
+
+async def test_a_list_field_matches_on_overlap(seeded_client, add):
+    """Ticking two modalities asks for entries that used *either*, not both."""
+    run = Submission(
+        model_id=MODELS["ssl-transformer"],
+        label="ssl-extra-input",
+        s3_key="submissions/extra.zip",
+        status=SubmissionStatus.done,
+        is_public=True,
+    )
+    entry = TaskSubmission(
+        submission_id=run.id,
+        task_id="ts1-choice",
+        extra_input_modality=["behavior"],
+    )
+
+    await add(
+        run,
+        entry,
+        TaskScore(task_submission_id=entry.id, n_seeds=3, primary_metric_mean=0.6),
+    )
+
+    overlapping = await seeded_client.get(
+        LEADERBOARD_URL, params={"extra_input_modality": ["behavior", "anatomy"]}
+    )
+
+    assert labels(overlapping) == ["ssl-extra-input"]
+
+    disjoint = await seeded_client.get(
+        LEADERBOARD_URL, params={"extra_input_modality": "anatomy"}
+    )
+
+    assert disjoint.json() == []
+
+
+async def test_both_pretrained_values_mean_either_answer(seeded_client, add):
+    """Which is a question the flag could not be asked while it took one value.
+
+    Every model that answered, and none that didn't — so it is narrower than no filter at all.
+    """
+    run = Submission(
+        model_id=MODELS["ssl-transformer"],
+        label="ssl-pretrained-run",
+        s3_key="submissions/ssl.zip",
+        status=SubmissionStatus.done,
+        is_public=True,
+    )
+    entry = TaskSubmission(submission_id=run.id, task_id="ts1-choice")
+
+    await add(
+        run,
+        entry,
+        TaskScore(task_submission_id=entry.id, n_seeds=3, primary_metric_mean=0.6),
+    )
+
+    response = await seeded_client.get(
+        LEADERBOARD_URL, params={"is_pretrained": ["true", "false"]}
+    )
+
+    # mlp-baseline answered "no", ssl-transformer answered "yes".
+    assert labels(response) == ["mlp-ts1-baseline", "ssl-pretrained-run"]
+
+
+async def test_a_value_no_enum_has_is_refused(seeded_client):
+    """A stale shared link is an error rather than a silently unfiltered board."""
+    response = await seeded_client.get(
+        LEADERBOARD_URL, params={"training_paradigm": "handwaving"}
+    )
+
+    assert response.status_code == 422

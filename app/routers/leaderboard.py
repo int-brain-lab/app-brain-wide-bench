@@ -1,13 +1,27 @@
 """Public leaderboard endpoint."""
 
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_session
-from app.models import Model, Submission, SubmissionStatus, Task, TaskSubmission
-from app.ranking import rank_standings, standings
+from app.models import (
+    Calibration,
+    FinetuningStrategy,
+    Modality,
+    Model,
+    Submission,
+    SubmissionStatus,
+    SupervisionRegime,
+    Task,
+    TaskSubmission,
+    TrainingParadigm,
+)
+from app.ranking.filters import matches_entry, matches_model
+from app.ranking.rank import rank_standings, standings
 from app.schemas.leaderboard import LeaderboardRow, LeaderboardScore
 
 router = APIRouter(prefix="/api/leaderboard", tags=["leaderboard"])
@@ -15,7 +29,14 @@ router = APIRouter(prefix="/api/leaderboard", tags=["leaderboard"])
 
 @router.get("", response_model=list[LeaderboardRow])
 async def leaderboard(
-    is_pretrained: bool | None = None,
+    is_pretrained: Annotated[list[bool] | None, Query()] = None,
+    pretrained_in_modalities: Annotated[list[Modality] | None, Query()] = None,
+    pretrained_out_modalities: Annotated[list[Modality] | None, Query()] = None,
+    extra_input_modality: Annotated[list[Modality] | None, Query()] = None,
+    training_paradigm: Annotated[list[TrainingParadigm] | None, Query()] = None,
+    supervision_regime: Annotated[list[SupervisionRegime] | None, Query()] = None,
+    calibration: Annotated[list[Calibration] | None, Query()] = None,
+    finetuning_strategy: Annotated[list[FinetuningStrategy] | None, Query()] = None,
     session: AsyncSession = Depends(get_session),
 ) -> list[LeaderboardRow]:
     """Return the standing of every model with public, completed work.
@@ -31,15 +52,29 @@ async def leaderboard(
     One row per model, carrying its newest score for each task and the rank that score
     earned. The collapse happens here rather than in the client because it is what the
     ranking is computed over: a model competes as where it currently stands, not as its
-    latest upload — see app/ranking.py.
+    latest upload — see app/ranking/rank.py.
 
-    ``is_pretrained`` narrows to models that are, or are not, pretrained. It narrows the
-    *field*, not just the view: ranks are computed over whatever survives it, so a model's
-    position is against the models it is being shown beside. Filtering in the browser would
-    leave every rank describing a set no longer on screen, which is why this lives here.
+    Every parameter narrows the *field*, not just the view: ranks are computed over whatever
+    survives, so a model's position is against the models it is being shown beside. Filtering
+    in the browser would leave every rank describing a set no longer on screen, which is why
+    this lives here.
 
-    A model whose ``is_pretrained`` was never filled in matches neither value — the column
-    is nullable and an unanswered question is not a "no". Omit the parameter to include them.
+    They narrow at two grains, and the difference matters:
+
+    * ``is_pretrained`` and the two pretraining modality lists are facts about the *model*, so
+      they take whole models out of the field.
+    * the five methodology parameters are facts about a *task entry*, so they take entries out
+      — a model stays on the board carrying only the tasks it did the way the reader asked
+      about. Applied before the newest entry per task is chosen, so a model that re-ran a task
+      differently stands on the run that matches rather than dropping the task; see
+      ``latest_entries``.
+
+    A filter naming several values matches any of them, a list column matches on overlap, and
+    a field never filled in matches nothing — an unanswered question is not a "no". See
+    app/ranking/filters.py, which is where all three rules live.
+
+    A model left with no surviving entries is dropped rather than returned empty: a row with
+    nothing in any column is not a competitor on this board.
     """
     query = (
         select(Submission)
@@ -50,14 +85,34 @@ async def leaderboard(
         )
     )
 
-    # ``has`` rather than a join: ``Model`` is already being loaded for the row's name, and
-    # joining it a second time here would have to be aliased to avoid colliding with that.
-    if is_pretrained is not None:
-        query = query.where(Submission.model.has(Model.is_pretrained.is_(is_pretrained)))
-
     submissions = list((await session.execute(query)).scalars().all())
 
-    rows = standings(submissions)
+    # Matched here rather than in the query. Three of the eight are JSONB lists, whose
+    # containment operator Postgres has and SQLite — which the tests build their schema on —
+    # does not; and the whole public set is loaded regardless, because ranking reads every
+    # score's recordings. See app/ranking/filters.py.
+    submissions = [
+        submission
+        for submission in submissions
+        if matches_model(
+            submission.model,
+            is_pretrained=is_pretrained or (),
+            pretrained_in_modalities=pretrained_in_modalities or (),
+            pretrained_out_modalities=pretrained_out_modalities or (),
+        )
+    ]
+
+    def keep(entry: TaskSubmission) -> bool:
+        return matches_entry(
+            entry,
+            extra_input_modality=extra_input_modality or (),
+            training_paradigm=training_paradigm or (),
+            supervision_regime=supervision_regime or (),
+            calibration=calibration or (),
+            finetuning_strategy=finetuning_strategy or (),
+        )
+
+    rows = [standing for standing in standings(submissions, keep) if standing.entries]
     tasks = (await session.execute(select(Task))).scalars().all()
     ranks = rank_standings(rows, tasks)
 

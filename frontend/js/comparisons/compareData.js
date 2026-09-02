@@ -8,7 +8,7 @@
 // Four rules the page depends on:
 //
 //   1. A task's score is the *latest* submitted for it, never the best, and latest per
-//      task — the same collapse app/ranking.py does before ranking, which is what lets a
+//      task — the same collapse app/ranking/rank.py does before ranking, which is what lets a
 //      rank sit beside a score.
 //   2. A missing score is `null`, not `0`, so an unattempted suite doesn't drag a mean down.
 //   3. The task rows are the *union* across the models compared, not the selected model's
@@ -23,7 +23,7 @@ import { suiteFromTask } from "../core/suites.js";
 
 // Each task takes its score from the newest submission that scored it, so a model is read
 // as where it currently stands rather than as its most recent upload — the same collapse
-// app/ranking.py does before ranking, which is what lets a rank sit beside a score here.
+// app/ranking/rank.py does before ranking, which is what lets a rank sit beside a score here.
 function latestScoresByTask(submissions) {
   const latest = new Map();
 

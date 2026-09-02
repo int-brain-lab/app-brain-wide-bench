@@ -658,11 +658,17 @@ CARDS
 /* A card picked for a comparison, and the cards' answer to `.tabulator-selected` — the same
    wash and the same edge, since the two views are one list. Simpler than the table's version
    only because a card paints its own background, where a Tabulator row is painted by the
-   cells on top of it. */
+   cells on top of it.
+
+   The wash is the pick's own colour at the weight --primary-light sits at, so a picked thing
+   is tinted with the colour it is drawn in everywhere else. */
 .card.selected {
-  background: var(--primary-light);
-  border-color: var(--primary-dark);
-  box-shadow: inset 3px 0 0 var(--primary);
+  background: color-mix(
+    in srgb,
+    var(--pick-ink, var(--primary)) 12%,
+    var(--surface)
+  );
+  box-shadow: inset 3px 0 0 var(--pick-ink, var(--primary));
 }
 
 /* While comparing, a card is a control rather than a link — see the click handler in
@@ -807,37 +813,27 @@ CARDS
   margin-top: 0;
 }
 
-/* Side by side, each plot as wide as the categories it holds, so one category is the same
-   width in every plot — see plots/modelPlots.js, where a suite has four tasks measured in
-   r2 and one in poisson_d2.
+/* Each plot as wide as the tasks it holds, in a grid of task-wide tracks — see
+   plots/modelPlots.js, where a plot is one suite's tasks measured in one metric.
 
-   Flex rather than grid, because the growth has to start above the axis gutter: a basis of
-   the gutter plus a grow of the category count divides what is left in proportion, where
-   equal grid tracks would give the one-task plot as much room as the four-task one. The
-   gutter is what Chart.js reserves for the y-axis title and its value labels. */
-/* Centred, because arrangePlots caps the row at what its content needs: below that cap the
-   row is narrower than the page it sits on, and a figure floated left of empty space reads as
-   one that failed to load the rest of itself.
+   A grid rather than a flex row, and tracks rather than percentages: the gaps come out of the
+   grid's own accounting, so a line's spans add up to exactly the line. `--plot-tracks` is the
+   busiest suite's task count, set by arrangePlots, so that suite's plots fill one line and the
+   lighter ones wrap under them at the same width per task rather than stretching to fill.
 
-   `width: 100%` is load-bearing, not a default spelled out. The shared key makes this row a
-   child of a `.column`, and a flex item with an auto cross-axis margin is not stretched — the
-   margins absorb the free space instead. Left to `width: auto` it shrink-wraps to its
-   contents, which is every plot at its min-width and none of them grown. */
+   `minmax(0, 1fr)` and not `1fr`: a canvas measures its column, and an `auto` minimum lets it
+   measure itself instead and grow on every redraw.
+
+   Centred, because arrangePlots caps the width at what the busiest line needs: below that cap
+   the grid is narrower than the page, and a figure floated left of empty space reads as one
+   that failed to load the rest of itself. `width: 100%` is load-bearing — a flex item with an
+   auto cross-axis margin is not stretched, and the shared key above makes this row one. */
 .chart-weighted {
-  --plot-gutter: 56px;
-
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(var(--plot-tracks, 1), minmax(0, 1fr));
   gap: var(--gap-md);
   width: 100%;
   margin-inline: auto;
-}
-
-.chart-weighted .chart-facet {
-  flex-basis: var(--plot-gutter);
-  flex-shrink: 1;
-  min-width: 200px;
 }
 
 .chart-weighted .chart-facet + .chart-facet {
@@ -876,6 +872,18 @@ CARDS
    further down, where the same rule applies for the same reason. */
 .tabulator .tabulator-row.row-open .tabulator-cell {
   background: var(--surface-secondary);
+}
+
+/* A comparison's own rows, marked in the colour the thing is drawn in elsewhere: the same 3px
+   edge the picked row carries in the table it came from. Transparent by default, so a grid
+   whose caller passes no colour is unmarked rather than edged in black. */
+.comparison-grid tbody th[scope="row"],
+.compare-model {
+  box-shadow: inset 3px 0 0 var(--row-ink, transparent);
+}
+
+.compare-model {
+  padding-left: var(--gap-sm);
 }
 
 /* The heatmap: one row per score, one cell per recording. A grid rather than a table so the
@@ -1696,13 +1704,21 @@ table {
   .tabulator
   .tabulator-row.tabulator-selected:hover
   .tabulator-cell {
-  background: var(--primary-light);
+  background: color-mix(
+    in srgb,
+    var(--pick-ink, var(--primary)) 12%,
+    var(--surface)
+  );
 }
 
 /* The edge, on the first cell rather than as an inset shadow on the row — which the cells
-   would cover, exactly as they cover the row's background. */
+   would cover, exactly as they cover the row's background.
+
+   `--pick-ink` is set per row by the comparison that owns the picks, so the edge is the
+   colour that pick is drawn in everywhere else — its plot series, its row in the comparison,
+   its column in the grid. Unset on every other table, which keeps the app's own. */
 .tabulator .tabulator-row.tabulator-selected .tabulator-cell:first-child {
-  box-shadow: inset 3px 0 0 var(--primary);
+  box-shadow: inset 3px 0 0 var(--pick-ink, var(--primary));
 }
 
 /* Cells all carry a border-bottom (above), which on the final row doubles up with

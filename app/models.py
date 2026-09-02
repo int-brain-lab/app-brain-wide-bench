@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any, ClassVar, Optional
 
 from sqlalchemy import Column, DateTime, Enum as SAEnum, Index, JSON, func, select, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import column_property
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -213,6 +214,16 @@ SUITE_OUTPUT_MODALITY: dict[TaskSuite, Modality] = {
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 
+# Every multi-valued column below. ``JSONB`` on Postgres, which is where the app runs: it is
+# the correct storage for a list nobody reads as text, and the only one offering containment,
+# so a query narrowing by "any of these modalities" is possible at all.
+#
+# A variant rather than ``JSONB`` outright because the test suite builds its schema on SQLite,
+# whose compiler cannot render JSONB — the variant renders plain ``JSON`` there. Array order
+# survives both, which is why this is safe here and not for ``TaskScore.metrics``.
+JSON_LIST = JSON().with_variant(JSONB(), "postgresql")
+
+
 # These return a ``Field``, not a value — the annotation is ``Any`` rather than the column
 # type they configure, which is what they used to claim.
 
@@ -318,8 +329,8 @@ class Model(SQLModel, table=True):
     temporal_context_s: float = 1.0
     # Pretraining — all nullable for single-session baselines
     is_pretrained: bool | None = None
-    pretrained_in_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON))
-    pretrained_out_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON))
+    pretrained_in_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON_LIST))
+    pretrained_out_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON_LIST))
     pretraining_data: str | None = None
     created_at: datetime | None = _ts()
 
@@ -465,11 +476,11 @@ class TaskSubmission(SQLModel, table=True):
     id: uuid.UUID = _uuid()
     submission_id: uuid.UUID = Field(foreign_key="submissions.id")
     task_id: str = Field(foreign_key="tasks.id")
-    extra_input_modality: list[Modality] | None = Field(default=None, sa_column=Column(JSON))
+    extra_input_modality: list[Modality] | None = Field(default=None, sa_column=Column(JSON_LIST))
     training_paradigm: TrainingParadigm | None = None
     supervision_regime: SupervisionRegime | None = None
     calibration: Calibration | None = None
-    finetuning_strategy: list[FinetuningStrategy] | None = Field(default=None, sa_column=Column(JSON))
+    finetuning_strategy: list[FinetuningStrategy] | None = Field(default=None, sa_column=Column(JSON_LIST))
 
     submission: Submission | None = Relationship(back_populates="task_submissions")
     task: Task | None = Relationship(back_populates="task_submissions")
@@ -537,6 +548,10 @@ class TaskScore(SQLModel, table=True):
     primary_metric_mean: float
     primary_metric_sem: float | None = None
 
+    # JSON, not JSONB, unlike every other multi-valued column here: JSONB canonicalises object
+    # key order, and the order the scorer wrote the metrics in is what the client reads them in
+    # — a task's primary metric first. Nothing inspects this server-side, so JSONB would cost
+    # that ordering and buy nothing.
     metrics: dict | None = Field(default=None, sa_column=Column(JSON, nullable=True))
 
     task_submission: TaskSubmission | None = Relationship(back_populates="score")

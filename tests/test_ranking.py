@@ -1,4 +1,4 @@
-"""Tests for app.ranking — the adapter between stored scores and the benchmark's rank().
+"""Tests for app.ranking.rank — the adapter between stored scores and the benchmark's rank().
 
 The statistics belong to ``core.scoring.aggregation`` and are not retested here. What is
 tested is everything this module actually decides: what a competitor is, which of its
@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 from app.models import Metric, TaskSuite
-from app.ranking import (
+from app.ranking.rank import (
     competition_ranks,
     latest_entries,
     place_standings,
@@ -45,7 +45,8 @@ def score(metric: str, per_recording: list[tuple[str | None, float]], sem=0.01, 
     )
 
 
-def submission(model_id, task_scores, *, created_at=NOW):
+def submission(model_id, task_scores, *, created_at=NOW, paradigm=None):
+    """``paradigm`` rides on every entry, for the tests about narrowing which of them count."""
     submission_id = uuid.uuid4()
 
     return SimpleNamespace(
@@ -53,7 +54,13 @@ def submission(model_id, task_scores, *, created_at=NOW):
         model_id=model_id,
         created_at=created_at,
         task_submissions=[
-            SimpleNamespace(id=uuid.uuid4(), submission_id=submission_id, task_id=task_id, score=value)
+            SimpleNamespace(
+                id=uuid.uuid4(),
+                submission_id=submission_id,
+                task_id=task_id,
+                score=value,
+                training_paradigm=paradigm,
+            )
             for task_id, value in task_scores.items()
         ],
     )
@@ -93,6 +100,74 @@ def test_a_standing_holds_the_newest_score_for_each_task():
     assert standing.entries["ts1-choice"].submission_id == rerun.id
     assert standing.entries["ts1-wheel_speed"].submission_id == first.id
     assert standing.latest is rerun
+
+
+# ── narrowing which entries count ────────────────────────────────────────────
+#
+# ``keep`` is how the leaderboard's methodology filters reach in. What is tested here is the
+# one thing this module decides about them: that they are applied before the newest entry per
+# task is chosen, not after.
+
+
+def test_keep_narrows_which_entries_are_eligible():
+    """An entry the predicate rejects is as good as unscored."""
+    model = uuid.uuid4()
+    entered = submission(model, {"ts1-choice": score("bacc", [("a", 0.9)])}, paradigm="TSU")
+
+    kept = latest_entries([entered], lambda entry: entry.training_paradigm == "TSS")
+
+    assert kept == {}
+
+
+def test_the_newest_matching_entry_wins_not_the_newest_entry():
+    """A model that re-ran a task differently still stands on the run that matches.
+
+    The predicate is applied before the pick, so the older matching entry is the one that
+    counts. Applied after, this model would report never having done the task the way it was
+    asked about — which it did.
+    """
+    model = uuid.uuid4()
+
+    older = submission(
+        model,
+        {"ts1-choice": score("bacc", [("a", 0.70)])},
+        created_at=NOW - timedelta(days=1),
+        paradigm="TSS",
+    )
+    newer = submission(
+        model,
+        {"ts1-choice": score("bacc", [("a", 0.95)])},
+        paradigm="TSU",
+    )
+
+    kept = latest_entries([older, newer], lambda entry: entry.training_paradigm == "TSS")
+
+    assert set(kept) == {"ts1-choice"}
+    assert kept["ts1-choice"].submission_id == older.id
+
+    # Without the predicate it is the newer one, which is what makes the above a choice.
+    assert latest_entries([older, newer])["ts1-choice"].submission_id == newer.id
+
+
+def test_ranks_are_computed_over_the_standings_handed_in():
+    """Narrowing the field changes where a survivor places, which is why filtering is the
+    server's and not the client's."""
+    strong, weak = uuid.uuid4(), uuid.uuid4()
+
+    field = [
+        submission(strong, {"ts1-choice": score("bacc", [("a", 0.95)])}),
+        submission(weak, {"ts1-choice": score("bacc", [("a", 0.60)])}),
+    ]
+
+    both = rank_standings(standings(field), TASKS)
+
+    assert both[str(weak)]["ts1-choice"] == 2
+    assert both[str(strong)]["ts1-choice"] == 1
+
+    # The same model, alone, is first — its score has not changed.
+    alone = rank_standings(standings(field[1:]), TASKS)
+
+    assert alone[str(weak)]["ts1-choice"] == 1
 
 
 def test_one_standing_per_model():

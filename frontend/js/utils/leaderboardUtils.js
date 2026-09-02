@@ -4,7 +4,7 @@
 // The rank is the mean of the server's per-task ranks over the tasks the reader has chosen. A
 // mean of ranks rather than of scores, because ranks are unitless and the metrics behind them
 // are not comparable — TS1 alone carries `bacc`, `poisson_d2` and `r2`, which share neither a
-// scale nor a chance level. The per-task figures come computed, see app/ranking.py, and
+// scale nor a chance level. The per-task figures come computed, see app/ranking/rank.py, and
 // choosing tasks needs no second request: ranking a model within a task doesn't depend on
 // which other tasks are on screen.
 

@@ -27,7 +27,6 @@ import {
 } from "../components/messages.js";
 import {
   buildCheckList,
-  buildSelect,
   checkedIn,
   setCheckedIn,
 } from "../components/filters.js";
@@ -46,6 +45,12 @@ import {
   getSection,
   getSectionBody,
 } from "../components/sections.js";
+import { MODEL_FIELDS, loadModelMeta } from "../schemas/modelSchema.js";
+import {
+  TASK_FIELDS,
+  loadTaskFields,
+  trainingFieldKeys,
+} from "../schemas/taskSubmissionSchema.js";
 import {
   toLeaderboardRows,
   toTaskMetrics,
@@ -75,18 +80,56 @@ const HOOK = "role";
 const APPLY_ID = "apply-filters";
 
 // Hardcoded rather than derived from the rows: an option that disappeared exactly when
-// nothing on the board matched it would be the one worth offering. Only the two answers —
-// the blank option is every model, and a model whose flag was never filled in is in that and
-// nowhere else, because the endpoint reads an unanswered question as neither value.
+// nothing on the board matched it would be the one worth offering.
+//
+// Only the two answers. A model whose flag was never filled in matches neither, because the
+// endpoint reads an unanswered question as not a "no" — so it is in the board only while this
+// is left alone.
 const PRETRAINED_OPTIONS = [
   { value: "true", label: "Pretrained" },
   { value: "false", label: "Not pretrained" },
 ];
 
+// What the model itself is, beside the flag: what it was pretrained on and what it was
+// pretrained to produce. Named rather than read off a panel, because the specification panel
+// holds parameters and prose as well, and only these two are answers a reader would narrow by.
+const MODEL_KEYS = ["pretrained_in_modalities", "pretrained_out_modalities"];
+
+// How a task was produced: the methodology panel of a task submission, whatever it holds. Read
+// off the schema rather than written out here, so a field added there is a filter here without
+// a second edit.
+//
+// The two lists are different grains, and phase two's query will have to keep them apart: the
+// model's narrow which models are in the field at all, while a task's narrow which of a model's
+// entries survive — so a model can stay on the board with only some of its tasks.
+const METHODOLOGY_KEYS = trainingFieldKeys();
+
+// Every list the board can be narrowed by, in the order they are drawn: the model's own three
+// first, then how each task was produced. Read, built and read back from this one list, so the
+// three can't fall out of step.
+//
+// Options come from the server's own enums, filled into both schemas in place — see
+// loadModelMeta and loadTaskFields.
+function filterLists() {
+  return [
+    { name: PRETRAINED, label: "Pretrained", options: PRETRAINED_OPTIONS },
+    ...MODEL_KEYS.map((key) => ({
+      name: key,
+      label: MODEL_FIELDS[key].label,
+      options: MODEL_FIELDS[key].options ?? [],
+    })),
+    ...METHODOLOGY_KEYS.map((key) => ({
+      name: key,
+      label: TASK_FIELDS[key].label,
+      options: TASK_FIELDS[key].options ?? [],
+    })),
+  ];
+}
+
 // What a shareable board is: which tasks it is ranked over. The suites are not in the URL —
 // they are a way of ticking tasks, and the tasks say what was ticked.
+// Each filter is its own parameter, named after the list that fills it — see filterLists.
 const TASKS_PARAM = "tasks";
-const PRETRAINED_PARAM = "pretrained";
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
 
@@ -113,23 +156,49 @@ function writeTasks(taskIds, available) {
   history.replaceState(null, "", url);
 }
 
-function readPretrained() {
-  const asked = new URLSearchParams(location.search).get(PRETRAINED_PARAM);
+// Every filter the board can be narrowed by, as one object: the flag, and a list per
+// methodology field. Kept together because they are applied together — one button, one
+// request, one set of ranks.
+function readFilters() {
+  const params = new URLSearchParams(location.search);
+  const filters = {};
 
-  return PRETRAINED_OPTIONS.some((option) => option.value === asked)
-    ? asked
-    : "";
+  for (const { name, options } of filterLists()) {
+    const known = options.map((option) => option.value);
+
+    // Checked against what the schema offers, so a stale link can't tick a box that no longer
+    // exists — or a value the server would refuse.
+    filters[name] = (params.get(name) ?? "")
+      .split(",")
+      .filter((value) => known.includes(value));
+  }
+
+  return filters;
 }
 
 // replaceState, not pushState: working a filter shouldn't build a stack of history entries to
 // press Back through. The URL still survives a refresh and can still be sent.
-function writePretrained(value) {
+function writeFilters(filters) {
   const url = new URL(location.href);
 
-  if (value) url.searchParams.set(PRETRAINED_PARAM, value);
-  else url.searchParams.delete(PRETRAINED_PARAM);
+  for (const [key, value] of Object.entries(filters)) {
+    const asked = Array.isArray(value) ? value.join(",") : value;
+
+    if (asked) url.searchParams.set(key, asked);
+    else url.searchParams.delete(key);
+  }
 
   history.replaceState(null, "", url);
+}
+
+// Whether two sets of filters would ask the same question, which is what decides whether the
+// Apply button has anything to do.
+function sameFilters(left, right) {
+  return Object.keys(left).every((key) =>
+    Array.isArray(left[key])
+      ? left[key].join(",") === right[key].join(",")
+      : left[key] === right[key],
+  );
 }
 
 // ─── LISTS ───────────────────────────────────────────────────────────────────
@@ -194,28 +263,27 @@ function markComparing(on) {
 //
 // Which is also why the task lists above apply themselves — those need no request, and a
 // control that waits when it doesn't have to is a control that reads as broken.
-function buildFilters(selected) {
+// One list per thing that can be narrowed, headed by its own label — the model's own flag
+// first, then how each task was produced. `buildCheckList`'s grouped form does the heading, so
+// a field is one call rather than a wrapper around one.
+//
+// Every list narrows by *any of* what is ticked: "supervised or self-supervised" is a question
+// a reader has, and "supervised" is the same question with one box.
+function buildFilters(filters) {
+  // Three across, which puts the model's own three on the first row and the task's five under
+  // them — the grouping is the order rather than a heading over each half.
   return `
-    <div class="row">
-      <span class="row left gap-md">
-        <span class="metadata">Restrict the field</span>
-        <span class="inline-select">
-          ${buildSelect({
-            name: PRETRAINED,
+    <div class="grid-3">
+      ${filterLists()
+        .map(({ name, label, options }) =>
+          buildCheckList({
+            name,
             hook: HOOK,
-            options: PRETRAINED_OPTIONS,
-            selected,
-            placeholder: "All models",
-          })}
-        </span>
-      </span>
-      ${buildButton({
-        id: APPLY_ID,
-        label: "Apply filters",
-        icon: getIcon("filter"),
-        // Nothing to apply until the dropdown differs from what the board was fetched with.
-        disabled: true,
-      })}
+            options: [{ label, options }],
+            selected: filters[name],
+          }),
+        )
+        .join("")}
     </div>`;
 }
 
@@ -227,7 +295,19 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
       header: buildHeader(),
       body: buildSections([
         { id: TASKS_SECTION, title: "Ranked over" },
-        { id: FILTERS_SECTION, title: "Filters" },
+        {
+          id: FILTERS_SECTION,
+          title: "Filters",
+          actions: [
+            buildButton({
+              id: APPLY_ID,
+              label: "Apply filters",
+              icon: getIcon("filter"),
+              // Nothing to apply until a control differs from what the board was fetched with.
+              disabled: true,
+            }),
+          ],
+        },
         {
           id: BOARD_SECTION,
           title: "Standings",
@@ -286,9 +366,9 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
 
   let chosen = readTasks(available);
 
-  // What the board on screen was fetched with, as against what the dropdown currently says —
+  // What the board on screen was fetched with, as against what the controls currently say —
   // the difference is what the Apply button is for.
-  let applied = readPretrained();
+  let applied = readFilters();
   let standings = null;
 
   // Replacing the section's contents detaches a Tabulator's element but doesn't free it: its
@@ -354,20 +434,25 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     );
   }
 
-  // Written once too, and thereafter the dropdown holds the pending value while `applied`
-  // holds the fetched one. `refresh` because the button carries an icon.
+  // Written once too, and thereafter the controls hold the pending values while `applied`
+  // holds the fetched ones. `refresh` because the button carries an icon.
   function renderFilters() {
     renderHtml(getSectionBody(FILTERS_SECTION), buildFilters(applied), {
       refresh: true,
     });
   }
 
-  function pendingPretrained() {
-    return (
-      getSectionBody(FILTERS_SECTION).querySelector(
-        `[data-${HOOK}='${PRETRAINED}']`,
-      )?.value ?? ""
-    );
+  // What the controls currently say, which is not yet what the board shows.
+  function pendingFilters() {
+    const root = getSectionBody(FILTERS_SECTION);
+
+    const pending = {};
+
+    for (const { name } of filterLists()) {
+      pending[name] = checkedIn(root, name, HOOK);
+    }
+
+    return pending;
   }
 
   function applyButton() {
@@ -386,7 +471,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
       buildInfoMessage("Loading the board…"),
     );
 
-    return getLeaderboard({ isPretrained: applied }).then((loaded) => {
+    return getLeaderboard(applied).then((loaded) => {
       standings = loaded;
       renderBoard();
 
@@ -395,7 +480,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
       const after = applyButton();
 
       if (after) {
-        after.disabled = Boolean(standings) && pendingPretrained() === applied;
+        after.disabled = Boolean(standings) && sameFilters(pendingFilters(), applied);
       }
     });
   }
@@ -440,15 +525,15 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     filters.addEventListener("change", () => {
       const button = applyButton();
 
-      if (button) button.disabled = pendingPretrained() === applied;
+      if (button) button.disabled = sameFilters(pendingFilters(), applied);
     });
 
-    filters.addEventListener("click", (event) => {
-      if (!event.target.closest(`#${APPLY_ID}`)) return;
+    // By id rather than delegated: the button is the section's own action, which sits in its
+    // header rather than in the body the lists are written into.
+    applyButton()?.addEventListener("click", () => {
+      applied = pendingFilters();
 
-      applied = pendingPretrained();
-
-      writePretrained(applied);
+      writeFilters(applied);
       loadBoard();
     });
 
@@ -483,11 +568,20 @@ loadPage({
     // choice — only which of them are shown does. A failure here is the page failing, which
     // is loadPage's to report.
     //
+    // `loadTaskFields` costs no second request: it awaits the same memoised /api/meta that
+    // getTasks does, and fills the methodology fields' options in place from the server's own
+    // enums — so a new modality is a filter option without a change here.
+    //
     // The memberships are fetched only when there is a session to fetch them for, and a
     // failure leaves the set empty: the board then renders without the "Yours" pill rather
     // than not at all.
-    const [tasks, teams] = await Promise.all([
+    // Caught rather than allowed to reject: it fails only when /api/meta does, and getTasks
+    // is already the one reporting that — so the failure reads the same as it always did,
+    // rather than becoming a page error because a second caller of the same request threw.
+    const [tasks, , , teams] = await Promise.all([
       getTasks(),
+      loadTaskFields().catch(() => undefined),
+      loadModelMeta().catch(() => undefined),
       signedIn ? getMyTeams() : [],
     ]);
 

@@ -18,7 +18,7 @@ import warnings
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable, Mapping
+from typing import Callable, Iterable, Mapping
 
 from core.scoring.aggregation import NO_RECORDING_ID, rank as rank_labels
 
@@ -55,19 +55,33 @@ def _recency(submission: Submission) -> tuple:
     return (submission.created_at is not None, submission.created_at or datetime.min, str(submission.id))
 
 
-def latest_entries(submissions: Iterable[Submission]) -> dict[str, TaskSubmission]:
+def latest_entries(
+    submissions: Iterable[Submission],
+    keep: Callable[[TaskSubmission], bool] | None = None,
+) -> dict[str, TaskSubmission]:
     """``{task_id: TaskSubmission}`` — the newest scored entry for each task.
 
     Across submissions, not within one: a task scored in an earlier run and not re-entered
     in the latest one is still the current result for it. Which submission each entry came
     from is on the entry itself.
+
+    ``keep`` narrows which entries are eligible, and is applied *before* the newest is
+    picked — so a filtered board shows the newest entry that matches rather than the newest
+    entry if it happens to. A model that re-ran a task a different way still stands on the
+    run that was done the way the reader asked about; the other reading would report that it
+    had never done it.
     """
     entries: dict[str, TaskSubmission] = {}
 
     for submission in sorted(submissions, key=_recency, reverse=True):
         for task_submission in submission.task_submissions:
-            if task_submission.score is not None:
-                entries.setdefault(task_submission.task_id, task_submission)
+            if task_submission.score is None:
+                continue
+
+            if keep is not None and not keep(task_submission):
+                continue
+
+            entries.setdefault(task_submission.task_id, task_submission)
 
     return entries
 
@@ -97,12 +111,20 @@ class Standing:
     n_submissions: int = 0
 
 
-def standings(submissions: Iterable[Submission]) -> list[Standing]:
+def standings(
+    submissions: Iterable[Submission],
+    keep: Callable[[TaskSubmission], bool] | None = None,
+) -> list[Standing]:
     """One standing per model, ordered by its newest submission, newest first.
 
     The model is the competitor, and it is one competitor however many times it has been
     submitted or whoever submitted it: a submission belongs to a model, and the model to a
     team, so there is nothing finer to key on.
+
+    ``keep`` is ``latest_entries``'s. A model it leaves with nothing still gets a standing:
+    this says where every competitor stands, and one of them standing on nothing is an
+    answer. Dropping those is the leaderboard's own doing — see routers/leaderboard.py — and
+    not this function's, whose whole contract is one standing per model.
     """
     by_model: dict[uuid.UUID, list[Submission]] = defaultdict(list)
 
@@ -112,7 +134,7 @@ def standings(submissions: Iterable[Submission]) -> list[Standing]:
     ranked = [
         Standing(
             label=str(model_id),
-            entries=latest_entries(group),
+            entries=latest_entries(group, keep),
             model_id=model_id,
             latest=max(group, key=_recency),
             n_submissions=len(group),

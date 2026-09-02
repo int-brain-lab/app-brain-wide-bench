@@ -52,7 +52,7 @@ class LeaderboardRow(BaseModel):
     """A model's standing as the leaderboard shows it.
 
     One row per model rather than per submission: what is ranked is a model's current
-    result for each task, wherever it was submitted — see app/ranking.py. So the scores on
+    result for each task, wherever it was submitted — see app/ranking/rank.py. So the scores on
     a row may come from several submissions, and ``id``, ``label`` and ``created_at``
     describe the newest of them, which is what the row links to and dates itself by.
 
@@ -81,7 +81,7 @@ class LeaderboardRow(BaseModel):
     # Keyed by flat task id, e.g. {"ts1-reward": {...}}.
     scores: dict[str, LeaderboardScore] = {}
 
-    # Average rank on each task, against the other rows in this response — see app/ranking.py.
+    # Average rank on each task, against the other rows in this response — see app/ranking/rank.py.
     # One per task rather than one overall, because every figure the leaderboard shows is a
     # mean over these and only the client knows which tasks it is grouping.
     ranks: dict[str, float] = {}
