@@ -114,7 +114,7 @@ const PLOT = {
   // One key above the row, always, even for one model: a plot is named by its own tick, so
   // nothing else here says which model the marks belong to. Inside each plot it would name
   // the same models once per task.
-  legend: "shared",
+  legend: "false",
 };
 
 /**

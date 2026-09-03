@@ -208,8 +208,20 @@ export function buildCardTableToggle() {
   return buildToggle(CARD_TABLE_BUTTONS);
 }
 
-export function buildPlotTableToggle() {
-  return buildToggle(PLOT_TABLE_BUTTONS);
+/**
+ * @param scope suffixed onto both ids, for a caller mounting more than one of these. An id
+ *              has to be unique on the page, and two copies of one control is exactly what a
+ *              comparison with a toggle over each of its panels has — both standing for the
+ *              same choice, so whoever mounts them lights every copy. See setActiveView in
+ *              comparisons/recordComparison.js. Omit for a page with one.
+ */
+export function buildPlotTableToggle(scope = "") {
+  return buildToggle(
+    PLOT_TABLE_BUTTONS.map((button) => ({
+      ...button,
+      id: scope ? `${button.id}-${scope}` : button.id,
+    })),
+  );
 }
 
 

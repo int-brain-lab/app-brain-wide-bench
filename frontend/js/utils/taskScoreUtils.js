@@ -2,9 +2,15 @@
 //
 // The panels a score row opens are comparisons/scoreModes.js.
 
-import { suiteFromTask } from "../core/suites.js";
+import { suiteFromTask, taskLabel } from "../core/suites.js";
+import {
+  TASK_FIELDS,
+  toMethodologyValues,
+  trainingFieldKeys,
+} from "../schemas/taskSubmissionSchema.js";
 import {
   matchEquals,
+  matchInArray,
   matchIncludes,
   optionsFromRows,
   SUITE_OPTIONS,
@@ -45,6 +51,10 @@ function toScoreRow(result) {
     mean_score: result.score?.primary_metric_mean ?? null,
     sem: result.score?.primary_metric_sem ?? null,
     metric: result.score?.primary_metric ?? null,
+
+    // How the task was produced. Absent from a model detail's nested tasks before the API
+    // carries it — see app/schemas/models.py.
+    ...toMethodologyValues(result),
   };
 }
 
@@ -61,6 +71,33 @@ function toScoreResultRows(results) {
 
 // ─── FILTERS ─────────────────────────────────────────────────────────────────
 
+// Short names, which are unique across the suites, and the suite as the class — so a pinned
+// task wears the colour of the suite it came from.
+function taskOptions(rows) {
+  return [...new Set(rows.map((row) => row.task_id).filter(Boolean))]
+    .sort()
+    .map((taskId) => ({
+      value: taskId,
+      label: taskLabel(taskId),
+      className: suiteFromTask(taskId),
+    }));
+}
+
+// How each task was produced: the methodology panel of a task submission, whatever it holds.
+// Two of them hold arrays, so what a row is matched by depends on the field.
+function getMethodologyFilters() {
+  return trainingFieldKeys().map((key) => ({
+    type: "pinned",
+    name: key,
+    label: TASK_FIELDS[key].label,
+    options: TASK_FIELDS[key].options ?? [],
+    match:
+      TASK_FIELDS[key].input === "checkbox-list"
+        ? matchInArray(key)
+        : matchEquals(key),
+  }));
+}
+
 /**
  * The filter bar over a set of task-score rows.
  *
@@ -72,18 +109,18 @@ function toScoreResultRows(results) {
  *                       submission's.
  * @param showModel      include the model select. On where the rows span several models.
  *
- * @returns the controls, in bar order — see components/filters.js.
+ * @returns the controls, in bar order — see components/filterState.js.
  */
 function getTaskScoreFilters(
   rows,
-  { showSubmission = true, showModel = false } = {},
+  { showSubmission = true, showModel = false, showMethodology = false } = {},
 ) {
   const modelControl = showModel
     ? [
         {
-          type: "select",
+          type: "pinned",
           name: "model_name",
-          placeholder: "All models",
+          label: "Model",
           options: optionsFromRows(rows, "model_name"),
           match: matchEquals("model_name"),
         },
@@ -95,6 +132,7 @@ function getTaskScoreFilters(
         {
           type: "select",
           name: "submission_label",
+          label: "Submission",
           placeholder: "All submissions",
           options: optionsFromRows(rows, "submission_label"),
           match: matchEquals("submission_label"),
@@ -102,31 +140,31 @@ function getTaskScoreFilters(
       ]
     : [];
 
+  const methodologyControl = showMethodology ? getMethodologyFilters() : [];
+
   return [
     {
-      type: "search",
-      name: "task_name",
-      placeholder: "Search tasks...",
-      match: matchIncludes("task_name"),
-    },
-    {
-      type: "select",
+      type: "pinned",
       name: "suite",
-      placeholder: "All suites",
+      label: "Suite",
       options: SUITE_OPTIONS,
       match: matchEquals("suite"),
     },
     {
-      // From the rows rather than a fixed list: which metrics appear depends on which tasks
-      // were scored, and an option that hides every row would be the only thing it could
-      // do. Unscored rows carry no metric and so contribute none — optionsFromRows drops
-      // nulls — which also means choosing any metric narrows to scored rows.
-      type: "select",
+      type: "pinned",
+      name: "task_id",
+      label: "Task",
+      options: taskOptions(rows),
+      match: matchEquals("task_id"),
+    },
+    {
+      type: "pinned",
       name: "metric",
-      placeholder: "All metrics",
+      label: "Metric",
       options: optionsFromRows(rows, "metric"),
       match: matchEquals("metric"),
     },
+    ...methodologyControl,
     ...modelControl,
     ...submissionControl,
   ];

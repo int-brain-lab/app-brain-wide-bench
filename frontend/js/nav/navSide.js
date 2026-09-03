@@ -5,9 +5,8 @@ import { apiFetch, isAuthenticated, logout } from "../api/client.js";
 import { renderLogo } from "./navTop.js";
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
-// "My" throughout, because every one of these is scoped to the viewer — the public
-// counterparts below list the same domains unscoped, and the labels are what tells them
-// apart in a rail where both appear.
+// "My" throughout, because every one of these is scoped to the viewer, and the label is what
+// tells one from the unscoped list below it in a rail where both appear.
 const MAIN_NAV_ITEMS = [
   {
     label: "My dashboard",
@@ -48,9 +47,9 @@ const PUBLIC_NAV_ITEMS = [
     icon: getIcon("model"),
   },
   {
-    label: "All submissions",
-    href: "/html/submissions/submission_list_public.html",
-    icon: getIcon("submission"),
+    label: "All tasks",
+    href: "/html/tasks/task_list_public.html",
+    icon: getIcon("task"),
   },
   {
     label: "All teams",

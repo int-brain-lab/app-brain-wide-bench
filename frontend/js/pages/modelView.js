@@ -13,6 +13,7 @@ import {
   loadModelMeta,
   MODEL_PANELS,
 } from "../schemas/modelSchema.js";
+import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
 import {
   getModelBadges,
   getModelStatistics,
@@ -39,6 +40,7 @@ import { buildStatCards } from "../cards/statCards.js";
 import { createSubmissionCardGrid } from "../cards/submissionCards.js";
 import { createSubmissionComparison } from "../comparisons/submissionComparison.js";
 import { bindTableSelection } from "../comparisons/comparison.js";
+import { buildTaskScoreBars } from "../components/bars.js";
 import {
   buildCompareButton,
   buildCreateButton,
@@ -66,6 +68,8 @@ const MAX_SCORES = 5;
 
 const SUMMARY_KEYS = ["team_name", "link_code", "is_pretrained", "created_at"];
 
+const TASK_BARS_SECTION = "task-bars";
+
 const BACK = {
   text: "← Back to dashboard",
   view: "dashboard",
@@ -79,33 +83,45 @@ const VIEWS = {
   scores: renderScoresView,
 };
 
-const DASHBOARD_SECTIONS = [
-  {
-    id: "stats",
-    className: "stats-grid",
-  },
-  {
-    id: "ranking",
-    title: "Ranking",
-  },
-  {
-    id: "scores",
-    title: "Task scores",
-  },
-  {
-    uneven: true,
-    sections: [
-      {
-        id: "details",
-        title: "Model details",
-      },
-      {
-        id: "submissions",
-        title: "Recent submissions",
-      },
-    ],
-  },
-];
+// The private bars only where the reader was given the private side at all — the same rule the
+// rank card's chips follow, since either says something about work a stranger cannot see.
+function dashboardSections(showPrivate) {
+  return [
+    {
+      id: "stats",
+      className: "stats-grid",
+    },
+    {
+      id: "ranking",
+      title: "Ranking",
+    },
+    ...(showPrivate
+      ? [
+          {
+            id: TASK_BARS_SECTION,
+            title: "Latest private scores",
+          },
+        ]
+      : []),
+    {
+      id: "scores",
+      title: "Task scores",
+    },
+    {
+      ratio: 3,
+      sections: [
+        {
+          id: "details",
+          title: "Model details",
+        },
+        {
+          id: "submissions",
+          title: "Recent submissions",
+        },
+      ],
+    },
+  ];
+}
 
 // ─── LINKS ───────────────────────────────────────────────────────────────────
 
@@ -132,9 +148,23 @@ function renderRankingSection(model, ranking, canEdit) {
   );
 }
 
-function renderScoresSection(model, ranking) {
+// The score each task currently stands on with the model's private work counted — the entries
+// the private ranking is built from, which is what `ranked.private` marks.
+function renderTaskBarsSection(rows) {
+  const container = getSectionBody(TASK_BARS_SECTION);
+  const latest = rows.filter((row) => row.ranked.private);
+
+  if (!latest.length) {
+    renderHtml(container, buildEmptyMessage("No private scores yet."));
+
+    return;
+  }
+
+  renderHtml(container, buildTaskScoreBars(latest));
+}
+
+function renderScoresSection(rows) {
   const container = getSectionBody("scores");
-  const rows = markRankedRows(toScoreRows(model.submissions), ranking);
 
   if (!rows.length) {
     renderHtml(container, buildEmptyMessage("No scores yet."));
@@ -189,6 +219,8 @@ function renderSubmissionsSection(model) {
 function renderDashboardView(context, router) {
   const { model, fields, ranking, canEdit } = context;
 
+  const showPrivate = Boolean(ranking?.private);
+
   const compare = buildCompareButton({
     href: getCompareHref(model),
     className: "primary",
@@ -210,15 +242,20 @@ function renderDashboardView(context, router) {
   renderPage(
     buildPage({
       header: buildHeader(actions),
-      body: buildSections(DASHBOARD_SECTIONS),
+      body: buildSections(dashboardSections(showPrivate)),
     }),
   );
 
   renderHeader(model.name, getModelSubtitle(model), getModelBadges(model));
 
+  // Once for the two sections drawn from them: the bars stand on the entries the table marks.
+  const scoreRows = markRankedRows(toScoreRows(model.submissions), ranking);
+
   renderStatsSection(getModelStatistics(model));
   renderRankingSection(model, ranking, canEdit);
-  renderScoresSection(model, ranking);
+  if (showPrivate) renderTaskBarsSection(scoreRows);
+
+  renderScoresSection(scoreRows);
   renderDetailsSection(model, fields);
   renderSubmissionsSection(model);
 
@@ -345,10 +382,15 @@ loadRecordPage({
   requiresAuth: false,
 
   load: async (modelId, { signedIn }) => {
+    // `loadTaskFields` costs no second request and fills the methodology fields' options in
+    // place from the server's own enums, which is where the score filters read them from.
+    // Caught rather than allowed to reject: it fails only when /api/meta does, and the two
+    // beside it are already reporting that.
     const [model, fields, ranking] = await Promise.all([
       loadModel(modelId),
       signedIn ? loadModelFields() : loadModelMeta(),
       getModelRanking(modelId),
+      loadTaskFields().catch(() => undefined),
     ]);
 
     if (!model) {

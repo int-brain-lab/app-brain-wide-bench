@@ -18,8 +18,11 @@ const TAB = "tab";
  * The strip, all unlit — call markTabs to light one.
  *
  * @param name what a listener finds them by, on every tab in the strip.
- * @param tabs [{ value, label }] in the order they read. `value` is the id of the section the
- *             tab opens.
+ * @param tabs [{ value, label, control }] in the order they read. `value` is the id of the
+ *             section the tab opens. `control` is markup put beside that tab — for something
+ *             the reader does *to* the panel rather than to reach it, like sending it out of
+ *             the rotation to sit under another. Beside and not inside, because a button
+ *             cannot hold a button.
  * @returns the markup.
  */
 function buildTabs({ name, tabs }) {
@@ -27,15 +30,18 @@ function buildTabs({ name, tabs }) {
     <div class="tabs" role="tablist">
       ${tabs
         .map(
-          ({ value, label }) => `
-        <button
-          type="button"
-          class="tab"
-          role="tab"
-          data-${TAB}="${escapeHtml(name)}"
-          value="${escapeHtml(value)}"
-          aria-selected="false"
-        >${escapeHtml(label)}</button>`,
+          ({ value, label, control = "" }) => `
+        <span class="tab-slot">
+          <button
+            type="button"
+            class="tab"
+            role="tab"
+            data-${TAB}="${escapeHtml(name)}"
+            value="${escapeHtml(value)}"
+            aria-selected="false"
+          >${escapeHtml(label)}</button>
+          ${control}
+        </span>`,
         )
         .join("")}
     </div>`;

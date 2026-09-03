@@ -1,27 +1,18 @@
-// The controls a list is narrowed by: one select, a bar of them, and the state behind a bar.
+// The controls a list is narrowed by: a select, a search, a pinned select, a row of checks,
+// and the bar that holds them.
 //
-// Lifted out of tables/table.js so the two ways of reading a list can share one bar: the
-// table filters through Tabulator, the cards filter an array, and neither owns the controls.
-// Nothing here knows about either — a control is a `match(row, value)` and the values are a
-// plain object, so whoever mounted the bar decides what a change does.
+// A control is markup and nothing else — the values behind one are components/filterState.js,
+// which reads them back off the DOM. Every control matches against *rows*, so the cards and
+// the table on a list page narrow through the same matchers.
 //
 // `buildSelect`, `buildSearch` and `buildPinnedSelect` are also usable on their own, by a
-// caller with one control and no bar: each takes the parts of a control it needs rather than a
-// control, and the caller wires it up — see comparisons/recordComparison.js, which attaches its
-// own listeners, and pages/leaderboard.js, whose controls choose what the board is ranked over
-// as well as what narrows it. The two `buildFilterBar*` below are the bar's own translation
-// from a control to those parts.
-//
-// The bar itself takes a select or a search. A pinned select is multi-valued, and both the
-// bar's markup and createFilterState's one-value-per-control state would have to grow to hold
-// one — which no caller has needed yet.
-//
-// Every control matches against *rows* — what a domain's `toXRows` produced — which is why
-// the cards on a list page render from rows too. One shape, one set of matchers.
+// caller with one control and no state: each takes the parts of a control it needs rather
+// than a control, and the caller wires it up.
 
 import { escapeHtml } from "../core/html.js";
 import { suiteLabel, SUITES } from "../core/suites.js";
 import { getIcon } from "./icons.js";
+import { buildRange } from "./ranges.js";
 
 // ─── MATCHERS ────────────────────────────────────────────────────────────────
 
@@ -30,6 +21,7 @@ import { getIcon } from "./icons.js";
 const SUITE_OPTIONS = SUITES.map((suite) => ({
   value: suite,
   label: suiteLabel(suite),
+  className: suite,
 }));
 
 // Each of these builds a control's `match`. They are only ever called with a non-empty
@@ -72,8 +64,7 @@ function optionsFromRows(rows, field) {
  * A select's contents.
  *
  * @param options     [{ value, label }].
- * @param selected    the value to mark. Omit for none, which is what a bar wants: its state
- *                    is createFilterState's, set on the element after the markup exists.
+ * @param selected    the value to mark. Omit for none.
  * @param placeholder a blank first option, which doubles as the control's label — an unset
  *                    filter reads as "All suites" without a separate <label>. Omit where
  *                    every option is a real choice.
@@ -99,9 +90,9 @@ function buildOptions(options, { selected = null, placeholder = "" } = {}) {
  * One select, for a bar or on its own.
  *
  * @param name     what a listener finds it by.
- * @param hook     the data attribute carrying `name`, without the `data-`. "filter" is the
- *                 bar's, and createFilterState listens for it; a select outside a bar names
- *                 its own, so a bar can never hear a control it doesn't own.
+ * @param hook     the data attribute carrying `name`, without the `data-`. "filter" is what
+ *                 a filter state resolves a control by; a select outside one names its own,
+ *                 so a state can never hear a control it doesn't own.
  * @param options  as buildOptions.
  * @param selected as buildOptions.
  * @param placeholder as buildOptions.
@@ -506,129 +497,147 @@ function checkFromEvent(event) {
   return { name: box.dataset[CHECK], value: box.value, on: box.checked };
 }
 
-// ─── BAR ─────────────────────────────────────────────────────────────────────
+// ─── CONTROLS BY KIND ────────────────────────────────────────────────────────
 
-// A control as the bar declares it, turned into the parts the builders take. `required` is
-// the bar's own notion — a control that picks *which* thing the table shows, like the
-// leaderboard's metric, has no "don't narrow" — so it is read here rather than by
-// buildSelect. Neither builder ever sees `match` or `type`.
-function buildFilterBarSelect(control) {
-  return buildSelect({
-    name: control.name,
-    options: control.options,
-    placeholder: control.required ? "" : control.placeholder,
-  });
-}
+/**
+ * One control, whatever kind it is, holding `value`.
+ *
+ * @param control   as createFilterState's — `type` names the kind and the rest is what that
+ *                  kind's builder takes.
+ * @param value     what it holds: a string, the pinned values, or a pair of bounds.
+ * @param className carried through to a pinned select's own row.
+ * @param labelled  a label above a select or a search, which otherwise carry their field
+ *                  name in the placeholder. A pinned select and a range label themselves.
+ *
+ * @returns the markup.
+ */
+function buildFilterControl({
+  control,
+  value,
+  className = "",
+  labelled = false,
+}) {
+  if (control.type === "pinned") {
+    return buildPinnedSelect({
+      name: control.name,
+      hook: control.hook,
+      className,
+      label: control.label,
+      options: control.options,
+      selected: value ?? [],
+    });
+  }
 
-function buildFilterBarSearch(control) {
-  return buildSearch({
-    name: control.name,
-    placeholder: control.placeholder,
-  });
-}
+  if (control.type === "range") {
+    return buildRange({
+      name: control.name,
+      label: control.label,
+      ...control.range,
+      value: value ?? null,
+    });
+  }
 
-// A grid rather than a flex row: the controls carry width:100% from .input-select and
-// .input-text, so only a grid gives them equal shares. An unsupported count stacks.
-const GRID_CLASS = { 2: "grid-2", 3: "grid-3", 4: "grid-4" };
+  // `required` is the bar's own notion — a control that picks *which* thing a table shows has
+  // no "don't narrow" — so the blank option is dropped here rather than by buildSelect.
+  const input =
+    control.type === "select"
+      ? buildSelect({
+          name: control.name,
+          options: control.options,
+          selected: value || null,
+          placeholder: control.required ? "" : control.placeholder,
+        })
+      : buildSearch({
+          name: control.name,
+          placeholder: control.placeholder,
+          value: value ?? "",
+        });
 
-function buildFilterBar(controls) {
-  if (controls.length === 0) return "";
-
-  const layout = GRID_CLASS[controls.length] ?? "column gap-md";
+  if (!labelled) return input;
 
   return `
-    <div class="${layout}">
-      ${controls
-        .map((control) =>
-          control.type === "select"
-            ? buildFilterBarSelect(control)
-            : buildFilterBarSearch(control),
+    <div class="column gap-sm">
+      ${control.label ? `<span class="metadata">${escapeHtml(control.label)}</span>` : ""}
+      ${input}
+    </div>`;
+}
+
+// ─── BAR ─────────────────────────────────────────────────────────────────────
+
+// A grid rather than a flex row: the controls carry width:100% from .input-select and
+// .input-text, so only a grid gives them equal shares. A single control has no share to take
+// and stays stacked.
+const GRID_CLASS = { 2: "grid-2", 3: "grid-3", 4: "grid-4", 5: "grid-5" };
+
+// Five to a row at most, and the rows are even rather than filled: ten controls are two
+// fives, six are two threes, and no row is left holding one control at a fifth of the width.
+const ROW_MAX = 5;
+
+function toFilterRows(controls) {
+  const count = Math.ceil(controls.length / ROW_MAX);
+  const perRow = Math.ceil(controls.length / count);
+
+  const rows = [];
+
+  for (let at = 0; at < controls.length; at += perRow) {
+    rows.push(controls.slice(at, at + perRow));
+  }
+
+  return { rows, perRow };
+}
+
+/**
+ * The bar over a list: every control, five to a row.
+ *
+ * @param controls as createFilterState's, in the order they should read.
+ * @param values   what each holds, by name. Omit for a bar that opens empty.
+ *
+ * @returns the markup.
+ */
+function buildFilterBar(controls, values = {}) {
+  if (controls.length === 0) return "";
+
+  // A pinned cell grows downwards as chips are added, so every cell states its field name —
+  // a bar of placeholders beside a labelled column reads as two bars — and each row is
+  // topped rather than stretched.
+  const pinned = controls.some((control) => control.type === "pinned");
+
+  const { rows, perRow } = toFilterRows(controls);
+
+  // Not on the stacked fallback, where `align-items: start` would take a lone control down
+  // to its content width.
+  const grid = GRID_CLASS[perRow];
+  const layout = grid ?? "column gap-md";
+  const align = pinned && grid ? " align-start" : "";
+
+  return `
+    <div class="column gap-md">
+      ${rows
+        .map(
+          (row) => `
+        <div class="${layout}${align}">
+          ${row
+            .map((control) =>
+              buildFilterControl({
+                control,
+                value: values[control.name],
+                labelled: pinned,
+              }),
+            )
+            .join("")}
+        </div>`,
         )
         .join("")}
     </div>
   `;
 }
 
-// ─── STATE ───────────────────────────────────────────────────────────────────
-
-/**
- * The values behind a bar already in the DOM, and the predicate they add up to.
- *
- * @param controls [{type: "search"|"select", name, placeholder, match, options, required}].
- *                 `name` keys the state; `match(row, value)` decides a row; `options` is
- *                 required for a select; `required` drops the blank "don't narrow" option
- *                 and starts on options[0].
- * @param root     the element the bar was rendered into. The listener is delegated to it,
- *                 so the controls can be replaced under it — see setControlOptions.
- * @param onChange (name, value) => void, after the state has been updated. Applying the
- *                 new predicate is the caller's: a table refilters, a grid re-renders.
- * @returns {matches, setControlOptions}. `setControlOptions` does *not* call `onChange` —
- *          it exists to be called from one, and would otherwise recurse.
- */
-function createFilterState({ controls, root, onChange }) {
-  // Scoped to this call, so two bars on one page can't fight over one set of values. A
-  // `required` select starts on its first option to match the markup buildSelect emits for
-  // it, rather than saying "no filter" while the visible select shows a choice.
-  const values = Object.fromEntries(
-    controls.map((control) => [
-      control.name,
-      control.required && control.options?.length
-        ? String(control.options[0].value)
-        : "",
-    ]),
-  );
-
-  // A blank control is skipped rather than matched, so "All statuses" means "don't narrow"
-  // instead of "status equals empty string".
-  function matches(row) {
-    return controls.every((control) => {
-      const value = values[control.name].trim();
-      return !value || control.match(row, value);
-    });
-  }
-
-  // For a control whose choices depend on another control's value — the leaderboard's
-  // metric list, which is the suites or the tasks depending on the grouping. The previous
-  // value is dropped rather than preserved: the point of swapping the options is that the
-  // old one may no longer exist, and a stale value would filter against a field no row has.
-  function setControlOptions(name, options, selected) {
-    const control = controls.find((candidate) => candidate.name === name);
-    const select = root.querySelector(`select[data-filter="${name}"]`);
-    if (!control || !select) return;
-
-    control.options = options;
-    select.innerHTML = buildOptions(options, {
-      placeholder: control.required ? "" : control.placeholder,
-    });
-
-    const value =
-      selected ??
-      (control.required && options.length ? String(options[0].value) : "");
-
-    select.value = value;
-    values[name] = value;
-
-    return value;
-  }
-
-  // Delegated, and on `input` rather than `change`: a <select> fires both, while a text
-  // input only fires `change` on blur, leaving the list stale until the user clicks away.
-  root.addEventListener("input", (event) => {
-    const control = event.target.closest("[data-filter]");
-    if (!control) return;
-
-    values[control.dataset.filter] = control.value;
-
-    onChange(control.dataset.filter, control.value);
-  });
-
-  return { matches, setControlOptions };
-}
-
 export {
   SUITE_OPTIONS,
+  UNPIN,
   buildChecks,
   buildFilterBar,
+  buildFilterControl,
   buildOptions,
   buildPinnedControl,
   buildPinnedSelect,
@@ -636,7 +645,6 @@ export {
   buildSearch,
   buildSelect,
   checkFromEvent,
-  createFilterState,
   markChecks,
   matchEquals,
   matchInArray,

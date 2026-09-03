@@ -15,14 +15,14 @@
 // Two scales of one thing, so they live together: the grid, and the row of chips naming what
 // is being compared.
 //
-// The chips are the whole of the naming, and the grid says nothing about what its columns are:
-// a comparison is several readings of one set of picks — a grid, a plot, a table — and naming
-// them once above all of them beats naming them in each. So a column carries only the colour
-// of the chip it belongs to, which is also the colour it is drawn in everywhere else.
+// One chip shape for both. The row above a comparison names the picks with a ✕ on each, and
+// the grid heads its own columns with the same chip and no ✕ — so a column says what it is
+// where a reader is reading it, while taking one out stays the one thing the row above does.
+// Neither has to be matched to the other by colour alone, which is what the colour is for
+// everywhere it *is* alone: a plot's series, a picked row in the table it came from.
 //
-// The chips are also where an entity is taken out again. `dropFromClick` is the ✕'s other half,
-// since the chips are rebuilt on every render and the listener sits on the row that holds
-// them.
+// `dropFromClick` is the ✕'s other half, since the chips are rebuilt on every render and the
+// listener sits on the row that holds them.
 
 import { escapeHtml } from "../core/html.js";
 import { getIcon } from "./icons.js";
@@ -33,10 +33,23 @@ const HEX = /^#[0-9a-f]{3,8}$/i;
 
 const DROP_ROLE = "drop";
 
-// ─── PICKS ───────────────────────────────────────────────────────────────────
+// ─── CHIPS ───────────────────────────────────────────────────────────────────
 
 function pickStyle(ink) {
   return HEX.test(ink ?? "") ? ` style="--pick-ink:${ink}"` : "";
+}
+
+/**
+ * One of the things being compared, named in the colour it is drawn in.
+ *
+ * @param inside markup to put after the label, inside the chip — the ✕, where the caller is
+ *               the row that can take one out. Omit for a chip that only names.
+ */
+function buildChip(label, ink, inside = "") {
+  return `
+    <span class="chip pick"${pickStyle(ink)}>
+      ${escapeHtml(label)}${inside}
+    </span>`;
 }
 
 /**
@@ -49,10 +62,11 @@ function pickStyle(ink) {
  */
 function buildPicks(picks) {
   return picks
-    .map(
-      ({ key, label, ink }) => `
-    <span class="chip pick"${pickStyle(ink)}>
-      ${escapeHtml(label)}
+    .map(({ key, label, ink }) =>
+      buildChip(
+        label,
+        ink,
+        `
       <button
         type="button"
         class="chip-remove"
@@ -62,8 +76,8 @@ function buildPicks(picks) {
         aria-label="Remove ${escapeHtml(label)}"
       >
         <i class="field-icon" data-lucide="${escapeHtml(getIcon("remove"))}"></i>
-      </button>
-    </span>`,
+      </button>`,
+      ),
     )
     .join("");
 }
@@ -107,10 +121,11 @@ function attributeAgrees(key, entities) {
 }
 
 /**
- * @param entities   [{ ink, cells: { [attributeKey]: { value, html } } }] — the things being
- *                   compared, in order. `ink` is the colour one is drawn in everywhere else,
- *                   which is the only thing here that says which is which: what they are
- *                   called is the row of chips above the grid — see buildPicks.
+ * @param entities   [{ label, ink, cells: { [attributeKey]: { value, html } } }] — the things
+ *                   being compared, in order. `label` heads the column or the row, as a chip
+ *                   in `ink` — the colour that thing is drawn in everywhere else, and the same
+ *                   chip the row above the grid names it with. Omit `label` for a grid whose
+ *                   caller names its entities somewhere else, which leaves the colour to.
  * @param attributes [{ key, label }] — what they are compared on, fixed and in order.
  * @param layout     "rows" puts an entity per row and an attribute per column — for a few
  *                   attributes read across. "columns" turns it: an entity per column and an
@@ -137,10 +152,18 @@ function buildComparisonGrid({
 
   // The ink goes on whichever element heads the entity, since that is what it identifies —
   // the row in one layout, the column header in the other.
+  // A chip per entity, or an empty cell holding only the ink where the caller named them
+  // elsewhere.
+  const name = (entity) =>
+    entity.label ? buildChip(entity.label, entity.ink) : "";
+
   const head =
     layout === "columns"
       ? entities
-          .map((entity) => `<th scope="col"${inkStyle(entity.ink)}></th>`)
+          .map(
+            (entity) =>
+              `<th scope="col"${inkStyle(entity.ink)}>${name(entity)}</th>`,
+          )
           .join("")
       : attributes.map((attribute) => label(attribute, "col")).join("");
 
@@ -167,7 +190,7 @@ function buildComparisonGrid({
           .map(
             (entity) => `
       <tr${inkStyle(entity.ink)}>
-        <th scope="row"></th>
+        <th scope="row">${name(entity)}</th>
         ${attributes
           .map((attribute) =>
             CELL(

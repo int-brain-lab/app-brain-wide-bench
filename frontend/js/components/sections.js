@@ -170,12 +170,12 @@ function buildSection({
 
 function buildRow({
   sections,
-  uneven = false,
+  ratio = "",
   stretch = true,
 }) {
   const classes = [
     "section-row",
-    uneven && "uneven",
+    ratio && `ratio-${ratio}`,
     !stretch && "align-start",
   ]
     .filter(Boolean)

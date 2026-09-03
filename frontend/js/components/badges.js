@@ -21,6 +21,11 @@ function buildSuiteBadge(suite, size = "") {
   return `<span class="badge ${size} ${escapeHtml(suite)}">${escapeHtml(suiteLabel(suite))}</span>`;
 }
 
+
+function buildTaskBadge(task, suite, size = "") {
+  return `<span class="badge ${size} ${escapeHtml(suite)}">${escapeHtml(task)}</span>`;
+}
+
 // One badge and a list of them are separate calls for the reason buildMetricBadge gives: the
 // list is a flex row, which is a block, and a caller putting one badge *beside* something on
 // one line needs it without the row around it.
@@ -131,4 +136,5 @@ export {
   buildVisibleBadge,
   buildPretrainedBadge,
   buildMineBadge,
+  buildTaskBadge
 };

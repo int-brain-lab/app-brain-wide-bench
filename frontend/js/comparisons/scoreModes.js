@@ -31,7 +31,7 @@ const SCORE_MODES = {
   base: {
     title: "Compare task scores",
     create: (container) =>
-      createTaskComparison({ container, toEntry: toScoreEntry }),
+      createTaskComparison({ container, toEntry: toScoreEntry, methodology: false }),
 
     // `claimLinks: false`: the model and submission a score belongs to still link to their own
     // pages, and a click anywhere else on the row is a pick. The rows are always picking now,

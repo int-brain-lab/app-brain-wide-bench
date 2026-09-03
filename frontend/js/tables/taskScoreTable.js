@@ -16,8 +16,9 @@ import {
   numericSorter,
   rankUsageFormatter,
   buildScoreSemFormatter,
-  buildTaskSuiteFormatter,
+  buildTaskSuiteFormatter, parameterFormatter,
 } from "./formatters.js";
+import {TASK_FIELDS, trainingFieldKeys} from "../schemas/taskSubmissionSchema.js";
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
@@ -42,7 +43,7 @@ function getScoreColumns({
             "model_name",
             "model_id",
           ),
-          widthGrow: 2,
+          // widthGrow: 2,
         },
       ]
     : [];
@@ -57,7 +58,7 @@ function getScoreColumns({
             "submission_label",
             "submission_id",
           ),
-          widthGrow: 2,
+          // widthGrow: 2,
         },
       ]
     : [];
@@ -72,7 +73,7 @@ function getScoreColumns({
           field: "ranked",
           formatter: rankUsageFormatter,
           headerSort: false,
-          width: 170,
+          // width: 170,
         },
       ]
     : [];
@@ -85,8 +86,8 @@ function getScoreColumns({
       // stays a field on the row either way, which is what the select above filters on.
       title: "Task",
       field: "task_name",
-      formatter: buildTaskSuiteFormatter(taskNameFormatter),
-      widthGrow: 2,
+      formatter: taskNameFormatter,
+      // widthGrow: 2,
     },
     ...modelColumn,
     ...submissionColumn,
@@ -102,8 +103,17 @@ function getScoreColumns({
       field: "mean_score",
       formatter: buildScoreSemFormatter("sem", { metricField: "metric" }),
       sorter: numericSorter,
-      width: 220,
+      // minWidth: 220,
     },
+    ...trainingFieldKeys().map((key) => ({
+      title: TASK_FIELDS[key].label,
+      field: key,
+      formatter: parameterFormatter,
+      // The multi-value fields hold arrays, which don't sort meaningfully, and the
+      // rest are unordered enums — so no column here earns a sort.
+      headerSort: false,
+      // minWidth: 150,
+    })),
     ...rankingColumn,
   ];
 }
@@ -144,7 +154,9 @@ function createTaskScoresTable({
     noun: "task",
     initialSort: [{ column: "mean_score", dir: "desc" }],
     index: "id",
+    layout: "fitData",
     selection,
+    paginationSize: 8,
   });
 }
 

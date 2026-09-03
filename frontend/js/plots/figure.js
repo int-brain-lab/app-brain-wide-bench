@@ -261,6 +261,14 @@ const HEIGHTS = {
 // What one plot stands at when it is built on its own rather than by arrangePlots.
 const DEFAULT_HEIGHT = HEIGHTS.regular.stack;
 
+// What a plot stands at when it shares the page: the height every columned layout gives one.
+//
+// Exported for the same reason as CATEGORIES_PER_LINE — a caller arranging its own row of
+// plots calls arrangePlots once per cell, so each of its plots is the only one in its own
+// arrangement and would otherwise take a lone plot's full height. See renderMeans in
+// comparisons/taskScoreComparison.js.
+const SHARED_HEIGHT = HEIGHTS.regular.pair;
+
 // The full height goes to a lone plot only in the layouts that would also have given it the
 // full width. In a fixed column it stays a column's plot however few there are.
 const COLUMNED = ["pair", "grid"];
@@ -363,6 +371,9 @@ function createSeriesKey(entries) {
  *                   uuid, a task id carrying its suite — does it here too.
  * @param legend     true for a legend inside every plot, "shared" for one key above them
  *                   all, false for none.
+ * @param height     the height every plot is drawn at, in px. Omit for the one the layout
+ *                   and `size` come to — see HEIGHTS — which is what all but a caller
+ *                   arranging its own row wants.
  * @returns { element, charts } — `element` is detached until the caller places it, and the
  *          charts have to be destroyed before it is replaced.
  */
@@ -376,6 +387,7 @@ function arrangePlots({
   scale,
   tickLabel,
   legend,
+  height = null,
 }) {
   const plots = groupSeries(entries, facet);
   const byMetric = sharedRanges(entries);
@@ -399,7 +411,8 @@ function arrangePlots({
 
   arranged.className = LAYOUTS[layout] ?? LAYOUTS.stack;
 
-  const height = plotHeight(size, { layout, count: plots.length });
+  const drawnHeight =
+    height ?? plotHeight(size, { layout, count: plots.length });
   const columns = plotColumns(layout, plots.length);
 
   // A grid of category-wide tracks, each plot spanning as many as it holds: the tracks divide
@@ -434,7 +447,7 @@ function arrangePlots({
       // A plot per metric is named by its own y axis, and the series in it by the legend or
       // the key above it.
       title: named ? name : null,
-      height,
+      height: drawnHeight,
       // Only a stack can share an axis, and only downwards: the labels under its last plot
       // are read as the whole stack's. Every other layout puts plots side by side, where
       // nothing sits above anything, so each carries its own — thinned to what its column
@@ -469,6 +482,7 @@ function arrangePlots({
 export {
   CATEGORIES_PER_LINE,
   DEFAULT_HEIGHT,
+  SHARED_HEIGHT,
   arrangePlots,
   groupSeries,
   plotKey,

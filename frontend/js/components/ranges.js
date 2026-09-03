@@ -260,4 +260,4 @@ function rangeFromEvent(event) {
   return { name: input.dataset[RANGE] };
 }
 
-export { buildRange, markRange, rangeFromEvent, rangeIn };
+export { RANGE, buildRange, markRange, rangeFromEvent, rangeIn };

@@ -1,4 +1,5 @@
-"""Task submission endpoints: the per-task rows hanging off one submission."""
+"""Task submission endpoints: the per-task rows hanging off one submission, and the flat
+listing of every one the caller may see."""
 
 import uuid
 
@@ -8,14 +9,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_session
-from app.models import Submission, TaskSubmission, User
+from app.models import Model, Submission, TaskSubmission, User
 from app.schemas.tasksubmission import (
     TaskSubmissionBulkUpdate,
     TaskSubmissionDetail,
+    TaskSubmissionResponse,
     TaskSubmissionUpdate,
 )
 from app.auth import get_current_user, get_current_user_optional
-from app.routers.submissions import _get_submission_as_member, _get_submission_as_viewer
+from app.routers.submissions import (
+    _get_submission_as_member,
+    _get_submission_as_viewer,
+    visible_submissions,
+)
 
 # Tagged as its own group rather than under "submissions": these routes are about one
 # submission's tasks, and /docs otherwise files them under "default".
@@ -161,3 +167,46 @@ async def get_task_submission(
     task_submission = await _get_task_submission(task_submission_id, submission, session)
 
     return TaskSubmissionDetail.model_validate(task_submission)
+
+
+# ── Listing ──────────────────────────────────────────────────────
+# Its own router because it is not one submission's tasks: the prefix above has nowhere to
+# hang a route across all of them.
+listing = APIRouter(prefix="/api/task-submissions", tags=["task submissions"])
+
+
+@listing.get("", response_model=list[TaskSubmissionResponse])
+async def list_task_submissions(
+    user: User | None = Depends(get_current_user_optional),
+    session: AsyncSession = Depends(get_session),
+) -> list[TaskSubmissionResponse]:
+    """List every task submission the caller may see.
+
+    Anonymous callers see the tasks of public submissions; an authenticated caller also sees
+    those of their own teams', whether or not they are public.
+
+    Newest submission first, then by task, so tasks of one submission stay together — the same
+    order as ``my_task_submissions``, which this is the unscoped counterpart of.
+    """
+    visible = await visible_submissions(user, session)
+
+    task_submissions = (
+        (
+            await session.execute(
+                select(TaskSubmission)
+                .options(
+                    selectinload(TaskSubmission.score),
+                    selectinload(TaskSubmission.submission)
+                    .selectinload(Submission.model)
+                    .selectinload(Model.team),
+                )
+                .join(Submission, Submission.id == TaskSubmission.submission_id)
+                .where(visible)
+                .order_by(Submission.created_at.desc(), TaskSubmission.task_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    return [TaskSubmissionResponse.from_task_submission(ts) for ts in task_submissions]

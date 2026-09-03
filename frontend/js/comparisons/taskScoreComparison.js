@@ -11,10 +11,18 @@
 //   recordings   every recording behind those scores — a plot per score as points or as bars,
 //                or a heatmap
 //
-// How the three sit depends on the width the host has: a row each where this has a page to
-// itself, and the means beside the methodology with the recordings under them where it is a
-// panel inside another comparison — see `layout`. Either way the bars come first: they are the
-// figures, and what follows is where each of them came from.
+// Two panels, one at a time, behind a strip of tabs:
+//
+//   Scores       the means and the recordings behind them — what each score came to
+//   Methodology  the grid — how each was produced
+//
+// Split that way because they are read at different moments: a reader compares the numbers,
+// and then asks what was done differently. Either panel can also be sent below the other with
+// the arrow beside its tab, for the reader who is checking one against the other — the same
+// arrangement the record comparison gives its three.
+//
+// A host whose own table already carries the training fields leaves the methodology out — see
+// `methodology` — which leaves the scores alone and no strip above them.
 //
 // The metric is per plot rather than per comparison. A task carries a primary metric and
 // whatever else it was scored in, and two tasks either share that whole set or have nothing to
@@ -28,7 +36,12 @@
 // Colours come from the palette unless the host's rows bring their own — see inkOf.
 
 import { disposeAll } from "../core/disposable.js";
-import { getElement, renderHtml } from "../core/render.js";
+import {
+  clearContent,
+  getElement,
+  refreshIcons,
+  renderHtml,
+} from "../core/render.js";
 import { escapeHtml } from "../core/html.js";
 import { mean, sem } from "../core/utils.js";
 import { taskLabel } from "../core/suites.js";
@@ -44,7 +57,7 @@ import {
   toScoreSeries,
 } from "../plots/recordingScorePlots.js";
 import { createBarPlots } from "../plots/bar.js";
-import { CATEGORIES_PER_LINE } from "../plots/figure.js";
+import { CATEGORIES_PER_LINE, SHARED_HEIGHT } from "../plots/figure.js";
 import { SERIES_COLOURS } from "../plots/palette.js";
 import { loadTaskSubmission } from "../api/taskSubmissionApi.js";
 import { TASK_FIELDS } from "../schemas/taskSubmissionSchema.js";
@@ -59,7 +72,13 @@ import {
   getSection,
   getSectionBody,
 } from "../components/sections.js";
-import { buildToggle } from "../components/buttons.js";
+import {
+  buildButton,
+  buildToggle,
+  setButtonLabel,
+} from "../components/buttons.js";
+import { getIcon } from "../components/icons.js";
+import { buildTabs, markTabs, tabFromEvent } from "../components/tabs.js";
 import { buildSelect } from "../components/filters.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
@@ -74,9 +93,49 @@ const MEANS_SECTION = "means";
 const METHODOLOGY_SECTION = "methodology";
 const RECORDINGS_SECTION = "recordings";
 
-// The row above them, written once so the ✕ on it can be delegated to one listener. Absent
+// The two panels the tabs open, each wrapping the sections it holds — the scores' two, the
+// methodology's one. Wrappers rather than the sections themselves, because a panel here is
+// more than one section and a tab opens one thing.
+const SCORES_PANEL = "score-panel";
+const METHODOLOGY_PANEL = "methodology-panel";
+
+// The strip's name, and the panels in the order they read. Its own name and not the record
+// comparison's, since one of these is mounted inside one of those.
+const PANELS = "score-tab";
+
+const TABS = [
+  { value: SCORES_PANEL, label: "Scores" },
+  { value: METHODOLOGY_PANEL, label: "Methodology" },
+];
+
+// The one panel that is always in the rotation: the reader's default tab, and the one thing
+// that cannot be docked. The scores, because that is what a comparison is opened to see.
+//
+// Something has to be: every panel being dockable leaves a state with nothing in the strip to
+// press, and a widget whose tabs are all disabled is one a reader cannot get out of. It has no
+// arrow for the same reason — there is nothing to offer.
+const ANCHOR = SCORES_PANEL;
+
+// The order docked panels read in — which, with two panels and one of them the anchor, is the
+// other one. Written as a list anyway, so a third panel lands in a stated order rather than in
+// whichever one it happened to be added in.
+const DOCK_ORDER = [METHODOLOGY_PANEL];
+
+// The arrow beside each tab, which sends that panel out of the rotation to sit under whichever
+// is still in it — see renderDock. One per panel, so an id says which.
+const DOCK_ID = "score-dock";
+
+function dockId(value) {
+  return `${DOCK_ID}-${value}`;
+}
+
+// The row above them all, written once so the ✕ on it can be delegated to one listener. Absent
 // where the host said no — see `picks`.
 const PICKS_ID = "score-picks";
+
+// Where the prompt goes for a host that wants no methodology panel: with one panel there is no
+// section standing empty to put it in, and the scores panel is the two sections themselves.
+const PROMPT_ID = "score-prompt";
 
 // A metric select and the plot it belongs to. Read back off the two together, since the means
 // row holds one select per plot.
@@ -129,10 +188,21 @@ function inkOf(entry, colourOf) {
 }
 
 // What a score is called wherever it is named: its chip above the panels, its series in a
-// plot. One function, because a reader matching a colour to a name has to be matching one
-// name.
-function labelOf(entry) {
-  return [entry.modelName ?? entry.submissionLabel, entry.taskId]
+// plot, the heading of its row in the grid. One function, because a reader matching a colour
+// to a name has to be matching one name — which is why `entries` is required rather than
+// defaulted: it decides what the name says, and a caller that forgot it would quietly get a
+// different one.
+function labelOf(entry, entries) {
+  const name = entry.modelName ?? entry.submissionLabel;
+
+  // The task only where the comparison spans more than one. A panel opened onto a single task
+  // says which in its own heading, so naming it again on every chip, series and row heading is
+  // the same word six times — and it is the model that differs between them, which is what a
+  // label is for. Off the picks rather than off a flag, so the panel under a record comparison
+  // and a scores page whose reader picked six models on one task read the same way.
+  const spans = new Set(entries.map((one) => one.taskId)).size > 1;
+
+  return [name, spans || !name ? entry.taskId : null]
     .filter(Boolean)
     .join(" · ");
 }
@@ -219,13 +289,13 @@ function summaryOf(entry, metric) {
 
 // One series per score, each a single bar: the plot is the group, so its axis holds one
 // category and the scores are what is told apart on it — by colour, as everywhere else here.
-function toMeanSeries(group, metric, colourOf) {
+function toMeanSeries(group, metric, colourOf, name) {
   return group.entries.map((entry) => {
     const summary = summaryOf(entry, metric);
 
     return {
       colour: inkOf(entry, colourOf),
-      label: labelOf(entry),
+      label: name(entry),
       metric,
       group: group.key,
       index: new Map([[group.key, 0]]),
@@ -257,18 +327,16 @@ function buildMetricSelect(group, metric) {
 
 // ─── METHODOLOGY ─────────────────────────────────────────────────────────────
 
-// `layout` is the grid's own — see buildComparisonGrid. Turned where this has half a row
-// rather than a whole one: five fields are unreadable as a header on half a page and perfectly
-// readable as a column of five, and the scores then grow sideways into whatever room is left
-// rather than downwards. Given a row of its own it reads the other way, a score per row.
+// A score per row, a training field per column — the grid's own default, and what a panel of
+// its own can afford: five fields read across, where turned they would be five rows of one.
 //
-// Which score a column or row is, is its colour, matched to the chips above: the names are
-// there, so a header repeating them under them would be the same list twice.
-function buildMethodologyGrid(entries, fields, colourOf, layout) {
+// Each row headed with the score's own chip, the same one the row above the grid names it with
+// — and by the same `name`, so the two cannot come to read differently.
+function buildMethodologyGrid(entries, fields, colourOf, name) {
   return buildComparisonGrid({
-    layout,
     attributes: methodologyColumns(fields),
     entities: entries.map((entry) => ({
+      label: name(entry),
       ink: inkOf(entry, colourOf),
       cells: methodologyCells({
         // Absent until this score's own request lands.
@@ -282,32 +350,52 @@ function buildMethodologyGrid(entries, fields, colourOf, layout) {
 // ─── WIDGET ──────────────────────────────────────────────────────────────────
 
 /**
- * @param container as createComparison.
- * @param toEntry   (row) => { key, taskId, submissionId, submissionLabel, modelName, metric,
- *                  colour? }. `key` is the task submission the score belongs to, which is also
- *                  what is fetched. `colour` is for a host whose rows are already drawn in one
- *                  — see inkOf.
- * @param prompt    what to say with nothing picked. The leaderboard's rows are one task's
- *                  scores across models, so it says "rows" where the scores page says "task
- *                  scores" — the same instruction about the same cap, in the words of
- *                  whatever table is above it.
- * @param layout    "stack" for a row each, which is what a page giving this its own width
- *                  wants; "row" for the means beside the methodology and the recordings under
- *                  the two, for a host fitting all three under something else — see
- *                  renderTaskDetail in recordComparison.js.
- * @param picks     false to leave out the row of chips. For a host that sets these picks
- *                  rather than the reader: it names them itself, in the same colours, and a ✕
- *                  here would take a score out only until the host next set them again.
+ * @param container   as createComparison.
+ * @param toEntry     (row) => { key, taskId, submissionId, submissionLabel, modelName,
+ *                    metric, colour? }. `key` is the task submission the score belongs to,
+ *                    which is also what is fetched. `colour` is for a host whose rows are
+ *                    already drawn in one — see inkOf.
+ * @param prompt      what to say with nothing picked. The leaderboard's rows are one task's
+ *                    scores across models, so it says "rows" where the scores page says "task
+ *                    scores" — the same instruction about the same cap, in the words of
+ *                    whatever table is above it.
+ * @param picks       false to leave out the row of chips. For a host that sets these picks
+ *                    rather than the reader: it names them itself, in the same colours, and a
+ *                    ✕ here would take a score out only until the host next set them again.
+ * @param layout      "rows" to put the means beside the recordings rather than above them.
+ * @param methodology false to leave out the methodology panel, which leaves one panel and so
+ *                    no tabs either. For a host whose own table already carries the fields.
  */
 function createTaskComparison({
   container,
-  layout = "stack",
   picks = true,
+  layout = "",
+  methodology = true,
   ...options
 }) {
-  // Two of the three sharing a row rather than each having one, which is also what turns the
-  // methodology grid and halves the means row's tracks.
-  const beside = layout === "row";
+  // The element holding the strip and the panels — the one tab presses are read off, and the
+  // one the panels are reordered inside when the reader docks one.
+  let root = null;
+  const beside = layout === "rows";
+
+  // One panel and no strip where the host wants no methodology: there is nothing to switch
+  // between and nothing to dock.
+  const panels = methodology
+    ? TABS
+    : TABS.filter((tab) => tab.value === ANCHOR);
+  const strip = panels.length > 1;
+  const dockable = panels.filter((tab) => tab.value !== ANCHOR);
+
+  // With no strip the means and the recordings are read together rather than a tab apart, so a
+  // mean stands at the height of a plot sharing the page instead of a lone plot's. Null for
+  // the arrangement's own — see arrangePlots.
+  const meanHeight = strip ? null : SHARED_HEIGHT;
+
+  // The tab the reader chose, which is not necessarily the one open — see openPanel. The
+  // anchor to begin with, which is the tab a reader who has said nothing is on. And which
+  // panels they have sent below it, which is not necessarily in effect — see isDocked.
+  let chosen = ANCHOR;
+  const docked = new Set();
 
   let view = SEPARATE_VIEW;
 
@@ -345,6 +433,120 @@ function createTaskComparison({
 
     getSection(MEANS_SECTION).hidden = true;
     getSection(RECORDINGS_SECTION).hidden = true;
+
+    // Before the prompt is written into it, and again once something is picked — which is
+    // what takes it back off.
+    if (!methodology) clearContent(getElement(PROMPT_ID));
+
+    showPanel();
+    renderDock();
+  }
+
+  // ─── PANELS ────────────────────────────────────────────────────────────────
+
+  // How many scores are being compared, which is what decides whether the scores panel has
+  // anything in it.
+  function picked() {
+    return (comparison?.entries() ?? []).length;
+  }
+
+  // Whether a panel is out of the rotation, on screen under the one still in it. Only once
+  // something is picked: with nothing to compare the scores panel is empty and the methodology
+  // panel is where the prompt goes, so that is the tab the reader is on. The presses are
+  // remembered either way and take effect as soon as a score is picked.
+  function isDocked(value) {
+    return value !== ANCHOR && docked.has(value) && picked() > 0;
+  }
+
+  function dockedPanels() {
+    return DOCK_ORDER.filter(isDocked);
+  }
+
+  // Whether a panel is one the tabs can open. Not a docked one, which is already on screen;
+  // otherwise the methodology always — with nothing picked it is where the prompt goes — and
+  // the scores once something is picked.
+  function canOpen(value) {
+    if (isDocked(value)) return false;
+
+    // The only panel there is holds the prompt beside it, so it is on screen before anything
+    // is picked as well as after.
+    if (!strip) return true;
+
+    return value === METHODOLOGY_PANEL || picked() > 0;
+  }
+
+  // The open panel: the reader's while it can be opened, else the first that can. There is
+  // always one — the anchor cannot be docked, and with nothing picked the methodology is where
+  // the prompt goes — so the empty answer below is a guard rather than a state.
+  //
+  // Derived rather than written back, so the scores — which cannot be opened before anything
+  // is picked — are theirs again the moment they can be, rather than the reader being left on
+  // the tab a fallback moved them to.
+  function openPanel() {
+    if (canOpen(chosen)) return chosen;
+
+    return panels.map((tab) => tab.value).find(canOpen) ?? "";
+  }
+
+  // Which panel is on screen, and the strip that says which.
+  function showPanel() {
+    const open = openPanel();
+
+    for (const { value } of panels) {
+      const element = getElement(value);
+
+      // A docked panel shows whichever tab is open: that is the whole of what docking is.
+      if (element) element.hidden = !isDocked(value) && value !== open;
+    }
+
+    if (root && strip) markTabs(root, PANELS, open, canOpen);
+  }
+
+  // Where the panels sit, and which way each arrow points: the open tab first, then every
+  // docked panel under it. Appended in that order, which is the order they read.
+  //
+  // Moved rather than drawn twice: each is one wrapper over sections the comparison renders
+  // into by id, so a second copy would be a second thing to keep saying the same.
+  function renderDock() {
+    if (root && strip) {
+      for (const value of [openPanel(), ...dockedPanels()]) {
+        const element = value && getElement(value);
+
+        if (element) root.appendChild(element);
+      }
+    }
+
+    for (const { value, label } of dockable) {
+      const down = isDocked(value);
+
+      setButtonLabel(getElement(dockId(value)), {
+        label: `${down ? "Undock" : "Dock"} ${label.toLowerCase()}`,
+        icon: getIcon(down ? "up" : "down"),
+      });
+
+      // Lit for what is true now rather than for what the reader last pressed: with nothing
+      // picked both panels are tabs whatever the arrows say.
+      getElement(dockId(value))?.classList.toggle("primary-inv", down);
+    }
+
+    refreshIcons();
+  }
+
+  // Every panel on screen, and only those: a plot built inside a hidden element sizes its
+  // canvas to nothing, and a panel is redrawn on the way in anyway.
+  function renderPanel() {
+    const shown = new Set([openPanel(), ...dockedPanels()]);
+
+    if (shown.has(SCORES_PANEL)) {
+      // Put away by clearUp, and back once there is something to read. The means row shows
+      // itself — see renderMeans, which is the only thing that knows whether it has groups.
+      getSection(RECORDINGS_SECTION).hidden = false;
+
+      renderMeans();
+      renderPlot();
+    }
+
+    if (shown.has(METHODOLOGY_PANEL)) renderGrid();
   }
 
   // ─── METRICS ───────────────────────────────────────────────────────────────
@@ -377,11 +579,11 @@ function createTaskComparison({
 
   // ─── RENDER ────────────────────────────────────────────────────────────────
 
-  // How many of the page's tracks this section's row is worth — see renderMeans.
-  function tracks() {
-    return beside
-      ? Math.max(1, Math.ceil(CATEGORIES_PER_LINE / 2))
-      : CATEGORIES_PER_LINE;
+  // How each score is named, wherever it is named — see labelOf. Off the whole set of picks
+  // rather than off whichever subset a caller happens to hold, so a bar in one metric group
+  // and the row heading beside it read the same.
+  function nameOf(entry) {
+    return labelOf(entry, comparison.entries());
   }
 
   // The scores being compared, in the colours they are drawn in. Rewritten on every render,
@@ -395,7 +597,7 @@ function createTaskComparison({
     const held = comparison
       ? comparison.entries().map((entry) => ({
           key: entry.key,
-          label: labelOf(entry),
+          label: nameOf(entry),
           ink: inkOf(entry, comparison.colourOf),
         }))
       : [];
@@ -411,9 +613,6 @@ function createTaskComparison({
   // plots elsewhere are drawn at — see CATEGORIES_PER_LINE in plots/figure.js. Which also
   // means a group is the same width whether the reader is comparing one combination or four,
   // and a line's worth fill it before the rest wrap.
-  //
-  // Half the tracks where this section has half a row, so a track stays the same width on the
-  // page rather than halving with the space around it.
   //
   // The figures inside are stacked rather than weighted: the grid cell is already one track
   // wide, and weighting again inside it would take a track of a track.
@@ -434,6 +633,10 @@ function createTaskComparison({
       return;
     }
 
+    function tracks() {
+      return beside ? 1: 4
+    }
+
     renderHtml(
       section,
       `<div class="chart-weighted" style="--plot-tracks:${tracks()}">
@@ -452,13 +655,14 @@ function createTaskComparison({
       const metric = metricInForce(group);
 
       const plots = createBarPlots({
-        entries: toMeanSeries(group, metric, comparison.colourOf),
+        entries: toMeanSeries(group, metric, comparison.colourOf, nameOf),
         // One group per plot, and one plot per call: the arrangement has nothing to arrange,
         // and stacking is the one layout that leaves the cell's width alone.
         facet: "metric",
         layout: "stack",
         size: "regular",
         order: "given",
+        height: meanHeight,
         // The tasks the group covers. Its single category is the group itself, which is not a
         // thing a reader has a name for — the tasks in it are.
         tickLabel: () => tasksIn(group),
@@ -484,7 +688,7 @@ function createTaskComparison({
         comparison.entries(),
         TASK_FIELDS,
         comparison.colourOf,
-        beside ? "columns" : "rows",
+        nameOf,
       ),
       { refresh: true },
     );
@@ -503,7 +707,7 @@ function createTaskComparison({
     const entries = comparison.entries().map((entry) =>
       toScoreSeries(storeOf(entry), metrics.get(entry.key), {
         colour: inkOf(entry, comparison.colourOf),
-        label: labelOf(entry),
+        label: nameOf(entry),
       }),
     );
 
@@ -516,15 +720,16 @@ function createTaskComparison({
     // The same panels either way — one per score, the same recordings in the same order — and
     // only the mark different, which is the whole of the choice between these two buttons.
     //
-    // One a row while there are few enough to be worth the width, two once there are more than
-    // three: a recordings axis is long, and a plot with the whole line names ten of them where
-    // half of it names five — but five stacked would put the last a screen below the first,
-    // when the comparison is between them.
+    // Where the recordings are the panel: three to a line, filled left to right, so one is a
+    // third of the width whether there are two of them or six. Where the methodology is a tab
+    // beside them: stacked while there are few enough to be worth the width, two across after
+    // that.
     //
-    // A stack is also the one arrangement that can share an axis, and these can: every panel
-    // draws the same recordings in the same order, so the labels under the bottom one are read
-    // as the whole stack's. Two across, nothing sits above anything and each carries its own.
-    const layout = entries.length < 4 ? "stack" : "pair";
+    // Only a stack can share an axis, and these can: every panel draws the same recordings in
+    // the same order, so the labels under the bottom one are read as the whole stack's. In a
+    // grid nothing sits above anything and each carries its own.
+    const stacked = entries.length < 4 ? "stack" : "pair";
+    const layout = strip ? stacked : "grid";
 
     const draw = view === BARS_VIEW ? createRecordingBars : createRecordingPlots;
 
@@ -550,16 +755,16 @@ function createTaskComparison({
   }
 
   function renderSections() {
-    // Put away by clearUp, and back once there is something to read. The means row shows
-    // itself — see renderMeans, which is the only thing that knows whether it has groups.
-    getSection(RECORDINGS_SECTION).hidden = false;
-
     setActiveView(view);
 
     renderPicks();
-    renderMeans();
-    renderGrid();
-    renderPlot();
+
+    // The scores panel is openable now, which clearUp said it was not — and whatever the
+    // reader had docked takes effect with it.
+    showPanel();
+    renderDock();
+
+    renderPanel();
   }
 
   function attachEvents() {
@@ -574,6 +779,38 @@ function createTaskComparison({
     for (const { id } of VIEWS) {
       getElement(id)?.addEventListener("click", () => {
         if (id !== view) renderView(id);
+      });
+    }
+
+    // Delegated on the element the strip and the panels share: the strip is written once, but
+    // a listener per tab would be two where one reads the same. The recordings' own plots
+    // carry a group each and no `data-tab`, so a click in one is never read as a tab's.
+    root.addEventListener("click", (event) => {
+      const tab = tabFromEvent(event);
+
+      if (!tab || tab.name !== PANELS || tab.value === openPanel()) return;
+
+      chosen = tab.value;
+
+      showPanel();
+      renderDock();
+
+      // On the way in, not on the way out: a panel is drawn at the width it is about to be
+      // read at, which a hidden one does not have.
+      renderPanel();
+    });
+
+    // By id: the strip is written once, and only what is lit in it changes. Both steps after
+    // every press, in this order — showPanel decides which tab is open once the set of
+    // openable ones has changed, and renderDock puts the panels where that answer says.
+    for (const { value } of dockable) {
+      getElement(dockId(value))?.addEventListener("click", () => {
+        if (docked.has(value)) docked.delete(value);
+        else docked.add(value);
+
+        showPanel();
+        renderDock();
+        renderPanel();
       });
     }
 
@@ -602,7 +839,7 @@ function createTaskComparison({
 
   function setup() {
     const means = { id: MEANS_SECTION, title: "Mean scores", hidden: true };
-    const methodology = { id: METHODOLOGY_SECTION, title: "Methodology" };
+    const grid = { id: METHODOLOGY_SECTION, title: "Methodology" };
     const recordings = {
       id: RECORDINGS_SECTION,
       title: "Recordings",
@@ -610,31 +847,57 @@ function createTaskComparison({
       hidden: true,
     };
 
-    // Beside: the means and the methodology share the top row and the recordings take the one
-    // under it. This is a panel inside another comparison, already a page deep, and three
-    // full-width rows would put the recordings a page and a half below the plot they were
-    // opened from — where the two short things fit side by side and the long one wants the
-    // width anyway.
-    //
-    // A row each otherwise, which is what a page of its own can afford.
-    const sections = beside
-      ? [{ sections: [means, methodology] }, recordings]
-      : [means, methodology, recordings];
-
-    renderHtml(
+    root = renderHtml(
       container,
       `
         ${picks ? `<span class="row left gap-sm compare-picks" id="${PICKS_ID}"></span>` : ""}
-        ${buildSections(sections)}`,
+        ${
+          strip
+            ? buildTabs({
+                name: PANELS,
+                // An arrow on each but the anchor: pressing a tab opens that panel, and
+                // pressing the arrow beside it sends the panel below whichever tab is still
+                // open — see renderDock. The anchor has none, being the one panel always in
+                // the rotation.
+                tabs: panels.map((tab) => ({
+                  ...tab,
+                  control:
+                    tab.value === ANCHOR
+                      ? ""
+                      : buildButton({
+                          id: dockId(tab.value),
+                          label: `Dock ${tab.label.toLowerCase()}`,
+                          icon: getIcon("down"),
+                          className: "tab-control",
+                        }),
+                })),
+              })
+            : ""
+        }
+        <div id="${SCORES_PANEL}">${buildSections(
+          // Spread, not nested: buildSections takes a list of descriptors, and a list *of* a
+          // list is one descriptor with no id — which builds a section called nothing and
+          // neither of the two the panel is made of.
+          beside
+            ? [{ sections: [means, recordings], ratio: 4 }]
+            :  [means, recordings]
+        )}</div>
+        ${
+          methodology
+            ? `<div id="${METHODOLOGY_PANEL}">${buildSections([grid])}</div>`
+            : `<div id="${PROMPT_ID}"></div>`
+        }`,
     );
 
     attachEvents();
 
     comparison = createComparison({
-      // The methodology section: with nothing picked, the prompt belongs where the grid would
-      // have been, and the other two sections are hidden anyway. The section body outlives it,
-      // which is what lets the listeners above be attached once.
-      container: getSectionBody(METHODOLOGY_SECTION),
+      // With nothing picked, the prompt belongs where the grid would have been — the other
+      // two sections are hidden anyway. Both elements outlive it, which is what lets the
+      // listeners above be attached once.
+      container: methodology
+        ? getSectionBody(METHODOLOGY_SECTION)
+        : getElement(PROMPT_ID),
       max: MAX_COMPARED,
       prompt: `Select up to ${MAX_COMPARED} task scores to compare them.`,
       palette: SERIES_COLOURS,

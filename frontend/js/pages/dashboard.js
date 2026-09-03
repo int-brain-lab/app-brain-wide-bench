@@ -8,6 +8,7 @@ import { getMySubmissions } from "../api/submissionApi.js";
 import { getMyTaskSubmissions } from "../api/taskSubmissionApi.js";
 import { getMyTeams } from "../api/teamApi.js";
 import { loadMe } from "../api/userApi.js";
+import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
 import { toModelRows } from "../utils/modelUtils.js";
 import { toSubmissionRows } from "../utils/submissionUtils.js";
 import {
@@ -258,7 +259,7 @@ function renderDashboardView({ user, models, teams, submissions, scoreRows }) {
 // ─── SCORES VIEW ─────────────────────────────────────────────────────────────
 
 function renderScoresView({ models, scoreRows }) {
-  const display = { showModel: true, showSubmission: true };
+  const display = { showModel: true, showSubmission: true, showMethodology: true };
 
   return renderRecordListView({
     noun: "score",
@@ -297,6 +298,10 @@ loadRecordPage({
   // Score rows are built once here, not per view — both views render the same rows, and
   // the scores view is reached without a reload.
   load: async () => {
+    // `loadTaskFields` fills the methodology fields' options in place from the server's own
+    // enums, which is where the score filters read them from. Caught rather than allowed to
+    // reject: a failing /api/meta then costs those filters their options rather than the
+    // page its panels.
     const [models, taskSubmissions, submissions, teams, user] =
       await Promise.all([
         getMyModels(),
@@ -304,6 +309,7 @@ loadRecordPage({
         getMySubmissions(),
         getMyTeams(),
         loadMe(),
+        loadTaskFields().catch(() => undefined),
       ]);
 
     return {

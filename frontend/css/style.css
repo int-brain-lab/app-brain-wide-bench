@@ -532,6 +532,13 @@ GRIDS, COLUMNS AND ROWS
   gap: var(--gap-lg);
 }
 
+/* Five is as narrow as a control can be and still read, so it takes the tighter gap. */
+.grid-5 {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--gap-md);
+}
+
 .grid-row-4 {
   display: grid;
   grid-template-rows: repeat(4, minmax(0, 1fr));
@@ -563,9 +570,14 @@ GRIDS, COLUMNS AND ROWS
 /* One narrow column beside a wide one — a summary next to the table it summarises.
    `minmax(0, ...)` on both so a wide child (a table, a Tabulator grid) is clipped by its
    column rather than widening it. */
-.section-row.uneven {
+.section-row.ratio-3 {
   grid-auto-flow: row;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+
+.section-row.ratio-4 {
+  grid-auto-flow: row;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
 }
 
 /* The chain that carries the row's height down to the card, so two sections sharing a row
@@ -655,13 +667,9 @@ CARDS
   overflow-y: auto;
 }
 
-/* A card picked for a comparison, and the cards' answer to `.tabulator-selected` — the same
-   wash and the same edge, since the two views are one list. Simpler than the table's version
-   only because a card paints its own background, where a Tabulator row is painted by the
-   cells on top of it.
-
-   The wash is the pick's own colour at the weight --primary-light sits at, so a picked thing
-   is tinted with the colour it is drawn in everywhere else. */
+/* A card picked for a comparison, and the cards' answer to `.tabulator-selected`: the same
+   edge, and a wash as well — a card carries no hover state of its own for one to compete
+   with. The wash is the pick's own colour at the weight --primary-light sits at. */
 .card.selected {
   background: color-mix(
     in srgb,
@@ -853,8 +861,8 @@ CARDS
   background: var(--surface-secondary);
 }
 
-/* The plot the panel below is about: the same wash every picked thing gets, and the edge along
-   the bottom rather than the side, since what it is joined to is underneath it. No
+/* The plot the panel below is about: a wash like a picked card's, and the edge along the
+   bottom rather than the side, since what it is joined to is underneath it. No
    `--pick-ink` — a plot here is a task, where that colour belongs to a model. */
 .chart-pickable .chart-facet.selected {
   background: var(--primary-light);
@@ -978,27 +986,18 @@ CARDS
   font-weight: var(--bold);
 }
 
-/* Turned: the things across the top, one attribute per row. The headers say nothing — what
-   the columns are is the row of chips above the grid — so the head is a band of the pick's
-   own colour, and the column under it carries the same wash a picked card and a picked table
-   row do. Matching a column to a chip is then matching one colour to another.
+/* Turned: the things across the top, one attribute per row. Their headers hold a chip rather
+   than a word, so they align left and sit on the baseline of the shortest of them. The pick
+   colour is a top edge here, where a row's is a left one: it marks the near side of what it
+   identifies either way.
 
-   The wash falls back to the surface rather than to `transparent`: a grid whose caller passes
-   no colour is plain, not a column of half-opaque cells. */
+   No wash on the cells. The chip says which column is which and carries the colour itself, so
+   tinting the column under it says the same thing a second time — over the numbers, which is
+   the one place on the grid that should be reading as plainly as it can. */
 .comparison-grid.by-column thead th[scope="col"] {
-  height: 8px;
+  text-align: left;
+  vertical-align: bottom;
   box-shadow: inset 0 3px 0 var(--row-ink, transparent);
-}
-
-.comparison-grid.by-column thead th[scope="col"],
-.comparison-grid.by-column tbody td,
-.comparison-grid:not(.by-column) tbody th[scope="row"],
-.comparison-grid:not(.by-column) tbody td {
-  background: color-mix(
-    in srgb,
-    var(--row-ink, var(--surface)) 12%,
-    var(--surface)
-  );
 }
 
 /* The score table's "used in ranking" cell: the same two sides as the chips above, in the
@@ -1656,6 +1655,28 @@ TABS
   color: var(--text-color);
 }
 
+/* A tab and whatever control belongs to it, as one item of the strip: the control is beside
+   the tab rather than inside it, since a button cannot hold a button — see buildTabs. */
+.tab-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-xs);
+}
+
+/* That control, sized to sit in a strip of tabs rather than in a row of buttons: an icon and
+   no label, since the tab beside it already says what it acts on. `font-size: 0` rather than
+   no label at all — the words stay in the accessibility tree, where an arrow says nothing. */
+.tab-control {
+  padding: 2px;
+  border-radius: var(--radius-md);
+  font-size: 0;
+}
+
+.tab-control .btn-icon {
+  width: 14px;
+  height: 14px;
+}
+
 .tab.on {
   color: var(--primary-dark);
   border-bottom-color: var(--primary);
@@ -1799,30 +1820,13 @@ table {
   background: var(--surface-secondary);
 }
 
-/* A row picked for a comparison. There is no checkbox column beside it, so this highlight
-   is the whole of the feedback — a wash and an edge, because a wash alone is a shade off
-   the hover state and a reader working down a striped table loses it.
+/* A row picked for a comparison: the edge down its left and no wash, so the hover state
+   reaches a picked row like any other.
 
-   After the hover rules on purpose: they match with the same weight, so hovering a picked
-   row would otherwise wash the picking away. */
-.tabulator .tabulator-row.tabulator-selected .tabulator-cell,
-[data-rows-selectable="true"]
-  .tabulator
-  .tabulator-row.tabulator-selected:hover
-  .tabulator-cell {
-  background: color-mix(
-    in srgb,
-    var(--pick-ink, var(--primary)) 12%,
-    var(--surface)
-  );
-}
-
-/* The edge, on the first cell rather than as an inset shadow on the row — which the cells
-   would cover, exactly as they cover the row's background.
-
-   `--pick-ink` is set per row by the comparison that owns the picks, so the edge is the
-   colour that pick is drawn in everywhere else — its plot series, its row in the comparison,
-   its column in the grid. Unset on every other table, which keeps the app's own. */
+   On the first cell rather than as an inset shadow on the row, which the cells' own opaque
+   background would cover. `--pick-ink` is set per row by the comparison that owns the picks —
+   the colour that pick is drawn in everywhere else; unset elsewhere, which keeps the app's
+   own. */
 .tabulator .tabulator-row.tabulator-selected .tabulator-cell:first-child {
   box-shadow: inset 3px 0 0 var(--pick-ink, var(--primary));
 }
@@ -2395,9 +2399,9 @@ COMPARISON
 }
 
 /* One thing that has been picked and stays picked — a model chosen to compare against, a
-   value pinned under a select. `flex: none` so a long name is never squashed by the others
-   beside it: the row wraps instead. The padding is lopsided because the ✕ sits on the right
-   and brings its own. */
+   value pinned under a select, a comparison grid's own column heading. `flex: none` so a long
+   name is never squashed by the others beside it: the row wraps instead. The padding is
+   lopsided because the ✕ sits on the right and brings its own. */
 .chip {
   display: inline-flex;
   align-items: center;
@@ -2408,7 +2412,7 @@ COMPARISON
   border: 1px solid var(--border-color);
   border-radius: 999px;
   background: var(--surface);
-  font-size: var(--font-sm);
+  font-size: var(--font-xs);
   white-space: nowrap;
 }
 
@@ -2452,6 +2456,13 @@ COMPARISON
    behind by an insertion would defeat. */
 .pins:not(:has(*)) {
   display: none;
+}
+
+/* A chip with nothing after its label — a grid heading, where taking the thing out belongs to
+   the row above rather than to every reading of it. Even padding, since there is no ✕ on the
+   right bringing its own. */
+.chip:not(:has(.chip-remove)) {
+  padding-right: 12px;
 }
 
 .chip-remove {

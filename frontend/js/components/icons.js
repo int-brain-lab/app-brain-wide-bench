@@ -45,6 +45,8 @@ const ICONS = {
   filter: "funnel",
   expand: "plus",
   collapse: "minus",
+  down: "chevron-down",
+  up: "chevron-up",
 
   // Views
   cards: "layout-grid",

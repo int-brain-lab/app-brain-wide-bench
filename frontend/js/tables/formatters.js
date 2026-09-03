@@ -7,7 +7,7 @@
 // with what that column needs, and returns one.
 
 import { escapeHtml } from "../core/html.js";
-import { SUITES, taskLabel } from "../core/suites.js";
+import {suiteFromTask, SUITES, taskLabel} from "../core/suites.js";
 import { formatDate, score } from "../core/utils.js";
 import {
   buildMetricBadge,
@@ -16,7 +16,7 @@ import {
   buildPretrainedBadge,
   buildRoleBadge,
   buildStatusBadge,
-  buildSuiteBadgeList,
+  buildSuiteBadgeList, buildTaskBadge,
 } from "../components/badges.js";
 import { buildIcon, getIcon } from "../components/icons.js";
 
@@ -246,10 +246,8 @@ function modelFormatter(cell) {
       href="/html/models/models.html?id=${encodeURIComponent(row.modelId)}"
       class="column"
     >
-      <span class="row left gap-sm">
-        <span class="label">${escapeHtml(row.model_name)}</span>
-        ${badges}
-      </span>
+      <span class="label">${escapeHtml(row.model_name)}</span>
+      <span>${badges}</span>
       <span class="metadata">${escapeHtml(row.team_name)}</span>
     </a>
   `;
@@ -275,11 +273,12 @@ function metricsBadgeFormatter(cell) {
 
 function taskNameFormatter(cell) {
   const value = cell.getValue();
-
+  const suite = suiteFromTask(value);
   return value
-    ? `<span class="label">${escapeHtml(taskLabel(value))}</span>`
+    ? `<span>${buildTaskBadge(taskLabel(value), suite, "sm")}</span>`
     : EMPTY_VALUE;
 }
+
 
 function statusFormatter(cell) {
   return buildStatusBadge(cell.getValue(), "sm");
@@ -379,6 +378,32 @@ function diffFormatter(cell) {
   `;
 }
 
+/**
+ * One task's column heading: what it is, in its suite's colour, and what it is measured in.
+ *
+ * @param stacked the metric under the task rather than beside it. For a column sized to what
+ *                it holds, where a heading laid out across would set the width instead — a
+ *                task name and a metric side by side are wider than "0.641 ± 0.025". Side by
+ *                side where the layout stretches the columns anyway, since two badges on one
+ *                line keep the header row shallow. See getColumns in leaderboardTable.js.
+ */
+function taskHeader(taskId, metric, { stacked = true } = {}) {
+  const suite = suiteFromTask(taskId);
+
+  const badges = [
+    suite ? buildTaskBadge(taskLabel(taskId), suite, "sm") : "",
+    metric ? buildMetricBadge(metric, "sm") : "",
+  ].join("");
+
+  return `
+    <span class="${stacked ? "column" : "row"} left gap-xs">
+      ${badges}
+    </span>`;
+}
+
+
+
+
 export {
   buildLinkFormatter,
   buildMeanSem,
@@ -408,4 +433,5 @@ export {
   taskLinkAttributes,
   taskLinkFormatter,
   taskNameFormatter,
+  taskHeader,
 };

@@ -135,6 +135,7 @@ function createBarPlots({
   scale = "metric",
   tickLabel = (key) => key,
   legend = true,
+  height = null,
 }) {
   return arrangePlots({
     entries,
@@ -146,6 +147,7 @@ function createBarPlots({
     scale,
     tickLabel,
     legend,
+    height,
   });
 }
 

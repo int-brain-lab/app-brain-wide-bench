@@ -9,7 +9,8 @@ import { buildTableCount } from "../components/count.js";
 import { resolveContainer } from "../core/dom.js";
 import { escapeHtml } from "../core/html.js";
 import { refreshIcons, renderHtml, setText } from "../core/render.js";
-import { buildFilterBar, createFilterState } from "../components/filters.js";
+import { buildFilterBar } from "../components/filters.js";
+import { createFilterState } from "../components/filterState.js";
 
 // ─── STATIC TABLE ────────────────────────────────────────────────────────────
 
@@ -122,8 +123,8 @@ function buildStaticTable({
  * @param selection      {max, onChange, claimLinks, rolling} — makes rows pickable by
  *                       clicking them, at most `max` at a time, and calls
  *                       `onChange(rows, {selected, deselected})` with the selected row data
- *                       and the row components that changed. A pick shows as the row's own
- *                       highlight — see `.tabulator-selected` in style.css.
+ *                       and the row components that changed. A pick shows as an edge down
+ *                       the row's left — see `.tabulator-selected` in style.css.
  *                       `claimLinks` says what a click on a link inside a row does: `true`
  *                       picks the row instead of following it, which is what a table
  *                       building a selection wants; `false` follows the link and leaves the
@@ -149,6 +150,7 @@ function createTable({
   onRowClick,
   selection,
   header = "",
+  layout = "fitColumns",
 }) {
   if (typeof Tabulator === "undefined") {
     throw new Error(
@@ -187,7 +189,7 @@ function createTable({
 
     ...(index ? { index } : {}),
 
-    layout: "fitColumns",
+    layout: layout,
 
     // Off for a single page, where Tabulator renders a lone "1" button. Keyed off the
     // unfiltered total, so the buttons don't appear and vanish as the user types.
@@ -269,17 +271,12 @@ function createTable({
 /**
  * createTable with a filter bar above the grid, narrowing it as the controls change.
  *
- * @param controls       [{type: "search"|"select", name, placeholder, match, options,
- *                       required}]. `name` keys the filter state; `match(row, value)`
- *                       decides a row; `options` is required for a select; `required`
- *                       drops the blank option and starts on options[0]. Empty for no bar.
- * @param onControlChange (name, value, {table, setControlOptions}) => void, run after a
- *                       control changes and the rows have been refiltered. Omit for none.
- * @param rest           as createTable.
+ * @param controls as createFilterState's, in bar order. Empty for no bar.
+ * @param rest     as createTable.
  *
  * @returns { element, table } — as createTable; the root holds the bar and the grid.
  */
-function createFilterableTable({ controls = [], onControlChange, ...rest }) {
+function createFilterableTable({ controls = [], ...rest }) {
   const { element, table } = createTable({
     ...rest,
     header: buildFilterBar(controls),
@@ -288,22 +285,8 @@ function createFilterableTable({ controls = [], onControlChange, ...rest }) {
   const filters = createFilterState({
     controls,
     root: element,
-    onChange: (name, value) => {
-      table.setFilter(filters.matches);
-
-      // After the filter, so a handler reading the table sees the new row set.
-      onControlChange?.(name, value, { table, setControlOptions });
-    },
+    onChange: () => table.setFilter(filters.matches),
   });
-
-  // createFilterState has no table of its own to refilter.
-  function setControlOptions(name, options, selected) {
-    const value = filters.setControlOptions(name, options, selected);
-
-    table.setFilter(filters.matches);
-
-    return value;
-  }
 
   return { element, table };
 }

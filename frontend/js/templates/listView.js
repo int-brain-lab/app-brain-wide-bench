@@ -5,7 +5,8 @@
 // two modes: `base` and `active`. Views are created lazily and kept alive so switching
 // between cards/table or modes does not lose the user's state.
 
-import { buildFilterBar, createFilterState } from "../components/filters.js";
+import { buildFilterBar } from "../components/filters.js";
+import { createFilterState } from "../components/filterState.js";
 import { resolveContainer } from "../core/dom.js";
 import { buildSection } from "../components/sections.js";
 import {
@@ -38,8 +39,8 @@ const MODE_NAMES = ["base", "active"];
  * @param createCards    () => a card grid — see cards/cardGrid.js. Omit for a table-only
  *                       list.
  * @param createTable    ({ rows, selection }) => { element, table } — see tables/table.js.
- * @param filterControls (rows) => controls for the bar — see components/filters.js. Omit
- *                       for no filter bar.
+ * @param filterControls (rows) => controls for the bar, read once — see
+ *                       components/filterState.js. Omit for no filter bar.
  * @param modes          `{ base, active }` panel definitions. Omit for a list whose rows
  *                       open nothing beside them.
  * @param picking        `{ max, palette, label, toEntry, onCompare }` for a list whose rows are
@@ -72,6 +73,11 @@ function createListView({
 
   let currentView = getInitialView();
   let activeMode = modes.base ? "base" : null;
+
+  // Once, not per use: the bar's markup and the state behind it read the same descriptors,
+  // and a pinned control's options are what its chips are labelled from.
+  const controls = filterControls?.(rows) ?? [];
+
   let filterState = null;
 
   let cardView = null;
@@ -369,9 +375,7 @@ function createListView({
   }
 
   function buildFilters() {
-    if (!filterControls) return "";
-
-    const controls = filterControls(rows);
+    if (!controls.length) return "";
 
     return `
       <div id="filters">
@@ -398,9 +402,9 @@ function createListView({
   // element is in the document. See the note on `container` above.
   resolveContainer(container).replaceChildren(element);
 
-  if (filterControls) {
+  if (controls.length) {
     filterState = createFilterState({
-      controls: filterControls(rows),
+      controls,
       root: getSlot("#filters"),
       onChange: applyFilters,
     });

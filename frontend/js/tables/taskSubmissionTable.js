@@ -21,7 +21,7 @@ import {
   parameterFormatter,
   buildScoreSemFormatter,
   suiteBadgesFormatter,
-  taskLinkFormatter,
+  taskLinkFormatter, taskNameFormatter,
 } from "./formatters.js";
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
@@ -48,14 +48,8 @@ function getTaskSubmissionColumns({ showEdit = false } = {}) {
     {
       title: "Task",
       field: "task_id",
-      formatter: taskLinkFormatter,
+      formatter: taskNameFormatter,
       widthGrow: 2,
-    },
-    {
-      title: "Suite",
-      field: "suite",
-      formatter: suiteBadgesFormatter,
-      width: 100,
     },
     {
       title: "Score",

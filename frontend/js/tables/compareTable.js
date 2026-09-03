@@ -19,6 +19,7 @@ import {
   diffFormatter,
   meanSemFormatter,
   meanSorter,
+  taskHeader
 } from "./formatters.js";
 
 // Colour reaches markup as a custom property, and escapeHtml does not sanitise CSS, so what
@@ -58,30 +59,8 @@ function modelFormatter(cell) {
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
-// The task over the metric it is measured in. The metric belongs to the task, so it is named
-// once here rather than on every cell beneath it.
-//
-// `suite` where the columns span more than one, and the task name drops it either way: on a
-// single suite the badge would be the same word down every column, which is the repetition
-// taskLabel exists to avoid. Across suites it is the only thing telling two tasks of the
-// same metric apart.
-function taskHeader({ taskId, metric }, showSuite) {
-  const suite = showSuite ? suiteFromTask(taskId) : null;
-
-  return `
-    <span class="column gap-xs right">
-      <span>${escapeHtml(taskLabel(taskId))}</span>
-      <span class="row left gap-sm">
-        ${suite ? buildSuiteBadge(suite, "sm") : ""}
-        ${metric ? buildMetricBadge(metric, "sm") : ""}
-      </span>
-    </span>
-  `;
-}
 
 function getCompareColumns(tasks, { formatter, sorter }) {
-  const showSuite =
-    new Set(tasks.map((task) => suiteFromTask(task.taskId))).size > 1;
 
   return [
     {
@@ -96,7 +75,7 @@ function getCompareColumns(tasks, { formatter, sorter }) {
       frozen: true,
     },
     ...tasks.map((task) => ({
-      title: taskHeader(task, showSuite),
+      title: taskHeader(task.taskId, task.metric),
       // The header is markup, so Tabulator has to be told not to escape it.
       titleFormatter: "html",
       field: task.taskId,
@@ -144,7 +123,7 @@ function createCompareTable({ rows, tasks, mode = "score" }) {
     // container with two tasks and overflowing with twelve. The widthGrow/minWidth pair
     // above is what makes it divide the width instead — and still scroll, rather than
     // squeeze past readability, once the minimums no longer fit.
-    layout: "fitColumns",
+    layout: "fitData",
 
     // A comparison holds at most five models, so a pager would only ever show "1".
     paginationSize: rows.length + 1,

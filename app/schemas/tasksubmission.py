@@ -83,8 +83,30 @@ class TaskStanding(BaseModel):
         )
 
 
-class TaskSubmissionOut(BaseModel):
-    """A task entry embedded in the submission or model that owns it, with its score."""
+class TaskMetadata(BaseModel):
+    """Training metadata for a task, shared by its requests and its responses.
+
+    Ahead of every class that inherits it, which is what puts it here rather than beside the
+    request classes it also serves: the first of them is the response below.
+
+    No ``model_config``: the response classes bring ``from_attributes`` themselves and the
+    request classes bring ``extra="forbid"``, so neither inherits a setting meant for the
+    other. Same arrangement as ``ModelMetadata``.
+    """
+
+    extra_input_modality: list[Modality] | None = None
+    training_paradigm: TrainingParadigm | None = None
+    supervision_regime: SupervisionRegime | None = None
+    calibration: Calibration | None = None
+    finetuning_strategy: list[FinetuningStrategy] | None = None
+
+
+class TaskSubmissionOut(TaskMetadata):
+    """A task entry embedded in the submission or model that owns it, with its score.
+
+    Carries ``TaskMetadata`` as well, which is what the score tables filter and group by —
+    the model detail nests this shape, and the panels beside it read the same fields.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -96,13 +118,20 @@ class TaskSubmissionOut(BaseModel):
 class TaskSubmissionResponse(TaskSubmissionOut):
     """List item for ``GET /api/users/me/task-submissions``.
 
-    A task submission and its score, plus the names of what it belongs to. The other
-    task-submission responses are always read *through* a submission, so the context is
-    already on the page around them; this one ranges across every submission a user can
+    A task submission, its score, how it was produced, and the names of what it belongs to.
+    The other task-submission responses are always read *through* a submission, so the context
+    is already on the page around them; this one ranges across every submission a user can
     see, and a bare task id and score wouldn't say whose result it is.
 
     Ids as well as names, because the dashboard's score table links each row back to its
     submission and its model.
+
+    The methodology too, unlike ``TaskScoreOut``'s omission of ``metrics`` above. Both are
+    "more than a table row needs", and the difference is what they cost: the five fields are
+    columns on this very row, so they add about what one of the four uuids does and no query at
+    all, where one ``metrics`` blob is the best part of ten kilobytes. And the client wants
+    them — a comparison built from these rows can say how each score was produced without a
+    request per score, which is what it used to wait on before showing anything.
     """
 
     # ``submission_id`` is a column on TaskSubmission, so ``model_validate`` finds it.
@@ -133,22 +162,7 @@ class TaskSubmissionResponse(TaskSubmissionOut):
         )
 
 
-class TaskMetadata(BaseModel):
-    """Training metadata for a task, shared by its requests and its responses.
-
-    No ``model_config``: the response classes bring ``from_attributes`` themselves and the
-    request classes bring ``extra="forbid"``, so neither inherits a setting meant for the
-    other. Same arrangement as ``ModelMetadata``.
-    """
-
-    extra_input_modality: list[Modality] | None = None
-    training_paradigm: TrainingParadigm | None = None
-    supervision_regime: SupervisionRegime | None = None
-    calibration: Calibration | None = None
-    finetuning_strategy: list[FinetuningStrategy] | None = None
-
-
-class TaskSubmissionDetail(TaskSubmissionOut, TaskMetadata):
+class TaskSubmissionDetail(TaskSubmissionOut):
     """Detailed task submission information for GET /api/submissions/{id}/tasks/{task_submission_id}``
 
     The one shape that carries the per-recording breakdown — see TaskScoreDetail.

@@ -12,8 +12,9 @@ async function updateTaskSubmissions(submissionId, taskSubmissionIds, updates) {
   });
 }
 
-// The methodology fields are only on the detail response: a task submission nested in a
-// model or a submission carries its id, task and score and nothing else.
+// The per-recording breakdown is only on the detail response — see TaskScoreDetail. A task
+// submission read through the model or submission that owns it carries its score's summary and
+// how it was produced, and nothing per recording.
 async function loadTaskSubmission(submissionId, taskSubmissionId) {
   return await apiFetch(
     `/api/submissions/${submissionId}/tasks/${taskSubmissionId}`,
@@ -24,4 +25,15 @@ async function getMyTaskSubmissions() {
   return await apiFetch("/api/users/me/task-submissions");
 }
 
-export { loadTaskSubmission, updateTaskSubmissions, getMyTaskSubmissions };
+// Every one the viewer may see: the tasks of public submissions, plus their own teams' where
+// there is a session.
+async function getTaskSubmissions() {
+  return await apiFetch("/api/task-submissions");
+}
+
+export {
+  getMyTaskSubmissions,
+  getTaskSubmissions,
+  loadTaskSubmission,
+  updateTaskSubmissions,
+};

@@ -36,6 +36,7 @@ app.add_middleware(NoCacheStaticMiddleware)
 
 app.include_router(submissions.router)
 app.include_router(tasksubmissions.router)
+app.include_router(tasksubmissions.listing)
 app.include_router(leaderboard.router)
 app.include_router(users.router)
 app.include_router(models.router)

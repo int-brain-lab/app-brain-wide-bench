@@ -1,69 +1,25 @@
 // Page entry for html/leaderboard/leaderboard.html.
 //
-// Fetch the board, map it once, then hand the rows to the table. The rows and the ranking
-// over them are utils/leaderboardUtils.js and the columns are tables/leaderboardTable.js;
-// what this page owns is which tasks the board is ranked over.
+// Fetch the board, map it once, then hand the rows to the table. The rows and the ranking over
+// them are utils/leaderboardUtils.js and the columns are tables/leaderboardTable.js.
+//
+// Two controls above it: which tasks the board is ranked over — widgets/taskSelection.js — and
+// what narrows the field. Re-ranking needs no request, since the server sends a rank per task
+// and the mean is recomputed here; narrowing the field needs one, because the ranks come back
+// computed over whatever survives it.
 //
 // Under the board is the model comparison, and only that: a row is a pick from the moment the
-// page loads, so there is no mode to enter and nothing to switch between — see
-// comparisons/recordComparison.js for the three panels behind its tabs.
+// page loads — see comparisons/recordComparison.js for the three panels behind its tabs.
 //
-// Two controls above it, and only one of them decides anything: the tasks. The suites are a
-// shortcut into that list — ticking a box writes out its tasks, clearing it takes them off —
-// because a reader almost always wants whole suites and occasionally wants part of one.
-// Re-ranking needs no request: the server sends a rank per task and ranking a model within a
-// task doesn't depend on which other tasks are on screen, so the mean is recomputed here.
-//
-// It also owns the reader's own team ids. /api/leaderboard has no notion of a caller — that
-// is what keeps one public board cacheable — so marking which rows are the reader's is an
-// intersection done here, from a second request for their memberships.
+// It also owns the reader's own team ids. /api/leaderboard has no notion of a caller, so
+// marking which rows are the reader's is an intersection done here.
 
 import { getLeaderboard } from "../api/leaderboardApi.js";
 import { getTasks } from "../api/metaApi.js";
 import { getMyTeams } from "../api/teamApi.js";
 import { dispose } from "../core/disposable.js";
 import { getElement, refreshIcons, renderHtml } from "../core/render.js";
-import {
-  SUITES,
-  suiteFromTask,
-  suiteLabel,
-  taskLabel,
-} from "../core/suites.js";
-import {
-  buildEmptyMessage,
-  buildFailureMessage,
-  buildInfoMessage,
-} from "../components/messages.js";
-import {
-  buildChecks,
-  buildPinnedControl,
-  buildPinnedSelect,
-  buildPins,
-  checkFromEvent,
-  markChecks,
-  pinFromEvent,
-  pinIn,
-  pinnedIn,
-  unpinIn,
-} from "../components/filters.js";
-import {
-  buildRange,
-  markRange,
-  rangeFromEvent,
-  rangeIn,
-} from "../components/ranges.js";
 import { formatCount } from "../core/utils.js";
-import { buildButton, setButtonLabel } from "../components/buttons.js";
-import { getIcon } from "../components/icons.js";
-import { createModelComparison } from "../comparisons/modelComparison.js";
-import { bindTableSelection } from "../comparisons/comparison.js";
-import {
-  buildHeader,
-  buildPage,
-  buildSections,
-  getSection,
-  getSectionBody,
-} from "../components/sections.js";
 import { MODEL_FIELDS, loadModelMeta } from "../schemas/modelSchema.js";
 import {
   TASK_FIELDS,
@@ -75,6 +31,24 @@ import {
   toTaskMetrics,
 } from "../utils/leaderboardUtils.js";
 import { createLeaderboardTable } from "../tables/leaderboardTable.js";
+import { buildButton, setButtonLabel } from "../components/buttons.js";
+import { buildFilterControl } from "../components/filters.js";
+import { createFilterState } from "../components/filterState.js";
+import { getIcon } from "../components/icons.js";
+import {
+  buildEmptyMessage,
+  buildFailureMessage,
+  buildInfoMessage,
+} from "../components/messages.js";
+import {
+  buildHeader,
+  buildPage,
+  buildSections,
+  getSectionBody,
+} from "../components/sections.js";
+import { createModelComparison } from "../comparisons/modelComparison.js";
+import { bindTableSelection } from "../comparisons/comparison.js";
+import { createTaskSelection } from "../widgets/taskSelection.js";
 import { loadPage } from "../templates/page.js";
 import { renderHeader, renderPage } from "../templates/pageChrome.js";
 
@@ -89,396 +63,113 @@ const FILTERS_SECTION = "board-filters";
 const BOARD_SECTION = "board";
 const COMPARE_SECTION = "board-compare";
 
-// The lists are found by `data-role`, not by the bar's `data-filter`: neither narrows rows,
-// and a delegated listener must never mistake one for a filter control.
-// Two controls beside the section's heading. The suites are boxes rather than a value: they
-// hold nothing, and ticking one writes out that suite's tasks while clearing one takes them
-// off. The task list is the state — its chips are what the board is ranked over.
-const SUITE_CHECK = "suite";
-const TASK_LIST = "task";
-const PRETRAINED = "pretrained";
-const HOOK = "role";
-
 const APPLY_ID = "apply-filters";
 const CLEAR_ID = "clear-filters";
 const MORE_ID = "more-filters";
 
 // The two halves of the filter row, as containers rather than as markup: they are what the
-// lists are written into, so the three buttons on the row beside them are built once and keep
-// their listeners while the controls are rewritten.
+// controls are written into, so the three buttons on the row beside them keep their listeners
+// while the controls are rewritten.
 //
 // The second is shown and hidden rather than built and dropped, so what a reader has pinned in
-// it survives being folded away — and is still what Apply asks for.
+// it survives being folded away.
 const LEAD_LISTS_ID = "lead-filter-lists";
 const MORE_LISTS_ID = "more-filter-lists";
 
 const MORE_LABEL = "Show more filters";
 const FEWER_LABEL = "Show fewer filters";
 
-// Hardcoded rather than derived from the rows: an option that disappeared exactly when
-// nothing on the board matched it would be the one worth offering.
-//
+// ─── FILTERS ─────────────────────────────────────────────────────────────────
+
 // Only the two answers. A model whose flag was never filled in matches neither, because the
-// endpoint reads an unanswered question as not a "no" — so it is in the board only while this
-// is left alone.
+// endpoint reads an unanswered question as not a "no".
 const PRETRAINED_OPTIONS = [
   { value: "true", label: "Pretrained" },
   { value: "false", label: "Not pretrained" },
 ];
 
 // What the model itself is, beside the flag: what it was pretrained on and what it was
-// pretrained to produce. Named rather than read off a panel, because the specification panel
-// holds parameters and prose as well, and only these two are answers a reader would narrow by.
+// pretrained to produce.
 const MODEL_KEYS = ["pretrained_in_modalities", "pretrained_out_modalities"];
 
 // How a task was produced: the methodology panel of a task submission, whatever it holds. Read
-// off the schema rather than written out here, so a field added there is a filter here without
-// a second edit.
-//
-// The two lists are different grains, and phase two's query will have to keep them apart: the
-// model's narrow which models are in the field at all, while a task's narrow which of a model's
-// entries survive — so a model can stay on the board with only some of its tasks.
+// off the schema, so a field added there is a filter here without a second edit.
 const METHODOLOGY_KEYS = trainingFieldKeys();
 
-// What the model itself is: the three shown at rest, beside the heading. What a reader
-// narrowing a board asks first, and few enough to fit on the row.
-function modelFilterLists() {
+/**
+ * Every filter the board can be narrowed by, in the order they are drawn.
+ *
+ * No `match`: these are the server's, since a narrowed field is a different set of ranks.
+ * `fold` marks the ones behind "Show more filters" — the first three are what a reader asks
+ * first, and five more on the row at rest would bury them.
+ *
+ * Options come from the server's own enums, filled into both schemas in place — see
+ * loadModelMeta and loadTaskFields, which is why this is read after the page's own load.
+ *
+ * @returns the controls — see components/filterState.js.
+ */
+function filterControls() {
   return [
-    { name: PRETRAINED, label: "Pretrained", options: PRETRAINED_OPTIONS },
+    {
+      type: "pinned",
+      name: "pretrained",
+      label: "Pretrained",
+      options: PRETRAINED_OPTIONS,
+    },
     ...MODEL_KEYS.map((key) => ({
+      type: "pinned",
       name: key,
       label: MODEL_FIELDS[key].label,
       options: MODEL_FIELDS[key].options ?? [],
     })),
-  ];
-}
 
-// The two things about a model that are a number rather than a choice. Bounds rather than
-// values, and their own descriptors rather than a schema's: what a reader narrows by here is a
-// span, and the span is this page's to state — the schema says the field exists and nothing
-// about what range of it is worth offering.
-//
-// The parameter count is logarithmic. It runs from a thousand to two hundred billion, and on a
-// linear track every step is either invisible at the bottom or a hundred million at the top;
-// on a log one a step is a constant factor, so the thumb moves the way a reader expects
-// wherever it is. Which is also why it reads 1.2K and 200B rather than in full.
-function rangeFilterLists() {
-  return [
+    // The parameter count is logarithmic: it runs from a thousand to two hundred billion, and
+    // on a linear track a step is either invisible at the bottom or a hundred million at the
+    // top. Which is also why it reads 1.2K and 200B rather than in full.
     {
+      type: "range",
       name: "n_parameters",
       label: "Parameters",
       range: { min: 1e3, max: 2e11, scale: "log" },
       format: formatCount,
+      fold: true,
     },
     {
+      type: "range",
       name: "temporal_context_s",
       label: "Temporal context",
       range: { min: 0, max: 20, step: 0.5 },
       format: (value) => `${value} s`,
+      fold: true,
     },
+    ...METHODOLOGY_KEYS.map((key) => ({
+      type: "pinned",
+      name: key,
+      label: TASK_FIELDS[key].label,
+      options: TASK_FIELDS[key].options ?? [],
+      fold: true,
+    })),
   ];
 }
 
-// How each task was produced: the five behind "Show more filters". The second question, and
-// the one a reader only sometimes has — five more controls on the row at rest would bury the
-// three that answer the first.
-function taskFilterLists() {
-  return METHODOLOGY_KEYS.map((key) => ({
-    name: key,
-    label: TASK_FIELDS[key].label,
-    options: TASK_FIELDS[key].options ?? [],
-  }));
-}
-
-// Every filter the board can be narrowed by, in the order they are drawn: the model's own
-// three, then its two spans, then how each task was produced. Read, built and read back from
-// this one list, so the three can't fall out of step — which half a filter is in is a matter of
-// where it is drawn, and nothing else here knows the difference.
-//
-// A descriptor carrying `range` is a pair of bounds where the rest are sets of values. That is
-// the one difference every step below has to keep in mind: what is read from the URL, what is
-// written back, what an empty one is, and what control is built for it.
-//
-// Options come from the server's own enums, filled into both schemas in place — see
-// loadModelMeta and loadTaskFields.
-function filterLists() {
-  return [...modelFilterLists(), ...rangeFilterLists(), ...taskFilterLists()];
-}
-
-// The ones behind the fold: the spans and the methodology. Everything that is not one of the
-// three the section opens with.
-function foldedFilterLists() {
-  return [...rangeFilterLists(), ...taskFilterLists()];
-}
-
-// What a shareable board is: which tasks it is ranked over. The suites are not in the URL —
-// they are a way of ticking tasks, and the tasks say what was ticked.
-// Each filter is its own parameter, named after the list that fills it — see filterLists.
-const TASKS_PARAM = "tasks";
-
-// ─── STATE ───────────────────────────────────────────────────────────────────
-
-function readTasks(available) {
-  const asked = (
-    new URLSearchParams(location.search).get(TASKS_PARAM) ?? ""
-  ).split(",");
-
-  const known = asked.filter((taskId) => available.includes(taskId));
-
-  // Every task by default: the board opens on the whole benchmark, and narrowing is the
-  // reader's to ask for.
-  return known.length ? known : available;
-}
-
-function writeTasks(taskIds, available) {
-  const url = new URL(location.href);
-
-  // Nothing in the URL for the default, so a shared link is the short one until the reader
-  // has actually chosen something.
-  if (taskIds.length === available.length) url.searchParams.delete(TASKS_PARAM);
-  else url.searchParams.set(TASKS_PARAM, taskIds.join(","));
-
-  history.replaceState(null, "", url);
-}
-
-// A span in the URL: the two bounds the endpoint takes, under the names it takes them by.
-//
-// Both halves or neither. A pair with one bound missing is a state the control cannot be in —
-// its thumbs are always somewhere — so a link carrying half of one is a link to distrust, and
-// this reads it as no filter rather than guessing which end was meant.
-//
-// Read as numbers and checked against the span the page offers, the same rule the value lists
-// follow: a stale link cannot ask for a bound the control has no thumb position for.
-function readRange(params, { name, range }) {
-  const written = [params.get(`${name}_min`), params.get(`${name}_max`)];
-
-  // Whether they are *there*, before what they say: an absent parameter is `null` and an empty
-  // one is "", and `Number` reads both as 0 — which is a bound the temporal span has a thumb
-  // position for, so a bare URL would otherwise ask for "between 0 and 0".
-  if (written.some((value) => value == null || value === "")) return null;
-
-  const [from, to] = written.map(Number);
-
-  const known = (value) =>
-    Number.isFinite(value) && value >= range.min && value <= range.max;
-
-  if (!known(from) || !known(to) || from > to) return null;
-
-  return { min: from, max: to };
-}
-
-// Every filter the board can be narrowed by, as one object: a list of values per choice and a
-// pair of bounds per span. Kept together because they are applied together — one button, one
-// request, one set of ranks.
-function readFilters() {
-  const params = new URLSearchParams(location.search);
-  const filters = {};
-
-  for (const list of filterLists()) {
-    if (list.range) {
-      filters[list.name] = readRange(params, list);
-
-      continue;
-    }
-
-    const known = list.options.map((option) => option.value);
-
-    // Checked against what the schema offers, so a stale link can't tick a box that no longer
-    // exists — or a value the server would refuse.
-    filters[list.name] = (params.get(list.name) ?? "")
-      .split(",")
-      .filter((value) => known.includes(value));
-  }
-
-  return filters;
-}
-
-// replaceState, not pushState: working a filter shouldn't build a stack of history entries to
-// press Back through. The URL still survives a refresh and can still be sent.
-//
-// A span writes the two parameters the endpoint reads and drops both together, so the URL is
-// never in the half state readRange refuses.
-function writeFilters(filters) {
-  const url = new URL(location.href);
-
-  for (const [key, value] of Object.entries(filters)) {
-    if (isRange(value) || filters[key] === null) {
-      const range = isRange(value) ? value : null;
-
-      for (const [suffix, bound] of [
-        ["min", range?.min],
-        ["max", range?.max],
-      ]) {
-        if (bound == null) url.searchParams.delete(`${key}_${suffix}`);
-        else url.searchParams.set(`${key}_${suffix}`, String(bound));
-      }
-
-      continue;
-    }
-
-    const asked = Array.isArray(value) ? value.join(",") : value;
-
-    if (asked) url.searchParams.set(key, asked);
-    else url.searchParams.delete(key);
-  }
-
-  history.replaceState(null, "", url);
-}
-
-// Whether a filter's value is a pair of bounds rather than a set of values — which is the one
-// thing the four functions around it have to tell apart. Off the value, since that is what
-// each of them is handed.
-function isRange(value) {
-  return Boolean(value) && !Array.isArray(value) && typeof value === "object";
-}
-
-// Every filter at rest: no values and no bounds, which is what the endpoint reads as no filter
-// and what a bare URL produces. What Clear puts the controls back to.
-function emptyFilters() {
-  return Object.fromEntries(
-    filterLists().map(({ name, range }) => [name, range ? null : []]),
-  );
-}
-
-// What one filter is asking for, as one string — so two of them can be compared whichever
-// shape they are.
-function asked(value) {
-  if (isRange(value)) return `${value.min}-${value.max}`;
-
-  return Array.isArray(value) ? value.join(",") : String(value ?? "");
-}
-
-// Whether two sets of filters would ask the same question, which is what decides whether the
-// Apply button has anything to do.
-function sameFilters(left, right) {
-  return Object.keys(left).every((key) => asked(left[key]) === asked(right[key]));
-}
-
-// ─── LISTS ───────────────────────────────────────────────────────────────────
-
-// Every task as one option, in board order. Short names, which are unique across the suites
-// — see taskLabel — so the list reads without a suite heading over every few lines.
-//
-// The class is the suite, which is what colours the chip a task is pinned as: the list is
-// flat and the names carry no prefix, so the colour is the only thing saying which suite a
-// chip came from.
-function toTaskOptions(taskIds) {
-  return taskIds.map((taskId) => ({
-    value: taskId,
-    label: taskLabel(taskId),
-    className: suiteFromTask(taskId),
-  }));
-}
-
-// The two controls, on the heading's own row: a box per suite beside its own badge, then the
-// task list after them. Only the suites that have a task, so a box can't stand for nothing.
-//
-// No row of its own around them — the section's controls slot is the row, and both halves of
-// buildLeadFilters go into the same one below.
-//
-// The boxes are clear here and ticked by markSuites, off the chips — one path to what is on,
-// so a suite ticked whole and a suite added task by task read the same.
-function buildControls(available, taskIds, bySuite) {
-  return `
-    ${buildChecks({
-      name: SUITE_CHECK,
-      options: SUITES.filter((suite) => bySuite.has(suite)).map((suite) => ({
-        value: suite,
-        label: suiteLabel(suite),
-        className: suite,
-      })),
-    })}
-    ${buildPinnedControl({
-      name: TASK_LIST,
-      hook: HOOK,
-      className: "inline-select",
-      options: toTaskOptions(available),
-      selected: taskIds,
-      placeholder: "Add task",
-    })}`;
-}
-
-// ─── FILTERS ─────────────────────────────────────────────────────────────────
-
-// The filters, in two halves. Applied on a button rather than on the dropdowns, because
-// narrowing the field is a request: the ranks come back computed over whatever survives, so a
-// change here is a new board rather than a redraw of this one.
-//
-// Which is also why the controls above apply themselves — those need no request, and a
-// control that waits when it doesn't have to is a control that reads as broken.
-//
-// Every one narrows by *any of* what is pinned: "supervised or self-supervised" is a question
-// a reader has, and "supervised" is the same question with one chip.
-//
-// A pinned select rather than a list of boxes: eight fields of up to five options each is
-// forty boxes on screen before the reader has asked for anything, where these are eight closed
-// selects that grow only where something is picked.
-
-// The section's own layout, written once: the three at rest on a row with the three buttons,
-// and the other five folded away under them.
-//
-// The buttons are here rather than in the section's header because they belong to the row —
-// the fold is what the two containers beside them do, and Clear and Apply are what the whole
-// row adds up to. Built once and never rewritten, so each is still found by its id after the
-// lists beside it have been replaced.
-//
-// `align-start` so the buttons sit level with the labels rather than floating half-way down a
-// column that has grown chips.
+// The three at rest on a row with the three buttons, and the rest folded away under them. The
+// buttons belong to the row rather than to the section's header, so they are built once and
+// still found by id after the controls beside them have been replaced.
 function buildFilterShell() {
   return `
-    <div class="row align-start">
-      <div class="row left gap-lg" id="${LEAD_LISTS_ID}"></div>
-      <div class="row right gap-md">
-        ${buildButton({
-          id: MORE_ID,
-          label: MORE_LABEL,
-          icon: getIcon("expand"),
-        })}
-        ${buildButton({
-          id: CLEAR_ID,
-          label: "Clear filters",
-          icon: getIcon("cancel"),
-          // Nothing to clear until a control holds something.
-          disabled: true,
-        })}
-        ${buildButton({
-          id: APPLY_ID,
-          label: "Apply filters",
-          icon: getIcon("filter"),
-          // Nothing to apply until a control differs from what the board was fetched with.
-          disabled: true,
-        })}
-      </div>
+    <div class="column gap-md">
+      <div class="grid-3" id="${LEAD_LISTS_ID}"></div>
+      <div class="grid-3" id="${MORE_LISTS_ID}" hidden></div>
     </div>
-    <div class="grid-3" id="${MORE_LISTS_ID}" hidden></div>`;
+  `;
 }
 
-// One half's filters, for the container they go in. Each is its own column — the field name
-// over the control, whatever the control needs under it — so a filter reads top to bottom
-// whichever half it is in, and the two halves differ only in how wide a select is allowed to
-// be.
-//
 // `inline-select` for the three on the row, which have to leave room for the buttons beside
-// them; nothing for the ones in the grid, whose cell is already a third of the section. A span
-// takes the width it is given either way: a track has no natural size to leave alone.
-function buildFilterLists(lists, filters, className = "") {
-  return lists
-    .map((list) =>
-      list.range
-        ? buildRange({
-            name: list.name,
-            label: list.label,
-            ...list.range,
-            value: filters[list.name],
-          })
-        : buildPinnedSelect({
-            name: list.name,
-            hook: HOOK,
-            className,
-            label: list.label,
-            options: list.options,
-            selected: filters[list.name],
-          }),
+// them; nothing for the ones in the grid, whose cell is already a third of the section.
+function buildFilterColumns(controls, values, className = "") {
+  return controls
+    .map((control) =>
+      buildFilterControl({ control, value: values[control.name], className }),
     )
     .join("");
 }
@@ -489,36 +180,40 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   const available = tasks.map((task) => task.id).sort();
   const metrics = toTaskMetrics(tasks);
 
-  // `{ suite: [taskId] }` — which suites there is something to add, and what adding one means.
-  const bySuite = new Map();
-
-  for (const taskId of available) {
-    const suite = suiteFromTask(taskId);
-
-    if (suite) bySuite.set(suite, [...(bySuite.get(suite) ?? []), taskId]);
-  }
-
-  // What the board is ranked over. Read before the page is written, because the two controls
-  // sit beside the section's heading rather than in its body — a header is built with its
-  // section rather than rendered into afterwards.
-  let chosen = readTasks(available);
-
   renderPage(
     buildPage({
       header: buildHeader(),
       body: buildSections([
         {
-          id: TASKS_SECTION,
-          title: "Ranked over",
-          controls: buildControls(available, chosen, bySuite),
-        },
-        // Title only: the whole of this one — the controls, the fold and the two buttons —
-        // is one row inside it, written by buildFilterShell. A column body, so the five that
-        // unfold are not flush against the row they unfold from.
-        {
-          id: FILTERS_SECTION,
-          title: "Filters",
-          className: "column gap-md",
+          sections: [
+            { id: TASKS_SECTION, title: "Select tasks" },
+            {
+              id: FILTERS_SECTION,
+              title: "Apply filters",
+              actions: [
+                buildButton({
+                  id: MORE_ID,
+                  label: MORE_LABEL,
+                  icon: getIcon("expand"),
+                }),
+                buildButton({
+                  id: CLEAR_ID,
+                  label: "Clear filters",
+                  icon: getIcon("cancel"),
+                  // Nothing to clear until a control holds something.
+                  disabled: true,
+                }),
+                buildButton({
+                  id: APPLY_ID,
+                  label: "Apply filters",
+                  icon: getIcon("filter"),
+                  // Nothing to apply until a control differs from what the board was
+                  // fetched with.
+                  disabled: true,
+                }),
+              ],
+            },
+          ],
         },
         { id: BOARD_SECTION, title: "Standings" },
 
@@ -599,10 +294,24 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     );
   }
 
-  // What the board on screen was fetched with, as against what the controls currently say —
-  // the difference is what the Apply button is for.
-  let applied = readFilters();
+  const controls = filterControls();
+
+  const lead = controls.filter((control) => !control.fold);
+  const folded = controls.filter((control) => control.fold);
+
+  // The controls hold what is pending; `applied` is what the board on screen was fetched
+  // with, and the difference between the two is what the Apply button is for.
+  const filters = createFilterState({
+    controls,
+    root: getSectionBody(FILTERS_SECTION),
+    onChange: updateFilterButtons,
+  });
+
+  let applied = filters.readUrl();
   let standings = null;
+
+  // What the board is ranked over. The widget holds it and rewrites the URL; this follows it.
+  let chosen = [];
 
   // model id => its scores, off the board in hand. Rebuilt with `standings`, which is the
   // only thing that moves them: the task choice picks which tasks are *ranked*, and a row
@@ -616,6 +325,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     container: getSectionBody(COMPARE_SECTION),
     toEntry: toModelEntry,
     scoresOf,
+    showSuites: false,
   });
 
   // `claimLinks: false`: the model name still goes to the model's own page, and a click
@@ -711,40 +421,6 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     picking.attach(table);
   }
 
-  // Which suites the chips add up to: ticked for a suite wholly ranked over, part-way for one
-  // some of whose tasks are, clear for none. Read off `chosen` rather than held, so a suite
-  // ticked whole and a suite arrived at one task at a time cannot look different.
-  function suiteStates() {
-    const states = {};
-
-    for (const [suite, taskIds] of bySuite) {
-      const on = taskIds.filter((taskId) => chosen.includes(taskId)).length;
-
-      states[suite] = on === taskIds.length ? "on" : on ? "partial" : null;
-    }
-
-    return states;
-  }
-
-  function markSuites() {
-    markChecks(getSection(TASKS_SECTION), SUITE_CHECK, suiteStates());
-  }
-
-  // The chips, in the body under the controls that head the section. Written once: they are
-  // the state, and every change to them is made in place by pinFromEvent or pinIn — which is
-  // also why the controls above can live in a header nothing renders into twice.
-  function renderChips() {
-    renderHtml(
-      getSectionBody(TASKS_SECTION),
-      buildPins({
-        name: TASK_LIST,
-        options: toTaskOptions(available),
-        selected: chosen,
-      }),
-      { refresh: true },
-    );
-  }
-
   // Whether the five behind the button are showing. Held rather than read back off the
   // element, because the button beside them has to say which way it goes next — one answer,
   // used by the fold and by the label.
@@ -765,58 +441,24 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     refreshIcons();
   }
 
-  // The controls hold the pending values while `applied` holds the fetched ones, so this is
-  // written with whatever they should now say: what the board was fetched with at first, and
-  // the defaults when Clear puts them back. `refresh` because the chips carry a ✕.
-  //
-  // Both halves in one call, because they are one set of values — a Clear that put back only
-  // the half in view would leave the other still narrowing the board. Into the containers
-  // rather than over the row, so the three buttons on it are left alone.
-  function renderFilters(filters) {
+  // Written with whatever the controls should now say: what the board was fetched with at
+  // first, and the defaults when Clear puts them back. Both halves in one call, because they
+  // are one set of values — a Clear that put back only the half in view would leave the other
+  // still narrowing the board. `refresh` because a chip carries a ✕.
+  function renderFilters(values) {
     renderHtml(
       getElement(LEAD_LISTS_ID),
-      buildFilterLists(modelFilterLists(), filters, "inline-select"),
+      buildFilterColumns(lead, values, "inline-select"),
       { refresh: true },
     );
 
     renderHtml(
       getElement(MORE_LISTS_ID),
-      buildFilterLists(foldedFilterLists(), filters),
+      buildFilterColumns(folded, values),
       { refresh: true },
     );
 
-    markRanges();
-  }
-
-  // How a span's bounds are written, off its own descriptor: a parameter count reads 200B and
-  // a window reads 2.5 s, and neither is something the widget could know.
-  function formatOf(name) {
-    return filterLists().find((list) => list.name === name)?.format;
-  }
-
-  // What each span reads as, and the band between its thumbs. After every render, because the
-  // markup carries the thumbs' positions and nothing else — see markRange.
-  function markRanges() {
-    const root = getSectionBody(FILTERS_SECTION);
-
-    for (const { name, range } of filterLists()) {
-      if (range) markRange(root, name, formatOf(name));
-    }
-  }
-
-  // What the controls currently say, which is not yet what the board shows. A span reads back
-  // as null while its thumbs are at both ends, which is the same answer an unticked select
-  // gives: nothing to narrow by.
-  function pendingFilters() {
-    const root = getSectionBody(FILTERS_SECTION);
-
-    const pending = {};
-
-    for (const { name, range } of filterLists()) {
-      pending[name] = range ? rangeIn(root, name) : pinnedIn(root, name);
-    }
-
-    return pending;
+    filters.mark();
   }
 
   function applyButton() {
@@ -834,17 +476,19 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   // Clear resets both, so it has something to do while either holds a filter: the controls
   // unpinned by hand still leave a narrowed board to put back.
   function updateFilterButtons() {
-    const pending = pendingFilters();
-    const empty = emptyFilters();
+    const pending = filters.read();
+    const empty = filters.empty();
 
     const apply = applyButton();
     const clear = clearButton();
 
-    if (apply) apply.disabled = Boolean(standings) && sameFilters(pending, applied);
+    if (apply) {
+      apply.disabled = Boolean(standings) && filters.same(pending, applied);
+    }
 
     if (clear) {
       clear.disabled =
-        sameFilters(pending, empty) && sameFilters(applied, empty);
+        filters.same(pending, empty) && filters.same(applied, empty);
     }
   }
 
@@ -852,10 +496,10 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   // The two go together — a URL naming one field beside a board showing another is the one
   // state this page must never be in — which is the whole reason this is not two calls at
   // each of the buttons.
-  function applyFilters(filters) {
-    applied = filters;
+  function applyFilters(values) {
+    applied = values;
 
-    writeFilters(applied);
+    filters.writeUrl(applied);
 
     return loadBoard();
   }
@@ -898,97 +542,6 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   }
 
   function attachEvents() {
-    // The section, not its body: the two controls head it and the chips sit inside, and both
-    // halves have to be under whatever the listener is delegated to — see pinFromEvent.
-    const root = getSection(TASKS_SECTION);
-
-    // A box writes out or takes off its own tasks, so a suite is a way of naming several
-    // rather than a thing that is held: what the board is ranked over is only ever the task
-    // chips. The box is made true rather than flipped — ticking a part-way one adds what is
-    // missing and leaves the tasks already chosen where they are, and clearing one takes the
-    // whole suite off.
-    function checkSuite({ value, on }) {
-      let changed = false;
-
-      for (const taskId of bySuite.get(value) ?? []) {
-        const moved = on
-          ? pinIn(root, TASK_LIST, taskId, HOOK)
-          : unpinIn(root, TASK_LIST, taskId, HOOK);
-
-        changed = moved || changed;
-      }
-
-      // Whether anything actually moved: a suite already in the state the box asks for is a
-      // no-op, which is also what makes the second of the click and the change harmless.
-      return changed;
-    }
-
-    function ranked(event) {
-      const box = checkFromEvent(event);
-
-      const changed = box
-        ? box.name === SUITE_CHECK && checkSuite(box)
-        : pinFromEvent(event, root, HOOK) === TASK_LIST;
-
-      if (!changed) return;
-
-      // In the order the board reads, not the order they were pinned.
-      chosen = available.filter((taskId) =>
-        pinnedIn(root, TASK_LIST).includes(taskId),
-      );
-
-      refreshIcons();
-      markSuites();
-
-      writeTasks(chosen, available);
-
-      // Before the board is rebuilt, so it is mounted against the picks that survived the new
-      // choice rather than against the ones that made it — the same order loadBoard uses.
-      dropDepartedPicks();
-
-      renderBoard();
-
-      // The panel is drawn over the same tasks, so a change here is a change to its axis —
-      // see scoresOf. No fetch: the ranks move, the scores behind them do not. Called whether
-      // or not anything was dropped, since a pick that survived is still drawn over fewer
-      // tasks than before.
-      comparison.refresh();
-    }
-
-    root.addEventListener("change", ranked);
-    root.addEventListener("click", ranked);
-
-    const filters = getSectionBody(FILTERS_SECTION);
-
-    // On the section's body rather than on each control: the body lives for the life of the
-    // page and the two halves are rewritten inside it, so delegation is what survives a
-    // redraw.
-    //
-    // Both events go to the same place — a change on a select pins a value, a click on a ✕
-    // unpins one — and either leaves both buttons to be judged again. The icon refresh is for
-    // the ✕ a new chip brings with it, which lucide has not seen yet.
-    function pinned(event) {
-      if (!pinFromEvent(event, filters, HOOK)) return;
-
-      refreshIcons();
-      updateFilterButtons();
-    }
-
-    filters.addEventListener("change", pinned);
-    filters.addEventListener("click", pinned);
-
-    // `input` rather than `change`, and a listener of its own: a thumb reports continuously
-    // while it is dragged and the readout is the only thing saying where the reader is, but a
-    // select fires both — so reading the pins here too would read each pick twice.
-    filters.addEventListener("input", (event) => {
-      const range = rangeFromEvent(event);
-
-      if (!range) return;
-
-      markRange(filters, range.name, formatOf(range.name));
-      updateFilterButtons();
-    });
-
     // By id like the two beside it: the shell it sits in is written once, and only the
     // containers either side of it are rewritten.
     getElement(MORE_ID)?.addEventListener("click", () => {
@@ -1000,7 +553,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     // The controls and the board together, so one press is the whole way back to the full
     // field rather than a press and then Apply.
     clearButton()?.addEventListener("click", () => {
-      const cleared = emptyFilters();
+      const cleared = filters.empty();
 
       // Before the fetch, so what the controls say and what was asked for agree by the time
       // the board lands and the buttons are judged against them.
@@ -1010,16 +563,36 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     });
 
     applyButton()?.addEventListener("click", () => {
-      applyFilters(pendingFilters());
+      applyFilters(filters.read());
     });
   }
 
-  renderChips();
-  markSuites();
+  // What a task change does: the board is re-ranked over the new set and the panel is drawn
+  // over the same tasks. No fetch — the ranks move, the scores behind them do not.
+  //
+  // dropDepartedPicks before the board is rebuilt, so it is mounted against the picks that
+  // survived the new choice rather than against the ones that made it.
+  function chooseTasks(taskIds) {
+    chosen = taskIds;
 
-  // The shell before the lists it holds, and before attachEvents, which finds the three
+    dropDepartedPicks();
+
+    renderBoard();
+
+    comparison.refresh();
+  }
+
+  // The shell before the controls it holds, and before attachEvents, which finds the three
   // buttons on its row by id.
   renderHtml(getSectionBody(FILTERS_SECTION), buildFilterShell());
+
+  const selection = createTaskSelection({
+    container: getSectionBody(TASKS_SECTION),
+    available,
+    onChange: chooseTasks,
+  });
+
+  chosen = selection.taskIds();
 
   renderFilters(applied);
   renderMore();
