@@ -7,7 +7,7 @@
 //
 // `buildSelect`, `buildSearch` and `buildPinnedSelect` are also usable on their own, by a
 // caller with one control and no bar: each takes the parts of a control it needs rather than a
-// control, and the caller wires it up — see comparisons/modelComparison.js, which attaches its
+// control, and the caller wires it up — see comparisons/recordComparison.js, which attaches its
 // own listeners, and pages/leaderboard.js, whose controls choose what the board is ranked over
 // as well as what narrows it. The two `buildFilterBar*` below are the bar's own translation
 // from a control to those parts.
@@ -164,6 +164,11 @@ function buildSearch({ name, hook = "filter", placeholder = "", value = "" }) {
 // list keeps its own order, so unpinning puts the option back where it was rather than at the
 // end. Disabled as well as hidden because `hidden` on an <option> is honoured unevenly, and
 // on its own would leave a pinnable option pinnable twice.
+//
+// The two halves are separately buildable, because they do not always want to be together: a
+// caller can put the control in a section's header and the chips in its body, where a growing
+// row of them would otherwise push the heading around. `pinFromEvent` looks both up inside
+// the root it is handed, so that root has to contain the two.
 
 // The chip list, by the name of the select above it — what pinning re-renders into.
 const PINS = "pins";
@@ -171,9 +176,19 @@ const PINS = "pins";
 // One chip's ✕, and the select's own option, by value.
 const UNPIN = "unpin";
 
+// A chip's own class, carried on the option it is pinned from — see buildChip. On the option
+// because that is all `pin` has to go on when the reader picks one, and the label is read off
+// it for the same reason. One word, like the two above: an attribute is case-insensitive, so
+// a camel-cased name here would not be the key it is read back by.
+const CHIP_CLASS = "chip";
+
 function buildChip(name, option) {
+  // The class comes off the option, so a chip can be coloured by whatever it stands for —
+  // the leaderboard's tasks wear their suite's.
+  const classes = ["chip", option.className].filter(Boolean).join(" ");
+
   return `
-    <span class="chip">
+    <span class="${escapeHtml(classes)}">
       ${escapeHtml(option.label)}
       <button
         type="button"
@@ -206,20 +221,21 @@ function buildChip(name, option) {
  *                    the way an unset bar select is "All teams".
  * @returns the markup.
  */
-function buildPinnedSelect({
+function buildPinnedControl({
   name,
   hook = "filter",
   label = "",
+  className = "",
   options,
   selected = [],
   placeholder = "Any",
 }) {
   const pinned = new Set(selected);
 
-  const byValue = new Map(options.map((option) => [option.value, option]));
+  const classes = ["row left gap-sm", className].filter(Boolean).join(" ");
 
   return `
-    <div class="column gap-sm">
+    <span class="${escapeHtml(classes)}">
       ${label ? `<span class="metadata">${escapeHtml(label)}</span>` : ""}
       <select
         class="input-select"
@@ -232,17 +248,46 @@ function buildPinnedSelect({
             (option) => `
           <option
             value="${escapeHtml(option.value)}"
+            ${option.className ? `data-${CHIP_CLASS}="${escapeHtml(option.className)}"` : ""}
             ${pinned.has(option.value) ? "hidden disabled" : ""}
           >${escapeHtml(option.label)}</option>`,
           )
           .join("")}
       </select>
-      <span class="row left gap-sm pins" data-${PINS}="${escapeHtml(name)}">
-        ${selected
-          .filter((value) => byValue.has(value))
-          .map((value) => buildChip(name, byValue.get(value)))
-          .join("")}
-      </span>
+    </span>`;
+}
+
+/**
+ * The chips for one control: what is picked, each with a ✕.
+ *
+ * @param name     the control's, which is how the two halves find each other.
+ * @param options  as buildPinnedControl, for the labels — a chip says what was picked, not
+ *                 the value it was stored as.
+ * @param selected the values pinned, in the order they should read.
+ * @returns the markup. Always an element, since it is what a pin is inserted into; empty, it
+ *          collapses — see `.pins` in style.css.
+ */
+function buildPins({ name, options, selected = [] }) {
+  const byValue = new Map(options.map((option) => [option.value, option]));
+
+  return `<span class="row left gap-sm pins" data-${PINS}="${escapeHtml(name)}">${selected
+    .filter((value) => byValue.has(value))
+    .map((value) => buildChip(name, byValue.get(value)))
+    .join("")}</span>`;
+}
+
+// The two stacked, for a caller that wants them together — a column of filters, where each
+// grows downwards into its own space.
+//
+// The label goes at the top of the column rather than through to the control, where it would
+// sit on the select's left and take the width of the field name off it. Stacked, the name is
+// over the thing it names and the chips are under it, which is one column per question.
+function buildPinnedSelect({ name, label = "", options, selected = [], ...rest }) {
+  return `
+    <div class="column gap-sm">
+      ${label ? `<span class="metadata">${escapeHtml(label)}</span>` : ""}
+      ${buildPinnedControl({ name, options, selected, ...rest })}
+      ${buildPins({ name, options, selected })}
     </div>`;
 }
 
@@ -255,6 +300,29 @@ function pinnedIn(root, name) {
   return [
     ...root.querySelectorAll(`[data-${PINS}="${name}"] [data-${UNPIN}="${name}"]`),
   ].map((button) => button.value);
+}
+
+// A pinned option is out of the list and a returned one is back in it — see the note above.
+function show(option, visible) {
+  if (!option) return;
+
+  option.hidden = !visible;
+  option.disabled = !visible;
+}
+
+// The chip, and the option it takes out of the select. The label comes off the option rather
+// than from the caller, so a chip and the line it was chosen from always read the same.
+function pin(pins, name, value, option) {
+  pins.insertAdjacentHTML(
+    "beforeend",
+    buildChip(name, {
+      value,
+      label: option?.textContent.trim() ?? value,
+      className: option?.dataset[CHIP_CLASS] ?? "",
+    }),
+  );
+
+  show(option, false);
 }
 
 function optionFor(root, name, hook, value) {
@@ -303,29 +371,139 @@ function pinFromEvent(event, root, hook = "filter") {
   if (unpin) {
     unpin.closest(".chip")?.remove();
 
-    if (option) {
-      option.hidden = false;
-      option.disabled = false;
-    }
+    show(option, true);
 
     return name;
   }
 
-  pins.insertAdjacentHTML(
-    "beforeend",
-    buildChip(name, { value, label: option?.textContent.trim() ?? value }),
-  );
-
-  if (option) {
-    option.hidden = true;
-    option.disabled = true;
-  }
+  pin(pins, name, value, option);
 
   // Back to the instruction, so the control never reads as though it held one of the values
   // pinned below it.
   select.value = "";
 
   return name;
+}
+
+/**
+ * Pin `value` without the reader having chosen it — for a control that stands for several,
+ * like a suite that means its own tasks. Already-pinned values are left alone, so adding a
+ * suite over a part-chosen one adds only what is missing.
+ *
+ * @returns whether anything changed.
+ */
+function pinIn(root, name, value, hook = "filter") {
+  const pins = root.querySelector(`[data-${PINS}="${name}"]`);
+
+  if (!pins) return false;
+
+  const option = optionFor(root, name, hook, value);
+
+  // Hidden is what pinned looks like in the select, so it is also how this asks.
+  if (!option || option.hidden) return false;
+
+  pin(pins, name, value, option);
+
+  return true;
+}
+
+/**
+ * Take `value` off without the reader having clicked its ✕ — the counterpart to pinIn, for
+ * the same kind of control that stands for several.
+ *
+ * @returns whether anything changed.
+ */
+function unpinIn(root, name, value, hook = "filter") {
+  const chip = root.querySelector(
+    `[data-${PINS}="${name}"] [data-${UNPIN}="${name}"][value="${CSS.escape(value)}"]`,
+  );
+
+  if (!chip) return false;
+
+  chip.closest(".chip")?.remove();
+
+  show(optionFor(root, name, hook, value), true);
+
+  return true;
+}
+
+// ─── CHECKS ──────────────────────────────────────────────────────────────────
+//
+// A box per value, each labelled by a badge: the multi-valued control for a handful of values
+// with a colour of their own, where a select would hide behind a placeholder what a badge says
+// outright.
+//
+// The box is the control and the badge beside it is only a label — it carries no listener, so
+// the one thing on the row that can be pressed is the one that looks like it.
+//
+// Three states, because a box can stand for several things and be part-way there: checked,
+// `indeterminate` for some of them, and clear. Indeterminate is only ever set from outside —
+// a click on one goes to checked, which is what "add the rest" should do.
+//
+// No state of its own, like the pinned selects: what is ticked is set by `markChecks` from
+// whatever the caller holds, so a box can stand for something it doesn't store — the
+// leaderboard's suites, which are ticked by the task chips under them.
+
+// The box's name, on every one in the row.
+const CHECK = "check";
+
+/**
+ * One row of them, all clear — call markChecks to tick them.
+ *
+ * @param name    what a listener finds them by, on every box in the row.
+ * @param options [{ value, label, className }]. The class is the badge's own modifier, so a
+ *                value with a colour keeps it here.
+ * @returns the markup.
+ */
+function buildChecks({ name, options }) {
+  return `
+    <span class="row left gap-md">
+      ${options
+        .map(
+          (option) => `
+        <span class="row left gap-sm">
+          <input
+            class="input-checkbox"
+            type="checkbox"
+            data-${CHECK}="${escapeHtml(name)}"
+            value="${escapeHtml(option.value)}"
+            aria-label="${escapeHtml(option.label)}">
+          <span class="badge ${escapeHtml(option.className ?? "")}">${escapeHtml(option.label)}</span>
+        </span>`,
+        )
+        .join("")}
+    </span>`;
+}
+
+/**
+ * Tick the boxes under `root`.
+ *
+ * @param states value => "on" | "partial" | anything falsy for clear.
+ */
+function markChecks(root, name, states) {
+  for (const box of root.querySelectorAll(`[data-${CHECK}="${name}"]`)) {
+    const state = states[box.value];
+
+    box.checked = state === "on";
+    box.indeterminate = state === "partial";
+  }
+}
+
+/**
+ * Which box was just ticked, and what it now says — so a caller can read it as "add these" or
+ * "take these off".
+ *
+ * @returns { name, value, on }, or null for an event that wasn't a box's. `on` is the state
+ *          the box is in *after* the click, which is what the caller has to make true — so
+ *          acting on it twice is acting on it once, and a caller listening for both `click`
+ *          and `change` hears the same answer from each.
+ */
+function checkFromEvent(event) {
+  const box = event.target?.closest?.(`input[data-${CHECK}]`);
+
+  if (!box) return null;
+
+  return { name: box.dataset[CHECK], value: box.value, on: box.checked };
 }
 
 // ─── BAR ─────────────────────────────────────────────────────────────────────
@@ -449,16 +627,23 @@ function createFilterState({ controls, root, onChange }) {
 
 export {
   SUITE_OPTIONS,
+  buildChecks,
   buildFilterBar,
   buildOptions,
+  buildPinnedControl,
   buildPinnedSelect,
+  buildPins,
   buildSearch,
   buildSelect,
+  checkFromEvent,
   createFilterState,
+  markChecks,
   matchEquals,
   matchInArray,
   matchIncludes,
   optionsFromRows,
   pinFromEvent,
+  pinIn,
   pinnedIn,
+  unpinIn,
 };

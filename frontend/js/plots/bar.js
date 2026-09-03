@@ -50,6 +50,7 @@ function packLeft(datasets) {
     ...dataset,
     data: [],
     sems: [],
+    notes: [],
     backgroundColor: [],
     borderColor: [],
     barNames: [],
@@ -63,6 +64,7 @@ function packLeft(datasets) {
 
       target.data.push(source ? source.data[at] : null);
       target.sems.push(source ? source.sems[at] : null);
+      target.notes.push(source ? source.notes?.[at] : null);
       target.backgroundColor.push(source ? source.backgroundColor : "#0000");
       target.borderColor.push(source ? source.borderColor : "#0000");
       target.barNames.push(source ? source.label : "");

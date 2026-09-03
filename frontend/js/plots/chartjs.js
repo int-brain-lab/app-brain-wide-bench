@@ -319,6 +319,14 @@ function createCategoryChart({
 
           return `${name}: ${score(item.raw)}${sem == null ? "" : ` ± ${score(sem)}`}`;
         },
+        // Whatever the domain attached to this mark, under the value — see `notes` in
+        // toDatasets. Nothing for a plot whose data carries none, which is why this is a
+        // footer rather than part of the label: an empty one adds no line at all.
+        afterBody: (items) => {
+          const item = items[0];
+
+          return item?.dataset.notes?.[item.dataIndex] ?? [];
+        },
       },
     },
     options: {

@@ -1,19 +1,24 @@
-// Compare page — one model against a handful of others, on one task suite.
+// Compare page — a handful of models read against each other.
 //
-// One way in: /compare.html?id=<model>, from that model's own page. The model is the
-// reference, the page is titled after it, and there is a way back to it. The models list
-// used to offer a second entrance, to the same page with nothing chosen and a dropdown to
-// choose it — that went when the list grew a compare mode of its own, and the dropdown went
-// with it.
+// Two ways in, and the difference between them is whether there is a model the page is about:
 //
-// The comparison itself is not this page's: it is the same widget the leaderboard and the
-// models list mount under their own tables — the specification grid, the task breakdown and
-// the differences, each as a plot or a grid. So this page is only what leads to it:
+//   /compare.html?id=<model>   from that model's own page. It is the reference: the page is
+//                              titled after it, scoped to a suite it has been scored on, and
+//                              offers every other model scored on that suite to read it
+//                              against. There is a way back to it.
+//   /compare.html?with=<ids>   from the models list, which picked them. There is no reference
+//                              and nothing to choose: the table is those models and only
+//                              those, every one of them picked, and the page is titled after
+//                              what it is rather than after any of them.
 //
-//   suite        which suite, from the ones the reference has been scored on
-//   models       every model scored on that suite, as a table. Picking a row adds it to the
-//                comparison; the reference's own row is picked from the start, since a
-//                comparison this page is titled after cannot leave it out
+// The comparison itself is not this page's: it is the same widget the leaderboard mounts under
+// its board — the specification grid, the task breakdown and the differences, each as a plot
+// or a grid. So this page is only what leads to it:
+//
+//   suite        which suite, from the ones the reference has been scored on. A reference
+//                only — a set brought from the list is scoped by the widget's own suite
+//                select instead
+//   models       the models on offer, as a table. Picking a row adds it to the comparison
 //   comparison   the widget, which fetches what it needs itself
 //
 // A single view, so it boots through loadPage rather than loadRecordPage: there is no
@@ -52,8 +57,13 @@ import {
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
 const MODEL_PAGE = "/html/models/models.html";
+const MODEL_LIST_PAGE = "/html/models/model_list_public.html";
 
 const BACK_TEXT = "← Back to model";
+const BACK_TO_LIST_TEXT = "← Back to models";
+
+// What the page is called with no model to name it after.
+const SET_TITLE = "Compare models";
 
 // `with` rather than `models`: it reads as the sentence the URL is making, and `models` is
 // already what the page's own model list is called.
@@ -65,8 +75,8 @@ const WITH_PARAM = "with";
 const RESULT_SECTIONS = ["models", "comparison"];
 const CONTROL_SECTIONS = ["suite"];
 
-// One short of the widget's own cap, because the reference is the fifth: the comparison
-// holds MAX_MODELS in total and this page's reference is always one of them.
+// One short of the widget's own cap while there is a reference, because the reference is one
+// of them: the comparison holds MAX_MODELS in total. Without one, all of them are comparators.
 const MAX_COMPARATORS = MAX_MODELS - 1;
 
 // ─── URL STATE ───────────────────────────────────────────────────────────────
@@ -81,6 +91,12 @@ function readSelection() {
     suite: params.get(SUITE_PARAM) ?? "",
     withIds: (params.get(WITH_PARAM) ?? "").split(",").filter(Boolean),
   };
+}
+
+// The reference, or null for the set entrance. Read here rather than through loadPage, which
+// would refuse the page outright for want of an id this one can do without.
+function readReferenceId() {
+  return new URLSearchParams(location.search).get("id");
 }
 
 // replaceState, not pushState: a comparison is built by working a dropdown and a table, and
@@ -189,18 +205,33 @@ function getModelHref(model) {
 // ─── PAGE ────────────────────────────────────────────────────────────────────
 
 function renderComparePage({ model, models }) {
+  // The model the page is about, or null for a set brought from the list. Fixed for the life
+  // of the page: it is how the reader arrived, and everything below it — which suites can be
+  // chosen, which models the table holds, every score on the page — is read off it.
+  const reference = model ?? null;
+  const suites = reference ? suitesOf(reference) : [];
+
   renderPage(
     buildPage({
-      back: { text: BACK_TEXT, href: getModelHref(model) },
+      back: reference
+        ? { text: BACK_TEXT, href: getModelHref(reference) }
+        : { text: BACK_TO_LIST_TEXT, href: MODEL_LIST_PAGE },
       header: buildHeader(),
 
       body:
-        buildSection({ id: "suite", title: "Task suite" }) +
+        // A reference is compared on one suite, chosen here. A set has no one model to derive
+        // the choice from, so it is scoped by the widget's own suite select instead and this
+        // section never shows.
+        (reference ? buildSection({ id: "suite", title: "Task suite" }) : "") +
         // Untitled: it holds whatever is standing in for the page — a reference with nothing
-        // scored — and a heading over that would be a heading over an apology.
+        // scored, or a set whose models have all gone — and a heading over that would be a
+        // heading over an apology.
         buildSection({ id: "intro" }) +
         buildSections([
-          { id: "models", title: "Models on this suite" },
+          {
+            id: "models",
+            title: reference ? "Models on this suite" : "Models compared",
+          },
           { id: "comparison", title: "Comparison" },
         ]),
     }),
@@ -212,35 +243,30 @@ function renderComparePage({ model, models }) {
 
   const state = readSelection();
 
-  // The model the page is about, and the suites it has been scored on. Fixed for the life of
-  // the page: the reference is how the reader arrived, and everything below it — which
-  // suites can be chosen, which models the table holds, every score on the page — is read
-  // off it.
-  const reference = model;
-  const suites = suitesOf(model);
-
   let table = null;
 
   // The whole of what was three sections: the specification grid, the task breakdown and
   // the differences, in whichever view the reader last chose. It holds what is picked; the
-  // table above is bound to it, so a ✕ inside the comparison unticks the row that put it
-  // there.
+  // table above is bound to it, so unticking a row there takes it out of the comparison.
   const comparison = createModelComparison({
     container: getSectionBody("comparison"),
 
     toEntry: (row) => ({
       key: row.id,
-      modelId: row.id,
+      recordId: row.id,
       name: row.name,
       teamName: row.team_name,
     }),
 
     // The reference leads, whatever order the rows were picked in: this page is about that
     // model, and the comparison reads the first of them as the one the others are against.
-    order: (entries) => [
-      ...entries.filter((entry) => entry.key === reference.id),
-      ...entries.filter((entry) => entry.key !== reference.id),
-    ],
+    // A set has no such model, so it keeps the order the list picked them in.
+    order: reference
+      ? (entries) => [
+          ...entries.filter((entry) => entry.key === reference.id),
+          ...entries.filter((entry) => entry.key !== reference.id),
+        ]
+      : null,
   });
 
   const picking = bindTableSelection(comparison);
@@ -253,16 +279,29 @@ function renderComparePage({ model, models }) {
     }
   }
 
-  // Narrows a set of chosen ids to the ones that can actually be compared on the current
-  // suite, in the order the reader asked for them, and no more than the comparison holds.
+  // Every model the table holds: on offer to be read against the reference, or exactly the set
+  // the list handed over.
+  function offered() {
+    if (reference) return modelsOnSuite(models, reference.id, state.suite);
+
+    const wanted = new Set(state.withIds);
+
+    return models.filter((candidate) => wanted.has(candidate.id));
+  }
+
+  // Narrows a set of chosen ids to the ones that can actually be compared — on the current
+  // suite where there is a reference, and to models that still exist either way — in the order
+  // the reader asked for them, and no more than the comparison holds.
   function pruneSelection(withIds) {
     const allowed = new Set(
-      modelsOnSuite(models, reference.id, state.suite)
-        .filter((candidate) => candidate.id !== reference.id)
+      offered()
+        .filter((candidate) => candidate.id !== reference?.id)
         .map((candidate) => candidate.id),
     );
 
-    return withIds.filter((id) => allowed.has(id)).slice(0, MAX_COMPARATORS);
+    return withIds
+      .filter((id) => allowed.has(id))
+      .slice(0, reference ? MAX_COMPARATORS : MAX_MODELS);
   }
 
   // ─── SECTIONS ──────────────────────────────────────────────────────────────
@@ -302,10 +341,14 @@ function renderComparePage({ model, models }) {
     comparison.clear();
 
     const { element, table: instance } = createModelsTable({
-      rows: toModelRows(modelsOnSuite(models, reference.id, state.suite)),
+      rows: toModelRows(offered()),
       // The page picks the suite above; a second suite select here could only ever empty
       // the table.
       showSuiteFilter: false,
+      // A set is already the models the reader chose, in a table of a handful of rows: there
+      // is nothing left to narrow, and a bar of empty controls over five rows reads as a list
+      // that failed to load the rest of itself.
+      showFilters: Boolean(reference),
       selection: {
         max: MAX_MODELS,
         onChange: onSelection,
@@ -322,7 +365,7 @@ function renderComparePage({ model, models }) {
     // asynchronously, and a selectRow before that has nothing to select. Selecting is what
     // fills the comparison, through the same handler a reader's click goes through.
     table.on("tableBuilt", () => {
-      table.selectRow([reference.id, ...state.withIds]);
+      table.selectRow([reference?.id, ...state.withIds].filter(Boolean));
     });
 
     picking.attach(table);
@@ -332,22 +375,51 @@ function renderComparePage({ model, models }) {
   // out is asking to read two other models against each other on the page they arrived at,
   // which is a fair thing to want. It comes back on the next load, since the URL carries it
   // as the page's own id rather than as one of the comparators.
+  // In the order this page holds them, not the order Tabulator reports: the colours a
+  // comparison hands out go by the order picks arrive, and the list that sent the reader here
+  // marked its rows in that same order — so a model keeps the colour it was picked in. A row
+  // the reader has just added is in neither list and goes last, which is the next colour.
+  function inChosenOrder(rows) {
+    const rank = new Map(
+      [reference?.id, ...state.withIds]
+        .filter(Boolean)
+        .map((id, at) => [id, at]),
+    );
+
+    return [...rows].sort(
+      (a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity),
+    );
+  }
+
   function onSelection(rows) {
-    comparison.set(rows, state.suite);
+    comparison.set(inChosenOrder(rows), state.suite);
 
     // The comparison refuses a pick past its cap, so the table may be showing a highlight it
     // doesn't hold; this takes it back.
     picking.sync();
 
     // Written from what the comparison holds rather than from what the table reported, so a
-    // refused pick never reaches the URL.
-    state.withIds = comparison.keys().filter((key) => key !== reference.id);
+    // refused pick never reaches the URL. The reference is not one of them: the URL carries it
+    // as the page's own id — where there is one at all.
+    state.withIds = comparison
+      .keys()
+      .filter((key) => key !== reference?.id);
+
     writeSelection(state);
   }
 
   // ─── START ─────────────────────────────────────────────────────────────────
 
+  // Named after the reference where there is one, and after what the page is where there is
+  // not: a set of five models has no one of them to be titled after, and the first of them is
+  // not the subject any more than the last is.
   function renderTitle() {
+    if (!reference) {
+      renderHeader(SET_TITLE, [], []);
+
+      return;
+    }
+
     renderHeader(reference.name, getSubtitle(reference, state.suite), [
       buildSuiteBadgeList(suites),
     ]);
@@ -367,20 +439,34 @@ function renderComparePage({ model, models }) {
   }
 
   /**
-   * The page, once the reference is known — which it is from the moment it loads. The URL's
-   * suite and comparators were written against a reference that may since have lost the
-   * scores they named, so both are settled here before anything is drawn from them.
+   * The page, once what it is about is known — which it is from the moment it loads. The URL's
+   * suite and models were written against a field that may since have changed, so both are
+   * settled here before anything is drawn from them.
+   *
+   * The one state neither entrance can be drawn in: nothing to compare. For a reference that
+   * is a model with no scored task; for a set it is every model in the URL having gone.
    */
   function start() {
-    if (!suites.includes(state.suite)) state.suite = suites[0] ?? "";
+    if (reference && !suites.includes(state.suite)) {
+      state.suite = suites[0] ?? "";
+    }
+
     state.withIds = pruneSelection(state.withIds);
 
     writeSelection(state);
     renderTitle();
 
-    if (!suites.length) {
+    if (reference && !suites.length) {
       renderIntro(
         `${reference.name} has no scored tasks yet, so there is nothing to compare.`,
+      );
+
+      return;
+    }
+
+    if (!reference && !state.withIds.length) {
+      renderIntro(
+        "No models to compare. Pick some in the models list and press Compare.",
       );
 
       return;
@@ -389,7 +475,9 @@ function renderComparePage({ model, models }) {
     showSections(["intro"], false);
     showSections([...CONTROL_SECTIONS, ...RESULT_SECTIONS], true);
 
-    renderSuite();
+    // A set has no suite section to render into — see the page shell above.
+    if (reference) renderSuite();
+
     renderModels();
   }
 
@@ -401,20 +489,30 @@ function renderComparePage({ model, models }) {
 loadPage({
   noun: "model",
 
-  // The page is about one model, so a URL without one is a page that cannot be drawn —
-  // loadPage says so in the same words every record page does.
-  requiresId: true,
+  // Not loadPage's id: this page is about one model on one of its two entrances and about a
+  // set of them on the other, so a URL with no id is a page that can still be drawn. The
+  // reference is read here instead — see readReferenceId.
+  requiresId: false,
 
   // A model with a public submission is readable by anyone — see GET /api/models/{id} —
   // and so is the model list this page picks its comparators from.
   requiresAuth: false,
 
-  load: async (id) => {
-    // The list as well as the model: `task_suites` is only populated by the list endpoint,
-    // and it is what says which models can be compared on a suite.
-    const [model, models] = await Promise.all([loadModel(id), getModels()]);
+  load: async () => {
+    const referenceId = readReferenceId();
 
-    return model && { model, models: models ?? [] };
+    // The list either way: `task_suites` is only populated by the list endpoint, and it is
+    // what says which models can be compared on a suite — and, on the set entrance, the only
+    // source for the models the URL names.
+    const [model, models] = await Promise.all([
+      referenceId ? loadModel(referenceId) : null,
+      getModels(),
+    ]);
+
+    // A named reference that could not be loaded is a failure; no reference at all is not.
+    if (referenceId && !model) return null;
+
+    return { model, models: models ?? [] };
   },
 
   render: renderComparePage,

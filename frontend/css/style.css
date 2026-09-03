@@ -172,7 +172,7 @@ MAIN SHELLS ETC
   background: transparent;
   justify-content: center;
   margin: 40px auto 0px;
-  max-width: 1200px;
+  max-width: 1340px;
 }
 
 .content.landing {
@@ -798,11 +798,11 @@ CARDS
   margin-top: 0;
 }
 
-/* Facets side by side: one plot per metric, read across rather than down — see
-   plots/modelPlots.js. `auto-fit` here where .chart-grid above is fixed at three,
-   because the count is however many metrics a suite turns out to have, and two of them
-   should span the width rather than leave a third of it empty. The 320px floor is where a
-   panel stops being readable, and below it they wrap rather than shrink further. */
+/* Facets side by side: one plot per metric, read across rather than down. `auto-fit` here
+   where .chart-grid above is fixed at three, because the count is however many metrics a score
+   turns out to have, and two of them should span the width rather than leave a third of it
+   empty. The 320px floor is where a panel stops being readable, and below it they wrap rather
+   than shrink further. */
 .chart-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -813,31 +813,52 @@ CARDS
   margin-top: 0;
 }
 
-/* Each plot as wide as the tasks it holds, in a grid of task-wide tracks — see
-   plots/modelPlots.js, where a plot is one suite's tasks measured in one metric.
+/* Each plot as wide as the categories it holds, in a grid of category-wide tracks — see
+   plots/modelPlots.js, where a plot is one task and so one track.
 
    A grid rather than a flex row, and tracks rather than percentages: the gaps come out of the
-   grid's own accounting, so a line's spans add up to exactly the line. `--plot-tracks` is the
-   busiest suite's task count, set by arrangePlots, so that suite's plots fill one line and the
-   lighter ones wrap under them at the same width per task rather than stretching to fill.
+   grid's own accounting, so a line's spans add up to exactly the line. `--plot-tracks` is what
+   a full line holds, set by arrangePlots, so the busiest plots fill one line and the lighter
+   ones wrap under them at the same width per category rather than stretching to fill.
 
    `minmax(0, 1fr)` and not `1fr`: a canvas measures its column, and an `auto` minimum lets it
    measure itself instead and grow on every redraw.
 
-   Centred, because arrangePlots caps the width at what the busiest line needs: below that cap
-   the grid is narrower than the page, and a figure floated left of empty space reads as one
-   that failed to load the rest of itself. `width: 100%` is load-bearing — a flex item with an
-   auto cross-axis margin is not stretched, and the shared key above makes this row one. */
+   Left-aligned, and the space arrangePlots' cap leaves over stays on the right: a plot is a
+   track wide wherever it is, so two of them start where a full line's worth would and the
+   figure grows rightwards as tasks are added rather than shuffling under the heading.
+   `width: 100%` is what the max-width is a cap on, where arrangePlots sets one; a caller
+   laying out its own tracks sets none and takes the whole line. */
 .chart-weighted {
   display: grid;
   grid-template-columns: repeat(var(--plot-tracks, 1), minmax(0, 1fr));
   gap: var(--gap-md);
   width: 100%;
-  margin-inline: auto;
+  margin-inline-end: auto;
 }
 
 .chart-weighted .chart-facet + .chart-facet {
   margin-top: 0;
+}
+
+/* While the plots are a way into one task, each is a control rather than a picture — see the
+   click handler in comparisons/modelComparison.js. Scoped to the container that makes them
+   one, the way a selectable card grid scopes its own pointer. */
+.chart-pickable .chart-facet {
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.chart-pickable .chart-facet:not(.selected):hover {
+  background: var(--surface-secondary);
+}
+
+/* The plot the panel below is about: the same wash every picked thing gets, and the edge along
+   the bottom rather than the side, since what it is joined to is underneath it. No
+   `--pick-ink` — a plot here is a task, where that colour belongs to a model. */
+.chart-pickable .chart-facet.selected {
+  background: var(--primary-light);
+  box-shadow: inset 0 -2px 0 var(--primary);
 }
 
 /* One key for a row of plots that share their series, in place of a legend inside each. */
@@ -876,7 +897,8 @@ CARDS
 
 /* A comparison's own rows, marked in the colour the thing is drawn in elsewhere: the same 3px
    edge the picked row carries in the table it came from. Transparent by default, so a grid
-   whose caller passes no colour is unmarked rather than edged in black. */
+   whose caller passes no colour is unmarked rather than edged in black. The row's head says
+   nothing beside it — see the note on the turned layout below. */
 .comparison-grid tbody th[scope="row"],
 .compare-model {
   box-shadow: inset 3px 0 0 var(--row-ink, transparent);
@@ -938,10 +960,10 @@ CARDS
   margin-top: var(--gap-lg);
 }
 
-/* A comparison of attributes: what is being compared down the rows, a fixed set of columns
-   describing them. A column every row answers the same way recedes, so what is left
-   standing is the difference — the only thing that makes six rows of near-identical
-   metadata readable. */
+/* A comparison of attributes. An attribute every thing answers the same way recedes, so what
+   is left standing is the difference — the only thing that makes six near-identical sets of
+   metadata readable. Which axis the things go on is the caller's; the muting reads the same
+   either way, because the classes go on the attribute's own label and cells. */
 .comparison-grid th[scope="row"] {
   text-align: left;
   font-weight: normal;
@@ -954,6 +976,29 @@ CARDS
 
 .comparison-grid th.differs {
   font-weight: var(--bold);
+}
+
+/* Turned: the things across the top, one attribute per row. The headers say nothing — what
+   the columns are is the row of chips above the grid — so the head is a band of the pick's
+   own colour, and the column under it carries the same wash a picked card and a picked table
+   row do. Matching a column to a chip is then matching one colour to another.
+
+   The wash falls back to the surface rather than to `transparent`: a grid whose caller passes
+   no colour is plain, not a column of half-opaque cells. */
+.comparison-grid.by-column thead th[scope="col"] {
+  height: 8px;
+  box-shadow: inset 0 3px 0 var(--row-ink, transparent);
+}
+
+.comparison-grid.by-column thead th[scope="col"],
+.comparison-grid.by-column tbody td,
+.comparison-grid:not(.by-column) tbody th[scope="row"],
+.comparison-grid:not(.by-column) tbody td {
+  background: color-mix(
+    in srgb,
+    var(--row-ink, var(--surface)) 12%,
+    var(--surface)
+  );
 }
 
 /* The score table's "used in ranking" cell: the same two sides as the chips above, in the
@@ -1563,6 +1608,67 @@ BADGES
 }
 
 /*----------------------------------------------------------------------------------------
+TABS
+--------------------------------------------------------------------------------------*/
+
+/* The row naming what a comparison holds, above its tabs — see buildPicks in
+   components/comparisonGrid.js. Collapsed while nothing is picked, so an empty comparison
+   leaves no gap under its heading; `:has(*)` and not `:empty` for the reason `.pins` gives. */
+.compare-picks {
+  margin-bottom: var(--gap-md);
+}
+
+.compare-picks:not(:has(*)) {
+  display: none;
+}
+
+/* A strip of tabs over the sections they open — see components/tabs.js. The lit tab's
+   underline sits on the strip's own line, which is what joins it to the panel below.
+
+   `font: inherit` because these are <button>s, which browsers otherwise draw in their own
+   font at their own size. */
+.tabs {
+  display: flex;
+  gap: var(--gap-lg);
+  border-bottom: 1px solid var(--border-color);
+
+  /* The panels below are .page-section, which brings no top margin of its own. */
+  margin-bottom: var(--gap-lg);
+}
+
+.tab {
+  font: inherit;
+  font-size: var(--font-md);
+  font-weight: var(--bold);
+
+  padding: 8px 2px;
+  /* Over the strip's border, so the lit tab's underline replaces it rather than doubling it. */
+  margin-bottom: -1px;
+
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.tab:hover:not(:disabled) {
+  color: var(--text-color);
+}
+
+.tab.on {
+  color: var(--primary-dark);
+  border-bottom-color: var(--primary);
+}
+
+/* A panel with nothing behind it yet — a breakdown of no models. Dimmed rather than dropped,
+   so the strip keeps its shape as a comparison fills up. */
+.tab:disabled {
+  opacity: 50%;
+  cursor: not-allowed;
+}
+
+/*----------------------------------------------------------------------------------------
 TABLES
 --------------------------------------------------------------------------------------*/
 table {
@@ -1952,6 +2058,98 @@ BARS
   accent-color: var(--primary);
 }
 
+/*----------------------------------------------------------------------------------------
+RANGES
+--------------------------------------------------------------------------------------*/
+
+/* A pair of bounds over one span — see components/ranges.js. Two range inputs stacked on one
+   track, so the two thumbs read as ends of the same thing rather than as two controls that
+   happen to be near each other. */
+.range {
+  position: relative;
+  display: block;
+  height: 20px;
+}
+
+/* The span, and the part of it being asked for. Absolute and inset so the track sits on the
+   thumbs' own centre line, which is the middle of the inputs above it. */
+.range-track {
+  position: absolute;
+  inset: 8px 0 auto;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-color);
+}
+
+.range-band {
+  position: absolute;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--primary);
+}
+
+/* Both inputs over the track, their own track and fill hidden, so the thumbs are the only
+   thing of them the reader sees.
+
+   `pointer-events: none` on the input and `auto` on the thumb: without it whichever input is
+   on top would swallow every click on the track, including the ones meant for the thumb
+   underneath — and the two thumbs meet in the middle of the span. */
+.range-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  background: none;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* One rule per engine, and deliberately not one selector list: an unknown pseudo-element
+   invalidates the whole selector, so a shared rule would style neither. */
+.range-input::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--primary-dark);
+  cursor: grab;
+  pointer-events: auto;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.range-input::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--primary-dark);
+  cursor: grab;
+  pointer-events: auto;
+}
+
+/* Firefox draws its own track behind the thumb; ours is the one underneath. */
+.range-input::-moz-range-track {
+  background: none;
+}
+
+.range-input:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.range-input:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+/* What the pair currently reads as, beside its label — see markRange, which writes it. */
+.range-readout {
+  font-variant-numeric: tabular-nums;
+}
+
 input:focus,
 select:focus,
 textarea:focus {
@@ -2212,6 +2410,40 @@ COMPARISON
   background: var(--surface);
   font-size: var(--font-sm);
   white-space: nowrap;
+}
+
+/* A chip coloured by what it stands for: the leaderboard's task chips, which are the only
+   thing saying which suite each came from — the list they are picked from is flat and the
+   short names carry no prefix. Same palette as the suite badges above. */
+.chip.ts1 {
+  background: var(--ts1-light);
+  border-color: var(--ts1);
+  color: var(--ts1);
+}
+
+.chip.ts2 {
+  background: var(--ts2-light);
+  border-color: var(--ts2);
+  color: var(--ts2);
+}
+
+.chip.ts3 {
+  background: var(--ts3-light);
+  border-color: var(--ts3);
+  color: var(--ts3);
+}
+
+/* A chip standing for one of the things being compared — see buildPicks in
+   components/comparisonGrid.js. Tinted with the colour that thing is drawn in everywhere else,
+   at the weight a picked card and a picked table row carry, so the row above the tabs reads as
+   a key to the panels under them. */
+.chip.pick {
+  background: color-mix(
+    in srgb,
+    var(--pick-ink, var(--primary)) 12%,
+    var(--surface)
+  );
+  border-color: var(--pick-ink, var(--border-color));
 }
 
 /* Where a pinned select's chips go. Always in the markup, because it is what a new chip is

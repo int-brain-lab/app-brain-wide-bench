@@ -1,21 +1,24 @@
 // Several things side by side, whatever they are.
 //
-// Owns the picks, the detail behind each one, the ✕ and the empty state. What is drawn from
-// them is the `render` its caller supplies — see modelComparison.js and its siblings.
+// Owns the picks, the detail behind each one, and the empty state. What is drawn from them is
+// the `render` its caller supplies — see recordComparison.js and its siblings.
 //
 //   set(rows)              the whole selection
 //   pick / toggle / drop   one at a time
 //   subscribe(fn)          when the set changes
 //
-// bindTableSelection and bindCardSelection, below, sync a view to the picks. What a row of
-// the comparison looks like is components/comparisonGrid.js, including the ✕ this reads.
+// createPicker below is the same set of picks with nothing drawn from them, for a list whose
+// rows are chosen and then acted on elsewhere.
+//
+// bindTableSelection and bindCardSelection, below, sync a view to the picks — which is also
+// where a reader takes one out again. What a row of the comparison looks like is
+// components/comparisonGrid.js.
 
 import { disposeAll } from "../core/disposable.js";
 import { resolveContainer } from "../core/dom.js";
 import { refreshIcons, renderHtml } from "../core/render.js";
 import { createSelection } from "../core/selection.js";
 import { highlightSelectedCards } from "../cards/cardGrid.js";
-import { dropFromClick } from "../components/comparisonGrid.js";
 import { buildEmptyMessage } from "../components/messages.js";
 
 // ─── CONTROLLER ──────────────────────────────────────────────────────────────
@@ -148,6 +151,26 @@ function createComparison({
     if (!selection.clear()) render();
   }
 
+  /**
+   * Forgets what has been fetched, keeping the picks: whatever is held is asked for again.
+   *
+   * For a host whose picks outlive the thing they describe — a leaderboard refetches its board
+   * under them, and a detail fetched against the entries the old board named is no longer
+   * about what is on screen. The picks are the reader's; the data behind them is not.
+   */
+  function clearDetails() {
+    if (!details.size) return;
+
+    details.clear();
+
+    for (const entry of selection.entries()) {
+      entry.detail = undefined;
+      ensureDetail(entry);
+    }
+
+    render();
+  }
+
   // ── loading ──
 
   function ensureDetail(entry) {
@@ -217,27 +240,17 @@ function createComparison({
     refreshIcons();
   }
 
-  // ── events ──
-
-  function onClick(event) {
-    const key = dropFromClick(event);
-
-    if (key) drop(key);
-  }
-
-  root.addEventListener("click", onClick);
-
   function destroy() {
     disposeAll(tracked);
     tracked = [];
     listeners.clear();
-    root.removeEventListener("click", onClick);
   }
 
   render();
 
   return {
     clear,
+    clearDetails,
     colourOf,
     destroy,
     drop,
@@ -262,9 +275,84 @@ function createComparison({
   };
 }
 
+// ─── PICKER ──────────────────────────────────────────────────────────────────
+
+/**
+ * Picks with nothing behind them: the shape the two binders below take, for a list whose rows
+ * are chosen and then acted on somewhere else rather than opening a panel beside them.
+ *
+ * No detail, no prompt, no drawing — so no container either. The caller reads `keys()` when
+ * its own control is pressed, and `subscribe` tells it when there is something to press.
+ *
+ * A comparison's shape and not a plainer one, because that is what makes the syncing and the
+ * painting reusable: a picked row highlights, a filter that rebuilt the table puts the
+ * highlights back, and the cards agree with the table, all without a second copy of any of it.
+ *
+ * @param max     how many can be held at once. Refused past it, as a comparison refuses.
+ * @param palette the colours a pick can take, one per slot, as createComparison's. Given one,
+ *                a pick is marked in the colour it will be drawn in wherever it is handed on
+ *                — slots go out in pick order, so a list and the page it hands its picks to
+ *                agree without either being told the other's colours. Omit for no colouring.
+ * @param toEntry (row) => { key }, or null for a row this picker can't take.
+ */
+function createPicker({ max = Infinity, palette = [], toEntry }) {
+  const listeners = new Set();
+
+  const selection = createSelection({
+    max,
+    slots: palette.length,
+    onChange: () => {
+      for (const listener of listeners) listener(selection.keys());
+    },
+  });
+
+  function pick(row) {
+    const entry = toEntry(row);
+
+    return Boolean(entry) && selection.add(entry);
+  }
+
+  function toggle(row) {
+    const entry = toEntry(row);
+
+    if (!entry) return false;
+
+    return selection.has(entry.key) ? selection.remove(entry.key) : pick(row);
+  }
+
+  return {
+    clear: selection.clear,
+    // As createComparison's: the colour is the slot's, held for as long as the pick is, so
+    // dropping one leaves the others as they were. Null without a palette, which leaves the
+    // app's own pick edge — see `--pick-ink` in style.css.
+    colourOf(key) {
+      const slot = selection.slotOf(key);
+
+      return slot == null ? null : (palette[slot] ?? null);
+    },
+    drop: (key) => selection.remove(key),
+    entries: selection.entries,
+    keyOf: (row) => toEntry(row)?.key,
+    keySet: selection.keySet,
+    keys: selection.keys,
+    max,
+    pick,
+    get size() {
+      return selection.size;
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+
+      return () => listeners.delete(listener);
+    },
+    toggle,
+  };
+}
+
 // ─── VIEWS ───────────────────────────────────────────────────────────────────
 //
-// A view reports what the reader did and paints what the comparison then holds.
+// A view reports what the reader did and paints what the comparison — or the picker above —
+// then holds.
 
 /**
  * @param comparison what to bind to.
@@ -445,4 +533,9 @@ function bindCardSelection(comparison) {
   return { attach, selection };
 }
 
-export { bindCardSelection, bindTableSelection, createComparison };
+export {
+  bindCardSelection,
+  bindTableSelection,
+  createComparison,
+  createPicker,
+};

@@ -36,6 +36,9 @@ const LIST_ID = "list";
  *                       for no filter bar.
  * @param modes          `{ base, active }` panel definitions. Omit for a list whose rows
  *                       open nothing beside them.
+ * @param picking        `{ max, label, toEntry, onCompare }` for a list whose rows are picked
+ *                       and then acted on elsewhere — see createListView, which this is
+ *                       passed straight through to.
  * @param maxCards       rows at or below which the page opens on the cards rather than the
  *                       table.
  *
@@ -56,6 +59,7 @@ function loadListPage({
   createLink = null,
   filterControls = null,
   modes = {},
+  picking = null,
 
   maxCards = 6,
 }) {
@@ -123,16 +127,16 @@ function loadListPage({
 
       if (!rows.length) return;
 
-      const listView = createListView({
+      createListView({
+        container: getElement(LIST_ID),
         rows,
         createCards,
         createTable,
         filterControls,
         modes,
+        picking,
         maxCards,
       });
-
-      getElement(LIST_ID).replaceChildren(listView.element);
 
       refreshIcons();
     },

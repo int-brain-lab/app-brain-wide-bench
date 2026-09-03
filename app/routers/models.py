@@ -2,11 +2,11 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from typing import Any, Sequence
+from typing import Annotated, Any, Sequence
 
 from app.auth import (
     get_current_user,
@@ -29,6 +29,7 @@ from app.models import (
     User,
 )
 from app.schemas.models import (
+    ModelBreakdown,
     ModelCreate,
     ModelDetail,
     ModelRanking,
@@ -38,6 +39,7 @@ from app.schemas.models import (
     TaskEntryRef,
     TaskEntrySides,
 )
+from app.schemas.tasksubmission import TaskBreakdown
 
 router = APIRouter(prefix="/api/models", tags=["models"])
 
@@ -416,6 +418,82 @@ async def get_model_ranking(
                 private=entry(private_entries, task_id),
             )
             for task_id in sorted({*public_entries, *private_entries})
+        },
+    )
+
+
+@router.get("/{model_id}/breakdown", response_model=ModelBreakdown)
+async def get_model_breakdown(
+    model_id: uuid.UUID,
+    task_submission_id: Annotated[list[uuid.UUID] | None, Query()] = None,
+    user: User | None = Depends(get_current_user_optional),
+    session: AsyncSession = Depends(get_session),
+) -> ModelBreakdown:
+    """A model's parameters, and the task entries it currently stands on.
+
+    Two ways to say which entries, and they answer different questions:
+
+    * **no ids** — the newest scored entry for each task, which is where the model stands
+      today. What a listing wants: it has a model and needs the current picture.
+    * **``task_submission_id``, repeated** — exactly those entries and no others. What a
+      caller already looking at a set of scores wants: a leaderboard row names the entries
+      it ranked, and re-deriving "newest" here could answer with a different run than the
+      one on the reader's screen — a filtered board stands on the newest *matching* entry,
+      which is not always the newest.
+
+    Ids naming a task submission of another model, or one this caller may not see, are
+    ignored rather than refused: what is returned is the intersection of what was asked for
+    and what is theirs to read, so the endpoint says nothing about whether the rest exists.
+
+    Only completed submissions count either way — an attempt still being scored has no
+    result to stand on — and only the ones this caller may see, which is the model detail's
+    rule. So a member reading their own model gets their private entries too, and this can
+    differ from what the public leaderboard showed. That is the reason the ids exist.
+
+    Raises: 404 - Not found if the model doesn't exist, or has nothing the caller may see
+    """
+    model = await _get_model(
+        model_id,
+        session,
+        options=[
+            selectinload(Model.team),
+            selectinload(Model.submissions)
+            .selectinload(Submission.task_submissions)
+            .selectinload(TaskSubmission.score),
+        ],
+    )
+
+    member = user is not None and await is_team_member(user.id, model.team_id, session)
+
+    visible = [s for s in model.submissions if member or s.is_public]
+
+    # The same rule as the model detail: a model with nothing public is not readable by a
+    # non-member at all, rather than readable with an empty breakdown.
+    if not visible:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Model not found")
+
+    done = [s for s in visible if s.status == SubmissionStatus.done]
+
+    if task_submission_id is None:
+        entries = latest_entries(done)
+    else:
+        wanted = set(task_submission_id)
+
+        # One per task still, so a caller naming two entries for one task gets the newer —
+        # ``latest_entries`` is walking newest-first, and this only narrows what it may pick.
+        #
+        # ``eligible`` and not ``keep``: these ids *are* the candidates, so anything outside
+        # the set is not one. ``keep`` asks the other question — whether the newest entry
+        # qualifies — and would drop a task whose newest entry this caller didn't name, which
+        # is exactly the entry a leaderboard row is asking to be described instead of.
+        entries = latest_entries(done, eligible=lambda entry: entry.id in wanted)
+
+    return ModelBreakdown.from_model(
+        model,
+        is_mine=member,
+        tasks={
+            task_id: TaskBreakdown.from_entry(entry)
+            for task_id, entry in entries.items()
         },
     )
 

@@ -41,6 +41,48 @@ class TaskScoreDetail(TaskScoreOut):
     metrics: dict | None = None
 
 
+class TaskStanding(BaseModel):
+    """One task's current result, as a standing reports it.
+
+    ``mean``/``sem`` rather than ``primary_metric_mean``/``_sem``: which metric it is
+    belongs to the task, and whatever carries this already says which task it is under.
+    ``metric`` is that metric spelled out, so a client showing one task's score can label
+    its units without joining the task table to find them.
+
+    The two ids are where the number came from. A standing's scores are each the newest for
+    their task, so they need not share a submission — which is exactly why each one has to
+    say which submission it is from. They are also what a caller hands back to ask about
+    these very entries rather than about whatever is newest by then; see the breakdown
+    endpoint in routers/models.py.
+    """
+
+    mean: float
+    sem: float | None = None
+    n_seeds: int
+    metric: Metric
+
+    task_submission_id: uuid.UUID
+    submission_id: uuid.UUID
+
+    @classmethod
+    def from_entry(cls, task_submission) -> "TaskStanding":
+        """Build from an ORM ``TaskSubmission`` with a score.
+
+        Not ``model_validate``: the columns are ``primary_metric_mean``/``_sem`` and this
+        shape drops the prefix, so the mapping has to be stated.
+        """
+        score = task_submission.score
+
+        return cls(
+            mean=score.primary_metric_mean,
+            sem=score.primary_metric_sem,
+            n_seeds=score.n_seeds,
+            metric=score.primary_metric,
+            task_submission_id=task_submission.id,
+            submission_id=task_submission.submission_id,
+        )
+
+
 class TaskSubmissionOut(BaseModel):
     """A task entry embedded in the submission or model that owns it, with its score."""
 
@@ -113,6 +155,30 @@ class TaskSubmissionDetail(TaskSubmissionOut, TaskMetadata):
     """
 
     score: TaskScoreDetail | None = None
+
+
+class TaskBreakdown(TaskStanding, TaskMetadata):
+    """A task's result and how it was produced, in one row.
+
+    The two halves of what a reader asks of a single model: the score it stands on, and the
+    methodology behind that score. Kept as a pair rather than two lookups because they
+    describe one entry — the methodology is the entry's, not the task's, and a model that
+    re-ran a task a different way has a different answer for each run.
+    """
+
+    @classmethod
+    def from_entry(cls, task_submission) -> "TaskBreakdown":
+        """Build from an ORM ``TaskSubmission`` with a score.
+
+        The methodology half is read off the entry's own columns, by the names
+        ``TaskMetadata`` already gives them, so adding a sixth field there is enough. The
+        score half is ``TaskStanding``'s, whose mapping has to be stated because the columns
+        carry the ``primary_metric_`` prefix this shape drops.
+        """
+        return cls(
+            **{key: getattr(task_submission, key) for key in TaskMetadata.model_fields},
+            **TaskStanding.from_entry(task_submission).model_dump(),
+        )
 
 
 class TaskSubmissionCreate(TaskMetadata):

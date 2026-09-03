@@ -24,7 +24,8 @@ import { renderPage } from "./pageChrome.js";
  * @param empty       what the section says when there are no rows.
  * @param rows        every row, already mapped into the shape createListView takes.
  * @param ...list     everything else — `createCards`, `createTable`, `filterControls`,
- *                    `modes`, `maxCards` — is createListView's.
+ *                    `modes`, `picking`, `maxCards` — is createListView's, and is spread
+ *                    through rather than named, so an option added there needs no edit here.
  *
  * @returns the list view, or null when there are no rows.
  */
@@ -54,11 +55,10 @@ function renderRecordListView({
   }
 
   const listView = createListView({
+    container: sectionBody,
     rows,
     ...list,
   });
-
-  sectionBody.replaceChildren(listView.element);
 
   refreshIcons();
 

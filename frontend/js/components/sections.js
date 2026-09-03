@@ -124,17 +124,26 @@ function buildPage({
 
 // ─── SECTIONS ────────────────────────────────────────────────────────────────
 
+/**
+ * @param controls markup to sit beside the heading rather than out at the end of the row —
+ *                 for a control the title reads into ("Ranked over" and the suites it is
+ *                 ranked over), where the gap of an action row would break the sentence.
+ *                 `actions` is still the far end of the same row.
+ */
 function buildSection({
   id,
   title = "",
+  controls = "",
   actions = [],
   className = "",
   hidden = false,
 }) {
+  const heading = `<h2 class="section-title">${escapeHtml(title)}</h2>`;
+
   const header = title
     ? `
       <div class="row">
-        <h2 class="section-title">${escapeHtml(title)}</h2>
+        ${controls ? `<div class="row left gap-lg">${heading}${controls}</div>` : heading}
         ${actions.length ? buildActions(actions) : ""}
       </div>
     `

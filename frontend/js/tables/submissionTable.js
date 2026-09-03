@@ -80,6 +80,8 @@ function getSubmissionColumns({ showModel = false } = {}) {
  * @param showModel   add Model and Team columns. For a list spanning models.
  * @param showFilters keep the filter bar above the grid. False for a caller with a bar of
  *                    its own over both its views — see templates/listPage.js.
+ * @param selection   from bindTableSelection, to make the rows pickable. Omit for a table
+ *                    that is only read.
  *
  * @returns { element, table } — as createModelsTable; the caller mounts the element.
  */
@@ -87,6 +89,7 @@ function createSubmissionsTable({
   rows,
   showModel = false,
   showFilters = true,
+  selection,
 }) {
   return createFilterableTable({
     rows,
@@ -94,6 +97,10 @@ function createSubmissionsTable({
     controls: showFilters ? getSubmissionFilters(rows) : [],
     noun: "submission",
     initialSort: [{ column: "updated_at", dir: "desc" }],
+    // A row is one submission, so the submission is what identifies it — and what a picker
+    // knows the pick by. See toSubmissionEntry in comparisons/submissionComparison.js.
+    index: "id",
+    selection,
   });
 }
 

@@ -58,6 +58,8 @@ def _recency(submission: Submission) -> tuple:
 def latest_entries(
     submissions: Iterable[Submission],
     keep: Callable[[TaskSubmission], bool] | None = None,
+    *,
+    eligible: Callable[[TaskSubmission], bool] | None = None,
 ) -> dict[str, TaskSubmission]:
     """``{task_id: TaskSubmission}`` — the newest scored entry for each task.
 
@@ -65,11 +67,23 @@ def latest_entries(
     in the latest one is still the current result for it. Which submission each entry came
     from is on the entry itself.
 
-    ``keep`` narrows which entries are eligible, and is applied *before* the newest is
-    picked — so a filtered board shows the newest entry that matches rather than the newest
-    entry if it happens to. A model that re-ran a task a different way still stands on the
-    run that was done the way the reader asked about; the other reading would report that it
-    had never done it.
+    The two predicates ask different questions, and the difference between them is which
+    entry a task can end up on:
+
+    ``eligible``
+        which entries may be *considered* the newest, applied before the choice. For a caller
+        that already knows the set it means — a leaderboard row naming the entries it ranked
+        — where anything outside that set is not a candidate at all.
+
+    ``keep``
+        whether the newest, once chosen, is one the caller asked for. Applied after, so a
+        task whose current result does not qualify is dropped rather than falling back to an
+        older run that does.
+
+        Which is the whole of what a filtered board says: where each model *stands* under the
+        reader's question, and not the best case it can be made to answer. A model whose
+        latest run of a task was done another way has no current result done this way, and
+        standing it on a superseded run would rank that run against live ones.
     """
     entries: dict[str, TaskSubmission] = {}
 
@@ -78,12 +92,15 @@ def latest_entries(
             if task_submission.score is None:
                 continue
 
-            if keep is not None and not keep(task_submission):
+            if eligible is not None and not eligible(task_submission):
                 continue
 
             entries.setdefault(task_submission.task_id, task_submission)
 
-    return entries
+    if keep is None:
+        return entries
+
+    return {task_id: entry for task_id, entry in entries.items() if keep(entry)}
 
 
 @dataclass(frozen=True)
@@ -121,7 +138,8 @@ def standings(
     submitted or whoever submitted it: a submission belongs to a model, and the model to a
     team, so there is nothing finer to key on.
 
-    ``keep`` is ``latest_entries``'s. A model it leaves with nothing still gets a standing:
+    ``keep`` is ``latest_entries``'s, and so is applied to each task's newest entry rather
+    than to the candidates for it. A model it leaves with nothing still gets a standing:
     this says where every competitor stands, and one of them standing on nothing is an
     answer. Dropping those is the leaderboard's own doing — see routers/leaderboard.py — and
     not this function's, whose whole contract is one standing per model.

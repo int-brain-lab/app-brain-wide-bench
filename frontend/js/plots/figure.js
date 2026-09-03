@@ -5,24 +5,35 @@
 // share and how they sit on the page — and it is pure: no Chart.js, no canvas, no DOM beyond
 // the one element arrangePlots assembles.
 //
-// A series is `{ label, colour, metric, group, index, values }`, where `index` is category
-// key → position and `values` is `{ mean, sem }`, two arrays in step with it. Two rules
-// everything below rests on:
+// A series is `{ label, colour, metric, group, index, values, scaleKey? }`, where `index` is
+// category key → position and `values` is `{ mean, sem }`, two arrays in step with it. Two
+// rules everything below rests on:
 //
 //   1. One plot per metric. Two metrics on one axis is two scales pretending to be one —
 //      bacc's chance level is 0.5 and r2's is 0 — and a loss shares an axis with a score
 //      only if *up* is allowed to mean opposite things.
-//   2. Plots of the same metric share a y range — or every plot does, where the caller says
+//   2. Plots on the same scale share a y range — or every plot does, where the caller says
 //      they are comparable whatever they measure; see `scale`. Series of the same `group`
 //      share an x axis. Small multiples are comparable only if their axes are; and a group is
 //      whatever must not be mixed down one axis — recordings and brain regions are different
-//      groups, and so are the task sets of two different metrics.
+//      groups, and so is one task from the next.
+//
+// A plot is its own scale unless a series names one with `scaleKey`, which is how a caller
+// splitting plots finer than it scales them says so: one plot per task, all the tasks measured
+// the same way drawn against one range.
 
 // A plot holds the series that share both a metric and an axis — see rule 2. A TS3 score
 // measured in something a TS1 score also reports would otherwise land on one plot, with
 // regions and recordings down the same axis.
 function plotKey(entry) {
   return `${entry.group}|${entry.metric}`;
+}
+
+// What a series' y range is shared with — its own plot, unless the caller named a scale. A
+// plot per task would otherwise autoscale each one, and the same numbers drawn at different
+// heights in adjacent plots is the reading small multiples exist to prevent.
+function scaleKey(entry) {
+  return entry.scaleKey ?? plotKey(entry);
 }
 
 // ─── SERIES ──────────────────────────────────────────────────────────────────
@@ -56,6 +67,12 @@ function toDatasets(series, labels, mark) {
       ),
       sems: at.map((position) =>
         position < 0 ? null : (entry.values.sem[position] ?? null),
+      ),
+      // Lines a tooltip adds under the value, per category — what a domain knows about this
+      // mark that the axes don't say. Absent where the domain has nothing to add, which is
+      // what an empty tooltip footer reads as.
+      notes: at.map((position) =>
+        position < 0 ? null : (entry.values.notes?.[position] ?? null),
       ),
       ...mark(entry),
     };
@@ -117,12 +134,12 @@ function sharedAxes(entries, order) {
 }
 
 /**
- * The value range each plot spans, across every series that would land in it.
+ * The value range each scale spans, across every series on it.
  *
- * Small multiples are only comparable if their axes are: two plots of the same metric,
- * autoscaled apart, draw the same numbers at different heights and invite exactly the wrong
- * reading. A metric no one else uses keeps its own range, which is what autoscaling would
- * have given it anyway.
+ * Small multiples are only comparable if their axes are: two plots on one scale, autoscaled
+ * apart, draw the same numbers at different heights and invite exactly the wrong reading. A
+ * scale no one else is on keeps its own range, which is what autoscaling would have given it
+ * anyway.
  */
 function sharedRanges(entries) {
   const ranges = new Map();
@@ -139,7 +156,7 @@ function sharedRanges(entries) {
 
     if (!values.length) continue;
 
-    const key = plotKey(entry);
+    const key = scaleKey(entry);
     const held = ranges.get(key);
 
     ranges.set(key, {
@@ -205,9 +222,10 @@ function groupSeries(entries, facet) {
 //          several series on one pair of axes, and two of them fit above the fold.
 //   weighted
 //          a grid of category-wide tracks, each plot spanning as many as it holds — so one
-//          category is the same width in every plot, and a plot of four tasks is four times a
-//          plot of one. A line holds CATEGORIES_PER_LINE of them and the rest wrap, so a
-//          suite's plots fill a line and the next suite's start the one below.
+//          category is the same width in every plot and at every count, and a plot of four
+//          tasks is four times a plot of one. A line holds CATEGORIES_PER_LINE of them and the
+//          rest wrap; a part-full line is a narrower grid at the left of the page rather than
+//          the same plots stretched across it.
 //   grid   three across, wrapping. For many, where each is its own small figure.
 const LAYOUTS = {
   stack: "column",
@@ -236,7 +254,7 @@ const HEIGHTS = {
     pair: 220,
     weighted: 220,
     stack: 220,
-    single: 380,
+    single: 280,
   },
 };
 
@@ -259,9 +277,15 @@ function plotColumns(layout, count) {
 
 // What a full line of the weighted arrangement holds, in categories. A constant, and
 // deliberately: it is the width one category is drawn at, so it must not move with whoever
-// happens to be picked. Tuned to the biggest suite, whose plots then fill the page — a suite
-// with fewer takes proportionally less and centres, and one with more wraps.
-const CATEGORIES_PER_LINE = 8;
+// happens to be picked. Tuned to the biggest suite's task count, so a plot per task fills a
+// line — fewer take proportionally less of the page and the rest of the line stays empty,
+// more wrap onto the next.
+//
+// Exported because it is the page's track width rather than this module's: a caller laying out
+// panels of its own — a row of plots that each carry a control, which an arrangement has
+// nowhere to put — sets the same number of tracks and so lines up with the plots elsewhere.
+// See renderMeans in comparisons/taskScoreComparison.js.
+const CATEGORIES_PER_LINE = 6;
 
 // How many categories each plot holds, in the order the plots are drawn.
 function plotSizes(plots, axes) {
@@ -272,8 +296,8 @@ function plotSizes(plots, axes) {
 
 /**
  * How wide the arrangement is: what the tracks it uses are worth against a full line. A
- * selection covering three tracks of eight takes three eighths of the page and centres, so a
- * category is drawn at the same width whether or not the rest are on screen.
+ * selection covering half the tracks takes half the page from the left, so a category is drawn
+ * at the same width whether or not the rest are on screen.
  */
 function weightedWidth(used) {
   return `${Math.min(100, (used / CATEGORIES_PER_LINE) * 100).toFixed(2)}%`;
@@ -357,7 +381,12 @@ function arrangePlots({
   const byMetric = sharedRanges(entries);
   const ranges = scale === "all" ? mergeRanges(byMetric) : byMetric;
   const axes = sharedAxes(entries, order);
-  const grid = layout === "grid";
+
+  // A plot per series has to say which series it is, since nothing else in it does — see
+  // groupSeries, where the name of such a plot is the series' own. Keyed on the facet rather
+  // than on the layout, because that is what decides whether a plot *is* a series; the grid is
+  // only where those plots usually land.
+  const named = facet === "series";
 
   // The last plot of each group, since in a stack only those carry their axis: a stack of
   // recording plots labels its bottom one, and a region plot below them labels itself
@@ -379,7 +408,7 @@ function arrangePlots({
   const sizes = layout === "weighted" ? plotSizes(plots, axes) : [];
 
   // What this selection asks of a line. Fewer tracks than a full line means a narrower grid
-  // rather than wider tracks — the same categories at the same width, centred in the page.
+  // rather than wider tracks — the same categories at the same width, at the left of the page.
   // More means the grid is a full line and the overflow wraps.
   const used = Math.min(
     sizes.reduce((total, size) => total + size, 0),
@@ -401,11 +430,10 @@ function arrangePlots({
       axisTitle: members[0].metric,
       tickLabel: (key, at) =>
         tickLabel(key, { group, index: at, count: labels.length, columns }),
-      range: ranges.get(plotKey(members[0])),
-      // In a grid the plot *is* the series, so it says which one. Stacked and side-by-side
-      // plots are one metric each, named by their own y axis, and the series in them are
-      // named by the legend or the heading above.
-      title: grid ? name : null,
+      range: ranges.get(scaleKey(members[0])),
+      // A plot per metric is named by its own y axis, and the series in it by the legend or
+      // the key above it.
+      title: named ? name : null,
       height,
       // Only a stack can share an axis, and only downwards: the labels under its last plot
       // are read as the whole stack's. Every other layout puts plots side by side, where
@@ -414,6 +442,11 @@ function arrangePlots({
       showAxis: layout !== "stack" || lastOfGroup.get(group) === index,
       legend: legend === true,
     });
+
+    // The axis this plot is on, on the element itself: a host that makes its plots clickable
+    // has to know which one was pressed, and the group is what identifies a plot to whoever
+    // grouped them — the task, in plots/modelPlots.js.
+    plot.element.dataset.group = group;
 
     if (layout === "weighted")
       plot.element.style.gridColumn = `span ${sizes[index]}`;
@@ -434,11 +467,13 @@ function arrangePlots({
 }
 
 export {
+  CATEGORIES_PER_LINE,
   DEFAULT_HEIGHT,
   arrangePlots,
   groupSeries,
   plotKey,
   positionsIn,
+  scaleKey,
   sharedAxes,
   sharedRanges,
   toDatasets,

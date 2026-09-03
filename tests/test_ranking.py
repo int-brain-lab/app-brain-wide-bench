@@ -104,13 +104,13 @@ def test_a_standing_holds_the_newest_score_for_each_task():
 
 # ── narrowing which entries count ────────────────────────────────────────────
 #
-# ``keep`` is how the leaderboard's methodology filters reach in. What is tested here is the
-# one thing this module decides about them: that they are applied before the newest entry per
-# task is chosen, not after.
+# Two predicates asking two questions, and what is tested here is the difference between
+# them: ``keep`` judges the newest entry a task has, where ``eligible`` decides which entries
+# are candidates for being it.
 
 
-def test_keep_narrows_which_entries_are_eligible():
-    """An entry the predicate rejects is as good as unscored."""
+def test_keep_drops_a_task_whose_newest_entry_does_not_match():
+    """A task whose current result the predicate rejects is not on the board at all."""
     model = uuid.uuid4()
     entered = submission(model, {"ts1-choice": score("bacc", [("a", 0.9)])}, paradigm="TSU")
 
@@ -119,12 +119,12 @@ def test_keep_narrows_which_entries_are_eligible():
     assert kept == {}
 
 
-def test_the_newest_matching_entry_wins_not_the_newest_entry():
-    """A model that re-ran a task differently still stands on the run that matches.
+def test_keep_does_not_fall_back_to_an_older_entry_that_matches():
+    """A model that re-ran a task another way has no current result done the first way.
 
-    The predicate is applied before the pick, so the older matching entry is the one that
-    counts. Applied after, this model would report never having done the task the way it was
-    asked about — which it did.
+    The predicate is applied to the newest entry rather than to the candidates for it, so the
+    task drops. Applied before the pick, this model would stand on a run it has since
+    superseded — and that run would be ranked against other models' live ones.
     """
     model = uuid.uuid4()
 
@@ -140,13 +140,42 @@ def test_the_newest_matching_entry_wins_not_the_newest_entry():
         paradigm="TSU",
     )
 
-    kept = latest_entries([older, newer], lambda entry: entry.training_paradigm == "TSS")
+    assert latest_entries([older, newer], lambda entry: entry.training_paradigm == "TSS") == {}
 
-    assert set(kept) == {"ts1-choice"}
-    assert kept["ts1-choice"].submission_id == older.id
+    # Asked about the way it was actually last done, the newest entry is what it stands on.
+    kept = latest_entries([older, newer], lambda entry: entry.training_paradigm == "TSU")
 
-    # Without the predicate it is the newer one, which is what makes the above a choice.
+    assert kept["ts1-choice"].submission_id == newer.id
+
+    # And with no predicate at all, which is what makes the above a choice rather than a
+    # consequence of filtering.
     assert latest_entries([older, newer])["ts1-choice"].submission_id == newer.id
+
+
+def test_eligible_narrows_the_candidates_rather_than_the_winner():
+    """The other question: which entries may be considered the newest.
+
+    What the model breakdown asks, handed the ids a leaderboard row named — an entry outside
+    that set is not a candidate, so the newest of the ones named wins even where the model has
+    a newer entry for the task. Applied as ``keep`` would drop the task instead.
+    """
+    model = uuid.uuid4()
+
+    older = submission(
+        model,
+        {"ts1-choice": score("bacc", [("a", 0.70)])},
+        created_at=NOW - timedelta(days=1),
+    )
+    newer = submission(
+        model,
+        {"ts1-choice": score("bacc", [("a", 0.95)])},
+    )
+
+    named = {entry.id for entry in older.task_submissions}
+
+    kept = latest_entries([older, newer], eligible=lambda entry: entry.id in named)
+
+    assert kept["ts1-choice"].submission_id == older.id
 
 
 def test_ranks_are_computed_over_the_standings_handed_in():

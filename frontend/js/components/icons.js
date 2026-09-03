@@ -43,6 +43,8 @@ const ICONS = {
   remove: "x",
   create: "plus",
   filter: "funnel",
+  expand: "plus",
+  collapse: "minus",
 
   // Views
   cards: "layout-grid",

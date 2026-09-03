@@ -37,7 +37,7 @@ const HEX = /^#[0-9a-f]{3,8}$/i;
 //
 // Model and team names are user-supplied, so both are escaped.
 function modelFormatter(cell) {
-  const { modelName, teamName, isSelected, colour } = cell.getData();
+  const { recordName, teamName, isSelected, colour } = cell.getData();
 
   const badge = isSelected
     ? `<span class="badge sm neutral">This model</span>`
@@ -48,7 +48,7 @@ function modelFormatter(cell) {
   return `
     <span class="column gap-xs compare-model"${ink}>
       <span class="row left gap-sm">
-        <span class="label">${escapeHtml(modelName)}</span>
+        <span class="label">${escapeHtml(recordName)}</span>
         ${badge}
       </span>
       <span class="metadata">${escapeHtml(teamName ?? "")}</span>
@@ -86,7 +86,7 @@ function getCompareColumns(tasks, { formatter, sorter }) {
   return [
     {
       title: "Model",
-      field: "modelName",
+      field: "recordName",
       formatter: modelFormatter,
       // Fixed rather than growing: a model name has a natural size, and the space a
       // comparison of two models leaves over belongs to the tasks being compared.

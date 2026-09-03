@@ -1,4 +1,9 @@
 // Model record page — dashboard, details, submissions and scores for one model.
+//
+// Two of its views carry a panel under the table: the submissions compare against each other,
+// and so do the task scores. Both are the same arrangement — a list of one model's rows, and a
+// comparison of whichever of them are picked. The submissions' is open from the start, as the
+// leaderboard's is; the scores' opens on a row and switches to a comparison on a button.
 
 import { renderHtml } from "../core/render.js";
 import { markRankedRows } from "../utils/modelUtils.js";
@@ -32,6 +37,8 @@ import { buildDetailsCard } from "../cards/detailsCard.js";
 import { buildRankCard } from "../cards/rankCard.js";
 import { buildStatCards } from "../cards/statCards.js";
 import { createSubmissionCardGrid } from "../cards/submissionCards.js";
+import { createSubmissionComparison } from "../comparisons/submissionComparison.js";
+import { bindTableSelection } from "../comparisons/comparison.js";
 import {
   buildCompareButton,
   buildCreateButton,
@@ -172,7 +179,7 @@ function renderSubmissionsSection(model) {
   renderHtml(
     container,
     buildStaticSubmissionsTable({
-      rows: toSubmissionRows(model.submissions),
+      rows: toSubmissionRows(model.submissions, whoseSubmissions(model)),
       limit: MAX_SUBMISSIONS,
       viewAll: { view: "submissions" },
     }),
@@ -246,6 +253,13 @@ function renderDetailsView({ model, fields, canEdit, edit, created }) {
   });
 }
 
+// What the model's own detail response leaves off its nested submissions, because on that
+// response it would be the same answer on every one of them — see ModelSubmissionOut. A row
+// still has to say, and the comparison's details panel reads the model's name off it.
+function whoseSubmissions(model) {
+  return { modelName: model.name, teamName: model.team_name };
+}
+
 // ─── SUBMISSIONS VIEW ────────────────────────────────────────────────────────
 
 function renderSubmissionsView({ model }) {
@@ -255,14 +269,35 @@ function renderSubmissionsView({ model }) {
     renderTitle: () => renderHeader(model.name, getModelSubtitle(model)),
     empty: "No submissions yet.",
 
-    rows: toSubmissionRows(model.submissions ?? []),
+    rows: toSubmissionRows(model.submissions ?? [], whoseSubmissions(model)),
 
     createCards: () => createSubmissionCardGrid({ cardsPerPage: 8 }),
 
-    createTable: ({ rows }) =>
-      createSubmissionsTable({ rows, showFilters: false }),
+    createTable: ({ rows, selection }) =>
+      createSubmissionsTable({ rows, showFilters: false, selection }),
 
     filterControls: getSubmissionFilters,
+
+    // A panel underneath rather than a page of its own, which is what the submissions list
+    // sends its picks to. These are one model's attempts and there are a handful of them: the
+    // comparison a reader wants here is between two of the rows already in front of them, and
+    // leaving the page to read it would lose the model they came for.
+    //
+    // `base` and no `active`, which is what puts it there from the start with no button to
+    // press first — the same as the leaderboard's. A row is a pick from the moment the view
+    // opens, and the panel's own prompt is what says so.
+    modes: {
+      base: {
+        title: "Compare submissions",
+        create: (container) => createSubmissionComparison({ container }),
+
+        // `claimLinks: false`: the submission's label still goes to its own page, and a click
+        // anywhere else on the row is a pick. The rows are always picking now, so they cannot
+        // also be the thing that swallows the one link each carries.
+        bindTable: (controller) =>
+          bindTableSelection(controller, { claimLinks: false }),
+      },
+    },
   });
 }
 

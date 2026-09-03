@@ -1,97 +1,55 @@
-// Several models side by side: what they are, and how they scored on one suite.
+// Several models side by side, as the record comparison reads them.
 //
-//   summary      one row per model, one column per specification field
-//   breakdown    every task on the suite, as a plot or as a grid — models across the top
-//   differences  the same again, measured against a baseline the reader picks
+// The preset, not the widget: the tabs, the plots, the differences and the task panel are
+// recordComparison.js, and this is only what makes them a comparison of *models* — the nine
+// specification fields the details panel shows, and where a model's scores come from.
 //
-// The picks, the fetches and the ✕ are comparison.js; this supplies its `render`.
+// Two hosts mount it: the leaderboard, which passes its own scores off the board it is already
+// showing, and the compare page, which lets it fetch them.
 
-import { escapeHtml } from "../core/html.js";
-import {
-  buildEmptyMessage,
-  buildInfoMessage,
-} from "../components/messages.js";
-import { getElement, renderHtml} from "../core/render.js";
-import {
-  buildSections,
-  getSection,
-  getSectionBody,
-} from "../components/sections.js";
-import {
-  TABLE_VIEW,
-  PLOT_VIEW,
-  buildPlotTableToggle
-} from "../components/buttons.js";
-
-import {
-  buildComparisonGrid,
-  buildRowHeader,
-} from "../components/comparisonGrid.js";
-import { createCompareTable } from "../tables/compareTable.js";
-import { createModelPlots } from "../plots/modelPlots.js";
-import { SERIES_COLOURS } from "../plots/palette.js";
-import {
-  compareTasks,
-  diffMode,
-  latestScoresByTask,
-  scoreMode,
-  toCompareEntries,
-  toCompareRows,
-} from "./compareData.js";
+import { createRecordComparison } from "./recordComparison.js";
 import { displayValue } from "../forms/fields.js";
-import { SUITES, suiteFromTask, suiteLabel } from "../core/suites.js";
-import { loadModel } from "../api/modelApi.js";
+import { loadModelBreakdown } from "../api/modelApi.js";
 import { MODEL_FIELDS } from "../schemas/modelSchema.js";
 import { fieldsForPanel } from "../schemas/schemaPanels.js";
-import { createComparison } from "./comparison.js";
-import { buildOptions, buildSelect } from "../components/filters.js";
-import {disposeAll} from "../core/disposable.js";
-
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
-// Also the compare page's cap.
-const MAX_MODELS = 5;
+// Also the compare page's cap, and the models list's.
+const MAX_MODELS = 6;
 
+// ─── DETAILS ─────────────────────────────────────────────────────────────────
 
-// ─── SUMMARY ─────────────────────────────────────────────────────────────────
+// Every specification field, not the editable ones: this is a reading of the model, so a
+// field the reader could never set still says something about it.
+function detailKeys() {
+  return fieldsForPanel(MODEL_FIELDS, "specification", false);
+}
 
-// Null until the model's request lands.
-function valueOf(detail, key, fields) {
+// Null until this model's request lands, which the grid draws as a dash — "not known yet" and
+// "not set" look the same in a cell, and both are the absence of an answer.
+function valueOf(detail, key) {
   if (!detail) return null;
 
-  const value = displayValue(fields[key], detail[key]);
+  const value = displayValue(MODEL_FIELDS[key], detail[key]);
 
   return value == null || value === "" ? null : String(value);
 }
 
-function buildModelHeader(entry) {
-  return buildRowHeader({
-    key: entry.key,
-    title: `
-      <a class="label" href="/html/models/models.html?id=${escapeHtml(entry.modelId)}">
-        ${escapeHtml(entry.name)}
-      </a>`,
-    meta: entry.teamName ?? "",
-    name: entry.name,
-  });
-}
-
-function buildSummary(entries, fields, colourOf) {
-  const keys = fieldsForPanel(MODEL_FIELDS, "specification", false);
-
-  return buildComparisonGrid({
-    columns: keys.map((key) => ({ key, label: fields[key]?.label ?? key })),
-    rows: entries.map((entry) => ({
-      key: entry.key,
-      header: buildModelHeader(entry),
-      ink: colourOf(entry.key),
-      cells: Object.fromEntries(
-        keys.map((key) => [key, { value: valueOf(entry.detail, key, fields) }]),
-      ),
+const DETAILS = {
+  // Read on every render rather than once: loadModelMeta fills the schema in place, so a list
+  // built at module load would be built before there was anything to build it from.
+  attributes: () =>
+    detailKeys().map((key) => ({
+      key,
+      label: MODEL_FIELDS[key]?.label ?? key,
     })),
-  });
-}
+
+  cells: (entry) =>
+    Object.fromEntries(
+      detailKeys().map((key) => [key, { value: valueOf(entry.detail, key) }]),
+    ),
+};
 
 // ─── ENTRIES ─────────────────────────────────────────────────────────────────
 
@@ -100,412 +58,43 @@ function buildSummary(entries, fields, colourOf) {
 function toModelEntry(row) {
   return {
     key: row.id,
-    modelId: row.id,
+    recordId: row.id,
     name: row.name,
     teamName: row.team_name,
   };
 }
 
-// ─── SCORES ──────────────────────────────────────────────────────────────────
-
-// What the two score sections are drawn from. The colour is carried on the model rather than
-// taken from its place in the list, so a model keeps it when another is dropped — and so the
-// grid's column, the bars and the row it was picked from all agree.
-//
-// `tasks` is derived from the models, and returned with them so that the bars and the rows
-// share one axis — and because plots/ cannot reach up here to compute its own.
-//
-// A pick whose scores haven't arrived is left out rather than drawn as a column of dashes —
-// it would read as a model that scored nothing. `selectedId` is still the first *pick*, so
-// the badge lands on the right model once its own scores do.
-function scoresForModel(entries, scoresOf, suite, colourOf) {
-  const scored = entries.filter((entry) => scoresOf(entry) != null);
-  const comparedModels = toCompareEntries(
-    scored,
-    scoresOf,
-    suite,
-    entries[0]?.modelId,
-  ).map((entry) => ({ ...entry, colour: colourOf(entry.modelId) }));
-
-  return { comparedModels, tasks: compareTasks(comparedModels) };
-}
-
-// The suites the selection has scores on, in SUITES order. From the scores rather than from
-// the submissions behind them, so the select can only offer a suite there is something to
-// draw for — and so it offers the same ones whichever host supplied them.
-function availableSuites(entries, scoresOf) {
-  const scored = new Set(
-    entries
-      .flatMap((entry) => Object.keys(scoresOf(entry) ?? {}))
-      .map(suiteFromTask)
-      .filter(Boolean),
-  );
-
-  return SUITES.filter((suite) => scored.has(suite));
-}
-
-// The hook is "role" rather than the bar's "filter": a list page's own bar carries a suite
-// control of the same name, and a delegated listener must never hear this one.
-function buildBar(label, name, options, selected) {
-  return `
-    <span id=${name} class="row left gap-md">
-      <span class="metadata">${escapeHtml(label)}</span>
-      <span class="inline-select">
-        ${buildSelect({ name, hook: "role", options, selected })}
-      </span>
-    </span>`;
-}
-
-function buildSuiteSelect() {
-  return buildBar("Task suite", "suite", [], "");
-}
-
-function buildBaselineSelect() {
-  return buildBar("Select baseline model", "baseline", [], "");
-}
-
 // ─── WIDGET ──────────────────────────────────────────────────────────────────
 
 /**
- * @param container as createComparison.
- * @param toEntry   (row) => { key, modelId, name, teamName }. `key` identifies the row in
- *                  the host's view; `modelId` is what gets fetched.
- * @param scoresOf  (entry) => `{ task_id: { mean, sem, metric } }`, or null while the host
- *                  has none yet. Defaults to collapsing the model detail this fetches for
- *                  itself; a host holding the scores already — a leaderboard response has
- *                  them collapsed, filtered and ranked — passes its own, so that what the
- *                  comparison shows and what the table above it shows are the same numbers.
- *                  Called on every render rather than read off the entry once: an entry
- *                  outlives the data behind it.
- * @param order     as createComparison.
- *
- * A host that passes a suite to `set` owns it; one that passes nothing gets the suite bar
- * below instead.
+ * @param rest as createRecordComparison. `scoresOf` defaults to the breakdown fetched below;
+ *             a host holding the scores already passes its own.
  */
-function createModelComparison({
-  container,
-  scoresOf = (entry) =>
-    entry.detail ? latestScoresByTask(entry.detail.submissions) : null,
-  ...options
-}) {
-
-  // How both score sections are being read.
-  let view = PLOT_VIEW;
-
-  let comparison = null;
-
-  // Per section, because the two are now redrawn separately.
-  let breakdownCharts = [];
-  let differenceCharts = [];
-
-  let selectedBaseline = "";
-  let selectedSuite = "";
-
-  // The models being compared on the suite in force, and the tasks they cover. Held rather
-  // than recomputed per section: only the picks and the suite move them, and both go through
-  // updateScores.
-  let comparedModels = [];
-  let tasks = [];
-
-
-
-  function clearCharts() {
-    disposeAll(breakdownCharts);
-    disposeAll(differenceCharts);
-
-    breakdownCharts = [];
-    differenceCharts = [];
-  }
-
-  // Before every render, the empty one included — which is the only reason it hides the
-  // sections rather than leaving that to the renderers: with nothing picked the controller
-  // writes its prompt and never calls the render, so the last plots would sit under it.
-  // Each renderer shows its own section again.
-  function clearUp() {
-    clearCharts();
-
-    getSection("breakdown").hidden = true;
-    getSection("differences").hidden = true;
-  }
-
-
-  // The suite in force, or "" for all of them — which is the default, and what the reader
-  // gets back by choosing the blank option. A host that scopes the page to one suite wins
-  // over both: see `set(rows, suite)` in pages/compare.js.
-  function getSuite() {
-    if (comparison.activeContext) return comparison.activeContext;
-
-    return availableSuites(comparison.entries(), scoresOf).includes(selectedSuite)
-      ? selectedSuite
-      : "";
-  }
-
-
-  // The baseline in force, read the same way as the suite: the reader's while it is still
-  // among the compared models, else the first of them. Derived rather than written back, so
-  // `selectedBaseline` means what the reader chose and nothing else.
-  function getBaseline() {
-    return comparedModels.some((entry) => entry.modelId === selectedBaseline)
-      ? selectedBaseline
-      : (comparedModels[0]?.modelId ?? "");
-  }
-
-  // After anything that changes which models are compared or which suite they are compared
-  // on: the picks, their details arriving, or the reader choosing a suite.
-  function updateScores() {
-    ({ comparedModels, tasks } = scoresForModel(
-      comparison.entries(),
-      scoresOf,
-      getSuite(),
-      comparison.colourOf,
-    ));
-  }
-
-  // The blank first option is the default rather than an escape from a choice: a comparison
-  // opens on every suite at once, and picking one narrows it.
-  function buildSuiteOptions(availableSuites, selectedSuite) {
-    const select = getElement("suite").querySelector(`[data-role='suite']`);
-    const options = buildOptions(
-      availableSuites.map((suite) => ({
-        value: suite,
-        label: suiteLabel(suite),
-      })),
-      { selected: selectedSuite, placeholder: "All suites" },
-    );
-    renderHtml(select, options);
-  }
-
-  // The compared models rather than the picks: a pick with nothing on this suite is not a
-  // baseline getBaseline would ever return, so offering it would leave the select showing one
-  // model and the differences measured against another.
-  function buildBaselineOptions(comparedModels, baseline) {
-    const select = getElement("baseline").querySelector(`[data-role='baseline']`);
-    const options = buildOptions(comparedModels.map((entry) => ({
-      value: entry.modelId,
-      label: entry.modelName
-    })), {selected: baseline});
-    renderHtml(select, options);
-  }
-
-
-  // ─── RENDER ────────────────────────────────────────────────────────────────
-
-  function renderBreakdown() {
-    if (!comparedModels.length) {
-      getSection("breakdown").hidden = true
-      return;
-    } else {
-      getSection("breakdown").hidden = false;
-    }
-
-    const section = getSectionBody("breakdown");
-
-    disposeAll(breakdownCharts);
-    breakdownCharts = [];
-
-    if (!tasks.length) {
-      // Not "on this suite": the comparison shows every suite unless the reader has narrowed
-      // it, so the emptiness may be the models' rather than the suite's.
-      renderHtml(section, buildEmptyMessage("None of these models has a scored task yet."));
-
-      return;
-    }
-
-    // One mode for both halves, so the plot and the grid cannot disagree about a cell.
-    const mode = scoreMode();
-
-    if (view === PLOT_VIEW) {
-      const plots = createModelPlots({ entries: comparedModels, tasks, mode });
-
-      section.replaceChildren(plots.element);
-      breakdownCharts = plots.charts;
-
-      return;
-    }
-
-    const { element, table } = createCompareTable({
-      rows: toCompareRows(comparedModels, tasks, mode),
-      tasks,
-      mode: "score",
-    });
-
-    section.replaceChildren(element);
-    breakdownCharts = [table];
-  }
-
-  function renderDifferences() {
-    if (!comparedModels.length) {
-      console.log('here')
-      getSection("differences").hidden = true
-      return;
-    } else if (comparedModels.length === 1) {
-      getSection("differences").hidden = false;
-      renderHtml(getSectionBody("differences"), buildInfoMessage("Select a second model to see the difference."));
-      return;
-    } else {
-      getSection("differences").hidden = false;
-    }
-
-
-    const section = getSectionBody("differences");
-
-    disposeAll(differenceCharts);
-    differenceCharts = [];
-
-    if (!tasks.length || comparedModels.length < 2) {
-      renderHtml(
-        section,
-        buildEmptyMessage("Select a second model to see the difference."),
-      );
-
-      return;
-    }
-
-    const mode = diffMode(comparedModels, getBaseline());
-
-    if (view === PLOT_VIEW) {
-      const plots = createModelPlots({
-        entries: comparedModels,
-        tasks,
-        mode,
-        // A difference is a distance from one baseline, so every plot shares one range.
-        scale: "all",
-      });
-
-      section.replaceChildren(plots.element);
-      differenceCharts = plots.charts;
-
-      return;
-    }
-
-    const { element, table } = createCompareTable({
-      rows: toCompareRows(comparedModels, tasks, mode),
-      tasks,
-      mode: "diff",
-    });
-
-    section.replaceChildren(element);
-    differenceCharts = [table];
-  }
-
-
-  function renderSections() {
-    clearCharts()
-
-    // The picks or their details changed, which is the one thing the controller calls for.
-    updateScores();
-
-    renderHtml(getSectionBody("summary"), buildSummary(comparison.entries(), MODEL_FIELDS, comparison.colourOf));
-
-    setActiveView(view);
-
-    buildSuiteOptions(availableSuites(comparison.entries(), scoresOf), selectedSuite);
-    renderBreakdown();
-
-    buildBaselineOptions(comparedModels, getBaseline());
-    renderDifferences();
-  }
-
-
-  function setActiveView(view) {
-    for (const button of [
-      getElement(PLOT_VIEW),
-      getElement(TABLE_VIEW),
-    ]) {
-      button?.classList.toggle("primary-inv", button.id === view);
-    }
-  }
-
-
-  function renderView(selectedView) {
-    view = selectedView;
-    setActiveView(view);
-
-    renderDifferences()
-    renderBreakdown()
-  }
-
-
-  function attachEvents() {
-    getElement(PLOT_VIEW)?.addEventListener("click", () => {
-      renderView(PLOT_VIEW)
-    });
-
-    getElement(TABLE_VIEW)?.addEventListener("click", () => {
-      renderView(TABLE_VIEW)
-    });
-
-
-    getElement("suite").addEventListener("change", (event) => {
-      selectedSuite = event.target.value;
-
-      // A different suite is a different set of scored tasks, and a different set of models
-      // with a score to show.
-      updateScores();
-
-      renderBreakdown();
-      renderDifferences();
-    });
-
-    getElement("baseline").addEventListener("change", (event) => {
-      selectedBaseline = event.target.value;
-
-      renderDifferences();
-    });
-  }
-
-
-  function setup() {
-
-    const pageHtml = buildSections([
-      {
-        id: "summary"
-      },
-      {
-        id: "breakdown",
-        title: "Task breakdown",
-        actions: [
-          buildSuiteSelect(),
-          buildPlotTableToggle()],
-        hidden: true
-      },
-      {
-        id: "differences",
-        title: "Differences",
-        actions: [buildBaselineSelect()],
-        hidden: true,
-      },
-    ]);
-
-    renderHtml(container, pageHtml);
-
-    attachEvents();
-
-    comparison = createComparison({
-      container: getSectionBody("summary"),
-      max: MAX_MODELS,
-      prompt: `Select up to ${MAX_MODELS} models to compare them.`,
-      palette: SERIES_COLOURS,
-
-      loadDetail: (entry) => loadModel(entry.modelId),
-
-      // The model, not the row: two board rows can name one model.
-      cacheKey: (entry) => entry.modelId,
-
-      toEntry: toModelEntry,
-      render: renderSections,
-      clearUp,
-
-      ...options,
-    });
-
-    return comparison;
-  }
-
-  // Eagerly, because a host binds its table to the comparison the moment it has one — see
-  // bindTableSelection in pages/leaderboard.js.
-  return setup();
+function createModelComparison(options) {
+  return createRecordComparison({
+    noun: "model",
+    max: MAX_MODELS,
+    details: DETAILS,
+
+    toEntry: toModelEntry,
+
+    // The breakdown rather than the whole model: the same specification fields, the collapse
+    // done by the server that does the ranking, and the methodology of each entry — which is
+    // what the plots put in their tooltips. Without the submission tree, which is tens of
+    // kilobytes of per-recording detail nothing here draws.
+    //
+    // `taskSubmissionIds` where the host knows which entries it means — a leaderboard row
+    // names the ones it ranked — so a filtered board and this describe the same runs.
+    loadDetail: (entry) =>
+      loadModelBreakdown(entry.recordId, {
+        taskSubmissionIds: entry.taskSubmissionIds,
+      }),
+
+    // What the breakdown calls them, for a host that left the fetch to this.
+    scoresOf: (entry) => entry.detail?.tasks ?? null,
+
+    ...options,
+  });
 }
 
 export { MAX_MODELS, createModelComparison };
-

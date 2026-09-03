@@ -4,79 +4,102 @@
 // and columns, this turns them into series, and figure.js arranges them. A mark is one model's score on
 // one task, with the sem the grid prints after the ± as its whisker.
 //
-// Models are the series and tasks the axis, which is the grid transposed: a comparison has
-// at most five models and a suite has a dozen tasks, so this is five things to tell apart
-// against a dozen positions rather than the other way round. It also means a model keeps
-// one colour across every panel.
+// Models are the series, which is the grid transposed: a comparison has at most five of them,
+// so this is five things to tell apart by colour rather than a dozen tasks to tell apart by
+// position. It also means a model keeps one colour across every panel — a plot, a grid cell
+// and the board row it was picked in are all the same ink.
 //
 // Bars rather than dots, because there are few enough tasks to give each a group of them,
 // and a length read against a common baseline answers "by how much" faster than two
 // positions do. The axis therefore includes zero — createBarPlot sees to that — so the
 // height of a bar stays proportional to what it reports.
 //
-// The axis is grouped by metric, not merely faceted by it. Two tasks measured differently
-// are different tasks — a suite's `bps` tasks and its `d2` tasks are disjoint sets — so each
-// metric's plot gets an axis holding only its own, rather than one axis on which every plot
-// is mostly gaps.
+// One plot per task, not one per metric. Two tasks are two results, not two readings of one:
+// "choice" and "wheel speed" both being measured in r2 doesn't make them a scale a reader
+// runs their eye along, and an axis holding a suite's eight was eight results deep in one
+// picture. A plot each gives every task its own axis, its own tick label and room for the
+// group of bars that answers the question actually being asked of it — how these models
+// compare *on this task*.
 //
-// Those plots sit in a row rather than stacked. A suite has two or three metrics, and they
-// are read across — the same models, measured differently — rather than down; stacked, the
-// third was below the fold and the comparison stopped looking like one figure. Each plot
-// carries its own tick labels, since its tasks are its own — which is createBarPlots' own
-// default.
+// They still share a y range with the tasks measured the same way, which a plot per task
+// would otherwise lose: see `scaleKey` in figure.js and scaleOf below. Autoscaled apart,
+// adjacent plots would draw 0.1 and 0.9 at the same height.
+//
+// Those plots sit in a row rather than stacked — read across rather than down, and wrapping
+// once a line is full, so eleven tasks are one figure rather than a page of them. Each is one
+// track of the page's own grid — see CATEGORIES_PER_LINE in figure.js — so a task's plot is
+// the same width whatever else is on screen, and each carries its own tick labels, since its
+// task is its own.
 
 import { suiteFromTask, taskLabel } from "../core/suites.js";
+import { methodologyLines } from "../components/methodologyGrid.js";
+import { TASK_FIELDS } from "../schemas/taskSubmissionSchema.js";
 import { createBarPlots } from "./bar.js";
 
-// Grouping and titling both key on it, so a task whose score never named its metric lands
-// in one plot rather than in a plot per unnamed metric.
+// Titling the axis and keying the scale both go through it, so a task whose score never
+// named its metric is drawn against the others like it rather than alone on a scale called
+// nothing.
 function metricOf(task) {
   return task.metric || "score";
 }
 
-// A plot holds one suite's tasks measured in one metric. The suite as well as the metric,
-// because the same metric on two suites is not one scale: ts1's poisson_d2 is a behavioural
-// readout and ts2's is neural reconstruction, and one axis holding both would invite the
-// comparison the numbers don't support.
-function plotOf(task) {
+// What a task's plot shares its y range with: the suite's other tasks measured in the same
+// metric. The suite as well as the metric, because the same metric on two suites is not one
+// scale — ts1's poisson_d2 is a behavioural readout and ts2's is neural reconstruction, and
+// one range across both would invite the comparison the numbers don't support.
+function scaleOf(task) {
   return `${suiteFromTask(task.taskId) ?? ""}|${metricOf(task)}`;
 }
 
+// The lines a tooltip prints under the value. The metric first, as the methodology grid
+// reads it: the axis is titled with the metric too, but a reader hovering one bar in a row of
+// plots is reading a mark rather than the figure it sits in.
+function taskNotes(cell) {
+  if (!cell) return [];
+
+  const metric = cell.metric ? [`Metric: ${cell.metric}`] : [];
+
+  return [...metric, ...methodologyLines(cell, TASK_FIELDS)];
+}
+
 /**
- * One series per model per plot: the plots are per suite and metric, and a model spanning two
- * of them is two series that happen to share a name and a colour.
+ * One series per model per task: a plot is a task, so a model across eleven of them is eleven
+ * series that happen to share a name and a colour.
  *
  * @param mode a mode from compareData — `{ valueOf, axisTitle, skip }`. `skip` is a plain
  *             filter, because a model's colour is carried on its entry rather than taken from
  *             its place in the list.
  */
 function toModelSeries(entries, tasks, { valueOf, axisTitle, skip = null }) {
-  const plots = [...new Set(tasks.map(plotOf))];
-
-  return plots.flatMap((plot) => {
-    const held = tasks.filter((task) => plotOf(task) === plot);
-    const taskIds = held.map((task) => task.taskId);
-
-    return entries
-      .filter((entry) => entry.modelId !== skip)
+  return tasks.flatMap((task) =>
+    entries
+      .filter((entry) => entry.recordId !== skip)
       .map((entry) => {
-        const values = taskIds.map((taskId) => valueOf(entry, taskId));
+        const value = valueOf(entry, task.taskId);
 
         return {
           colour: entry.colour,
-          label: entry.modelName,
-          metric: axisTitle(metricOf(held[0])),
-          group: plot,
-          index: new Map(taskIds.map((taskId, at) => [taskId, at])),
+          label: entry.recordName,
+          metric: axisTitle(metricOf(task)),
+          // The task both ways round: its own axis, of one category, and a range shared with
+          // the tasks it is comparable to.
+          group: task.taskId,
+          scaleKey: scaleOf(task),
+          index: new Map([[task.taskId, 0]]),
           // Nothing to show is a gap rather than a zero, exactly as the grids leave the
           // cell "—" rather than printing a number they don't have.
           values: {
-            mean: values.map((value) => value?.mean ?? null),
-            sem: values.map((value) => value?.sem ?? null),
+            mean: [value?.mean ?? null],
+            sem: [value?.sem ?? null],
+            // What the score is measured in and how it was produced, where the cell says
+            // so. A breakdown's tasks carry both; a leaderboard row's scores carry only the
+            // metric, and a difference neither — each adds what it has rather than a row of
+            // blanks.
+            notes: [taskNotes(value)],
           },
         };
-      });
-  });
+      }),
+  );
 }
 
 // Everything both charts arrange the same way, which is everything except what the bars
@@ -84,13 +107,13 @@ function toModelSeries(entries, tasks, { valueOf, axisTitle, skip = null }) {
 const PLOT = {
   facet: "metric",
   tickLabel: taskLabel,
-  // A suite's metrics cover different numbers of tasks — four measured in r2, one in
-  // poisson_d2 — and equal columns would draw one task as wide as four. Weighted, a task's
-  // group of bars is the same width wherever it is read.
+  // A grid of task-wide tracks, one track per plot: a task is drawn at one track whether the
+  // reader is looking at one of them or at eleven, so a bar's width says nothing about how
+  // many tasks happen to be selected. A line's worth fill it and the rest wrap.
   layout: "weighted",
-  // One key above the row, always, even for one model: the plots are titled by their metric,
-  // so nothing else here says which model the marks belong to. Inside each plot it would
-  // name the same models once per metric.
+  // One key above the row, always, even for one model: a plot is named by its own tick, so
+  // nothing else here says which model the marks belong to. Inside each plot it would name
+  // the same models once per task.
   legend: "shared",
 };
 

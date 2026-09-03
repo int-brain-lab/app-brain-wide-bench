@@ -6,7 +6,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 from app.models import Modality, SubmissionStatus, TaskSuite
-from app.schemas.tasksubmission import TaskSubmissionOut
+from app.schemas.tasksubmission import TaskBreakdown, TaskSubmissionOut
 
 
 class ModelMetadata(BaseModel):
@@ -94,6 +94,21 @@ class ModelDetail(ModelBase):
     """Detailed model information for GET /api/models/{id}."""
 
     submissions: list[ModelSubmissionOut] = []
+
+
+class ModelBreakdown(ModelBase):
+    """A model and what it currently stands on, one task at a time.
+
+    For a reader looking at a single model: its parameters, and every task it has a score
+    for, with the methodology behind each. ``ModelDetail``'s ``submissions`` are left off
+    deliberately — that tree is tens of kilobytes of per-recording detail this view never
+    draws, and what it wants from it is the collapse rather than the rows.
+
+    ``tasks`` is keyed by flat task id, the same shape ``LeaderboardRow.scores`` uses, so a
+    client can hand either to the same code.
+    """
+
+    tasks: dict[str, TaskBreakdown] = {}
 
 
 class ModelCreate(ModelMetadata):

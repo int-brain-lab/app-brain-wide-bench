@@ -1,19 +1,28 @@
-// Several things side by side, one per row, with a fixed set of columns describing them.
+// Several things side by side, compared on a fixed set of attributes.
 //
-// The shape a comparison of *attributes* takes, as opposed to a comparison of numbers: what
-// is being compared goes down the rows so that adding another is another row rather than
-// another column squeezing the rest, and the columns stay put.
+// The shape a comparison of *attributes* takes, as opposed to a comparison of numbers. Which
+// axis the things go on is the caller's: down the rows, so that adding another is another row
+// and the attribute columns stay put; or across the columns, for a set of attributes long
+// enough that reading them as a column is easier than reading them as a header.
 //
-// Columns where every row agrees are muted, header included. Agreement is the background
-// against which the differences are the finding, and with six rows of near-identical
-// metadata it is the only thing that makes the differences visible at all.
+// Either way an attribute every thing answers the same way is muted, label included.
+// Agreement is the background against which the differences are the finding, and with six
+// near-identical sets of metadata it is the only thing that makes the differences visible.
 //
-// Plain markup, not Tabulator: a handful of rows that never sort or filter, with the odd
-// control living in a cell.
+// Plain markup, not Tabulator: a handful of cells that never sort or filter, with the odd
+// control living in one of them.
 //
-// Three scales of one thing, so they live together: the grid, the header of one of its rows,
-// and the ✕ in that header. `dropFromClick` is the ✕'s other half — the markup is rebuilt on
-// every render, so the listener sits on an ancestor and reads what was clicked.
+// Two scales of one thing, so they live together: the grid, and the row of chips naming what
+// is being compared.
+//
+// The chips are the whole of the naming, and the grid says nothing about what its columns are:
+// a comparison is several readings of one set of picks — a grid, a plot, a table — and naming
+// them once above all of them beats naming them in each. So a column carries only the colour
+// of the chip it belongs to, which is also the colour it is drawn in everywhere else.
+//
+// The chips are also where an entity is taken out again. `dropFromClick` is the ✕'s other half,
+// since the chips are rebuilt on every render and the listener sits on the row that holds
+// them.
 
 import { escapeHtml } from "../core/html.js";
 import { getIcon } from "./icons.js";
@@ -24,39 +33,39 @@ const HEX = /^#[0-9a-f]{3,8}$/i;
 
 const DROP_ROLE = "drop";
 
-// ─── ROW HEADERS ─────────────────────────────────────────────────────────────
+// ─── PICKS ───────────────────────────────────────────────────────────────────
 
-function buildDropButton(key, name) {
-  return `
-    <button
-      type="button"
-      class="chip-remove"
-      data-role="${DROP_ROLE}"
-      data-key="${escapeHtml(key)}"
-      title="Remove ${escapeHtml(name)}"
-      aria-label="Remove ${escapeHtml(name)}"
-    >
-      <i class="field-icon" data-lucide="${escapeHtml(getIcon("remove"))}"></i>
-    </button>`;
+function pickStyle(ink) {
+  return HEX.test(ink ?? "") ? ` style="--pick-ink:${ink}"` : "";
 }
 
 /**
- * A row header: the ✕, what the row is, and a quieter line under it.
+ * What is being compared, as a chip each with an ✕ to take it out again.
  *
- * @param key   the entry's, which is what the ✕ hands back.
- * @param title markup — a link, a label, a run of badges.
- * @param meta  text, escaped here.
- * @param name  the thing's name in plain words, for the button's label.
+ * @param picks [{ key, label, ink }] — `key` is what the ✕ hands back, `ink` the colour the
+ *              thing is drawn in everywhere else, which tints its chip.
+ * @returns the markup, or nothing at all for an empty comparison: the row is the caller's and
+ *          an empty one should collapse rather than hold a blank chip.
  */
-function buildRowHeader({ key, title, meta = "", name = "" }) {
-  return `
-    <span class="column gap-xs">
-      <span class="row left gap-sm">
-        ${buildDropButton(key, name)}
-        ${title}
-      </span>
-      ${meta ? `<span class="metadata">${escapeHtml(meta)}</span>` : ""}
-    </span>`;
+function buildPicks(picks) {
+  return picks
+    .map(
+      ({ key, label, ink }) => `
+    <span class="chip pick"${pickStyle(ink)}>
+      ${escapeHtml(label)}
+      <button
+        type="button"
+        class="chip-remove"
+        data-role="${DROP_ROLE}"
+        data-key="${escapeHtml(key)}"
+        title="Remove ${escapeHtml(label)}"
+        aria-label="Remove ${escapeHtml(label)}"
+      >
+        <i class="field-icon" data-lucide="${escapeHtml(getIcon("remove"))}"></i>
+      </button>
+    </span>`,
+    )
+    .join("");
 }
 
 /**
@@ -74,6 +83,11 @@ function inkStyle(ink) {
   return HEX.test(ink ?? "") ? ` style="--row-ink:${ink}"` : "";
 }
 
+// The ink rides on the cell in the turned layout: a column cannot inherit a custom property
+// from the header above it, where a row's cells inherit it from the row.
+const CELL = (state, html, ink = "") =>
+  `<td class="${state}"${ink}>${html}</td>`;
+
 // A cell is a value to compare and, optionally, the markup to show instead of it — a
 // select, a badge. The value is what decides whether the column agrees, so a control still
 // counts as its current setting.
@@ -85,57 +99,98 @@ function cellHtml(cell) {
     : escapeHtml(cell.value);
 }
 
-function columnAgrees(key, rows) {
-  return new Set(rows.map((row) => row.cells[key]?.value ?? "")).size <= 1;
+// Whether every thing being compared answers this attribute the same way — which is what
+// decides whether it recedes. Read off `value` and not the markup, so a cell holding a
+// control still counts as its current setting.
+function attributeAgrees(key, entities) {
+  return new Set(entities.map((entity) => entity.cells[key]?.value ?? "")).size <= 1;
 }
 
 /**
- * @param columns [{ key, label }] — fixed, in order.
- * @param rows    [{ key, header, ink, cells: { [columnKey]: { value, html } } }]. `header` is
- *                markup, because what identifies a row — a badge, a remove button, a second
- *                line — is the caller's business. `ink` is the colour the row is marked in,
- *                for a comparison whose rows are drawn elsewhere too.
- * @param className extra classes on the wrapper, for a caller with its own column widths.
+ * @param entities   [{ ink, cells: { [attributeKey]: { value, html } } }] — the things being
+ *                   compared, in order. `ink` is the colour one is drawn in everywhere else,
+ *                   which is the only thing here that says which is which: what they are
+ *                   called is the row of chips above the grid — see buildPicks.
+ * @param attributes [{ key, label }] — what they are compared on, fixed and in order.
+ * @param layout     "rows" puts an entity per row and an attribute per column — for a few
+ *                   attributes read across. "columns" turns it: an entity per column and an
+ *                   attribute per row, for a long set of attributes, where a header of nine
+ *                   of them is unreadable and a column of nine is a list.
+ * @param className  extra classes on the wrapper, for a caller with its own widths.
  * @returns the markup.
  */
-function buildComparisonGrid({ columns, rows, className = "" }) {
+function buildComparisonGrid({
+  entities,
+  attributes,
+  layout = "rows",
+  className = "",
+}) {
   const state = new Map(
-    columns.map((column) => [
-      column.key,
-      columnAgrees(column.key, rows) ? "agrees" : "differs",
+    attributes.map((attribute) => [
+      attribute.key,
+      attributeAgrees(attribute.key, entities) ? "agrees" : "differs",
     ]),
   );
 
-  const headers = columns
-    .map(
-      (column) =>
-        `<th scope="col" class="${state.get(column.key)}">${escapeHtml(column.label)}</th>`,
-    )
-    .join("");
+  const label = (attribute, scope) =>
+    `<th scope="${scope}" class="${state.get(attribute.key)}">${escapeHtml(attribute.label)}</th>`;
 
-  const body = rows
-    .map(
-      (row) => `
-      <tr${inkStyle(row.ink)}>
-        <th scope="row">${row.header}</th>
-        ${columns
+  // The ink goes on whichever element heads the entity, since that is what it identifies —
+  // the row in one layout, the column header in the other.
+  const head =
+    layout === "columns"
+      ? entities
+          .map((entity) => `<th scope="col"${inkStyle(entity.ink)}></th>`)
+          .join("")
+      : attributes.map((attribute) => label(attribute, "col")).join("");
+
+  const body =
+    layout === "columns"
+      ? attributes
           .map(
-            (column) => `
-          <td class="${state.get(column.key)}">${cellHtml(row.cells[column.key])}</td>
-        `,
+            (attribute) => `
+      <tr>
+        ${label(attribute, "row")}
+        ${entities
+          .map((entity) =>
+            CELL(
+              state.get(attribute.key),
+              cellHtml(entity.cells[attribute.key]),
+              inkStyle(entity.ink),
+            ),
           )
           .join("")}
       </tr>`,
-    )
-    .join("");
+          )
+          .join("")
+      : entities
+          .map(
+            (entity) => `
+      <tr${inkStyle(entity.ink)}>
+        <th scope="row"></th>
+        ${attributes
+          .map((attribute) =>
+            CELL(
+              state.get(attribute.key),
+              cellHtml(entity.cells[attribute.key]),
+            ),
+          )
+          .join("")}
+      </tr>`,
+          )
+          .join("");
+
+  const classes = ["table", "comparison-grid", layout === "columns" ? "by-column" : "", className]
+    .filter(Boolean)
+    .join(" ");
 
   return `
-    <div class="table comparison-grid ${escapeHtml(className)}">
+    <div class="${escapeHtml(classes)}">
       <table>
-        <thead><tr><th></th>${headers}</tr></thead>
+        <thead><tr><th></th>${head}</tr></thead>
         <tbody>${body}</tbody>
       </table>
     </div>`;
 }
 
-export { buildComparisonGrid, buildRowHeader, dropFromClick };
+export { buildComparisonGrid, buildPicks, dropFromClick };

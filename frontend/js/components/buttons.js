@@ -18,6 +18,25 @@ export const TABLE_VIEW = "table-view"
 export const PLOT_VIEW = "plot-view"
 
 
+function buttonBody({ label, icon }) {
+  return `
+    <i class="btn-icon" data-lucide="${escapeHtml(icon)}"></i>
+    ${escapeHtml(label)}
+  `;
+}
+
+/**
+ * Relabel a button already on the page — for one that says which way it will go next, like
+ * "Show more filters" becoming "Show fewer".
+ *
+ * The whole body rather than the text, because the icon turns with the label; and the caller
+ * refreshes lucide, since the fresh placeholder is usually not the only one it has just
+ * written.
+ */
+export function setButtonLabel(button, { label, icon }) {
+  if (button) button.innerHTML = buttonBody({ label, icon });
+}
+
 /**
  * @param id     omit for a button nothing looks up by id.
  * @param label  the text.
@@ -51,10 +70,7 @@ export function buildButton({
     .filter(Boolean)
     .join(" ");
 
-  const body = `
-    <i class="btn-icon" data-lucide="${escapeHtml(icon)}"></i>
-    ${escapeHtml(label)}
-  `;
+  const body = buttonBody({ label, icon });
 
   if (view) {
     return `<a ${attributes} href="#" data-view="${escapeHtml(view)}">${body}</a>`;
@@ -70,13 +86,14 @@ export function buildButton({
 
 
 export function buildCompareButton(
-  { id = COMPARE_BUTTON_ID, href=null, label = "Compare", className = "" } = {}
+  { id = COMPARE_BUTTON_ID, href=null, label = "Compare", className = "", disabled = false } = {}
 ) {
   return buildButton({
     id,
     label,
     href,
     className,
+    disabled,
     icon: getIcon("compare"),
   });
 }
@@ -157,7 +174,7 @@ export const EDIT_BUTTONS = [
 /**
  * The buttons that switch one thing between ways of reading it. Which is lit says which way
  * is open, so the caller attaches a listener per id and thereafter only sets the class — see
- * setActiveView in comparisons/modelComparison.js.
+ * setActiveView in comparisons/recordComparison.js.
  *
  * @param buttons [{ id, label, icon }] — `icon` is an app name, resolved here, so a caller
  *                names the thing rather than the glyph. See components/icons.js.

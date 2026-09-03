@@ -8,6 +8,7 @@
 // and an axis holding both would be one axis pretending to be two. So the dimension is the
 // group the arrangement keys its axes on.
 
+import { createBarPlots } from "./bar.js";
 import { buildHeatmaps } from "./heatmap.js";
 import { createScatterPlots } from "./scatter.js";
 
@@ -89,6 +90,47 @@ function createRecordingPlots({
 }
 
 /**
+ * The same scores as bars: a plot per score, a bar per recording.
+ *
+ * The other way of reading what createRecordingPlots draws — the same panels, the same axis in
+ * the same order, and only the mark different. A bar says how much of the metric a recording
+ * got, read against a baseline the axis includes; a point says where it sits. Which of the two
+ * answers the question is the reader's to decide, so both are on offer and nothing else about
+ * the arrangement moves when they switch.
+ *
+ * The same arguments as createRecordingPlots, so a caller offering both can hand the reader's
+ * choice to whichever of them it is — see renderPlot in comparisons/taskScoreComparison.js.
+ *
+ * @param entries the series, from toScoreSeries.
+ * @param facet   as createRecordingPlots.
+ * @param layout  as createRecordingPlots.
+ * @param size    as createRecordingPlots.
+ * @returns { element, charts } — as createBarPlots.
+ */
+function createRecordingBars({
+  entries,
+  facet = "metric",
+  layout,
+  size = "regular",
+}) {
+  return createBarPlots({
+    entries,
+    // A plot per score is a plot per series here: a score contributes one.
+    facet: facet === "score" ? "series" : "metric",
+    layout,
+    size,
+    // As createRecordingPlots: recordings have no order of their own, so the strongest series
+    // orders the axis and the rest are read against it.
+    order: "value",
+    tickLabel: recordingTickLabel,
+    // A plot per score is titled with it, so a key naming them would say it twice. A plot per
+    // metric holds several and needs one — and it has to be the shared key rather than a
+    // legend inside each, since packing the bars leaves a dataset no longer one series.
+    legend: facet === "metric" && entries.length > 1 ? "shared" : false,
+  });
+}
+
+/**
  * The same scores as blocks of cells — see buildHeatmaps.
  *
  * @param entries the series, from toScoreSeries.
@@ -103,4 +145,9 @@ function buildRecordingHeatmaps({ entries }) {
   });
 }
 
-export { buildRecordingHeatmaps, createRecordingPlots, toScoreSeries };
+export {
+  buildRecordingHeatmaps,
+  createRecordingBars,
+  createRecordingPlots,
+  toScoreSeries,
+};

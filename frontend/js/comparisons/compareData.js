@@ -66,12 +66,16 @@ function latestScoresByTask(submissions) {
 
 // ─── ENTRIES ─────────────────────────────────────────────────────────────────
 
-// One model, reduced to its scores.
+// One record — a model, a submission — reduced to its scores.
 //
-// `entry` is a comparison entry — it already knows the model's name and team, from the row
-// it was picked in, so neither is waited on. `scores` is `{ task_id: { mean, sem, metric } }`,
+// `entry` is a comparison entry: it already knows the record's name and team, from the row it
+// was picked in, so neither is waited on. `scores` is `{ task_id: { mean, sem, metric } }`,
 // whoever collapsed it: a leaderboard row's `scores` and latestScoresByTask agree on those
 // three fields, and anything else a producer carries rides along unread.
+//
+// `recordId` and `recordName` rather than `modelId` and `modelName`: what is being compared is
+// whatever the host picked, and the shape below is the same for a model, a submission, or the
+// next thing with a score per task.
 //
 // `suite` narrows them to one; omit it for every task the model has scored, which is what a
 // comparison shows until the reader asks for less.
@@ -83,8 +87,8 @@ function toCompareEntry(entry, scores, suite = "") {
   );
 
   return {
-    modelId: entry.modelId,
-    modelName: entry.name,
+    recordId: entry.recordId,
+    recordName: entry.name,
     teamName: entry.teamName ?? null,
     // { "ts1-choice": { mean, sem, metric }, … }
     tasks,
@@ -100,8 +104,8 @@ function toCompareEntry(entry, scores, suite = "") {
  *                   board under the picks, and the selection keeps the entry object it
  *                   already had.
  * @param suite      which suite to narrow to, or "" for all of them.
- * @param selectedId the model being compared *against*, which is badged rather than moved.
- * @returns one entry per model, in the order given. Pick order rather than ranked: a mean
+ * @param selectedId the record being compared *against*, which is badged rather than moved.
+ * @returns one entry per record, in the order given. Pick order rather than ranked: a mean
  *          over a mixed set of metrics is not a ranking, and the reader chose the order the
  *          picker is in. A model with no score on the suite is kept — it was explicitly
  *          chosen, and silently omitting it would read as a bug in the picker.
@@ -109,7 +113,7 @@ function toCompareEntry(entry, scores, suite = "") {
 function toCompareEntries(entries, scoresOf, suite, selectedId) {
   return entries
     .map((entry) => toCompareEntry(entry, scoresOf(entry), suite))
-    .map((entry) => ({ ...entry, isSelected: entry.modelId === selectedId }));
+    .map((entry) => ({ ...entry, isSelected: entry.recordId === selectedId }));
 }
 
 // ─── TASKS ───────────────────────────────────────────────────────────────────
@@ -159,14 +163,14 @@ function scoreMode() {
 }
 
 /**
- * @param baselineId whichever model the reader is measuring against, which is the page's own
+ * @param baselineId whichever record the reader is measuring against, which is the page's own
  *                   by default but may be any of the compared ones — "how much better is
  *                   everything than mine?" and "how much better is mine than this one?" are
  *                   the same comparison read two ways. It gets no column and no series of
  *                   its own: it would be a row of zeros.
  */
 function diffMode(entries, baselineId) {
-  const baseline = entries.find((entry) => entry.modelId === baselineId);
+  const baseline = entries.find((entry) => entry.recordId === baselineId);
 
   return {
     // A task only one of the two scored has no difference to state, so the cell is empty
@@ -191,7 +195,7 @@ function diffMode(entries, baselineId) {
 
 // ─── ROWS ────────────────────────────────────────────────────────────────────
 
-// One row per model, in the order they should appear: the page's own model first, then by
+// One row per record, in the order they should appear: the page's own first, then by
 // mean descending — the order toCompareEntries already put them in. `skip` leaves out the
 // difference grid's baseline, which would be a row of zeros.
 //
@@ -199,14 +203,14 @@ function diffMode(entries, baselineId) {
 // whole { mean, sem } object rather than a number — the cell renders both halves, and a sorter
 // reading `.mean` is cheaper than carrying a parallel set of fields.
 //
-// The model's own fields ride along because the row identifies itself: its name, its team and
+// The record's own fields ride along because the row identifies itself: its name, its team and
 // the colour it is drawn in everywhere else.
 function toCompareRows(entries, tasks, { valueOf, skip = null }) {
   return entries
-    .filter((entry) => entry.modelId !== skip)
+    .filter((entry) => entry.recordId !== skip)
     .map((entry) => ({
-      modelId: entry.modelId,
-      modelName: entry.modelName,
+      recordId: entry.recordId,
+      recordName: entry.recordName,
       teamName: entry.teamName,
       isSelected: entry.isSelected,
       colour: entry.colour,

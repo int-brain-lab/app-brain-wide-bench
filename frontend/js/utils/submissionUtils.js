@@ -28,12 +28,31 @@ function toSubmissionRow(submission) {
     team_name: submission.team_name ?? null,
     updated_at: submission.updated_at,
     status: submission.status,
+    // On the row rather than fetched with the detail: it is on every response a listing
+    // returns, and the comparison's details panel is one of the things that reads it.
+    is_public: submission.is_public ?? null,
     suites: suitesFromSubmission(submission),
   };
 }
 
-function toSubmissionRows(submissions) {
-  return submissions.map(toSubmissionRow);
+/**
+ * @param submissions the API records.
+ * @param names       what a nested shape leaves off: `{ modelName, teamName }`. A model's own
+ *                    detail response nests its submissions without repeating whose they are —
+ *                    see ModelSubmissionOut — and a row of one still has to say. Filled in
+ *                    only where the record itself is silent, so a listing that carries them
+ *                    keeps its own.
+ */
+function toSubmissionRows(submissions, { modelName = null, teamName = null } = {}) {
+  return submissions.map((submission) => {
+    const row = toSubmissionRow(submission);
+
+    return {
+      ...row,
+      model_name: row.model_name ?? modelName,
+      team_name: row.team_name ?? teamName,
+    };
+  });
 }
 
 // ─── FILTERS ─────────────────────────────────────────────────────────────────

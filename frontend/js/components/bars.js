@@ -78,7 +78,7 @@ function buildModelScoreBar(entry, suite, totalTasks) {
     <div class="row gap-md model-bar ${hasScore ? "" : "disabled"}">
       <span class="column gap-xs model-bar-label">
         <span class="row left gap-sm">
-          <span class="label">${escapeHtml(entry.modelName)}</span>
+          <span class="label">${escapeHtml(entry.recordName)}</span>
           ${badge}
         </span>
         ${team}

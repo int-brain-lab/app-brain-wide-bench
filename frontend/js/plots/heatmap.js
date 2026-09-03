@@ -13,7 +13,7 @@ import { escapeHtml } from "../core/html.js";
 import { score } from "../core/utils.js";
 import {
   groupSeries,
-  plotKey,
+  scaleKey,
   positionsIn,
   sharedAxes,
   sharedRanges,
@@ -157,7 +157,7 @@ function buildHeatmaps({
 
       return buildHeatmap({
         title: metric,
-        range: ranges.get(plotKey(members[0])) ?? { min: 0, max: 1 },
+        range: ranges.get(scaleKey(members[0])) ?? { min: 0, max: 1 },
         format: (value) => score(value),
         labels: showColumns(group),
         columns: labels.map((key, column) => ({
