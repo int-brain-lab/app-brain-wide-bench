@@ -18,7 +18,7 @@ class TS1Scorer(BaseScorer):
 
     def score(self, pred_dir: Path, gt_dir: Path) -> dict:
         """Score predictions and return a JSON-serialisable result dict."""
-        from core.scoring.ts1_scoring import score_dir, summarize
+        from ibl_bwb_eval.scoring.ts1 import score_dir, summarize
 
         raw = score_dir(pred_dir, gt_dir)
         summary = summarize(raw)  # {(label, task, recording_id): {metric: (mean, sem, n)}}
@@ -55,6 +55,6 @@ class TS1Scorer(BaseScorer):
     @staticmethod
     def _primary_metric(flat_task: str) -> str:
         """Return the primary metric name for a flat task id (e.g. ``ts1-choice``)."""
-        from ts1 import get_readout_spec
+        from ibl_bwb_eval.tasks.ts1 import get_ts1_readout_spec
 
-        return get_readout_spec(flat_task.split("-", 1)[1]).primary_metric
+        return get_ts1_readout_spec(flat_task.split("-", 1)[1]).primary_metric

@@ -2,11 +2,11 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from typing import Any, Sequence
+from typing import Annotated, Any, Sequence
 
 from app.auth import (
     get_current_user,
@@ -16,10 +16,12 @@ from app.auth import (
     require_team_member,
 )
 from app.database import get_session
+from app.ranking.rank import Standing, latest_entries, place_standings, standings
 from app.routers.submissions import visible_submissions
 from app.models import (
     Model,
     Submission,
+    SubmissionStatus,
     Task,
     TaskScore,
     TaskSubmission,
@@ -27,11 +29,17 @@ from app.models import (
     User,
 )
 from app.schemas.models import (
+    ModelBreakdown,
     ModelCreate,
     ModelDetail,
+    ModelRanking,
     ModelResponse,
     ModelUpdate,
+    RankingSide,
+    TaskEntryRef,
+    TaskEntrySides,
 )
+from app.schemas.tasksubmission import TaskBreakdown
 
 router = APIRouter(prefix="/api/models", tags=["models"])
 
@@ -224,7 +232,7 @@ async def _load_model_detail(
         if not submissions:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Model not found")
 
-    return ModelDetail.from_model(model, submissions=submissions, can_edit=member)
+    return ModelDetail.from_model(model, submissions=submissions, is_mine=member)
 
 
 # ── Endpoints ──────────────────────────────────────────────────────
@@ -264,11 +272,15 @@ async def list_models(
     n_submissions = await submission_count_per_model(visible, session)
     suites = await suites_per_model(visible, session)
 
+    # One query for the whole listing rather than a membership check per row.
+    my_team_ids = await member_team_ids(user.id if user else None, session)
+
     return [
         ModelResponse.from_model(
             model,
             n_submissions=n_submissions.get(model.id, 0),
             task_suites=suites.get(model.id, []),
+            is_mine=model.team_id in my_team_ids,
         )
         for model in models
     ]
@@ -311,6 +323,179 @@ async def get_model(
     Raises: 404 - Not found if the model doesn't exist, or has nothing the caller may see
     """
     return await _load_model_detail(model_id, user, session)
+
+
+@router.get("/{model_id}/ranking", response_model=ModelRanking)
+async def get_model_ranking(
+    model_id: uuid.UUID,
+    user: User | None = Depends(get_current_user_optional),
+    session: AsyncSession = Depends(get_session),
+) -> ModelRanking:
+    """Where a model stands, publicly and with its private work counted.
+
+    Two rankings against one field. The field is every *other* model's public standing —
+    other teams' private work is not ours to rank against — so the competitors are
+    identical in both and the only thing that moves is this model's own entry. The
+    difference between the two is therefore exactly what publishing would change.
+
+    Each side takes the model's newest score for every task, from whichever submission
+    holds it: the public side from its public submissions, the private side from all of
+    them. ``tasks`` names the entry each side used, so a client can say which of its rows
+    are carrying which ranking.
+
+    Only completed submissions count, on either side — an attempt still being scored has
+    no result to rank.
+
+    ``private`` is omitted for a caller who is not on the model's team.
+
+    Raises: 404 - Not found if the model doesn't exist, or has nothing the caller may see
+    """
+    model = await _get_model(
+        model_id,
+        session,
+        options=[
+            selectinload(Model.submissions)
+            .selectinload(Submission.task_submissions)
+            .selectinload(TaskSubmission.score),
+        ],
+    )
+
+    member = user is not None and await is_team_member(user.id, model.team_id, session)
+
+    # The same rule as the model detail: a model with nothing public is not readable by a
+    # non-member at all, rather than readable with an empty ranking.
+    if not member and not any(submission.is_public for submission in model.submissions):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Model not found")
+
+    mine = [s for s in model.submissions if s.status == SubmissionStatus.done]
+
+    # The model's own submissions are left out: its standing is built separately, below,
+    # and a model must not appear in the field it is being placed against.
+    others = (
+        await session.execute(
+            select(Submission)
+            .where(
+                Submission.is_public.is_(True),
+                Submission.status == SubmissionStatus.done,
+                Submission.model_id != model_id,
+            )
+            .options(
+                selectinload(Submission.task_submissions).selectinload(TaskSubmission.score)
+            )
+        )
+    ).scalars().all()
+
+    field = standings(others)
+    tasks = (await session.execute(select(Task))).scalars().all()
+
+    def side(label: str, submissions: list[Submission]) -> tuple[RankingSide, dict[str, TaskSubmission]]:
+        """Place ``submissions`` as one standing against the shared field.
+
+        ``label`` is only how the standing's own result is found again in what
+        ``place_standings`` returns. A word rather than the model id: the field labels its
+        standings by model, and two entries sharing a label would silently merge their
+        scores rather than raise.
+        """
+        standing = Standing(label=label, entries=latest_entries(submissions))
+        placings = place_standings([*field, standing], tasks)[label]
+
+        return RankingSide.from_placings(placings), standing.entries
+
+    public, public_entries = side("public", [s for s in mine if s.is_public])
+    private, private_entries = side("private", mine) if member else (None, {})
+
+    def entry(entries: dict[str, TaskSubmission], task_id: str) -> TaskEntryRef | None:
+        """The entry that side used for ``task_id``, or nothing where it has no score for it."""
+        return TaskEntryRef.model_validate(entries[task_id]) if task_id in entries else None
+
+    return ModelRanking(
+        model_id=model.id,
+        public=public,
+        private=private,
+        tasks={
+            task_id: TaskEntrySides(
+                public=entry(public_entries, task_id),
+                private=entry(private_entries, task_id),
+            )
+            for task_id in sorted({*public_entries, *private_entries})
+        },
+    )
+
+
+@router.get("/{model_id}/breakdown", response_model=ModelBreakdown)
+async def get_model_breakdown(
+    model_id: uuid.UUID,
+    task_submission_id: Annotated[list[uuid.UUID] | None, Query()] = None,
+    user: User | None = Depends(get_current_user_optional),
+    session: AsyncSession = Depends(get_session),
+) -> ModelBreakdown:
+    """A model's parameters, and the task entries it currently stands on.
+
+    Two ways to say which entries, and they answer different questions:
+
+    * **no ids** — the newest scored entry for each task, which is where the model stands
+      today. What a listing wants: it has a model and needs the current picture.
+    * **``task_submission_id``, repeated** — exactly those entries and no others. What a
+      caller already looking at a set of scores wants: a leaderboard row names the entries
+      it ranked, and re-deriving "newest" here could answer with a different run than the
+      one on the reader's screen — a filtered board stands on the newest *matching* entry,
+      which is not always the newest.
+
+    Ids naming a task submission of another model, or one this caller may not see, are
+    ignored rather than refused: what is returned is the intersection of what was asked for
+    and what is theirs to read, so the endpoint says nothing about whether the rest exists.
+
+    Only completed submissions count either way — an attempt still being scored has no
+    result to stand on — and only the ones this caller may see, which is the model detail's
+    rule. So a member reading their own model gets their private entries too, and this can
+    differ from what the public leaderboard showed. That is the reason the ids exist.
+
+    Raises: 404 - Not found if the model doesn't exist, or has nothing the caller may see
+    """
+    model = await _get_model(
+        model_id,
+        session,
+        options=[
+            selectinload(Model.team),
+            selectinload(Model.submissions)
+            .selectinload(Submission.task_submissions)
+            .selectinload(TaskSubmission.score),
+        ],
+    )
+
+    member = user is not None and await is_team_member(user.id, model.team_id, session)
+
+    visible = [s for s in model.submissions if member or s.is_public]
+
+    # The same rule as the model detail: a model with nothing public is not readable by a
+    # non-member at all, rather than readable with an empty breakdown.
+    if not visible:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Model not found")
+
+    done = [s for s in visible if s.status == SubmissionStatus.done]
+
+    if task_submission_id is None:
+        entries = latest_entries(done)
+    else:
+        wanted = set(task_submission_id)
+
+        # One per task still, so a caller naming two entries for one task gets the newer —
+        # ``latest_entries`` is walking newest-first, and this only narrows what it may pick.
+        #
+        # ``eligible`` and not ``keep``: these ids *are* the candidates, so anything outside
+        # the set is not one. ``keep`` asks the other question — whether the newest entry
+        # qualifies — and would drop a task whose newest entry this caller didn't name, which
+        # is exactly the entry a leaderboard row is asking to be described instead of.
+        entries = latest_entries(done, eligible=lambda entry: entry.id in wanted)
+
+    return ModelBreakdown.from_model(
+        model,
+        is_mine=member,
+        tasks={
+            task_id: TaskBreakdown.from_entry(entry)
+            for task_id, entry in entries.items()
+        },
+    )
 
 
 @router.patch("/{model_id}", response_model=ModelDetail)

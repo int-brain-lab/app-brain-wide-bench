@@ -1,6 +1,7 @@
-// One document, several views of a single record. `?view=` is the state.
+import { dispose } from "./disposable.js";
+import { refreshIcons } from "./render.js";
 
-const CONTAINER_ID = "container";
+// One document, several views of a single record. `?view=` is the state.
 
 // Two kinds of URL extra, and they clean up at opposite ends:
 //
@@ -11,7 +12,7 @@ function createRecordRouter({
   views,
   context,
   defaultView = "dashboard",
-  container = document.getElementById(CONTAINER_ID),
+  container,
   flags = [],
   params: viewParams = [],
 }) {
@@ -53,7 +54,9 @@ function createRecordRouter({
     const current = new URLSearchParams(location.search);
 
     return Object.fromEntries(
-      viewParams.filter(param => current.has(param)).map(param => [param, current.get(param)]),
+      viewParams
+        .filter((param) => current.has(param))
+        .map((param) => [param, current.get(param)]),
     );
   }
 
@@ -63,10 +66,13 @@ function createRecordRouter({
     // Optional call, not a bare one: `.destroy()` comes from Tabulator 6 docs and has never
     // been run here. A wrong name should leak, not throw and kill navigation.
     if (typeof mounted.destroy !== "function") {
-      console.warn("Record view returned a handle with no destroy(); it will leak.", mounted);
+      console.warn(
+        "Record view returned a handle with no destroy(); it will leak.",
+        mounted,
+      );
     }
 
-    mounted.destroy?.();
+    dispose(mounted);
     mounted = null;
   }
 
@@ -80,7 +86,7 @@ function createRecordRouter({
 
     mounted = views[name]({ ...context, ...extra }, router) ?? null;
 
-    globalThis.lucide?.createIcons?.();
+    refreshIcons();
   }
 
   function goTo(name, extra = {}) {
@@ -96,7 +102,7 @@ function createRecordRouter({
 
   function attach() {
     // Attaches all items in the page that have a data-view attribute. The attribute's value is the view name to navigate to.
-    container.addEventListener("click", event => {
+    container.addEventListener("click", (event) => {
       const link = event.target.closest("[data-view]");
 
       // The `contains` check matters: private pages carry `<body data-view="private">`, so
@@ -104,14 +110,20 @@ function createRecordRouter({
       // to a view called "private".
       if (!link || !container.contains(link)) return;
 
+      // A view this page doesn't have falls through to the link's own href rather than
+      // being swallowed. That is what lets one piece of markup do both jobs: a score row
+      // routes client-side on the submission page, which owns the `score` view, and
+      // navigates by URL from the dashboard and the model page, which do not.
+      if (!(link.dataset.view in views)) return;
+
       event.preventDefault();
 
       // A link supplies declared params from its own dataset — `data-task="…"` alongside
       // `data-view="task"` — so a table cell can route without any domain glue.
       const extra = Object.fromEntries(
         viewParams
-          .filter(param => link.dataset[param] != null)
-          .map(param => [param, link.dataset[param]]),
+          .filter((param) => link.dataset[param] != null)
+          .map((param) => [param, link.dataset[param]]),
       );
 
       goTo(link.dataset.view, extra);
@@ -119,7 +131,9 @@ function createRecordRouter({
 
     // No pushState here — pushing on a popstate adds an entry per press and the page
     // becomes impossible to leave.
-    addEventListener("popstate", () => showView(viewFromUrl(), paramsFromUrl()));
+    addEventListener("popstate", () =>
+      showView(viewFromUrl(), paramsFromUrl()),
+    );
   }
 
   // Read once at boot and deleted from the URL, so a flag can't ride along to a later view
@@ -155,6 +169,5 @@ function createRecordRouter({
 
   return router;
 }
-
 
 export { createRecordRouter };

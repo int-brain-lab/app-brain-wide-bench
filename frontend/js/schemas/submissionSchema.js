@@ -1,5 +1,7 @@
-import {getMyModels} from "../api/modelApi.js";
+// The submission form schema: what a submission is, and the panels it is edited in.
 
+import { applyFieldMeta, getMeta } from "../api/metaApi.js";
+import { getMyModels } from "../api/modelApi.js";
 
 const SUBMISSION_FIELDS = {
   id: {
@@ -11,7 +13,7 @@ const SUBMISSION_FIELDS = {
   label: {
     label: "Name",
     input: "text",
-    panel: 1,
+    panel: "model",
     default: "",
     required: true,
   },
@@ -20,7 +22,7 @@ const SUBMISSION_FIELDS = {
     label: "Model id",
     input: "select",
     options: null,
-    panel: 1,
+    panel: "model",
     required: true,
   },
 
@@ -28,14 +30,14 @@ const SUBMISSION_FIELDS = {
     label: "Model name",
     input: "text",
     editable: false,
-    panel: 1,
+    panel: "model",
   },
 
   team_name: {
     label: "Team name",
     input: "text",
     editable: false,
-    panel: 1,
+    panel: "model",
   },
 
   // team_id: {
@@ -48,14 +50,23 @@ const SUBMISSION_FIELDS = {
     label: "Status",
     input: "text",
     editable: false,
-    panel: 1,
+    panel: "model",
   },
 
   is_public: {
     label: "Public",
     input: "select",
     options: [true, false],
-    panel: 2,
+    panel: "information",
+    required: true,
+  },
+
+  is_deterministic: {
+    label: "Deterministic",
+    input: "select",
+    default: false,
+    options: [true, false],
+    panel: "information",
     required: true,
   },
 
@@ -81,38 +92,48 @@ const SUBMISSION_FIELDS = {
   narrative_public: {
     label: "Public narrative",
     input: "textarea",
-    panel: 2,
+    panel: "information",
   },
 
   narrative_private: {
     label: "Private narrative",
     input: "textarea",
-    panel: 2,
+    panel: "information",
   },
-
 };
 
+const SUBMISSION_PANELS = {
+  model: { type: "fields", title: "Model", columns: 2 },
+  information: { type: "fields", title: "Information", columns: 1 },
+};
 
-const SUBMISSION_PANELS = [
-  { panel: 1, title: "Model", columns: 2 },
-  { panel: 2, title: "Information", columns: 1 },
-];
+// The help text, from /api/meta. Split out from loadSubmissionFields because a signed-out
+// reader of a public submission sees the same description rows and cannot fetch the models
+// below. See loadModelMeta, which is the same split for the same reason.
+async function loadSubmissionMeta() {
+  return applyFieldMeta(SUBMISSION_FIELDS, await getMeta(), "submission");
+}
 
-
-
-// Populate team_id's options (team id/name pairs) once, in place, since it's
-// shared read-only enum-like data, not per-flow instance state.
+// The above plus the Model select, whose options are the caller's own models — per-user
+// data, so a separate fetch rather than part of the meta document.
 async function loadSubmissionFields() {
-  if (SUBMISSION_FIELDS.model_id.options !== null) {
-    return SUBMISSION_FIELDS;
+  await loadSubmissionMeta();
+
+  if (SUBMISSION_FIELDS.model_id.options === null) {
+    const models = await getMyModels();
+
+    SUBMISSION_FIELDS.model_id.options = models.map((model) => ({
+      value: model.id,
+      label: model.name,
+    }));
   }
-
-  const models = await getMyModels();
-
-  SUBMISSION_FIELDS.model_id.options = models.map(model => ({ value: model.id, label: model.name }));
 
   return SUBMISSION_FIELDS;
 }
 
-
-export { SUBMISSION_FIELDS, loadSubmissionFields, SUBMISSION_PANELS };
+export {
+  SUBMISSION_FIELDS,
+  SUBMISSION_PANELS,
+  loadSubmissionFields,
+  loadSubmissionMeta,
+};

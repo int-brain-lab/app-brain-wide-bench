@@ -1,66 +1,49 @@
-// Filterable models table
+// Filterable models table.
 //
-// The table allows you to search by model name and filter by team or suite
+// The table allows you to search by model name and filter by team or suite.
+//
+// The columns only. Rows and filters are in utils/modelUtils.js, and the table
+// infrastructure in table.js.
 
+import { getModelFilters } from "../utils/modelUtils.js";
 import {
-  SUITE_OPTIONS,
+  buildStaticTable,
   createFilterableTable,
   previewRows,
-  renderStaticTable,
-  resolveContainer,
-  matchEquals,
-  matchInArray,
-  matchIncludes,
-  optionsFromRows,
 } from "./table.js";
 import {
   dateFormatter,
   dateSorter,
-  linkFormatter,
   metadataFormatter,
+  buildModelNameFormatter,
   suiteBadgesFormatter,
 } from "./formatters.js";
 
-
-// ─── ROWS ───────────────────────────────────────────────────────────────────
-
-function toModelRow(model) {
-  return {
-    id: model.id,
-    name: model.name,
-    team_name: model.team_name ?? null,
-    created_at: model.created_at,
-    n_submissions: model.n_submissions ?? 0,
-    suites: model.task_suites
-  };
-}
-
-function toModelRows(models) {
-  return models.map(toModelRow);
-}
-
-
-// ─── COLUMNS ────────────────────────────────────────────────────────────────
+// ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
 // `showTeam` off drops the Team column, for a caller already scoped to one — a team's own
 // page, where it would repeat the page's heading down every row.
-function getModelColumns({ showTeam = true } = {}) {
+//
+// `showMine` on marks the rows on the viewer's own teams, for the public listing that mixes
+// them with everyone else's. Off by default: on a listing that is all theirs it says nothing.
+function getModelColumns({ showTeam = true, showMine = false } = {}) {
   const teamColumn = showTeam
-    ? [{
-        title: "Team",
-        field: "team_name",
-        formatter: metadataFormatter,
-      }]
+    ? [
+        {
+          title: "Team",
+          field: "team_name",
+          formatter: metadataFormatter,
+        },
+      ]
     : [];
 
   return [
     {
       title: "Model",
       field: "name",
-      formatter: linkFormatter(
-        "/html/models/models.html",
-        "name",
-      ),
+      formatter: buildModelNameFormatter("/html/models/models.html", {
+        showMine,
+      }),
       widthGrow: 2,
     },
     ...teamColumn,
@@ -84,84 +67,68 @@ function getModelColumns({ showTeam = true } = {}) {
   ];
 }
 
-
-// ─── CONTROLS ───────────────────────────────────────────────────────────────
-
-function getModelControls(rows) {
-  return [
-    {
-      type: "search",
-      name: "name",
-      placeholder: "Search models...",
-      match: matchIncludes("name"),
-    },
-    {
-      type: "select",
-      name: "team_name",
-      placeholder: "All teams",
-      options: optionsFromRows(rows, "team_name"),
-      match: matchEquals("team_name"),
-    },
-    {
-      type: "select",
-      name: "suite",
-      placeholder: "All suites",
-      options: SUITE_OPTIONS,
-      match: matchInArray("suites"),
-    },
-  ];
-}
-
-
-// ─── TABLE ──────────────────────────────────────────────────────────────────
+// ─── TABLE ───────────────────────────────────────────────────────────────────
 
 /**
- * @param container element, or the id of one. Its contents are replaced.
- * @param models    list of models with task suites attached, mapped to rows by toModelRows().
- * @returns the Tabulator instance.
+ * The live models table, filterable above the grid.
+ *
+ * @param rows            rows from toModelRows.
+ * @param showMine        mark the rows on the viewer's own teams — see getModelColumns.
+ * @param showSuiteFilter keep the suite select — see getModelFilters.
+ * @param showFilters     keep the filter bar above the grid. False for a caller with a bar
+ *                        of its own over both its views — see templates/listPage.js.
+ * @param selection       as createFilterableTable. Keyed on the model id, so a caller
+ *                        holding one can select or deselect its row without a lookup.
+ *
+ * @returns { element, table } — the caller mounts the element where it wants it, and keeps
+ *          the instance. Handing it back rather than filling a container is what lets a page
+ *          build the table once and attach it to a slot it shares with another view.
  */
-function renderModelsTable({ container, models }) {
-  const rows = toModelRows(models);
-
+function createModelsTable({
+  rows,
+  showMine = false,
+  showSuiteFilter = true,
+  showFilters = true,
+  selection,
+}) {
   return createFilterableTable({
-    container,
     rows,
-    columns: getModelColumns(),
-    controls: getModelControls(rows),
-    noun: "models",
-    initialSort: [
-      { column: "created_at", dir: "desc" },
-    ],
-    caller: "renderModelsTable",
+    columns: getModelColumns({ showMine }),
+    controls: showFilters ? getModelFilters(rows, { showSuiteFilter }) : [],
+    noun: "model",
+    initialSort: [{ column: "created_at", dir: "desc" }],
+    index: "id",
+    selection,
   });
 }
 
-
-// ─── STATIC TABLE ───────────────────────────────────────────────────────────
+// ─── STATIC TABLE ────────────────────────────────────────────────────────────
 
 /**
- * Plain-markup counterpart to renderModelsTable, for a fixed preview — no filters, no
+ * Plain-markup counterpart to createModelsTable, for a fixed preview — no filters, no
  * paging, and no Tabulator needed on the page.
  *
- * @param container element, or the id of one. Its contents are replaced.
- * @param models    as renderModelsTable.
- * @param showTeam  keep the Team column. Pass false when every row is one team's.
- * @param limit     how many rows to show. Omit for all of them.
- * @returns every row it built, not just the slice it rendered, so a caller can report
- *          a total alongside the preview.
+ * @param rows     as createModelsTable.
+ * @param showTeam keep the Team column. Pass false when every row is one team's.
+ * @param limit    how many rows to show. Omit for all of them.
+ * @param viewAll  as buildStaticTable — where the footer's "View all" link goes.
+ *
+ * @returns the markup. The caller writes it where it wants it.
  */
-function renderStaticModelsTable({ container, models, showTeam = true, limit }) {
-  const rows = toModelRows(models);
+function buildStaticModelsTable({ rows, showTeam = true, limit, viewAll }) {
+  const shown = previewRows(
+    rows,
+    (a, b) => dateSorter(b.created_at, a.created_at),
+    limit,
+  );
 
-  resolveContainer(container, "renderStaticModelsTable").innerHTML = renderStaticTable({
+  return buildStaticTable({
     columns: getModelColumns({ showTeam }),
-    rows: previewRows(rows, (a, b) => dateSorter(b.created_at, a.created_at), limit),
+    rows: shown,
+    noun: "model",
+    total: rows.length,
+    viewAll,
   });
-
-  return rows;
 }
 
-
-export { renderModelsTable, renderStaticModelsTable };
-
-
+export { createModelsTable, buildStaticModelsTable };

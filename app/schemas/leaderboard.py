@@ -5,34 +5,16 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-
-class LeaderboardScore(BaseModel):
-    """One task's result on a leaderboard row.
-
-    ``mean``/``sem`` rather than ``primary_metric_mean``/``_sem``: which metric it is
-    belongs to the task, and a row already says which task each score is under.
-    """
-
-    mean: float
-    sem: float | None = None
-    n_seeds: int
-
-    @classmethod
-    def from_score(cls, score) -> "LeaderboardScore":
-        """Build from an ORM ``TaskScore``.
-
-        Not ``model_validate``: the columns are ``primary_metric_mean``/``_sem`` and this
-        shape drops the prefix, so the mapping has to be stated.
-        """
-        return cls(
-            mean=score.primary_metric_mean,
-            sem=score.primary_metric_sem,
-            n_seeds=score.n_seeds,
-        )
+from app.schemas.tasksubmission import TaskStanding
 
 
 class LeaderboardRow(BaseModel):
-    """A public, scored submission as the leaderboard shows it.
+    """A model's standing as the leaderboard shows it.
+
+    One row per model rather than per submission: what is ranked is a model's current
+    result for each task, wherever it was submitted — see app/ranking/rank.py. So the scores on
+    a row may come from several submissions, and ``id``, ``label`` and ``created_at``
+    describe the newest of them, which is what the row links to and dates itself by.
 
     Not ``SubmissionResponse``: this is the one view with no notion of a caller, so it
     carries no visibility-dependent fields, and its scores are flattened into a mapping
@@ -45,7 +27,22 @@ class LeaderboardRow(BaseModel):
     team_name: str
     model_id: uuid.UUID
     model_name: str
-    created_at: datetime
+    created_at: datetime | None = None
 
-    # Keyed by flat task id, e.g. {"ts1-reward": {...}}.
-    scores: dict[str, LeaderboardScore] = {}
+    # Whether the model is a pretrained foundation model, so a row can say so beside its
+    # name. Nullable for the same reason the column is: a model whose pretraining fields
+    # were never filled in makes no claim either way, and the client badges only ``True``.
+    is_pretrained: bool | None = None
+
+    # How many public, completed submissions stand behind the row, superseded ones included
+    # — a row is a standing, so its own count is the only place that total survives.
+    n_submissions: int = 0
+
+    # Keyed by flat task id, e.g. {"ts1-reward": {...}}. The same shape the breakdown
+    # endpoint answers with, so a client can hand either to the same code.
+    scores: dict[str, TaskStanding] = {}
+
+    # Average rank on each task, against the other rows in this response — see app/ranking/rank.py.
+    # One per task rather than one overall, because every figure the leaderboard shows is a
+    # mean over these and only the client knows which tasks it is grouping.
+    ranks: dict[str, float] = {}

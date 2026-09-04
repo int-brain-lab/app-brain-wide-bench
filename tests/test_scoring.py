@@ -87,7 +87,7 @@ def test_ts1_wrapper_shape(monkeypatch):
         ("m", "ts1-choice", "recA", 42): {"bacc": 0.80, "f1": 0.7, "ap": 0.6},
         ("m", "ts1-choice", "recA", 43): {"bacc": 0.90, "f1": 0.8, "ap": 0.7},
     }
-    monkeypatch.setattr("core.scoring.ts1_scoring.score_dir", lambda p, g: raw)
+    monkeypatch.setattr("ibl_bwb_eval.scoring.ts1.score_dir", lambda p, g: raw)
 
     result = TS1Scorer().score(Path("pred"), Path("gt"))
 
@@ -109,7 +109,7 @@ def test_ts2_wrapper_shape(monkeypatch):
         ("m", "ts2-co_smoothing", "recA", 42): {TS2_PRIMARY: 0.10, "bps": 0.5},
         ("m", "ts2-co_smoothing", "recA", 43): {TS2_PRIMARY: 0.30, "bps": 0.7},
     }
-    monkeypatch.setattr("core.scoring.ts2_scoring.score_dir", lambda p, g: raw)
+    monkeypatch.setattr("ibl_bwb_eval.scoring.ts2.score_dir", lambda p, g: raw)
 
     result = TS2Scorer().score(Path("pred"), Path("gt"))
 
@@ -129,7 +129,7 @@ def test_ts3_wrapper_shape(monkeypatch):
         ("m", 42): {"macro/f1-score": 0.60, "macro/precision": 0.5, "VISp/f1-score": 0.4},
         ("m", 43): {"macro/f1-score": 0.80, "macro/precision": 0.7, "VISp/f1-score": 0.6},
     }
-    monkeypatch.setattr("core.scoring.ts3_scoring.score_dir", lambda p, g: raw)
+    monkeypatch.setattr("ibl_bwb_eval.scoring.ts3.score_dir", lambda p, g: raw)
 
     result = TS3Scorer().score(Path("pred"), Path("gt"))
 
@@ -144,8 +144,8 @@ def test_ts3_wrapper_shape(monkeypatch):
 
 def test_wrapper_empty_input(monkeypatch):
     """An empty core result yields an empty but valid structure for every suite."""
-    for suite, mod in (("ts1", "ts1_scoring"), ("ts2", "ts2_scoring"), ("ts3", "ts3_scoring")):
-        monkeypatch.setattr(f"core.scoring.{mod}.score_dir", lambda p, g: {})
+    for suite, mod in (("ts1", "ts1"), ("ts2", "ts2"), ("ts3", "ts3")):
+        monkeypatch.setattr(f"ibl_bwb_eval.scoring.{mod}.score_dir", lambda p, g: {})
         assert get_scorer(suite).score(Path("pred"), Path("gt")) == {"rows": [], "summary": {}}
 
 

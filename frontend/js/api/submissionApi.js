@@ -1,13 +1,10 @@
 import { apiFetch } from "./client.js";
+import { normalizeObject, trimmed } from "../core/validation.js";
 
-
-// ─── PAYLOADS ────────────────────────────────────────────────────────────────────
+// ─── PAYLOADS ────────────────────────────────────────────────────────────────
 
 function buildSubmissionPayload(state) {
-  return {
-    ...state,
-    label: state.label?.trim(),
-  };
+  return normalizeObject(state, { label: trimmed });
 }
 
 function buildPresignPayload(state, taskSection) {
@@ -17,22 +14,19 @@ function buildPresignPayload(state, taskSection) {
   };
 }
 
-// ─── API ────────────────────────────────────────────────────────────────────
+// ─── API ─────────────────────────────────────────────────────────────────────
 
 async function getSubmissions() {
-  return await  apiFetch(`/api/submissions`);
+  return await apiFetch(`/api/submissions`);
 }
-
 
 async function getMySubmissions() {
   return await apiFetch(`/api/users/me/submissions`);
 }
 
-
 async function loadSubmission(submissionId) {
   return await apiFetch(`/api/submissions/${submissionId}`);
 }
-
 
 async function updateSubmission(submissionId, patch) {
   return await apiFetch(`/api/submissions/${submissionId}`, {
@@ -41,7 +35,6 @@ async function updateSubmission(submissionId, patch) {
   });
 }
 
-
 async function presignSubmission(state, taskSection) {
   return await apiFetch("/api/submissions/presign", {
     method: "POST",
@@ -49,14 +42,15 @@ async function presignSubmission(state, taskSection) {
   });
 }
 
-
-async function createSubmission(submissionId) {
+// The last of the three steps: presign, upload, then this. Takes the id presign returned
+// rather than form state, unlike createModel and createTeam.
+async function finaliseSubmission(submissionId) {
   return await apiFetch(`/api/submissions/${submissionId}/submit`, {
     method: "POST",
   });
 }
 
-// ─── UPLOAD FILE ────────────────────────────────────────────────────────────
+// ─── UPLOAD FILE ─────────────────────────────────────────────────────────────
 
 async function uploadToPresignedUrl(uploadUrl, file) {
   if (uploadUrl.startsWith("mock-s3://")) {
@@ -83,5 +77,5 @@ export {
   updateSubmission,
   presignSubmission,
   uploadToPresignedUrl,
-  createSubmission
+  finaliseSubmission,
 };

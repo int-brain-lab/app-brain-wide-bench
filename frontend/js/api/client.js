@@ -1,3 +1,13 @@
+// const CONFIG = {
+//   apiBase: "", // same origin; set to e.g. "http://localhost:8080" for split hosting
+//   // auth0Domain: "dev-dmv00yvt1n0i036m.us.auth0.com",
+//   auth0Domain: "YOUR_AUTH0_DOMAIN",
+//   // The sentinel `devMode` reads, so a local run signs in against the API's stub user
+//   // rather than the real tenant. Swap the two lines back to test a genuine sign-in.
+//   // auth0ClientId: "jYERzEVe5MWl0r8SKGshQLRvxswseQlS",
+//   auth0ClientId: "YOUR_AUTH0_CLIENT_ID",
+//   auth0Audience: "https://brainwidebench.iblcore.org",
+// };
 
 const CONFIG = {
   apiBase: "", // same origin; set to e.g. "http://localhost:8080" for split hosting
@@ -30,21 +40,6 @@ const FAKE_SESSION_KEY = "signed_in"; // localStorage flag used in fake mode
 // in either mode, so this is what makes signing out locally mean something.
 const DEV_TOKEN = "dev";
 
-// Plain fetch, not apiFetch: that one asks for a token, which would land back here.
-async function apiRunsInDevMode() {
-  try {
-    const response = await fetch(CONFIG.apiBase + "/api/meta/auth");
-
-    return response.ok && (await response.json()).dev_mode === true;
-  } catch (error) {
-    // An API we can't reach is not an API in dev mode — fall back to the committed config
-    // rather than handing out a stub session against production.
-    console.warn("Could not read the API's auth config:", error);
-
-    return false;
-  }
-}
-
 let auth0Client = null;
 
 // The in-flight (or settled) initAuth call.
@@ -57,6 +52,8 @@ let auth0Client = null;
 // callback is handled exactly once.
 let authReady = null;
 
+// ─── AUTH ────────────────────────────────────────────────────────────────────
+
 function ensureAuth() {
   authReady ??= initAuth();
 
@@ -64,7 +61,7 @@ function ensureAuth() {
 }
 
 async function initAuth() {
-  devMode = devMode || (await apiRunsInDevMode());
+  devMode = devMode || false;
 
   if (devMode) return null;
 
@@ -93,7 +90,10 @@ async function initAuth() {
       // Back to the page they were on when they clicked Sign in. Skipped when that is
       // already here, which would otherwise be a reload loop.
       const returnTo = appState?.returnTo;
-      if (returnTo && returnTo !== window.location.pathname + window.location.search) {
+      if (
+        returnTo &&
+        returnTo !== window.location.pathname + window.location.search
+      ) {
         window.location.replace(returnTo);
       }
     }
@@ -118,7 +118,9 @@ async function isAuthenticated() {
  *                 is what a gate wants; a Sign in button that isn't about this page — the
  *                 top nav's — passes somewhere better.
  */
-async function login(returnTo = window.location.pathname + window.location.search) {
+async function login(
+  returnTo = window.location.pathname + window.location.search,
+) {
   await ensureAuth();
 
   if (devMode) {
@@ -141,8 +143,12 @@ async function logout() {
     return;
   }
 
-  await auth0Client.logout({ logoutParams: { returnTo: window.location.origin } });
+  await auth0Client.logout({
+    logoutParams: { returnTo: window.location.origin },
+  });
 }
+
+// ─── TOKEN ───────────────────────────────────────────────────────────────────
 
 async function getToken() {
   await ensureAuth();
@@ -175,16 +181,21 @@ async function getToken() {
   }
 }
 
-// Fetch wrapper that injects the bearer token when available.
-async function apiFetch(path, options = {}) {
+// ─── FETCH ───────────────────────────────────────────────────────────────────
 
+// Injects the bearer token when there is one.
+async function apiFetch(path, options = {}) {
   const headers = new Headers(options.headers || {});
   const token = await getToken();
+
   if (token) headers.set("Authorization", `Bearer ${token}`);
+
   if (options.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
+
   const res = await fetch(CONFIG.apiBase + path, { ...options, headers });
+
   if (!res.ok) {
     const text = await res.text();
     const error = new Error(`${res.status} ${res.statusText}: ${text}`);
@@ -199,13 +210,20 @@ async function apiFetch(path, options = {}) {
   return res.status === 204 ? null : res.json();
 }
 
+// Best-effort read wrapper for data that decorates a page rather than making it possible.
+// Logs the failure once here, then returns the caller's chosen fallback shape.
+async function apiFetchOptional(path, { fallback = null, options } = {}) {
+  try {
+    return await apiFetch(path, options);
+  } catch (error) {
+    console.error(error);
+    return fallback;
+  }
+}
 
 // `CONFIG`, `getToken` and `initAuth` stay module-private — everything outside goes
 // through apiFetch, and initialisation happens on demand via ensureAuth() so no caller
 // can forget it. `auth0` is expected as a CDN global inside initAuth (see the
 // auth0-spa-js script tag in every page); that call is wrapped in try/catch and dev mode
 // short-circuits it.
-export { apiFetch, isAuthenticated, login, logout, CONFIG };
-
-
-
+export { apiFetch, apiFetchOptional, isAuthenticated, login, logout, CONFIG };

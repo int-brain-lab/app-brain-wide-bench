@@ -1,8 +1,13 @@
-import {getTaskSubmissionFields } from "../api/taskSubmissionApi.js";
-import { fieldsForPanel } from "./schema.js";
-import { suiteFromTask } from "../core/suites.js";
+// The per-task methodology schema: what a submission says about how each task was run.
 
-const SUITE_OUTPUT_MODALITY = { ts1: "behavior", ts2: "spikes", ts3: "anatomy" };
+import { suiteFromTask } from "../core/suites.js";
+import { applyFieldMeta, getMeta } from "../api/metaApi.js";
+import { fieldsForPanel } from "./schemaPanels.js";
+
+// What each suite asks a model to predict, from /api/meta — hence a `let` filled by
+// loadTaskFields. The rules below read it synchronously during a render, which is safe
+// because every caller awaits that loader first. Empty until then, which disables nothing.
+let suiteOutputModality = {};
 
 const TASK_FIELDS = {
   id: {
@@ -26,11 +31,11 @@ const TASK_FIELDS = {
   extra_input_modality: {
     label: "Extra modality",
     input: "checkbox-list",
-    panel: 1,
-    options: null,
+    panel: "methodology",
+    enum: "modality",
     // Spikes is the baseline input (not "extra"); the suite's own
     // supervision target can't be used as an input either.
-    disabledOptionsWhen: state => {
+    disabledOptionsWhen: (state) => {
       // Spikes is a default input modality for all tasks
       const disabled = ["spikes"];
       const suite = suiteFromTask(state.task_id);
@@ -45,9 +50,9 @@ const TASK_FIELDS = {
   training_paradigm: {
     label: "Training paradigm",
     input: "select",
-    panel: 1,
-    options: null,
-    disabledOptionsWhen: state => {
+    panel: "methodology",
+    enum: "training_paradigm",
+    disabledOptionsWhen: (state) => {
       const model = state.model;
 
       // Pretrained is false → rule out TSS/TSU, only single-session is an option
@@ -60,9 +65,11 @@ const TASK_FIELDS = {
 
       // If the models modalities don't match the pretraining modalities -> rule out TSS
       const suite = suiteFromTask(state.task_id);
-      const outputModality = SUITE_OUTPUT_MODALITY[suite];
+      const outputModality = suiteOutputModality[suite];
       const inputMatches = model.pretrained_in_modalities?.includes("spikes");
-      const outputMatches = outputModality && model.pretrained_out_modalities?.includes(outputModality);
+      const outputMatches =
+        outputModality &&
+        model.pretrained_out_modalities?.includes(outputModality);
       if (!inputMatches || !outputMatches) {
         disabled.push("TSS");
       }
@@ -74,9 +81,9 @@ const TASK_FIELDS = {
   supervision_regime: {
     label: "Supervision regime",
     input: "select",
-    panel: 1,
-    options: null,
-    disabledOptionsWhen: state => {
+    panel: "methodology",
+    enum: "supervision_regime",
+    disabledOptionsWhen: (state) => {
       const disabled = new Set();
 
       // Pretrained is false -> rule out zero-shot
@@ -86,12 +93,12 @@ const TASK_FIELDS = {
 
       // For inductive calibration, only zero-shot is an option.
       if (state.calibration === "inductive") {
-        ["few_shot", "full", "other"].forEach(option => disabled.add(option));
+        ["few_shot", "full", "other"].forEach((option) => disabled.add(option));
       }
 
       // For ts3, only zero-shot is an option
       if (suiteFromTask(state.task_id) === "ts3") {
-        ["few_shot", "full", "other"].forEach(option => disabled.add(option));
+        ["few_shot", "full", "other"].forEach((option) => disabled.add(option));
       }
 
       return [...disabled];
@@ -101,68 +108,65 @@ const TASK_FIELDS = {
   calibration: {
     label: "Calibration",
     input: "select",
-    panel: 1,
-    options: null,
+    panel: "methodology",
+    enum: "calibration",
     // Single-session models are always transductive (trained from scratch).
-    disabledOptionsWhen: state => (state.model?.is_pretrained ? [] : ["inductive"]),
+    disabledOptionsWhen: (state) =>
+      state.model?.is_pretrained ? [] : ["inductive"],
   },
 
   finetuning_strategy: {
     label: "Fine tuning strategy",
     input: "checkbox-list",
-    panel: 1,
-    options: null,
+    panel: "methodology",
+    enum: "finetuning_strategy",
     // Field disabled when pretrained is false
-    disabledWhen: state => !state.model?.is_pretrained,
+    disabledWhen: (state) => !state.model?.is_pretrained,
   },
 };
 
+// One card, since every editable task field is methodology. Declared anyway so the
+// task editor builds its layout the same way the model and submission ones do.
+const TASK_PANELS = {
+  methodology: { type: "fields", title: "Methodology", columns: 2 },
+};
 
-// Populate every select/checkbox-list field's options from `/api/meta/enums`
-// once, in place, since it's shared read-only enum-like data, not per-flow
-// instance state. The endpoint returns `{fieldName: [options...]}` — one
-// options list per field, not a single shared list.
-
-// TODO DON"T MUTATE STATE AS WILL NOT WORK ON SERVER SIDE
-
+// Options, help text and the suite output modalities, from /api/meta. Every caller awaits
+// this before rendering. In place rather than returning a copy — see applyFieldMeta.
+//
+// No loadTaskMeta counterpart, unlike the model and submission schemas: every option here
+// is public, so there is no signed-in variant to split off.
 async function loadTaskFields() {
-  if (TASK_FIELDS.training_paradigm.options !== null) {
-    return TASK_FIELDS;
-  }
+  const meta = await getMeta();
 
-  const trainingFields = await getTaskSubmissionFields();
+  suiteOutputModality = Object.fromEntries(
+    Object.entries(meta.suites).map(([suite, { output_modality }]) => [
+      suite,
+      output_modality,
+    ]),
+  );
 
-  for (const [key, field] of Object.entries(TASK_FIELDS)) {
-    if (field.input === "select" || field.input === "checkbox-list") {
-      field.options = trainingFields[key] ?? [];
-    }
-  }
-
-  return TASK_FIELDS;
+  return applyFieldMeta(TASK_FIELDS, meta, "task_submission");
 }
 
-// The per-task methodology ("training") fields: everything on panel 1. Both the
-// submit wizard's carousel and the submission card's task editor render exactly
-// this set, and it's also the shape of a task-submission PATCH — so the list
-// lives here with the schema rather than being re-derived at each call site.
+// Everything on the methodology panel — what the submit wizard, the task editor and a
+// task-submission PATCH all take, so the list lives here rather than at each call site.
 function trainingFieldKeys() {
-  return fieldsForPanel(TASK_FIELDS, 1);
+  return fieldsForPanel(TASK_FIELDS, "methodology");
 }
 
-// The body of a task-submission PATCH: the methodology keys, and only those, read off a
-// form's state. It lives here rather than in the API module because knowing which keys the
-// server takes is knowing the schema — and having it there made api/ import this file,
-// which was a circular import between the two.
-function taskPayload(state) {
+// The methodology keys, and only those, read off a form's state. Here rather than in the
+// API module: which keys the server takes is schema knowledge, and api/ sits below this.
+function toMethodologyValues(state) {
   return Object.fromEntries(
-    trainingFieldKeys().map(key => [key, state[key]]),
+    trainingFieldKeys().map((key) => [key, state[key]]),
   );
 }
 
-// One card, since every editable task field is methodology. Declared anyway so the
-// task editor builds its layout the same way the model and submission ones do.
-const TASK_PANELS = [
-  { panel: 1, title: "Methodology", columns: 2 },
-];
-
-export { TASK_FIELDS, TASK_PANELS, loadTaskFields, taskPayload, trainingFieldKeys };
+export {
+  TASK_FIELDS,
+  TASK_PANELS,
+  loadTaskFields,
+  toMethodologyValues,
+  trainingFieldKeys,
+};

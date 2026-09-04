@@ -293,6 +293,25 @@ async def test_my_teams_as_member(seeded_client, add, me):
     assert team["n_submissions"] == 5
 
 
+async def test_the_me_listings_are_all_mine(seeded_client, add, me):
+    """Every row of a ``/me`` listing is the caller's, so ``is_mine`` is always true.
+
+    These endpoints are scoped by membership rather than by visibility — that is the whole
+    difference from the public listings — so there is nothing here for it to be false on.
+    """
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    for collection in ("models", "submissions", "teams"):
+        response = await seeded_client.get(me_url(collection))
+
+        assert response.status_code == 200
+
+        rows = response.json()
+
+        assert rows, f"/me/{collection} returned nothing to check"
+        assert all(row["is_mine"] for row in rows), collection
+
+
 # ── GET /api/users/me/task-submissions ────────────────────────────────────────
 
 

@@ -1,59 +1,26 @@
-// Filterable submissions table
+// Filterable submissions table.
 //
-// The table allows you to search by submission name and filter by suite or submission status
+// The table allows you to search by submission name and filter by suite or status.
 //
-// This code just defines the columns, rows and controls. Table infrastructure lives in utils/tables.js
+// The columns only. Rows and filters are in utils/submissionUtils.js, and the table
+// infrastructure in table.js.
 
-import { suitesFromSubmission } from "../core/suites.js";
+import { getSubmissionFilters } from "../utils/submissionUtils.js";
 import {
-  SUITE_OPTIONS,
+  buildStaticTable,
   createFilterableTable,
   previewRows,
-  renderStaticTable,
-  resolveContainer,
-  matchEquals,
-  matchInArray,
-  matchIncludes,
 } from "./table.js";
 import {
   dateFormatter,
   dateSorter,
-  linkFormatter,
+  buildLinkFormatter,
   metadataFormatter,
   statusFormatter,
   suiteBadgesFormatter,
 } from "./formatters.js";
 
-
-// ─── CONSTANTS ──────────────────────────────────────────────────────────────
-
-const STATUSES = ["pending", "scoring", "done", "failed"];
-
-const STATUS_OPTIONS = STATUSES.map(status => ({ value: status, label: status }));
-
-
-// ─── ROWS ───────────────────────────────────────────────────────────────────
-
-function toSubmissionRow(submission) {
-  return {
-    id: submission.id,
-    label: submission.label,
-    // Always mapped, even though only the `showModel` columns render them: it costs
-    // nothing, and it keeps one row shape whichever caller built the table.
-    model_name: submission.model_name ?? null,
-    team_name: submission.team_name ?? null,
-    updated_at: submission.updated_at,
-    status: submission.status,
-    suites: suitesFromSubmission(submission),
-  };
-}
-
-function toSubmissionRows(submissions) {
-  return submissions.map(toSubmissionRow);
-}
-
-
-// ─── COLUMNS ────────────────────────────────────────────────────────────────
+// ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
 // showModel adds the model and team columns, for a list of submissions spanning models.
 // Otherwise the table is for a single model and those columns are redundant.
@@ -77,7 +44,10 @@ function getSubmissionColumns({ showModel = false } = {}) {
     {
       title: "Label",
       field: "label",
-      formatter: linkFormatter("/html/submissions/submissions.html", "label"),
+      formatter: buildLinkFormatter(
+        "/html/submissions/submissions.html",
+        "label",
+      ),
       widthGrow: 2,
     },
     ...modelColumns,
@@ -101,83 +71,71 @@ function getSubmissionColumns({ showModel = false } = {}) {
   ];
 }
 
-
-// ─── CONTROLS ───────────────────────────────────────────────────────────────
-
-function getSubmissionControls() {
-  return [
-    {
-      type: "search",
-      name: "label",
-      placeholder: "Search by label...",
-      match: matchIncludes("label"),
-    },
-    {
-      type: "select",
-      name: "suite",
-      placeholder: "All suites",
-      options: SUITE_OPTIONS,
-      match: matchInArray("suites"),
-    },
-    {
-      type: "select",
-      name: "status",
-      placeholder: "All statuses",
-      options: STATUS_OPTIONS,
-      match: matchEquals("status"),
-    },
-  ];
-}
-
-
-// ─── TABLE ──────────────────────────────────────────────────────────────────
+// ─── TABLE ───────────────────────────────────────────────────────────────────
 
 /**
- * @param container   element, or the id of one. Its contents are replaced.
- * @param submissions list of submissions with taskSubmissions attached, mapped to rows by toSubmissionRows().
+ * The live submissions table, filterable above the grid.
+ *
+ * @param rows        rows from toSubmissionRows.
  * @param showModel   add Model and Team columns. For a list spanning models.
- * @returns the Tabulator instance.
+ * @param showFilters keep the filter bar above the grid. False for a caller with a bar of
+ *                    its own over both its views — see templates/listPage.js.
+ * @param selection   from bindTableSelection, to make the rows pickable. Omit for a table
+ *                    that is only read.
+ *
+ * @returns { element, table } — as createModelsTable; the caller mounts the element.
  */
-function renderSubmissionsTable({ container, submissions, showModel = false }) {
+function createSubmissionsTable({
+  rows,
+  showModel = false,
+  showFilters = true,
+  selection,
+}) {
   return createFilterableTable({
-    container,
-    rows: toSubmissionRows(submissions),
+    rows,
     columns: getSubmissionColumns({ showModel }),
-    controls: getSubmissionControls(),
-    noun: "submissions",
+    controls: showFilters ? getSubmissionFilters(rows) : [],
+    noun: "submission",
     initialSort: [{ column: "updated_at", dir: "desc" }],
-    caller: "renderSubmissionsTable",
+    // A row is one submission, so the submission is what identifies it — and what a picker
+    // knows the pick by. See toSubmissionEntry in comparisons/submissionComparison.js.
+    index: "id",
+    selection,
   });
 }
 
-
-// ─── STATIC TABLE ───────────────────────────────────────────────────────────
+// ─── STATIC TABLE ────────────────────────────────────────────────────────────
 
 /**
- * Plain-markup counterpart to renderSubmissionsTable, for a fixed preview — no filters,
+ * Plain-markup counterpart to createSubmissionsTable, for a fixed preview — no filters,
  * no paging, and no Tabulator needed on the page.
  *
- * @param container   element, or the id of one. Its contents are replaced.
- * @param submissions as renderSubmissionsTable.
- * @param showModel   as renderSubmissionsTable.
+ * @param rows        as createSubmissionsTable.
+ * @param showModel   as createSubmissionsTable.
  * @param limit       how many rows to show. Omit for all of them.
- * @returns every row it built, not just the slice it rendered, so a caller can report
- *          a total alongside the preview.
+ * @param viewAll     as buildStaticTable — where the footer's "View all" link goes.
+ *
+ * @returns the markup. The caller writes it where it wants it.
  */
-function renderStaticSubmissionsTable({ container, submissions, showModel = false, limit }) {
-  const rows = toSubmissionRows(submissions);
+function buildStaticSubmissionsTable({
+  rows,
+  showModel = false,
+  limit,
+  viewAll,
+}) {
+  const shown = previewRows(
+    rows,
+    (a, b) => dateSorter(b.updated_at, a.updated_at),
+    limit,
+  );
 
-  resolveContainer(container, "renderStaticSubmissionsTable").innerHTML = renderStaticTable({
+  return buildStaticTable({
     columns: getSubmissionColumns({ showModel }),
-    rows: previewRows(rows, (a, b) => dateSorter(b.updated_at, a.updated_at), limit),
+    rows: shown,
+    noun: "submission",
+    total: rows.length,
+    viewAll,
   });
-
-  return rows;
 }
 
-
-export {
-  renderSubmissionsTable,
-  renderStaticSubmissionsTable,
-  STATUSES,
-};
+export { createSubmissionsTable, buildStaticSubmissionsTable };

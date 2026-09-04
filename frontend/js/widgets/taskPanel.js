@@ -7,25 +7,24 @@
 // add, remove, or rename tasks.
 //
 
-import { buildMessageCard, escapeHtml, showEmpty } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
+import { buildEmptyMessage, buildMessageCard } from "../components/messages.js";
+import { renderHtml } from "../core/render.js";
 import { buildCount } from "../components/count.js";
-import { CLEARED_MESSAGE } from "../forms/form.js";
-import { createFieldState, fieldsForPanel } from "../schemas/schema.js";
+import { CLEARED_MESSAGE, createFieldState } from "../forms/form.js";
 import { buildFields } from "../forms/fields.js";
 import {
   attachFieldEvents,
   revalidateFields,
   setFieldValue,
-  withPreservedFocus,
+  renderPreservingFocus,
 } from "../forms/form.js";
 import {
   TASK_FIELDS,
   trainingFieldKeys,
 } from "../schemas/taskSubmissionSchema.js";
-import { SUITES } from "../core/suites.js";
+import { suiteLabel, SUITES } from "../core/suites.js";
 import { buildSuiteBadgeList } from "../components/badges.js";
-
-
 
 // TODO move out build from controller
 const PANEL_ID = "task-panel";
@@ -45,7 +44,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
   let selectedTaskId = null;
   let model = null;
 
-  // ─── TASK STATE ───────────────────────────────────────────────────────────
+  // ─── TASK STATE ────────────────────────────────────────────────────────────
 
   function createTask(taskId) {
     const state = createFieldState(TASK_FIELDS);
@@ -74,21 +73,20 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     return task.confirmed && task.cleared.length === 0;
   }
 
-  // ─── SUITE OPERATIONS ─────────────────────────────────────────────────────
+  // ─── SUITE OPERATIONS ──────────────────────────────────────────────────────
 
   function getSuiteSiblings(task) {
     const suite = getSuite(task.taskId);
 
     if (!suite) return [];
 
-    return [...groups.get(suite) ?? []];
+    return [...(groups.get(suite) ?? [])];
   }
 
   function valuesEqual(a, b) {
     if (Array.isArray(a) && Array.isArray(b)) {
       return (
-        a.length === b.length &&
-        a.every((value, index) => value === b[index])
+        a.length === b.length && a.every((value, index) => value === b[index])
       );
     }
 
@@ -101,9 +99,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     for (const key of keys) {
       const value = source.state[key];
 
-      target.state[key] = Array.isArray(value)
-        ? [...value]
-        : value;
+      target.state[key] = Array.isArray(value) ? [...value] : value;
     }
 
     // Revalidate after copying the complete state because field predicates can
@@ -111,16 +107,11 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     revalidateFields(target.state, TASK_FIELDS);
 
     target.cleared = keys.filter(
-      key => !valuesEqual(
-        source.state[key],
-        target.state[key],
-      ),
+      (key) => !valuesEqual(source.state[key], target.state[key]),
     );
 
     // A copied confirmation is only valid if copying did not invalidate anything.
-    target.confirmed =
-      source.confirmed &&
-      target.cleared.length === 0;
+    target.confirmed = source.confirmed && target.cleared.length === 0;
   }
 
   function applyToSuite(task) {
@@ -133,7 +124,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     }
   }
 
-  // ─── RENDERING ────────────────────────────────────────────────────────────
+  // ─── RENDERING ─────────────────────────────────────────────────────────────
 
   function buildTaskStatus(task) {
     if (task.confirmed) {
@@ -146,7 +137,10 @@ function createTaskSection({ taskSuites, onChange } = {}) {
   function buildTaskItem(task) {
     const id = escapeHtml(task.taskId);
 
-    const classes = ["task-item", task.taskId === selectedTaskId ? "selected" : ""]
+    const classes = [
+      "task-item",
+      task.taskId === selectedTaskId ? "selected" : "",
+    ]
       .filter(Boolean)
       .join(" ");
 
@@ -195,8 +189,8 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     const keys = taskSuites.size ? SUITES : [null];
 
     return keys
-      .filter(suite => groups.get(suite)?.length)
-      .map(suite => buildTaskGroup(suite, groups.get(suite)))
+      .filter((suite) => groups.get(suite)?.length)
+      .map((suite) => buildTaskGroup(suite, groups.get(suite)))
       .join("");
   }
 
@@ -208,7 +202,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     `;
   }
 
-  // Markup rather than a showWarning call: this sits inside the task's own card, built with
+  // Markup rather than a rendered warning: this sits inside the task's own card, built with
   // the fields it warns about.
   function buildClearedNotice(task) {
     if (!task.cleared.length) return "";
@@ -216,7 +210,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     return buildMessageCard(
       CLEARED_MESSAGE,
       "warn-msg",
-      task.cleared.map(key => TASK_FIELDS[key].label).join(", "),
+      task.cleared.map((key) => TASK_FIELDS[key].label).join(", "),
     );
   }
 
@@ -227,9 +221,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     if (siblings.length < 2) return "";
 
     const taskId = escapeHtml(task.taskId);
-    const suite = escapeHtml(
-      getSuite(task.taskId).toUpperCase(),
-    );
+    const suite = escapeHtml(suiteLabel(getSuite(task.taskId)));
 
     return `
       <div class="card row left gap-sm">
@@ -271,11 +263,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
           ${buildClearedNotice(task)}
 
           <div class="column gap-md">
-            ${buildFields(
-              fieldsForPanel(TASK_FIELDS, 1),
-              task.state,
-              TASK_FIELDS,
-            )}
+            ${buildFields(trainingFieldKeys(), task.state, TASK_FIELDS)}
           </div>
 
           <!-- One way: editing any field clears the confirmation again (see updateField),
@@ -300,11 +288,14 @@ function createTaskSection({ taskSuites, onChange } = {}) {
 
   function render() {
     if (!tasks.size) {
-      showEmpty(container, "No tasks yet — upload a .zip on the panel above.");
+      renderHtml(
+        container,
+        buildEmptyMessage("No tasks yet — upload a .zip on the panel above."),
+      );
       return;
     }
 
-    withPreservedFocus(container, () => {
+    renderPreservingFocus(container, () => {
       container.innerHTML = `
         <div class="task-split">
           ${buildTaskPicker()}
@@ -314,7 +305,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     });
   }
 
-  // ─── STATE UPDATES ────────────────────────────────────────────────────────
+  // ─── STATE UPDATES ─────────────────────────────────────────────────────────
 
   function updateTask(task, update) {
     update(task);
@@ -335,7 +326,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
 
     if (!task) return;
 
-    updateTask(task, currentTask => {
+    updateTask(task, (currentTask) => {
       currentTask.confirmed = true;
     });
   }
@@ -360,7 +351,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
 
     if (!task) return;
 
-    updateTask(task, currentTask => {
+    updateTask(task, (currentTask) => {
       // Editing methodology invalidates the previous confirmation.
       currentTask.confirmed = false;
       currentTask.cleared = cleared;
@@ -372,12 +363,12 @@ function createTaskSection({ taskSuites, onChange } = {}) {
 
     if (!task) return;
 
-    updateTask(task, currentTask => {
+    updateTask(task, (currentTask) => {
       currentTask.applyToSuite = checked;
     });
   }
 
-  // ─── EVENTS ───────────────────────────────────────────────────────────────
+  // ─── EVENTS ────────────────────────────────────────────────────────────────
 
   function handleClick(event) {
     const confirmButton = event.target.closest(".task-confirm");
@@ -397,15 +388,10 @@ function createTaskSection({ taskSuites, onChange } = {}) {
   // The panel's own controls, which are not schema fields — they carry `data-task`, not
   // `data-field`, so this and attachFieldEvents below never see the same change.
   function handleChange(event) {
-    const applyCheckbox = event.target.closest(
-      ".task-apply-suite",
-    );
+    const applyCheckbox = event.target.closest(".task-apply-suite");
 
     if (applyCheckbox) {
-      toggleApplyToSuite(
-        applyCheckbox.dataset.task,
-        applyCheckbox.checked,
-      );
+      toggleApplyToSuite(applyCheckbox.dataset.task, applyCheckbox.checked);
     }
   }
 
@@ -428,18 +414,13 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     render();
   }
 
-  // ─── PUBLIC API ───────────────────────────────────────────────────────────
+  // ─── PUBLIC API ────────────────────────────────────────────────────────────
 
   function setTasks(taskIds) {
-    tasks = new Map(
-      taskIds.map(taskId => [
-        taskId,
-        createTask(taskId),
-      ]),
-    );
+    tasks = new Map(taskIds.map((taskId) => [taskId, createTask(taskId)]));
 
     // Assign the tasks to groups
-    groups = new Map()
+    groups = new Map();
     for (const task of tasks.values()) {
       const suite = getSuite(task.taskId);
 
@@ -462,12 +443,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     for (const task of tasks.values()) {
       task.state.model = model;
 
-      task.cleared = setFieldValue(
-        task.state,
-        TASK_FIELDS,
-        "model",
-        model,
-      );
+      task.cleared = setFieldValue(task.state, TASK_FIELDS, "model", model);
 
       task.confirmed = false;
     }
@@ -477,27 +453,18 @@ function createTaskSection({ taskSuites, onChange } = {}) {
   }
 
   function allConfirmed() {
-    return (
-      tasks.size > 0 &&
-      [...tasks.values()].every(isComplete)
-    );
+    return tasks.size > 0 && [...tasks.values()].every(isComplete);
   }
 
   // TODO move this out?
   function payloads() {
     const keys = trainingFieldKeys();
 
-    return [...tasks.values()].map(task => ({
+    return [...tasks.values()].map((task) => ({
       task_id: task.taskId,
-      ...Object.fromEntries(
-        keys.map(key => [
-          key,
-          task.state[key],
-        ]),
-      ),
+      ...Object.fromEntries(keys.map((key) => [key, task.state[key]])),
     }));
   }
-
 
   return {
     attach,

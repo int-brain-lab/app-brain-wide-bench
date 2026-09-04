@@ -7,13 +7,12 @@
 // This component owns its markup and event listeners. `buildUploadPanel()` creates the
 // markup; `createUploadSection()` is then called once that markup is in the DOM.
 
-import { clearMessage, escapeHtml, formatBytes, showFailure } from "../core/utils.js";
+import { formatBytes } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
+import { buildFailureMessage } from "../components/messages.js";
+import { clearContent, renderHtml } from "../core/render.js";
 import { REQUIRED_MARKER } from "../forms/fields.js";
-import {
-  inferTasks,
-  listZipEntries,
-} from "../core/zip.js";
-
+import { inferTasks, listZipEntries } from "../core/zip.js";
 
 // ─── BUILDERS ────────────────────────────────────────────────────────────────
 
@@ -63,7 +62,7 @@ function buildUploadPanel() {
 function buildDetectedTasks(taskIds, isKnownTask) {
   const pills = taskIds
     .map(
-      taskId => `
+      (taskId) => `
         <span class="badge ${isKnownTask(taskId) ? "success" : "error"}">
           ${escapeHtml(taskId)}
         </span>
@@ -87,7 +86,6 @@ function buildDetectedTasks(taskIds, isKnownTask) {
   `;
 }
 
-
 // ─── DOM ─────────────────────────────────────────────────────────────────────
 
 function getElements() {
@@ -103,25 +101,19 @@ function getElements() {
   };
 }
 
-
 // ─── FILE HANDLING ───────────────────────────────────────────────────────────
 
 function isValidZip(file) {
   return file?.name.toLowerCase().endsWith(".zip");
 }
 
-
-
-// ─── CONTROLLER ───────────────────────────────────────────────────────────
+// ─── CONTROLLER ──────────────────────────────────────────────────────────────
 /**
  * @param knownTasks Map of task id -> suite.
  * @param onFile    Called with `(file, taskIds)` when a file is selected,
  *                  or `(null, [])` when it is removed.
  */
-function createUploadSection({
-  knownTasks,
-  onFile,
-}) {
+function createUploadSection({ knownTasks, onFile }) {
   const elements = getElements();
 
   function isKnownTask(taskId) {
@@ -133,10 +125,7 @@ function createUploadSection({
   function renderDetectedTasks(taskIds) {
     elements.taskInfo.hidden = false;
     elements.taskInfo.className = "card";
-    elements.taskInfo.innerHTML = buildDetectedTasks(
-      taskIds,
-      isKnownTask,
-    );
+    elements.taskInfo.innerHTML = buildDetectedTasks(taskIds, isKnownTask);
   }
 
   function showSelectedFile(file) {
@@ -157,15 +146,19 @@ function createUploadSection({
     elements.fileMessage.hidden = true;
   }
 
-  // ─── EVENTS ───────────────────────────────────────────────────────────────
+  // ─── EVENTS ────────────────────────────────────────────────────────────────
 
   async function processFile(file) {
     if (!isValidZip(file)) {
-      showFailure(elements.fileMessage, `${file?.name ?? "That file"} is not a .zip file.`);
+      renderHtml(
+        elements.fileMessage,
+        buildFailureMessage(`${file?.name ?? "That file"} is not a .zip file.`),
+        { show: true },
+      );
       return;
     }
 
-    clearMessage(elements.fileMessage);
+    clearContent(elements.fileMessage, { hide: true });
     showSelectedFile(file);
 
     try {
@@ -177,10 +170,13 @@ function createUploadSection({
     } catch (error) {
       console.error(error);
 
-      showFailure(
+      renderHtml(
         elements.fileMessage,
-        "That .zip could not be read. Check the file and upload it again.",
-        error,
+        buildFailureMessage(
+          "That .zip could not be read. Check the file and upload it again.",
+          error,
+        ),
+        { show: true },
       );
 
       onFile(null, []);
@@ -189,7 +185,7 @@ function createUploadSection({
 
   function removeFile() {
     showDropzone();
-    clearMessage(elements.fileMessage);
+    clearContent(elements.fileMessage, { hide: true });
     onFile(null, []);
   }
 
@@ -225,45 +221,24 @@ function createUploadSection({
   }
 
   function attach() {
-    elements.fileInput.addEventListener(
-      "change",
-      handleFileChange,
-    );
+    elements.fileInput.addEventListener("change", handleFileChange);
 
-    elements.dropzone.addEventListener(
-      "drop",
-      handleDrop,
-    );
+    elements.dropzone.addEventListener("drop", handleDrop);
 
-    elements.dropzone.addEventListener(
-      "click",
-      handleDropzoneClick,
-    );
+    elements.dropzone.addEventListener("click", handleDropzoneClick);
 
-    elements.fileRemove.addEventListener(
-      "click",
-      removeFile,
-    );
+    elements.fileRemove.addEventListener("click", removeFile);
 
     for (const eventName of ["dragenter", "dragover"]) {
-      elements.dropzone.addEventListener(
-        eventName,
-        handleDragEnter,
-      );
+      elements.dropzone.addEventListener(eventName, handleDragEnter);
     }
 
     for (const eventName of ["dragleave", "dragend", "drop"]) {
-      elements.dropzone.addEventListener(
-        eventName,
-        handleDragLeave,
-      );
+      elements.dropzone.addEventListener(eventName, handleDragLeave);
     }
   }
 
   return { attach };
 }
 
-export {
-  buildUploadPanel,
-  createUploadSection,
-};
+export { buildUploadPanel, createUploadSection };

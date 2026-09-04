@@ -15,6 +15,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel
 
 import app.models  # noqa: F401 — register tables on SQLModel.metadata
+import app.routers.meta as meta_router
 import app.routers.submissions as submissions_router
 from app.config import settings
 from app.database import get_session
@@ -57,6 +58,11 @@ async def client(engine, session_factory, monkeypatch):
     # against a real tenant.
     monkeypatch.setattr(settings, "auth0_domain", "dev")
 
+    # /api/meta caches its document for the life of the process; each test has its own
+    # database, so a cache surviving between them would serve the first test's task table
+    # to every test after it.
+    meta_router.reset_meta_document()
+
     app.dependency_overrides[get_session] = override_get_session
     monkeypatch.setattr(
         submissions_router, "presign_put", lambda key, content_type="application/zip": f"https://s3.test/{key}"
@@ -72,6 +78,7 @@ async def client(engine, session_factory, monkeypatch):
         yield c
 
     app.dependency_overrides.clear()
+    meta_router.reset_meta_document()
 
 
 @pytest_asyncio.fixture

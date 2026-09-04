@@ -27,7 +27,7 @@ from app.schemas.teams import (
 )
 
 from app.routers.models import visible_models
-from app.routers.submissions import visible_submissions
+from app.routers.submissions import submissions_of_teams, visible_submissions
 
 router = APIRouter(prefix="/api/teams", tags=["teams"])
 
@@ -70,10 +70,12 @@ async def submission_count_per_team(
 
     Only submissions that match the ``visible`` criteria are considered.
     """
+    # Grouped by the model's team, since that is where a submission's team lives.
     submission_rows = await session.execute(
-        select(Submission.team_id, func.count(Submission.id))
+        select(Model.team_id, func.count(Submission.id))
+        .join(Model, Model.id == Submission.model_id)
         .where(visible)
-        .group_by(Submission.team_id)
+        .group_by(Model.team_id)
     )
     return dict(submission_rows.all())
 
@@ -172,7 +174,7 @@ async def _load_team_detail(
     # whole-database predicate and would count every other team's submissions too.
     n_submissions = (
         await session.execute(
-            select(func.count(Submission.id)).where(visible, Submission.team_id == team_id)
+            select(func.count(Submission.id)).where(visible, submissions_of_teams([team_id]))
         )
     ).scalar_one()
 
@@ -206,7 +208,7 @@ async def _load_team_detail(
     )
 
     if is_member:
-        return detail.model_copy(update={"can_edit": True})
+        return detail.model_copy(update={"is_mine": True})
 
     return detail.withhold_private()
 
@@ -244,6 +246,7 @@ async def list_teams(
             n_models=n_models.get(team.id, 0),
             n_submissions=n_submissions.get(team.id, 0),
             role=my_roles.get(team.id),
+            is_mine=team.id in my_roles,
         )
         for team in teams
     ]

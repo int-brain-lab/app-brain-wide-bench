@@ -1,34 +1,22 @@
 // util functions that are reused across
 
-// Make `value` safe to interpolate into an HTML string — both in text position
-// and inside a double- or single-quoted attribute. Use this at EVERY point where
-// data we didn't author reaches an `innerHTML` template; without it a model name
-// like `"><img src=x onerror=...>` closes the surrounding tag and the rest is
-// parsed as real markup (stored XSS, and the leaderboard is public).
-//
-// `&` must be replaced first, or it would re-escape the entities added below.
-//
-// This is for building *markup strings*. When you only need to set text or an
-// attribute, prefer `textContent` / `setAttribute` — they can't inject at all,
-// so there's nothing to remember to escape.
-function escapeHtml(value) {
-  if (value == null) return "";
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+// English enough for the nouns this app names. A word already ending in "s" is taken to be
+// plural as it stands, which is what "details" needs.
+function pluralise(noun) {
+  if (!noun || noun.endsWith("s")) return noun;
 
+  if (/[^aeiou]y$/.test(noun)) return `${noun.slice(0, -1)}ies`;
+
+  return `${noun}s`;
+}
 
 function initials(name) {
-  return name.split(/\s+/).map((w) => w[0] || "").join("").slice(0, 2).toUpperCase();
-}
-
-
-function refreshIcons() {
-  globalThis.lucide?.createIcons?.();
+  return name
+    .split(/\s+/)
+    .map((w) => w[0] || "")
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
 
 // Human-readable file size, e.g. "41.2 MB".
@@ -38,10 +26,12 @@ function formatBytes(bytes) {
   const units = ["KB", "MB", "GB", "TB"];
   let val = bytes / 1024;
   let i = 0;
-  while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
+  while (val >= 1024 && i < units.length - 1) {
+    val /= 1024;
+    i++;
+  }
   return `${val.toFixed(1)} ${units[i]}`;
 }
-
 
 function formatDate(value, locale = "en-GB") {
   if (!value) {
@@ -61,108 +51,68 @@ function formatDate(value, locale = "en-GB") {
   });
 }
 
-// Built as DOM rather than an innerHTML string because `message` is pure text
-// with no markup of its own — and because it routinely carries raw server
-// output: api.js throws `Error(`${status} ${statusText}: ${text}`)` with the
-// whole response body, and FastAPI's 422s echo the offending input back. Via
-// textContent none of that can be parsed as HTML.
-// The class goes on a wrapper rather than the paragraph, so `detail` has somewhere to sit:
-// a second, quieter line under the first.
-//
-// Everything is escaped rather than trusted: a detail is usually whatever the server said,
-// and apiFetch throws with the whole response body in its message while a FastAPI 422
-// echoes the offending input straight back.
-//
-// Returned as markup as well as rendered, because a card is sometimes part of a bigger
-// template — a task's own cleared notice, built with the fields it sits above.
-function buildMessageCard(message, className = "info-msg", detail = "") {
-  return `
-    <div class="${escapeHtml(className)}">
-      <p>${escapeHtml(message)}</p>
-      ${detail ? `<p class="msg-detail">${escapeHtml(detail)}</p>` : ""}
-    </div>
-  `;
-}
-
-function renderMessage(container, message, className = "info-msg", detail = "") {
-  container.hidden = false;
-  container.innerHTML = buildMessageCard(message, className, detail);
-}
-
-// Empties a message region and hides it again. Its own function because
-// `showMessage(element, "")` reads as "show nothing", which is a strange way to say "there
-// is nothing to report any more".
-function clearMessage(element) {
-  element.hidden = true;
-  element.replaceChildren();
-}
-
-
-function showMessage(element, message) {
-  if (!message) {
-    clearMessage(element);
-    return;
-  }
-
-  renderMessage(element, message);
-}
-
-
-// A section with nothing to show yet — no submissions, no members, no scored tasks. Its own
-// helper rather than showMessage with a class argument, so every one of them looks the same
-// without each call site electing to.
-function showEmpty(element, message) {
-  renderMessage(element, message, "empty-msg");
-}
-
-
-// The two outcomes of a create or an edit. `showFailure` names the action that failed and
-// puts the error underneath, so the sentence stays readable however ugly the detail is.
-function showSuccess(element, message) {
-  renderMessage(element, message, "success-msg");
-}
-
-
-// A change that was valid but cost something — fields cleared because they no longer
-// apply. Amber rather than red: nothing failed, but it must not slip past unnoticed.
-function showWarning(element, message, detail = "") {
-  renderMessage(element, message, "warn-msg", detail);
-}
-
-
-function showFailure(element, message, error) {
-  renderMessage(element, message, "failure-msg", error?.message ?? "");
-}
-
-
-function showError(element, message) {
-  if (!message) {
-    clearMessage(element);
-    return;
-  }
-
-  renderMessage(element, message, "error-msg");
-}
-
 function mean(values) {
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+  return values.length
+    ? values.reduce((sum, value) => sum + value, 0) / values.length
+    : null;
 }
 
+// The standard error of that mean: how far the mean itself would move on another sample of
+// the same size. The sample deviation (n − 1), because the values are a sample of what could
+// have been measured rather than the whole of it.
+//
+// Null under two values, where there is no spread to state — one measurement says nothing
+// about how much it varies, and 0 would claim it says a great deal.
+function sem(values) {
+  if (values.length < 2) return null;
+
+  const centre = mean(values);
+  const variance =
+    values.reduce((sum, value) => sum + (value - centre) ** 2, 0) /
+    (values.length - 1);
+
+  return Math.sqrt(variance / values.length);
+}
+
+// A count in as few characters as read it: 1.2K, 340M, 200B. For a figure whose magnitude is
+// the point — a parameter count spans eight orders — where the digits past the first two say
+// nothing a reader is asking. Largest unit first, so the loop below takes the first that fits.
+const COUNT_UNITS = [
+  [1e12, "T"],
+  [1e9, "B"],
+  [1e6, "M"],
+  [1e3, "K"],
+];
+
+// One decimal, and not a trailing zero: "1.2K" and "200B", never "200.0B".
+function trimmed(value) {
+  return String(Number(value.toFixed(1)));
+}
+
+function formatCount(value) {
+  if (value == null) return "—";
+
+  for (const [size, unit] of COUNT_UNITS) {
+    if (Math.abs(value) >= size) return `${trimmed(value / size)}${unit}`;
+  }
+
+  return String(Math.round(value));
+}
+
+// How a score is written everywhere it appears — a table cell, a stat card, a plot tooltip.
+// Here rather than in tables/formatters.js because it is a number format, not a cell
+// renderer, and the plots need it too.
+function score(value) {
+  return value == null ? "—" : value.toFixed(3);
+}
 
 export {
-  escapeHtml,
+  formatCount,
   formatDate,
   initials,
   formatBytes,
-  buildMessageCard,
-  clearMessage,
-  renderMessage,
-  showMessage,
-  showEmpty,
-  showError,
-  showFailure,
-  showSuccess,
-  showWarning,
   mean,
-  refreshIcons
+  pluralise,
+  score,
+  sem,
 };

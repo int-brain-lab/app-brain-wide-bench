@@ -9,9 +9,10 @@ Tables grouped by domain:
 import enum
 import uuid
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, ClassVar, Optional
 
 from sqlalchemy import Column, DateTime, Enum as SAEnum, Index, JSON, func, select, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import column_property
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -20,6 +21,27 @@ from sqlmodel import Field, Relationship, SQLModel
 #
 # Grouped by what they describe: who someone is to a record, what state a submission is
 # in, what a task measures, and how a model was trained for it.
+
+
+class DescribedEnum(str, enum.Enum):
+    """A str enum whose members carry the help text shown beside a form control.
+
+    Members are written ``name = value, description``, and the description rides on the
+    member itself rather than sitting in a lookup table beside it — one place to read, and
+    a member can't be added without one being noticed as missing.
+
+    ``str.__new__`` with ``_value_`` set explicitly is what keeps the tuple from becoming
+    the value: a member still compares equal to its own string, ``Modality("spikes")``
+    still resolves, and the SQLAlchemy ``Enum`` column and pydantic both see the same
+    values they always did.
+    """
+
+    def __new__(cls, value: str, description: str = ""):
+        member = str.__new__(cls, value)
+        member._value_ = value
+        member.description = description
+
+        return member
 
 
 class TeamRole(str, enum.Enum):
@@ -61,40 +83,113 @@ class TaskType(str, enum.Enum):
     brain_region = "brain_region"
 
 
-class Modality(str, enum.Enum):
-    anatomy = "anatomy"
-    spikes = "spikes"
-    behavior = "behavior"
-    lfp = "lfp"
-    waveforms = "waveforms"
+class Modality(DescribedEnum):
+    anatomy = (
+        "anatomy",
+        "Brain region labels, assigned per-unit by mapping recording location to a reference "
+        "brain atlas.",
+    )
+    spikes = (
+        "spikes",
+        "Ephys spike trains (following spike band filter, threshold crossing, spike sorting). "
+        "Discrete per-neuron event times, optionally binned into firing-rate estimates.",
+    )
+    behavior = (
+        "behavior",
+        "Any behavioral signal relevant to the decision-making task, including task events and "
+        "continuous traces from video and pose tracking.",
+    )
+    lfp = (
+        "lfp",
+        "Ephys local field potential (following LFP band filter, downsampling). Captures "
+        "lower-frequency population-level signals distinct from spike-level activity.",
+    )
+    waveforms = (
+        "waveforms",
+        "Ephys spike waveforms (extracellular action potential shape captured in a short window "
+        "around each detected spike).",
+    )
 
 
-class TrainingParadigm(str, enum.Enum):
-    TSS = "TSS"               # Task-Specific Supervised
-    TSU = "TSU"               # Task-Specific Unsupervised (pretrained backbone)
-    single_session = "single_session"
+class TrainingParadigm(DescribedEnum):
+    TSS = (
+        "TSS",
+        "Task-Suite-Supervised (pretraining objective matches the supervision target of this "
+        "task).",
+    )
+    TSU = (
+        "TSU",
+        "Task-Suite-Unsupervised (pretraining objective was unrelated to the supervision target "
+        "of this task).",
+    )
+    single_session = (
+        "single_session",
+        "Trained from scratch on each individual session, no pretraining.",
+    )
 
 
-class SupervisionRegime(str, enum.Enum):
-    zero_shot = "zero_shot"
-    few_shot = "few_shot"
-    full = "full"
-    other = "other"
+class SupervisionRegime(DescribedEnum):
+    zero_shot = (
+        "zero_shot",
+        "No supervision data from this task is used to adapt the pretrained model to the eval "
+        "session.",
+    )
+    few_shot = (
+        "few_shot",
+        "A subset of the available supervised data for this task is used to calibrate the "
+        "pretrained model.",
+    )
+    full = (
+        "full",
+        "All available supervised data for this task is used to calibrate the pretrained model.",
+    )
+    other = (
+        "other",
+        "A regime not captured above; please describe it in the private narrative.",
+    )
 
 
-class Calibration(str, enum.Enum):
-    inductive = "inductive"       # gradient-free at eval time
-    transductive = "transductive"  # requires gradients on eval set
+class Calibration(DescribedEnum):
+    inductive = (
+        "inductive",
+        "Model evaluated on this task with no parameter updates needed.",
+    )
+    transductive = (
+        "transductive",
+        "Gradients used to update the model on this task, whether supervised directly on this "
+        "task or calibrated via another objective.",
+    )
 
 
-class FinetuningStrategy(str, enum.Enum):
-    linear_probe = "linear_probe"
-    mlp_probe = "mlp_probe"
-    gradual_unfreezing = "gradual_unfreezing"
-    full_finetuning = "full_finetuning"
-    single_unit = "single_unit"
-    multi_unit = "multi_unit"
-    other = "other"
+class FinetuningStrategy(DescribedEnum):
+    linear_probe = (
+        "linear_probe",
+        "Linear readout trained on frozen pretrained representations.",
+    )
+    mlp_probe = (
+        "mlp_probe",
+        "Multi-layer perceptron readout trained on frozen pretrained representations.",
+    )
+    gradual_unfreezing = (
+        "gradual_unfreezing",
+        "Layers progressively unfrozen and finetuned over the course of adaptation.",
+    )
+    full_finetuning = (
+        "full_finetuning",
+        "All model parameters updated during adaptation to this task.",
+    )
+    single_unit = (
+        "single_unit",
+        "TS3 probe fit and evaluated per individual unit.",
+    )
+    multi_unit = (
+        "multi_unit",
+        "TS3 probe fit using a consensus across multiple nearby units.",
+    )
+    other = (
+        "other",
+        "A strategy not captured above; please describe it in the private narrative.",
+    )
 
 
 class Metric(str, enum.Enum):
@@ -105,7 +200,28 @@ class Metric(str, enum.Enum):
     r2 = "r2"
 
 
+# What each task suite asks a model to predict. Domain fact rather than a column: it is
+# fixed by what the suites are, and both the submission forms (which modality can't be an
+# *extra input* when it is the target) and /api/meta read it. Here so there is one copy —
+# it previously lived only in the frontend's task schema.
+SUITE_OUTPUT_MODALITY: dict[TaskSuite, Modality] = {
+    TaskSuite.ts1: Modality.behavior,
+    TaskSuite.ts2: Modality.spikes,
+    TaskSuite.ts3: Modality.anatomy,
+}
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
+
+# Every multi-valued column below. ``JSONB`` on Postgres, which is where the app runs: it is
+# the correct storage for a list nobody reads as text, and the only one offering containment,
+# so a query narrowing by "any of these modalities" is possible at all.
+#
+# A variant rather than ``JSONB`` outright because the test suite builds its schema on SQLite,
+# whose compiler cannot render JSONB — the variant renders plain ``JSON`` there. Array order
+# survives both, which is why this is safe here and not for ``TaskScore.metrics``.
+JSON_LIST = JSON().with_variant(JSONB(), "postgresql")
 
 
 # These return a ``Field``, not a value — the annotation is ``Any`` rather than the column
@@ -150,7 +266,6 @@ class Team(SQLModel, table=True):
 
     members: list["UserTeam"] = Relationship(back_populates="team")
     models: list["Model"] = Relationship(back_populates="team")
-    submissions: list["Submission"] = Relationship(back_populates="team")
 
 
 class User(SQLModel, table=True):
@@ -214,13 +329,39 @@ class Model(SQLModel, table=True):
     temporal_context_s: float = 1.0
     # Pretraining — all nullable for single-session baselines
     is_pretrained: bool | None = None
-    pretrained_in_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON))
-    pretrained_out_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON))
+    pretrained_in_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON_LIST))
+    pretrained_out_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON_LIST))
     pretraining_data: str | None = None
     created_at: datetime | None = _ts()
 
     team: Team | None = Relationship(back_populates="models")
     submissions: list["Submission"] = Relationship(back_populates="model")
+
+    # Help text for the create and edit forms, keyed by field name and served by
+    # /api/meta. Here rather than on the response schemas so the wording sits with the
+    # column it describes and can't drift from it; ``test_models`` asserts every key is a
+    # real field.
+    FIELD_DESCRIPTIONS: ClassVar[dict[str, str]] = {
+        "link_project": "Link to project homepage.",
+        "link_weights": "Link to model weights (e.g. Huggingface).",
+        "link_code": "Link to model code (e.g. GitHub).",
+        "publication_doi": "DOI of affiliated publication.",
+        "n_parameters": "Total number of non-embedding model parameters.",
+        "temporal_context_s": (
+            "Duration (s) of context window used, including and preceding the target window. "
+            "If context length varies across tasks for this model, report the primary/default "
+            "value here and note task-specific deviations in the submission narrative."
+        ),
+        "is_pretrained": (
+            "Is this a pretrained foundation model, or trained from scratch on every session?"
+        ),
+        "pretrained_in_modalities": "If pretrained, which modalities were accepted as input.",
+        "pretrained_out_modalities": "If pretrained, which modalities were used for supervision.",
+        "pretraining_data": (
+            "Describe the corpus of pretraining data used (all sessions, a subset, external "
+            "data)."
+        ),
+    }
 
 
 class Submission(SQLModel, table=True):
@@ -240,7 +381,11 @@ class Submission(SQLModel, table=True):
     )
 
     id: uuid.UUID = _uuid()
-    team_id: uuid.UUID = Field(foreign_key="teams.id")
+
+    # No team of its own: a submission belongs to a model, and the model to a team. A
+    # column here would be a second copy of that answer, free to disagree with the first
+    # the moment a model is reassigned — so whose submission this is reads through
+    # ``model.team_id``, and reassignment carries the submissions by construction.
     model_id: uuid.UUID = Field(foreign_key="models.id")
     label: str  # human-readable run name, e.g. "mlp-ts1-baseline"
     s3_key: str
@@ -248,10 +393,10 @@ class Submission(SQLModel, table=True):
     narrative_public: str | None = None
     narrative_private: str | None = None
     is_public: bool = Field(default=False)
+    is_deterministic: bool = Field(default=False)
     created_at: datetime | None = _ts()
     updated_at: datetime | None = _updated_ts()
 
-    team: Team | None = Relationship(back_populates="submissions")
     model: Model | None = Relationship(back_populates="submissions")
     user_links: list["SubmissionUser"] = Relationship(
         back_populates="submission",
@@ -261,6 +406,22 @@ class Submission(SQLModel, table=True):
         back_populates="submission",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+
+    # See Model.FIELD_DESCRIPTIONS.
+    FIELD_DESCRIPTIONS: ClassVar[dict[str, str]] = {
+        "label": (
+            "Name of this submission, identifying the base model and what distinguishes this "
+            "particular variant."
+        ),
+        "narrative_public": (
+            "A narrative describing this submission, which is made public on the leaderboard."
+        ),
+        "narrative_private": (
+            "This is space for writing comments that are kept private, including notes to the "
+            "administrators."
+        ),
+        "is_public": "Is this submission ready to be published on the leaderboard?",
+    }
 
 
 class SubmissionUser(SQLModel, table=True):
@@ -316,11 +477,11 @@ class TaskSubmission(SQLModel, table=True):
     id: uuid.UUID = _uuid()
     submission_id: uuid.UUID = Field(foreign_key="submissions.id")
     task_id: str = Field(foreign_key="tasks.id")
-    extra_input_modality: list[Modality] | None = Field(default=None, sa_column=Column(JSON))
+    extra_input_modality: list[Modality] | None = Field(default=None, sa_column=Column(JSON_LIST))
     training_paradigm: TrainingParadigm | None = None
     supervision_regime: SupervisionRegime | None = None
     calibration: Calibration | None = None
-    finetuning_strategy: list[FinetuningStrategy] | None = Field(default=None, sa_column=Column(JSON))
+    finetuning_strategy: list[FinetuningStrategy] | None = Field(default=None, sa_column=Column(JSON_LIST))
 
     submission: Submission | None = Relationship(back_populates="task_submissions")
     task: Task | None = Relationship(back_populates="task_submissions")
@@ -328,6 +489,49 @@ class TaskSubmission(SQLModel, table=True):
         back_populates="task_submission",
         sa_relationship_kwargs={"cascade": "all, delete-orphan", "uselist": False},
     )
+
+    # See Model.FIELD_DESCRIPTIONS.
+    FIELD_DESCRIPTIONS: ClassVar[dict[str, str]] = {
+        "extra_input_modality": (
+            "Does this model require any modalities other than spikes as input for this task? "
+            "This necessarily excludes task-related supervision targets within the target window."
+        ),
+        "training_paradigm": (
+            "Which paradigm is used to train this model on this task? Single-session models are "
+            "trained from scratch on each session, with no pretraining used. If adapting a "
+            "pretrained foundation model, did the pretraining objective match the supervision "
+            "target of this task (Task-Suite-Supervised, TSS) or was it unrelated "
+            "(Task-Suite-Unsupervised, TSU)? Note: TSS implies the training objective itself was "
+            "aligned with this task, not just the modalities used in input and output (e.g., "
+            "forecasting, not just spikes-to-spikes). Refer to the BrainWideBench paper for more "
+            "details and examples with existing baselines."
+        ),
+        "supervision_regime": (
+            "To what degree is this model supervised on this task? Zero-shot means no supervision "
+            "is needed to adapt a pretrained model on the eval session. Few-shot means a subset "
+            "of the available supervised data is used to calibrate a pretrained model. Full means "
+            "all available supervised data is used to calibrate a pretrained model. Note that "
+            "this specifically refers to data pertaining to this task (i.e. supervision data), "
+            "not other available data in the dataset. Single-session models implicitly cannot be "
+            "used in a zero-shot fashion, though can use few-shot or use full supervision. If "
+            "there is another paradigm not listed, please specify in the private description."
+        ),
+        "calibration": (
+            "Are gradients required to update a pretrained model in order to adapt to this task, "
+            "whether that adaptation is supervised on this task directly or calibrated via some "
+            "other objective (both count as transductive)? Or can it be evaluated on this task "
+            "with no updates to the model parameters (inductive)? Note: here, inductive implies "
+            "zero-shot since a model that never uses eval data to adapt also does not use "
+            "supervision on this task. Single-session models are always transductive, since they "
+            "are trained from scratch on the eval session."
+        ),
+        "finetuning_strategy": (
+            "If finetuning was done from a pretrained model, what kind of strategy was used? "
+            "Options include linear/MLP probing, gradual unfreezing, full finetuning, etc. For "
+            "TS3, was a single-unit or multi-unit probe used? If a strategy not listed here was "
+            "used, please select Other and describe it."
+        ),
+    }
 
 
 class TaskScore(SQLModel, table=True):
@@ -345,6 +549,10 @@ class TaskScore(SQLModel, table=True):
     primary_metric_mean: float
     primary_metric_sem: float | None = None
 
+    # JSON, not JSONB, unlike every other multi-valued column here: JSONB canonicalises object
+    # key order, and the order the scorer wrote the metrics in is what the client reads them in
+    # — a task's primary metric first. Nothing inspects this server-side, so JSONB would cost
+    # that ordering and buy nothing.
     metrics: dict | None = Field(default=None, sa_column=Column(JSON, nullable=True))
 
     task_submission: TaskSubmission | None = Relationship(back_populates="score")

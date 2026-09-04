@@ -23,6 +23,15 @@ class TeamResponse(BaseModel):
     # ``GET /api/teams`` can return and ``/me/teams`` never does.
     role: TeamRole | None = None
 
+    # Whether the caller is a member, which is what makes the team theirs to edit — the
+    # same rule PATCH enforces. Implied by ``role`` being set, and stated anyway: this is
+    # the one field ``models`` and ``submissions`` carry under the same name, so a client
+    # asking "is this mine" asks it the same way of all three.
+    #
+    # Deciding who is *in* the team is narrower still and stays keyed off ``role``, since
+    # the member endpoints require ownership.
+    is_mine: bool = False
+
     @classmethod
     def from_team(cls, team, **extra) -> "TeamResponse":
         """Build from an ORM ``Team`` plus whatever the caller computed about it.
@@ -108,14 +117,6 @@ class TeamDetail(TeamResponse):
     """
 
     members: list[TeamMemberOut] | None = None
-
-    # Whether this caller may edit the team, which is membership — the same rule PATCH
-    # enforces. Deciding who is *in* it is narrower still and stays keyed off ``role``,
-    # since the member endpoints require ownership.
-    #
-    # Defaults False, which is what ``withhold_private`` leaves behind: a reader who
-    # doesn't get the member list doesn't get its edit rights either.
-    can_edit: bool = False
 
     def withhold_private(self) -> "TeamDetail":
         """Return a copy without the member list, for a reader outside the team.

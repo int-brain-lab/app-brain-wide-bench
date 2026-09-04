@@ -1,37 +1,31 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Brain-Wide Bench - Team</title>
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Brain-Wide Bench - Team</title>
-  <link rel="stylesheet" href="/css/style.css">
-</head>
-
-<body>
-
+  <body>
     <!-- One URL for both audiences, and no gate: a team's page is readable signed out,
          minus the member list. The markup is the public shell — what a visitor should see,
          painted before any script runs — and shell.js swaps in the sidebar for a signed-in
          reader. -->
     <div class="main">
-
       <nav class="nav" id="top-nav"></nav>
 
       <aside class="sidebar" id="side-nav" hidden></aside>
 
       <div class="content">
-
         <div id="container"></div>
-
       </div>
     </div>
 
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
-  <script type="module" src="/js/nav/navTop.js"></script>
-  <script type="module" src="/js/nav/navSide.js"></script>
-  <script type="module" src="/js/pages/teamView.js"></script>
-
-</body>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
+    <script type="module" src="/js/nav/navTop.js"></script>
+    <script type="module" src="/js/nav/navSide.js"></script>
+    <script type="module" src="/js/pages/teamView.js"></script>
+  </body>
 </html>

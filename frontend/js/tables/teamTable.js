@@ -1,47 +1,26 @@
-// Filterable teams table
+// Filterable teams table.
 //
 // The table allows you to search by team name and filter by your role on it.
 //
-// This code just defines the columns, rows and controls. Table infrastructure lives in
-// table.js.
+// The columns only. Rows and filters are in utils/teamUtils.js, and the table
+// infrastructure in table.js.
 
+import { getTeamFilters } from "../utils/teamUtils.js";
 import {
+  buildStaticTable,
   createFilterableTable,
-  matchEquals,
-  matchIncludes,
-  optionsFromRows,
+  previewRows,
 } from "./table.js";
-import { linkFormatter, roleBadgeFormatter } from "./formatters.js";
+import { buildLinkFormatter, roleBadgeFormatter } from "./formatters.js";
 
-
-// ─── ROWS ───────────────────────────────────────────────────────────────────
-
-function toTeamRow(team) {
-  return {
-    id: team.id,
-    name: team.name,
-    // The caller's own role, absent on a team they aren't in — which the public list is
-    // full of, so the column renders those as "—" rather than leaving a blank.
-    role: team.role ?? null,
-    n_members: team.n_members ?? 0,
-    n_models: team.n_models ?? 0,
-    n_submissions: team.n_submissions ?? 0,
-  };
-}
-
-function toTeamRows(teams) {
-  return teams.map(toTeamRow);
-}
-
-
-// ─── COLUMNS ────────────────────────────────────────────────────────────────
+// ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
 function getTeamColumns() {
   return [
     {
       title: "Team",
       field: "name",
-      formatter: linkFormatter("/html/teams/teams.html", "name"),
+      formatter: buildLinkFormatter("/html/teams/teams.html", "name"),
       widthGrow: 2,
     },
     {
@@ -68,50 +47,53 @@ function getTeamColumns() {
   ];
 }
 
-
-// ─── CONTROLS ───────────────────────────────────────────────────────────────
-
-// Roles come from the rows rather than a fixed list: on the public list most teams carry
-// none, and an "Owner" option that matches nothing would be a control that does nothing.
-function getTeamControls(rows) {
-  return [
-    {
-      type: "search",
-      name: "name",
-      placeholder: "Search teams...",
-      match: matchIncludes("name"),
-    },
-    {
-      type: "select",
-      name: "role",
-      placeholder: "Any role",
-      options: optionsFromRows(rows, "role"),
-      match: matchEquals("role"),
-    },
-  ];
-}
-
-
-// ─── TABLE ──────────────────────────────────────────────────────────────────
+// ─── TABLE ───────────────────────────────────────────────────────────────────
 
 /**
- * @param container element, or the id of one. Its contents are replaced.
- * @param teams     as renderTeamsTable's caller has them, mapped to rows by toTeamRows().
- * @returns the Tabulator instance.
+ * The live teams table, filterable above the grid.
+ *
+ * @param rows        rows from toTeamRows.
+ * @param showFilters keep the filter bar above the grid. False for a caller with a bar of
+ *                    its own over both its views — see templates/listPage.js.
+ *
+ * @returns { element, table } — as createModelsTable; the caller mounts the element.
  */
-function renderTeamsTable({ container, teams }) {
-  const rows = toTeamRows(teams);
-
+function createTeamsTable({ rows, showFilters = true }) {
   return createFilterableTable({
-    container,
     rows,
     columns: getTeamColumns(),
-    controls: getTeamControls(rows),
-    noun: "teams",
+    controls: showFilters ? getTeamFilters(rows) : [],
+    noun: "team",
     initialSort: [{ column: "name", dir: "asc" }],
-    caller: "renderTeamsTable",
   });
 }
 
+// ─── STATIC TABLE ────────────────────────────────────────────────────────────
 
-export { renderTeamsTable };
+/**
+ * Plain-markup counterpart to createTeamsTable, for a fixed preview — no filters, no
+ * paging, and no Tabulator needed on the page.
+ *
+ * @param rows    as createTeamsTable.
+ * @param limit   how many rows to show. Omit for all of them.
+ * @param viewAll as buildStaticTable — where the footer's "View all" link goes.
+ *
+ * @returns the markup.
+ */
+function buildStaticTeamsTable({ rows, limit, viewAll }) {
+  const shown = previewRows(
+    rows,
+    (a, b) => String(a.name).localeCompare(b.name),
+    limit,
+  );
+
+  return buildStaticTable({
+    columns: getTeamColumns(),
+    rows: shown,
+    noun: "team",
+    total: rows.length,
+    viewAll,
+  });
+}
+
+export { createTeamsTable, buildStaticTeamsTable };

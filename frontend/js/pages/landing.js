@@ -1,71 +1,27 @@
-// Page entry for index.html — the public landing page: two counts and a five-row
-// leaderboard preview.
+// Page entry for index.html — the two counts across the top of the public landing page.
 //
-// The preview is the leaderboard table's own static renderer, so the rank medals, the
-// model cell and the score formatting are written once and shared with the full page.
-//
-// The page provides:
-//   #lb-table-preview   where the table is rendered
-//   #lb-table-count     "N models", or the error
-//   #stat-submissions #stat-models
+// #stat-submissions and #stat-models both start at "—", so a failed load leaves them
+// saying nothing rather than saying zero.
 
 import { getLeaderboard } from "../api/leaderboardApi.js";
-import { showFailure } from "../core/utils.js";
-import { renderStaticLeaderboardTable } from "../tables/leaderboardTable.js";
 
+// One standing per model — the payload's own grain. The submission count is summed off
+// them, since a model submitted twice is still one standing.
+function renderStats(standings) {
+  const submissions = standings.reduce(
+    (total, standing) => total + (standing.n_submissions ?? 0),
+    0,
+  );
 
-// ─── CONSTANTS ──────────────────────────────────────────────────────────────
-
-const PREVIEW_LIMIT = 5;
-
-
-// ─── RENDERING ──────────────────────────────────────────────────────────────
-
-// Returns every row, not the five it rendered — the count below the preview and the
-// model stat are both totals.
-function renderPreview(submissions) {
-  const rows = renderStaticLeaderboardTable({
-    container: "lb-table-preview",
-    submissions,
-    limit: PREVIEW_LIMIT,
-  });
-
-  document.getElementById("lb-table-count").textContent = `${rows.length} models`;
-
-  return rows;
+  document.getElementById("stat-submissions").textContent = submissions;
+  document.getElementById("stat-models").textContent = standings.length;
 }
-
-// `submissions.length` is every public scored submission; `rows.length` is one per
-// (model, team), so the two differ whenever a model has been submitted more than once.
-function renderStats(rows, submissions) {
-  document.getElementById("stat-submissions").textContent = submissions.length;
-  document.getElementById("stat-models").textContent = rows.length;
-}
-
-// Into the preview's own slot rather than the count line under it: the count is a number,
-// and a failure there would read as one.
-function showFailedPreview(message, error) {
-  showFailure(document.getElementById("lb-table-preview"), message, error);
-  document.getElementById("lb-table-count").textContent = "";
-}
-
-
-// ─── INITIALISATION ─────────────────────────────────────────────────────────
 
 async function loadLandingPage() {
-  try {
-    const submissions = await getLeaderboard();
+  // Undefined when the fetch failed, which getLeaderboard has already logged.
+  const standings = await getLeaderboard();
 
-    if (!submissions) {
-      showFailedPreview("Loading the leaderboard failed.");
-      return;
-    }
-
-    renderStats(renderPreview(submissions), submissions);
-  } catch (err) {
-    console.error("Failed to initialise the landing page:", err);
-    showFailedPreview("Loading the leaderboard failed.", err);
-  }
+  if (standings) renderStats(standings);
 }
 
 loadLandingPage();

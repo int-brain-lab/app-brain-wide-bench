@@ -12,14 +12,23 @@
 // The page provides #member-search, #member-results and #member-list; #member-add is
 // optional and wraps the lookup where a page needs to hide it outside edit mode.
 
-import { addTeamMember, removeTeamMember, updateTeamMember } from "../api/teamApi.js";
+import {
+  addTeamMember,
+  removeTeamMember,
+  updateTeamMember,
+} from "../api/teamApi.js";
 import { searchUsers } from "../api/userApi.js";
-import { escapeHtml, initials, showEmpty } from "../core/utils.js";
+import { buildRoleBadge } from "../components/badges.js";
+import { buildTableCount } from "../components/count.js";
+import { initials } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
+import { buildEmptyMessage } from "../components/messages.js";
+import { renderHtml } from "../core/render.js";
 
 // The server's TeamRole. Ordered as the select shows them, most privileged first.
 const ROLES = ["owner", "collaborator"];
 
-// ─── DOM ────────────────────────────────────────────────────────────────────
+// ─── DOM ─────────────────────────────────────────────────────────────────────
 
 // The block's own markup, so the ids below are declared and queried in one place. Both
 // callers used to write this out themselves — the create page in HTML and the team record
@@ -47,6 +56,40 @@ function buildMembersPanel() {
   `;
 }
 
+// The read-only table, for a page showing members it cannot change. The editable one is
+// createMembersSection's, and carries the role selects and Remove buttons.
+function buildMemberTable(members) {
+  const rows = members
+    .map(
+      (member) => `
+        <tr>
+          <td>${escapeHtml(member.name || "—")}</td>
+          <td>${escapeHtml(member.email)}</td>
+          <td>${buildRoleBadge(member.role)}</td>
+        </tr>
+      `,
+    )
+    .join("");
+
+  return `
+    <div class="table">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="table-footer">
+        ${buildTableCount(members.length, members.length, "member")}
+      </div>
+    </div>
+  `;
+}
+
 function getElements() {
   return {
     search: document.getElementById("member-search"),
@@ -56,7 +99,7 @@ function getElements() {
   };
 }
 
-// ─── SECTION ────────────────────────────────────────────────────────────────
+// ─── SECTION ─────────────────────────────────────────────────────────────────
 
 /**
  * @param getTeam    () => the record being edited. Read on every interaction, so a caller
@@ -73,11 +116,7 @@ function getElements() {
  * team_members.html since folded into the details page. With no caller left it was two
  * unreachable branches and an `onChanged` hook nobody passed.
  */
-function createMembersSection({
-  getTeam,
-  onMessage,
-  canRemove = () => true,
-}) {
+function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
   const elements = getElements();
 
   const pendingAdds = new Map();
@@ -95,21 +134,17 @@ function createMembersSection({
   // opens it once at construction, because there the panel's own lock is the gate.
   let editing = false;
 
-  // ─── MEMBERS ──────────────────────────────────────────────────────────────
+  // ─── MEMBERS ───────────────────────────────────────────────────────────────
 
   function getEffectiveMembers() {
     const current = (getTeam().members ?? []).filter(
-      member => !pendingRemoves.has(member.id),
+      (member) => !pendingRemoves.has(member.id),
     );
 
     return [...current, ...pendingAdds.values()];
   }
 
-  function hasChanges() {
-    return pendingAdds.size > 0 || pendingRemoves.size > 0 || pendingRoles.size > 0;
-  }
-
-  // ─── RENDERING ────────────────────────────────────────────────────────────
+  // ─── RENDERING ─────────────────────────────────────────────────────────────
 
   // A select rather than a badge, so the role is chosen where the member is. Only a
   // staged addition can have its role set: changing a saved member's role would need an
@@ -124,10 +159,11 @@ function createMembersSection({
     // removal.
     const settable =
       editing &&
-      (pendingAdds.has(member.email) || (getTeam().id != null && canRemove(member)));
+      (pendingAdds.has(member.email) ||
+        (getTeam().id != null && canRemove(member)));
 
     const options = ROLES.map(
-      role =>
+      (role) =>
         `<option value="${role}"${role === selected ? " selected" : ""}>${role}</option>`,
     ).join("");
 
@@ -184,7 +220,7 @@ function createMembersSection({
     }
 
     if (members.length === 0) {
-      showEmpty(elements.list, "No members yet.");
+      renderHtml(elements.list, buildEmptyMessage("No members yet."));
       return;
     }
 
@@ -203,6 +239,7 @@ function createMembersSection({
             ${members.map(buildMemberRow).join("")}
           </tbody>
         </table>
+        <div class="table-footer">${buildTableCount(members.length, members.length, "member")}</div>
       </div>
     `;
   }
@@ -243,10 +280,10 @@ function createMembersSection({
 
   function renderSearchResults(users) {
     const existingIds = new Set(
-      getEffectiveMembers().map(member => member.id),
+      getEffectiveMembers().map((member) => member.id),
     );
 
-    const available = users.filter(user => !existingIds.has(user.id));
+    const available = users.filter((user) => !existingIds.has(user.id));
 
     if (available.length === 0) {
       clearSearchResults();
@@ -261,7 +298,7 @@ function createMembersSection({
     renderMembers();
   }
 
-  // ─── MEMBER CHANGES ──────────────────────────────────────────────────────
+  // ─── MEMBER CHANGES ────────────────────────────────────────────────────────
 
   // Re-adding someone staged for removal cancels that removal rather than recording a
   // separate add — otherwise apply() would DELETE and then POST the same person.
@@ -362,7 +399,7 @@ function createMembersSection({
     render();
   }
 
-  // ─── EVENTS ───────────────────────────────────────────────────────────────
+  // ─── EVENTS ────────────────────────────────────────────────────────────────
 
   async function handleSearch() {
     const query = elements.search.value.trim();
@@ -393,7 +430,7 @@ function createMembersSection({
 
   elements.search.addEventListener("change", handleSearch);
 
-  elements.results.addEventListener("click", event => {
+  elements.results.addEventListener("click", (event) => {
     const button = event.target.closest(".add-member");
 
     if (!button) {
@@ -410,7 +447,7 @@ function createMembersSection({
     });
   });
 
-  elements.list.addEventListener("change", event => {
+  elements.list.addEventListener("change", (event) => {
     const select = event.target.closest(".member-role");
 
     if (!select) {
@@ -420,17 +457,14 @@ function createMembersSection({
     setMemberRole(select.dataset.email, select.dataset.userId, select.value);
   });
 
-  elements.list.addEventListener("click", event => {
+  elements.list.addEventListener("click", (event) => {
     const button = event.target.closest(".member-remove");
 
     if (!button) {
       return;
     }
 
-    removeMember(
-      button.dataset.userId,
-      button.dataset.email,
-    );
+    removeMember(button.dataset.userId, button.dataset.email);
   });
 
   return {
@@ -441,5 +475,4 @@ function createMembersSection({
   };
 }
 
-export { buildMembersPanel, createMembersSection };
-
+export { buildMemberTable, buildMembersPanel, createMembersSection };

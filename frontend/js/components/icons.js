@@ -9,8 +9,7 @@
 // Several concepts share a glyph, and that is fine: they are separate entries because they
 // are separate ideas, and one of them may want its own icon later.
 
-import { escapeHtml } from "../core/utils.js";
-
+import { escapeHtml } from "../core/html.js";
 
 const ICONS = {
   // Records and their parts
@@ -42,10 +41,17 @@ const ICONS = {
   save: "check",
   cancel: "x",
   remove: "x",
+  create: "plus",
+  filter: "funnel",
+  expand: "plus",
+  collapse: "minus",
+  down: "chevron-down",
+  up: "chevron-up",
 
   // Views
   cards: "layout-grid",
   table: "table",
+  compare: "git-compare",
 
   // Field decorations, from the schemas
   link: "link",
@@ -64,12 +70,13 @@ const ICONS = {
  */
 function getIcon(name) {
   if (!(name in ICONS)) {
-    console.warn(`No icon registered for "${name}" — using it as a Lucide name.`);
+    console.warn(
+      `No icon registered for "${name}" — using it as a Lucide name.`,
+    );
   }
 
   return ICONS[name] ?? name;
 }
-
 
 /**
  * @param name      a concept from ICONS.
@@ -85,6 +92,5 @@ function buildIcon(name, { className = "field-icon", title = "" } = {}) {
     ></i>
   `;
 }
-
 
 export { ICONS, buildIcon, getIcon };

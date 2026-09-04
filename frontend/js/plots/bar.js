@@ -1,0 +1,148 @@
+// Bars with error bars, over categories.
+//
+// For few enough categories to give each a group of them, where a length read against a
+// common baseline answers "by how much" faster than two positions do. That baseline is the
+// whole encoding, so the axis has to include zero and zero is drawn as a line.
+
+import { AXIS, GRID, SEM_INK, createCategoryChart } from "./chartjs.js";
+import { DEFAULT_HEIGHT, arrangePlots, toDatasets } from "./figure.js";
+
+// Filled, with its whisker in ink because its own colour is underneath it.
+function barMark(entry) {
+  return {
+    backgroundColor: entry.colour,
+    borderColor: entry.colour,
+    borderWidth: 0,
+    borderRadius: 2,
+    semColor: SEM_INK,
+    // The bars of one category sit together with a gap to the next group, so the eye reads
+    // "these belong to this task" before it reads any single value.
+    categoryPercentage: 0.72,
+    barPercentage: 0.92,
+  };
+}
+
+/**
+ * The bars of a category packed to the left of their group, the empty slots falling at the end.
+ *
+ * A category is divided by the number of series whether or not each has a value there, so a
+ * task only two of five models scored would otherwise draw two bars with holes between them —
+ * and a hole in a bar chart reads as a bar of no height. Packed, the bars are the same width in
+ * every category and the space is after them.
+ *
+ * Chart.js gives a series one slot per category, so the packing is done by moving values
+ * between the datasets and carrying each bar's colour and name along with it. Which means a
+ * dataset is no longer one series: `barNames` says whose each bar is, for the tooltip, and
+ * nothing may read a dataset's own `label` or colour — the key these plots carry is HTML, built
+ * from the series rather than from the datasets. See createSeriesKey in figure.js.
+ *
+ * The cost is that a series is no longer always in the same position within a group: a model
+ * after a missing one shifts left. Colour is what identifies a series here, which is what the
+ * palette is sized for.
+ */
+function packLeft(datasets) {
+  const categories = datasets[0]?.data.length ?? 0;
+
+  const packed = datasets.map((dataset) => ({
+    ...dataset,
+    data: [],
+    sems: [],
+    backgroundColor: [],
+    borderColor: [],
+    barNames: [],
+  }));
+
+  for (let at = 0; at < categories; at += 1) {
+    const present = datasets.filter((dataset) => dataset.data[at] != null);
+
+    packed.forEach((target, slot) => {
+      const source = present[slot];
+
+      target.data.push(source ? source.data[at] : null);
+      target.sems.push(source ? source.sems[at] : null);
+      target.backgroundColor.push(source ? source.backgroundColor : "#0000");
+      target.borderColor.push(source ? source.borderColor : "#0000");
+      target.barNames.push(source ? source.label : "");
+    });
+  }
+
+  return packed;
+}
+
+// Zero is drawn as a line rather than as one gridline among several — on a plot of
+// differences it is the boundary between ahead and behind, and a reader shouldn't have to
+// find it by reading the ticks.
+const ZERO_LINE = {
+  grid: { color: (context) => (context.tick?.value === 0 ? AXIS : GRID) },
+};
+
+/**
+ * @param range {min, max} the plot spans, widened to include zero — cropped to the data, a
+ *              2% difference between two models is drawn as one bar twice the height of the
+ *              other.
+ * @param rest  as createScatterPlot in scatter.js.
+ * @returns { element, chart }.
+ */
+function createBarPlot({
+  series,
+  labels,
+  axisTitle,
+  tickLabel = (key) => key,
+  range = null,
+  title = null,
+  height = DEFAULT_HEIGHT,
+  showAxis = true,
+}) {
+  return createCategoryChart({
+    type: "bar",
+    labels,
+    datasets: packLeft(toDatasets(series, labels, barMark)),
+    axisTitle,
+    tickLabel,
+    span: range
+      ? { min: Math.min(0, range.min), max: Math.max(0, range.max) }
+      : null,
+    yGrid: ZERO_LINE,
+    title,
+    height,
+    showAxis,
+    // The series are named outside the plot — a comparison's chips, a grid's headings — so
+    // no chart here draws one of its own.
+    legend: false,
+    caller: "createBarPlot",
+  });
+}
+
+/**
+ * Several of them, arranged — tall by default: bars are for the few categories a reader
+ * compares across rather than reads down, and a group of them per category needs the width
+ * to breathe.
+ *
+ * @param entries the series.
+ * @param rest    as arrangePlots in figure.js.
+ * @returns { element, charts }.
+ */
+function createBarPlots({
+  entries,
+  facet = "metric",
+  layout = "stack",
+  size = "tall",
+  order = "given",
+  scale = "metric",
+  tickLabel = (key) => key,
+  height = null,
+}) {
+  return arrangePlots({
+    entries,
+    createPlot: createBarPlot,
+    facet,
+    layout,
+    size,
+    order,
+    scale,
+    tickLabel,
+    height,
+  });
+}
+
+export { createBarPlot, createBarPlots };

@@ -7,9 +7,15 @@ while ``app.models`` mapped them as JSON — which no local database ever reveal
 because ``scripts/load_fixtures.py`` builds its schema from the same metadata rather
 than from migrations. Only a migrated database carried the mismatch.
 
+The four multi-valued columns are ``JSONB``, matching the ORM: the leaderboard filters on
+them with containment, which only JSONB offers. ``task_scores.metrics`` stays ``JSON``
+deliberately — JSONB canonicalises object key order, and the order the scorer wrote a
+score's metrics in is the order a client reads them in.
+
 Regenerate rather than hand-patch if the models change again, and check the result with
 ``alembic.autogenerate.compare_metadata`` against a database built only from here: that
-comparison is what catches this class of drift before a deploy does.
+comparison is what catches this class of drift before a deploy does — and
+``test_migrations.py`` now runs it.
 
 Revision ID: 0001_initial
 Revises:
@@ -71,8 +77,8 @@ def upgrade() -> None:
     sa.Column('n_parameters', sa.Integer(), nullable=True),
     sa.Column('temporal_context_s', sa.Float(), nullable=False),
     sa.Column('is_pretrained', sa.Boolean(), nullable=True),
-    sa.Column('pretrained_in_modalities', sa.JSON(), nullable=True),
-    sa.Column('pretrained_out_modalities', sa.JSON(), nullable=True),
+    sa.Column('pretrained_in_modalities', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+    sa.Column('pretrained_out_modalities', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.Column('pretraining_data', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.ForeignKeyConstraint(['team_id'], ['teams.id'], ),
@@ -89,7 +95,6 @@ def upgrade() -> None:
     )
     op.create_table('submissions',
     sa.Column('id', sa.Uuid(), nullable=False),
-    sa.Column('team_id', sa.Uuid(), nullable=False),
     sa.Column('model_id', sa.Uuid(), nullable=False),
     sa.Column('label', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('s3_key', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
@@ -97,10 +102,10 @@ def upgrade() -> None:
     sa.Column('narrative_public', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('narrative_private', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('is_public', sa.Boolean(), nullable=False),
+    sa.Column('is_deterministic', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.ForeignKeyConstraint(['model_id'], ['models.id'], ),
-    sa.ForeignKeyConstraint(['team_id'], ['teams.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index('uq_submissions_model_id_lower_label', 'submissions', ['model_id', sa.literal_column('lower(label)')], unique=True)
@@ -116,11 +121,11 @@ def upgrade() -> None:
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('submission_id', sa.Uuid(), nullable=False),
     sa.Column('task_id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-    sa.Column('extra_input_modality', sa.JSON(), nullable=True),
+    sa.Column('extra_input_modality', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.Column('training_paradigm', sa.Enum('TSS', 'TSU', 'single_session', name='trainingparadigm'), nullable=True),
     sa.Column('supervision_regime', sa.Enum('zero_shot', 'few_shot', 'full', 'other', name='supervisionregime'), nullable=True),
     sa.Column('calibration', sa.Enum('inductive', 'transductive', name='calibration'), nullable=True),
-    sa.Column('finetuning_strategy', sa.JSON(), nullable=True),
+    sa.Column('finetuning_strategy', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.ForeignKeyConstraint(['submission_id'], ['submissions.id'], ),
     sa.ForeignKeyConstraint(['task_id'], ['tasks.id'], ),
     sa.PrimaryKeyConstraint('id')

@@ -1,11 +1,21 @@
 // One card per model, for the model list and the team dashboard.
+//
+// Built from a model row — utils/modelUtils.js's toModelRows — so the cards, the filters
+// above them and the table beside them read one shape.
 
-import { escapeHtml, formatDate } from "../core/utils.js";
-import {buildSuiteBadgeList, buildVisibleBadge} from "../components/badges.js";
+import { escapeHtml } from "../core/html.js";
+import { formatDate } from "../core/utils.js";
+import {
+  buildMineBadge,
+  buildPretrainedBadge,
+  buildSuiteBadgeList,
+} from "../components/badges.js";
 import { buildCount } from "../components/count.js";
+import { createCardGrid } from "./cardGrid.js";
 
-
-function buildModelCard(model) {
+// `showMine` marks the cards on the viewer's own teams, for a listing that mixes them
+// with everyone else's. Off by default: on a listing that is all theirs it says nothing.
+function buildModelCard(model, { showMine = false } = {}) {
   const submissionCount = model.n_submissions ?? 0;
 
   return `
@@ -19,7 +29,9 @@ function buildModelCard(model) {
       </div>
 
       <div class="row left gap-md">
-        ${buildSuiteBadgeList(model.task_suites ?? [], "sm")}
+        ${buildSuiteBadgeList(model.suites ?? [], "sm")}
+        ${buildPretrainedBadge(model.is_pretrained, "sm")}
+        ${showMine ? buildMineBadge(model.is_mine, "sm") : ""}
       </div>
 
       <p class="metadata">
@@ -30,11 +42,25 @@ function buildModelCard(model) {
   `;
 }
 
-function buildModelCards(models) {
-  return models
-    .map(buildModelCard)
-    .join("");
+function buildModelCards(models, options) {
+  return models.map((model) => buildModelCard(model, options)).join("");
 }
 
+/**
+ * The model card grid, built once and kept.
+ *
+ * @param showMine as buildModelCard.
+ * @param options  the rest, as createCardGrid.
+ *
+ * @returns as createCardGrid.
+ */
+function createModelCardGrid({ showMine = false, ...options } = {}) {
+  return createCardGrid({
+    buildCards: (rows) => buildModelCards(rows, { showMine }),
+    noun: "model",
 
-export { buildModelCards };
+    ...options,
+  });
+}
+
+export { createModelCardGrid };

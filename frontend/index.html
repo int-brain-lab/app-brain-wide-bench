@@ -1,107 +1,121 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Brain-Wide Bench</title>
-  <link rel="stylesheet" href="/css/style.css">
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Brain-Wide Bench</title>
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <div class="main">
+      <nav class="nav" id="top-nav"></nav>
+      <div class="content landing">
+        <!-- Hero -->
 
-  <div class="main">
-    <nav class="nav" id="top-nav"></nav>
-    <div class="content landing">
-
-      <!-- Hero -->
-
-      <section class="page-hero">
-        <div class="column gap-md">
-          <h1 class="hero-title">How well does your model <br> understand the brain?</h1>
-          <p class="hero-description">Brain-Wide Bench evaluates neural population models across behavior, dynamics, and anatomy — on held-out data from the International Brain Laboratory.</p>
-          <div class="row centre gap-md">
-            <a class="btn primary large" href="/html/leaderboard/leaderboard.html">View leaderboard</a>
-            <a class="btn large" href="#">Read the docs</a>
-          </div>
-        </div>
-
-        <div class="grid-3">
-          <div class="card secondary column centre gap-sm">
-            <p class="title">3</p>
-            <p class="subheading">task suites</p>
-          </div>
-          <div class="card secondary column centre gap-sm">
-            <p class="title" id="stat-submissions">—</p>
-            <p class="subheading">submissions</p>
-          </div>
-          <div class="card secondary column centre gap-sm">
-            <p class="title" id="stat-models">—</p>
-            <p class="subheading">models submitted</p>
-          </div>
-        </div>
-      </section>
-
-
-
-      <!-- Task Suite Info Cards -->
-      <section class="page-section">
-        <div class="row">
-          <h2 class="section-title">Task suites</h2>
-          <a class="link" href="#">View dataset details →</a>
-        </div>
-        <div class="grid-3">
-          <div class="card column left gap-lg">
-            <div class="column left gap-sm">
-              <span class="badge ts1">TS1</span>
-              <h3 class="card-title">Behavior</h3>
-              <p class="card-description">Predict trial-level behavioral outcomes from neural population activity.</p>
-            </div>
-            <div class="row left gap-sm">
-              <span class="badge metric">R²</span><span class="badge metric">D²</span><span class="badge metric">Balanced Acc.</span><span class="badge metric">F1</span>
+        <section class="page-hero">
+          <div class="column gap-md">
+            <h1 class="hero-title">
+              How well does your model <br />
+              understand the brain?
+            </h1>
+            <p class="hero-description">
+              Brain-Wide Bench evaluates neural population models across
+              behavior, dynamics, and anatomy — on held-out data from the
+              International Brain Laboratory.
+            </p>
+            <div class="row centre gap-md">
+              <a
+                class="btn primary large"
+                href="/html/leaderboard/leaderboard.html"
+                >View leaderboard</a
+              >
+              <span
+                class="btn large disabled-link"
+                aria-disabled="true"
+                title="Documentation link not yet available"
+                >Docs coming soon</span
+              >
             </div>
           </div>
-          <div class="card column left gap-lg">
-            <div class="column left gap-sm">
-              <span class="badge ts2">TS2</span>
-              <h3 class="card-title">Dynamics</h3>
-              <p class="card-description">Reconstruct firing rate trajectories and spike predictions across brain regions.</p>
+
+          <div class="grid-3">
+            <div class="card secondary column centre gap-sm">
+              <p class="title">3</p>
+              <p class="subheading">task suites</p>
             </div>
-            <div class="row left gap-sm">
-              <span class="badge metric">D²</span><span class="badge metric">Bits/spike</span>
+            <div class="card secondary column centre gap-sm">
+              <p class="title" id="stat-submissions">—</p>
+              <p class="subheading">submissions</p>
+            </div>
+            <div class="card secondary column centre gap-sm">
+              <p class="title" id="stat-models">—</p>
+              <p class="subheading">models submitted</p>
             </div>
           </div>
-          <div class="card column left gap-lg">
-            <div class="column left gap-sm">
-              <span class="badge ts3">TS3</span>
-              <h3 class="card-title">Anatomy</h3>
-              <p class="card-description">Classify recorded neurons to their brain region from activity alone.</p>
+        </section>
+
+        <!-- Task Suite Info Cards -->
+        <section class="page-section">
+          <div class="row">
+            <h2 class="section-title">Task suites</h2>
+            <span
+              class="link disabled-link"
+              aria-disabled="true"
+              title="Dataset details link not yet available"
+              >Dataset details coming soon</span
+            >
+          </div>
+          <div class="grid-3">
+            <div class="card column left gap-lg">
+              <div class="column left gap-sm">
+                <span class="badge ts1">TS1</span>
+                <h3 class="card-title">Behavior</h3>
+                <p class="card-description">
+                  Predict trial-level behavioral outcomes from neural population
+                  activity.
+                </p>
+              </div>
+              <div class="row left gap-sm">
+                <span class="badge metric">R²</span
+                ><span class="badge metric">D²</span
+                ><span class="badge metric">Balanced Acc.</span
+                ><span class="badge metric">F1</span>
+              </div>
             </div>
-            <div class="row left gap-sm">
-              <span class="badge metric">Macro-F1</span>
+            <div class="card column left gap-lg">
+              <div class="column left gap-sm">
+                <span class="badge ts2">TS2</span>
+                <h3 class="card-title">Dynamics</h3>
+                <p class="card-description">
+                  Reconstruct firing rate trajectories and spike predictions
+                  across brain regions.
+                </p>
+              </div>
+              <div class="row left gap-sm">
+                <span class="badge metric">D²</span
+                ><span class="badge metric">Bits/spike</span>
+              </div>
+            </div>
+            <div class="card column left gap-lg">
+              <div class="column left gap-sm">
+                <span class="badge ts3">TS3</span>
+                <h3 class="card-title">Anatomy</h3>
+                <p class="card-description">
+                  Classify recorded neurons to their brain region from activity
+                  alone.
+                </p>
+              </div>
+              <div class="row left gap-sm">
+                <span class="badge metric">Macro-F1</span>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      <!-- Leaderboard Preview -->
-      <section class="page-section">
-        <div class="row">
-          <h2 class="section-title">Leaderboard</h2>
-          <a class="link" href="/html/leaderboard/leaderboard.html">Full leaderboard →</a>
-        </div>
-        <!-- renderStaticTable emits the whole `.table` block, headers included, from the
-             column definitions in js/leaderboard/leaderboardTable.js — so this is a bare
-             container and the count sits below it, as the filterable tables do. -->
-        <div id="lb-table-preview"></div>
-        <p class="metadata" id="lb-table-count">Loading…</p>
-      </section>
-
+        </section>
+      </div>
     </div>
 
-  </div>
-
-<script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
-<script type="module" src="/js/nav/navTop.js"></script>
-<script type="module" src="/js/pages/landing.js"></script>
-
-</body>
+    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
+    <script type="module" src="/js/nav/navTop.js"></script>
+    <script type="module" src="/js/pages/landing.js"></script>
+  </body>
 </html>

@@ -1,29 +1,65 @@
-import { initials} from "../core/utils.js";
+import { initials } from "../core/utils.js";
+import { refreshIcons, renderHtml } from "../core/render.js";
 import { getIcon } from "../components/icons.js";
 import { apiFetch, isAuthenticated, logout } from "../api/client.js";
 import { renderLogo } from "./navTop.js";
-// ─── CONSTANTS ─────────────────────────────────────────────────────────────
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
-// "My" throughout, because every one of these is scoped to the viewer — the public
-// counterparts below list the same domains unscoped, and the labels are what tells them
-// apart in a rail where both appear.
+// "My" throughout, because every one of these is scoped to the viewer, and the label is what
+// tells one from the unscoped list below it in a rail where both appear.
 const MAIN_NAV_ITEMS = [
-  { label: "My dashboard", href: "/html/dashboard/dashboard.html", icon: getIcon("dashboard") },
-  { label: "My models", href: "/html/models/model_list.html", icon: getIcon("model") },
-  { label: "My submissions", href: "/html/submissions/submission_list.html", icon: getIcon("submission") },
-  { label: "My teams", href: "/html/teams/team_list.html", icon: getIcon("team") },
-  { label: "My settings", href: "/html/users/user_details.html", icon: getIcon("settings") },
+  {
+    label: "My dashboard",
+    href: "/html/dashboard/dashboard.html",
+    icon: getIcon("dashboard"),
+  },
+  {
+    label: "My models",
+    href: "/html/models/model_list.html",
+    icon: getIcon("model"),
+  },
+  {
+    label: "My submissions",
+    href: "/html/submissions/submission_list.html",
+    icon: getIcon("submission"),
+  },
+  {
+    label: "My teams",
+    href: "/html/teams/team_list.html",
+    icon: getIcon("team"),
+  },
+  {
+    label: "My settings",
+    href: "/html/users/user_details.html",
+    icon: getIcon("settings"),
+  },
 ];
 
 const PUBLIC_NAV_ITEMS = [
-  { label: "Leaderboard", href: "/html/leaderboard/leaderboard.html", icon: getIcon("leaderboard") },
-  { label: "All models", href: "/html/models/model_list_public.html", icon: getIcon("model") },
-  { label: "All submissions", href: "/html/submissions/submission_list_public.html", icon: getIcon("submission") },
-  { label: "All teams", href: "/html/teams/team_list_public.html", icon: getIcon("team") },
+  {
+    label: "Leaderboard",
+    href: "/html/leaderboard/leaderboard.html",
+    icon: getIcon("leaderboard"),
+  },
+  {
+    label: "All models",
+    href: "/html/models/model_list_public.html",
+    icon: getIcon("model"),
+  },
+  {
+    label: "All tasks",
+    href: "/html/tasks/task_list_public.html",
+    icon: getIcon("task"),
+  },
+  {
+    label: "All teams",
+    href: "/html/teams/team_list_public.html",
+    icon: getIcon("team"),
+  },
   { label: "Home", href: "/index.html", icon: getIcon("home") },
 ];
 
-// ─── API ────────────────────────────────────────────────────────────────────
+// ─── API ─────────────────────────────────────────────────────────────────────
 
 async function loadCurrentUser() {
   try {
@@ -32,22 +68,19 @@ async function loadCurrentUser() {
     }
 
     return await apiFetch("/api/users/me");
-
   } catch (err) {
     console.error(err);
     return null;
   }
 }
 
-
-// ─── DOM ────────────────────────────────────────────────────────────────────
+// ─── DOM ─────────────────────────────────────────────────────────────────────
 
 function sidebar() {
   return document.getElementById("side-nav");
 }
 
-
-// ─── HELPERS ────────────────────────────────────────────────────────────────
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
 
 // The whole path, not just the filename. Nav hrefs became root-relative when pages
 // stopped all living at the same depth (models are under /html/models/), and this is
@@ -58,8 +91,7 @@ function currentPage() {
   return path === "/" ? "/index.html" : path;
 }
 
-
-// ─── RENDERING ──────────────────────────────────────────────────────────────
+// ─── RENDERING ───────────────────────────────────────────────────────────────
 
 function renderSidebarItem(item, page) {
   const active = item.href === page;
@@ -73,9 +105,7 @@ function renderSidebarItem(item, page) {
 }
 
 function renderSidebarItems(items, page) {
-  return items
-    .map(item => renderSidebarItem(item, page))
-    .join("");
+  return items.map((item) => renderSidebarItem(item, page)).join("");
 }
 
 function renderSidebar() {
@@ -99,16 +129,13 @@ function renderSidebar() {
     <div class="sidebar-bottom">
       <div class="row left gap-md">
         <div class="user-logo" id="user-initials">—</div>
-        <a class="btn primary" id="sidebar-logout">Sign out</a>
+        <button type="button" class="btn primary" id="sidebar-logout">Sign out</button>
       </div>
     </div>
   `;
 }
 
-
-
-
-// ─── USER ───────────────────────────────────────────────────────────────────
+// ─── USER ────────────────────────────────────────────────────────────────────
 
 // Exported so the settings page can re-run it after a rename — the initials are taken from
 // the name, so they go stale with it. The lookup is optional because an external caller
@@ -127,8 +154,7 @@ async function fillSidebarUser() {
   }
 }
 
-
-// ─── INITIALISATION ─────────────────────────────────────────────────────────
+// ─── INITIALISATION ──────────────────────────────────────────────────────────
 
 async function initialiseSidebar() {
   const nav = sidebar();
@@ -137,7 +163,7 @@ async function initialiseSidebar() {
     return;
   }
 
-  nav.innerHTML = renderSidebar();
+  renderHtml(nav, renderSidebar());
 
   // Straight back to the public home, which logout() is already pointed at.
   document
@@ -146,8 +172,7 @@ async function initialiseSidebar() {
 
   await fillSidebarUser();
 
-  lucide.createIcons();
-
+  refreshIcons();
 }
 
 initialiseSidebar();

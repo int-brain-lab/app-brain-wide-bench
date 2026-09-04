@@ -1,7 +1,9 @@
-import { escapeHtml, initials} from "../core/utils.js";
+import { initials } from "../core/utils.js";
+import { escapeHtml } from "../core/html.js";
 import { apiFetch, isAuthenticated, login, logout } from "../api/client.js";
+import { renderHtml } from "../core/render.js";
 
-// ─── CONSTANTS ─────────────────────────────────────────────────────────────
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 // The public surface, in the order a reader meets it — the scores, then what produced
 // them — with the way into the signed-in half last. Models and Submissions are the
@@ -16,13 +18,15 @@ const HOME_HREF = "/index.html";
 const NAV_ITEMS = [
   { label: "Leaderboard", href: "/html/leaderboard/leaderboard.html" },
   { label: "Models", href: "/html/models/model_list_public.html" },
-  { label: "Submissions", href: "/html/submissions/submission_list_public.html" },
+  {
+    label: "Submissions",
+    href: "/html/submissions/submission_list_public.html",
+  },
   { label: "Teams", href: "/html/teams/team_list_public.html" },
   { label: "My dashboard", href: DASHBOARD_HREF },
 ];
 
-
-// ─── API ────────────────────────────────────────────────────────────────────
+// ─── API ─────────────────────────────────────────────────────────────────────
 
 async function loadCurrentUser() {
   try {
@@ -31,22 +35,19 @@ async function loadCurrentUser() {
     }
 
     return await apiFetch("/api/users/me");
-
   } catch (err) {
     console.error(err);
     return null;
   }
 }
 
-
-// ─── DOM ────────────────────────────────────────────────────────────────────
+// ─── DOM ─────────────────────────────────────────────────────────────────────
 
 function topNav() {
   return document.getElementById("top-nav");
 }
 
-
-// ─── HELPERS ────────────────────────────────────────────────────────────────
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
 
 // The whole path, not just the filename — nav hrefs are root-relative now that pages
 // live at more than one depth, and this is compared against them to mark the active
@@ -57,8 +58,7 @@ function currentPage() {
   return path === "/" ? "/index.html" : path;
 }
 
-
-// ─── RENDERING ──────────────────────────────────────────────────────────────
+// ─── RENDERING ───────────────────────────────────────────────────────────────
 
 // The brand mark, exported because nav_side.js puts the same one at the top of the
 // sidebar. It used to be its own module to avoid importing this file from there —
@@ -99,16 +99,16 @@ function renderNavItem(item, page) {
 function renderNavLinks(page) {
   return `
     <nav class="nav-links">
-      ${NAV_ITEMS.map(item => renderNavItem(item, page)).join("")}
+      ${NAV_ITEMS.map((item) => renderNavItem(item, page)).join("")}
     </nav>
   `;
 }
 
 function renderLoginButton() {
   return `
-    <a class="btn primary" id="login-btn">
+    <button type="button" class="btn primary" id="login-btn">
       Sign in
-    </a>
+    </button>
   `;
 }
 
@@ -123,9 +123,9 @@ function renderUserMenu(user) {
       ${escapeHtml(initials(name))}
     </span>
 
-    <a class="btn" id="logout-btn">
+    <button type="button" class="btn" id="logout-btn">
       Sign out
-    </a>
+    </button>
   `;
 }
 
@@ -134,15 +134,12 @@ async function renderAuthSection() {
 
   return `
     <div class="nav-auth">
-      ${user
-        ? renderUserMenu(user)
-        : renderLoginButton()}
+      ${user ? renderUserMenu(user) : renderLoginButton()}
     </div>
   `;
 }
 
-
-// ─── EVENTS ─────────────────────────────────────────────────────────────────
+// ─── EVENTS ──────────────────────────────────────────────────────────────────
 
 function attachNavEvents() {
   // Arrows, not the bare functions: a listener is called with the click event, and `login`
@@ -156,24 +153,25 @@ function attachNavEvents() {
     ?.addEventListener("click", () => logout());
 }
 
-
-// ─── INITIALISATION ─────────────────────────────────────────────────────────
+// ─── INITIALISATION ──────────────────────────────────────────────────────────
 
 async function initialiseNav() {
   const nav = topNav();
 
   if (!nav) {
-
     return;
   }
 
   // The link lives here rather than inside renderLogo: the sidebar wraps the same mark in
   // its own anchor, and an <a> inside an <a> is invalid.
-  nav.innerHTML = `
+  renderHtml(
+    nav,
+    `
     <a href="${HOME_HREF}">${renderLogo()}</a>
     ${renderNavLinks(currentPage())}
     ${await renderAuthSection()}
-  `;
+  `,
+  );
 
   attachNavEvents();
 }
