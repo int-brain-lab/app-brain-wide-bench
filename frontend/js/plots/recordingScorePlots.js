@@ -3,11 +3,15 @@
 // The domain half: this says what a category is — a recording for TS1 and TS2, a brain
 // region for TS3 — and figure.js does the arranging.
 //
+// The means over those recordings are here too — a mean is one number from the same store, and
+// the bar drawn from it belongs beside the plots it summarises.
+//
 // A store carries its own dimension, so this module never asks which suite it is holding.
 // What it does have to know is that the dimensions don't mix: a region is not a recording,
 // and an axis holding both would be one axis pretending to be two. So the dimension is the
 // group the arrangement keys its axes on.
 
+import { mean, sem } from "../core/utils.js";
 import { createBarPlots } from "./bar.js";
 import { buildHeatmaps } from "./heatmap.js";
 import { createScatterPlots } from "./scatter.js";
@@ -62,11 +66,9 @@ function toScoreSeries(store, metric, style) {
  * @param entries the series, from toScoreSeries.
  * @param facet   "metric" for one plot per metric, "score" for one plot per score — see
  *                groupSeries in figure.js.
- * @param layout  "stack", "row", "pair" or "grid" — see LAYOUTS in figure.js. Omit for the
- *                arrangement each facet is usually wanted in.
+ * @param layout  "stack", "pair", "weighted" or "grid" — see LAYOUTS in figure.js. Omit for
+ *                the arrangement each facet is usually wanted in.
  * @param size    "regular" or "tall".
- * @param legend  false where the plots are one score measured several ways: the axis names
- *                the metric and the heading names the score.
  * @returns { element, charts } — as createScatterPlots.
  */
 function createRecordingPlots({
@@ -74,7 +76,6 @@ function createRecordingPlots({
   facet = "metric",
   layout,
   size = "regular",
-  legend = facet === "metric" && entries.length > 1,
 }) {
   return createScatterPlots({
     entries,
@@ -85,7 +86,6 @@ function createRecordingPlots({
     // Recordings have no order of their own, so the strongest series orders the axis.
     order: "value",
     tickLabel: recordingTickLabel,
-    legend,
   });
 }
 
@@ -123,10 +123,56 @@ function createRecordingBars({
     // orders the axis and the rest are read against it.
     order: "value",
     tickLabel: recordingTickLabel,
-    // A plot per score is titled with it, so a key naming them would say it twice. A plot per
-    // metric holds several and needs one — and it has to be the shared key rather than a
-    // legend inside each, since packing the bars leaves a dataset no longer one series.
-    legend: facet === "metric" && entries.length > 1 ? "shared" : false,
+  });
+}
+
+/**
+ * One score's mean in one metric, as a plot series: one category, so one bar.
+ *
+ * @param store  from toRecordingStore — the score's breakdown, column-wise.
+ * @param metric which of `store.metrics` is averaged.
+ * @param style  the presentation: `{ colour, label }`.
+ * @param group  the category the bar sits in. The metric group's own key, since the mean is
+ *               over whatever that group covers — see toMetricGroups.
+ */
+function toMeanSeries(store, metric, style, group) {
+  const values = (store.metrics[metric]?.mean ?? []).filter(
+    (value) => value != null,
+  );
+
+  return {
+    ...style,
+    metric,
+    group,
+    index: new Map([[group, 0]]),
+    values: {
+      mean: [mean(values)],
+      sem: [sem(values)],
+    },
+  };
+}
+
+/**
+ * The means of one metric group: a bar per score, with the spread of each mean.
+ *
+ * One group per plot and one plot per call, so the arrangement has nothing to arrange and
+ * stacking is the one layout that leaves the caller's own cell width alone.
+ *
+ * @param entries the series, from toMeanSeries.
+ * @param label   what the single category is called. Its key is the group's, which is not a
+ *                thing a reader has a name for — the tasks in it are.
+ * @param height  as createBarPlots. Omit for the arrangement's own.
+ * @returns { element, charts } — as createBarPlots.
+ */
+function createMeanBars({ entries, label, height = null }) {
+  return createBarPlots({
+    entries,
+    facet: "metric",
+    layout: "stack",
+    size: "regular",
+    order: "given",
+    height,
+    tickLabel: () => label,
   });
 }
 
@@ -147,7 +193,9 @@ function buildRecordingHeatmaps({ entries }) {
 
 export {
   buildRecordingHeatmaps,
+  createMeanBars,
   createRecordingBars,
   createRecordingPlots,
+  toMeanSeries,
   toScoreSeries,
 };

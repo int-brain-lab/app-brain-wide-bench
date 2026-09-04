@@ -33,7 +33,6 @@ function pointMark(entry) {
  * @param title     a heading inside the plot. Omit for none.
  * @param height    plot height in px.
  * @param showAxis  false where the axis is repeated below, or unreadable at this width.
- * @param legend    whether the plot names its series.
  * @returns { element, chart } — `element` is detached until the caller places it, and
  *          `chart` has to be destroyed before it is replaced.
  */
@@ -46,7 +45,6 @@ function createScatterPlot({
   title = null,
   height = DEFAULT_HEIGHT,
   showAxis = true,
-  legend = true,
 }) {
   return createCategoryChart({
     type: "line",
@@ -59,7 +57,8 @@ function createScatterPlot({
     title,
     height,
     showAxis,
-    legend,
+    // The series are named outside the plot — see createBarPlot.
+    legend: false,
     caller: "createScatterPlot",
   });
 }
@@ -80,7 +79,6 @@ function createScatterPlots({
   order = "value",
   scale = "metric",
   tickLabel = (key) => key,
-  legend = facet === "metric" && entries.length > 1,
 }) {
   return arrangePlots({
     entries,
@@ -91,7 +89,6 @@ function createScatterPlots({
     order,
     scale,
     tickLabel,
-    legend,
   });
 }
 

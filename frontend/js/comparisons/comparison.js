@@ -73,8 +73,6 @@ function createComparison({
   // cacheKey => a promise for the detail.
   const details = new Map();
 
-  // // What the entries are being compared on, as the host named it. Opaque here.
-  let activeContext = "";
 
   // What the last render asked to have torn down.
   let tracked = [];
@@ -131,17 +129,15 @@ function createComparison({
    * The whole selection at once. Rows `toEntry` returns nothing for are dropped.
    *
    * @param rows    every row that should now be picked.
-   * @param context optionally, what they are compared on.
    */
-  function set(rows, context) {
-    const contextChanged =
-      context === undefined ? false : applyContext(context);
+  function set(rows) {
+
 
     const changed = selection.replace(rows.map(toEntry).filter(Boolean));
 
     for (const entry of selection.entries()) ensureDetail(entry);
 
-    if (!changed && contextChanged) render();
+    if (!changed) render();
 
     return changed;
   }
@@ -202,32 +198,11 @@ function createComparison({
     });
   }
 
-  // // ── context ──
 
-  function applyContext(context) {
-    if ((context ?? "") === activeContext) return false;
 
-    activeContext = context ?? "";
-
-    return true;
-  }
-
-  function setContext(context) {
-    if (applyContext(context)) render();
-  }
-
-  // ── drawing ──
-
-  // function track(handle) {
-  //   if (handle) tracked = tracked.concat(handle);
-  //
-  //   return handle;
-  // }
 
   function render() {
     clearUp()
-    // disposeAll(tracked);
-    // tracked = [];
 
     if (!selection.size) {
       renderHtml(root, buildEmptyMessage(prompt));
@@ -262,7 +237,6 @@ function createComparison({
     pick,
     refresh: render,
     set,
-    activeContext,
     get size() {
       return selection.size;
     },

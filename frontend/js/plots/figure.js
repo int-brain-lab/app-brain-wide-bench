@@ -60,19 +60,13 @@ function toDatasets(series, labels, mark) {
 
     return {
       // No metric in the label: the plot this series is in is the metric, and its axis is
-      // titled with it — repeating it on every legend entry says nothing twice.
+      // titled with it — a tooltip repeating it would say it twice.
       label: entry.label,
       data: at.map((position) =>
         position < 0 ? null : (entry.values.mean[position] ?? null),
       ),
       sems: at.map((position) =>
         position < 0 ? null : (entry.values.sem[position] ?? null),
-      ),
-      // Lines a tooltip adds under the value, per category — what a domain knows about this
-      // mark that the axes don't say. Absent where the domain has nothing to add, which is
-      // what an empty tooltip footer reads as.
-      notes: at.map((position) =>
-        position < 0 ? null : (entry.values.notes?.[position] ?? null),
       ),
       ...mark(entry),
     };
@@ -216,8 +210,6 @@ function groupSeries(entries, facet) {
 //
 //   stack  one under another, full width. The only one where plots can share an axis: a
 //          stack of them lines up vertically, so the bottom one's labels are the stack's.
-//   row    side by side. For a handful a reader compares across rather than reads down —
-//          and each carries its own axis, since nothing is under anything.
 //   pair   two across. For plots a reader wants close but big: half the width is enough for
 //          several series on one pair of axes, and two of them fit above the fold.
 //   weighted
@@ -229,7 +221,6 @@ function groupSeries(entries, facet) {
 //   grid   three across, wrapping. For many, where each is its own small figure.
 const LAYOUTS = {
   stack: "column",
-  row: "chart-row",
   pair: "chart-pair",
   weighted: "chart-weighted",
   grid: "chart-grid",
@@ -242,7 +233,6 @@ const LAYOUTS = {
 const HEIGHTS = {
   regular: {
     grid: 200,
-    row: 160,
     pair: 160,
     weighted: 160,
     stack: 120,
@@ -250,7 +240,6 @@ const HEIGHTS = {
   },
   tall: {
     grid: 160,
-    row: 220,
     pair: 220,
     weighted: 220,
     stack: 220,
@@ -274,13 +263,13 @@ const SHARED_HEIGHT = HEIGHTS.regular.pair;
 const COLUMNED = ["pair", "grid"];
 
 // How many columns each layout puts the plots in, which is what decides how much room one
-// plot's axis has. `.chart-row` is auto-fit above a 320px floor, so it is however many plots
-// there are, up to the three that fit a page.
+// plot's axis has. The weighted grid has no fixed count — it is however many plots there are,
+// up to the three that fit a page.
 const COLUMNS = { stack: 1, pair: 2, grid: 3 };
-const ROW_COLUMNS = 3;
+const MAX_COLUMNS = 3;
 
 function plotColumns(layout, count) {
-  return COLUMNS[layout] ?? Math.min(count, ROW_COLUMNS);
+  return COLUMNS[layout] ?? Math.min(count, MAX_COLUMNS);
 }
 
 // What a full line of the weighted arrangement holds, in categories. A constant, and
@@ -319,44 +308,13 @@ function plotHeight(size, { layout, count }) {
   return count > 1 ? heights[layout] : heights.single;
 }
 
-// One key for plots that hold the same series. Built from the series rather than by Chart.js,
-// because a legend inside each plot would say the same names two or three times — and taking
-// it off all but the first would leave that one's plot area shorter than its neighbours'.
-function createSeriesKey(entries) {
-  const key = document.createElement("div");
-
-  key.className = "row left gap-md metadata chart-key";
-
-  const named = new Set();
-
-  for (const entry of entries) {
-    if (named.has(entry.label)) continue;
-
-    named.add(entry.label);
-
-    const item = document.createElement("span");
-    const swatch = document.createElement("span");
-    const name = document.createElement("span");
-
-    item.className = "row left gap-sm";
-    swatch.className = "chart-swatch";
-    swatch.style.background = entry.colour;
-    name.textContent = entry.label;
-
-    item.append(swatch, name);
-    key.append(item);
-  }
-
-  return key;
-}
-
 /**
  * Several plots of one kind, arranged.
  *
  * @param entries    the series.
  * @param createPlot (options) => { element, chart } — the kind, from scatter.js or bar.js.
  * @param facet      "metric" or "series" — see groupSeries.
- * @param layout     "stack", "row", "pair" or "grid" — see LAYOUTS.
+ * @param layout     "stack", "pair", "weighted" or "grid" — see LAYOUTS.
  * @param size       "regular" or "tall" — see HEIGHTS.
  * @param order      how each axis is sorted — see axisKeys.
  * @param scale      "metric" for a y range shared by the plots of one metric, "all" for one
@@ -369,8 +327,6 @@ function createSeriesKey(entries) {
  *                   so a domain that thins its labels knows how much room it has. The keys
  *                   line the series up, so a domain that abbreviates them — a recording
  *                   uuid, a task id carrying its suite — does it here too.
- * @param legend     true for a legend inside every plot, "shared" for one key above them
- *                   all, false for none.
  * @param height     the height every plot is drawn at, in px. Omit for the one the layout
  *                   and `size` come to — see HEIGHTS — which is what all but a caller
  *                   arranging its own row wants.
@@ -386,7 +342,6 @@ function arrangePlots({
   order,
   scale,
   tickLabel,
-  legend,
   height = null,
 }) {
   const plots = groupSeries(entries, facet);
@@ -444,8 +399,7 @@ function arrangePlots({
       tickLabel: (key, at) =>
         tickLabel(key, { group, index: at, count: labels.length, columns }),
       range: ranges.get(scaleKey(members[0])),
-      // A plot per metric is named by its own y axis, and the series in it by the legend or
-      // the key above it.
+      // A plot per metric is named by its own y axis; the host names the series above them.
       title: named ? name : null,
       height: drawnHeight,
       // Only a stack can share an axis, and only downwards: the labels under its last plot
@@ -453,7 +407,6 @@ function arrangePlots({
       // nothing sits above anything, so each carries its own — thinned to what its column
       // holds by the domain's tickLabel.
       showAxis: layout !== "stack" || lastOfGroup.get(group) === index,
-      legend: legend === true,
     });
 
     // The axis this plot is on, on the element itself: a host that makes its plots clickable
@@ -469,14 +422,7 @@ function arrangePlots({
     return plot.chart;
   });
 
-  if (legend !== "shared") return { element: arranged, charts };
-
-  const element = document.createElement("div");
-
-  element.className = "column gap-sm";
-  element.append(createSeriesKey(entries), arranged);
-
-  return { element, charts };
+  return { element: arranged, charts };
 }
 
 export {

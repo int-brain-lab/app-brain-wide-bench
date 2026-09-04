@@ -51,16 +51,6 @@ function scaleOf(task) {
   return `${suiteFromTask(task.taskId) ?? ""}|${metricOf(task)}`;
 }
 
-// The lines a tooltip prints under the value. The metric first, as the methodology grid
-// reads it: the axis is titled with the metric too, but a reader hovering one bar in a row of
-// plots is reading a mark rather than the figure it sits in.
-function taskNotes(cell) {
-  if (!cell) return [];
-
-  const metric = cell.metric ? [`Metric: ${cell.metric}`] : [];
-
-  return [...metric, ...methodologyLines(cell, TASK_FIELDS)];
-}
 
 /**
  * One series per model per task: a plot is a task, so a model across eleven of them is eleven
@@ -91,11 +81,6 @@ function toModelSeries(entries, tasks, { valueOf, axisTitle, skip = null }) {
           values: {
             mean: [value?.mean ?? null],
             sem: [value?.sem ?? null],
-            // What the score is measured in and how it was produced, where the cell says
-            // so. A breakdown's tasks carry both; a leaderboard row's scores carry only the
-            // metric, and a difference neither — each adds what it has rather than a row of
-            // blanks.
-            notes: [taskNotes(value)],
           },
         };
       }),
@@ -111,10 +96,6 @@ const PLOT = {
   // reader is looking at one of them or at eleven, so a bar's width says nothing about how
   // many tasks happen to be selected. A line's worth fill it and the rest wrap.
   layout: "weighted",
-  // One key above the row, always, even for one model: a plot is named by its own tick, so
-  // nothing else here says which model the marks belong to. Inside each plot it would name
-  // the same models once per task.
-  legend: "false",
 };
 
 /**

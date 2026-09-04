@@ -806,21 +806,6 @@ CARDS
   margin-top: 0;
 }
 
-/* Facets side by side: one plot per metric, read across rather than down. `auto-fit` here
-   where .chart-grid above is fixed at three, because the count is however many metrics a score
-   turns out to have, and two of them should span the width rather than leave a third of it
-   empty. The 320px floor is where a panel stops being readable, and below it they wrap rather
-   than shrink further. */
-.chart-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: var(--gap-md);
-}
-
-.chart-row .chart-facet + .chart-facet {
-  margin-top: 0;
-}
-
 /* Each plot as wide as the categories it holds, in a grid of category-wide tracks — see
    plots/modelPlots.js, where a plot is one task and so one track.
 
@@ -867,18 +852,6 @@ CARDS
 .chart-pickable .chart-facet.selected {
   background: var(--primary-light);
   box-shadow: inset 0 -2px 0 var(--primary);
-}
-
-/* One key for a row of plots that share their series, in place of a legend inside each. */
-.chart-key {
-  flex-wrap: wrap;
-}
-
-.chart-swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  flex: none;
 }
 
 /* Two across, for plots that are read closely: the overlaid comparison, where one plot
@@ -1663,13 +1636,13 @@ TABS
   gap: var(--gap-xs);
 }
 
-/* That control, sized to sit in a strip of tabs rather than in a row of buttons: an icon and
-   no label, since the tab beside it already says what it acts on. `font-size: 0` rather than
-   no label at all — the words stay in the accessibility tree, where an arrow says nothing. */
+/* That control, sized to sit in a strip of tabs rather than in a row of buttons: the label
+   reads beside the arrow, a size down from the tab it belongs to. */
 .tab-control {
-  padding: 2px;
+  padding: 2px 6px;
   border-radius: var(--radius-md);
-  font-size: 0;
+  font-size: var(--font-xs);
+  gap: var(--gap-xs);
 }
 
 .tab-control .btn-icon {
@@ -1678,7 +1651,7 @@ TABS
 }
 
 .tab.on {
-  color: var(--primary-dark);
+  color: var(--primary);
   border-bottom-color: var(--primary);
 }
 

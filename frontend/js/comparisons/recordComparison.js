@@ -21,19 +21,12 @@
 
 import { escapeHtml } from "../core/html.js";
 import { buildEmptyMessage, buildInfoMessage } from "../components/messages.js";
-import { getElement, refreshIcons, renderHtml } from "../core/render.js";
-import { getIcon } from "../components/icons.js";
-import {
-  buildSections,
-  getSection,
-  getSectionBody,
-} from "../components/sections.js";
+import { getElement, renderHtml } from "../core/render.js";
+import {buildSections, getSection, getSectionBody} from "../components/sections.js";
 import {
   TABLE_VIEW,
   PLOT_VIEW,
-  buildButton,
   buildPlotTableToggle,
-  setButtonLabel,
 } from "../components/buttons.js";
 import {
   buildComparisonGrid,
@@ -54,7 +47,7 @@ import { SUITES, suiteFromTask, suiteLabel } from "../core/suites.js";
 import { createComparison } from "./comparison.js";
 import { createTaskComparison } from "./taskScoreComparison.js";
 import { buildOptions, buildSelect } from "../components/filters.js";
-import { buildTabs, markTabs, tabFromEvent } from "../components/tabs.js";
+import { createTabDock } from "../components/tabDock.js";
 import { disposeAll } from "../core/disposable.js";
 
 
@@ -67,21 +60,14 @@ const DIFFERENCE = "differences";
 const PANELS = "compare-panel";
 const PICKS_ID = "compare-picks";
 const TASK_ID = "compare-task";
-const DOCK_ID = "compare-dock";
 
+// The breakdown leads, so it is the dock's anchor: the panel a comparison is opened to see,
+// which cannot be sent below the others.
 const TABS = [
   { value: BREAKDOWN, label: "Breakdown" },
   { value: DIFFERENCE, label: "Difference" },
   { value: DETAILS, label: "Details" },
 ];
-
-const ANCHOR = BREAKDOWN;
-const DOCK_ORDER = [DIFFERENCE, DETAILS];
-const DOCKABLE = TABS.filter(({ value }) => value !== ANCHOR);
-
-function dockId(panel) {
-  return `${DOCK_ID}-${panel}`;
-}
 
 
 // ─── DETAILS ─────────────────────────────────────────────────────────────────
@@ -175,6 +161,7 @@ function createRecordComparison({
   details,
   scoresOf,
   showSuites = true,
+  tabView = true,
   ...options
 }) {
   const nothingScored = `None of these ${noun}s has a scored task yet.`;
@@ -182,15 +169,11 @@ function createRecordComparison({
   // ─── State ────────────────────────────────────────────────────────────────
 
   let comparison = null;
-  let root = null;
 
   let view = PLOT_VIEW;
-  let chosenTab = ANCHOR;
 
   let selectedSuite = "";
   let selectedBaseline = "";
-
-  const dockedTabs = new Set();
 
   let compared = [];
   let tasks = [];
@@ -201,14 +184,20 @@ function createRecordComparison({
   let openTask = "";
   let taskDetail = null;
 
+  // Arrange the panels in dockable tabs
+  const dock = createTabDock({
+    noun: "model",
+    tabs: TABS,
+    container,
+    hasContent: () => (comparison?.entries().length ?? 0) > 0,
+    onChange: renderPanel,
+  });
+
 
   // ─── State helpers ────────────────────────────────────────────────────────
 
 
   function getSuite() {
-    if (comparison.activeContext) {
-      return comparison.activeContext;
-    }
 
     return availableSuites(comparison.entries(), scoresOf).includes(selectedSuite)
       ? selectedSuite
@@ -230,83 +219,6 @@ function createRecordComparison({
       getSuite(),
       comparison.colourOf,
     ));
-  }
-
-
-  // ─── Docking ────────────────────────────────────────────────────────
-
-
-  function isDocked(tab) {
-    return (
-      tab !== ANCHOR &&
-      dockedTabs.has(tab) &&
-      nSelected() > 0
-    );
-  }
-
-  function getDockedTabs() {
-    return DOCK_ORDER.filter(isDocked);
-  }
-
-
-  // ─── TABS ──────────────────────────────────────────────────────────
-
-  function openPanel() {
-    if (canOpen(chosenTab)) return chosenTab;
-
-    return TABS.map(({ value }) => value).find(canOpen) ?? "";
-  }
-
-
-  function canOpen(tab) {
-    if (isDocked(tab)) return false;
-
-    return nSelected() > 0;
-  }
-
-
-  function showTab() {
-    const open = openPanel();
-
-    for (const { value } of TABS) {
-      const section = getSection(value);
-
-      if (!section) continue;
-
-      section.hidden = !isDocked(value) && value !== open;
-    }
-
-    if (root) {
-      markTabs(root, PANELS, open, canOpen);
-    }
-  }
-
-  function renderDock() {
-    const task = getElement(TASK_ID);
-
-    if (root && task) {
-      for (const panel of [openPanel(), ...getDockedTabs()]) {
-        const section = panel && getSection(panel);
-
-        if (section) {
-          root.insertBefore(section, task);
-        }
-      }
-    }
-
-    for (const { value, label } of DOCKABLE) {
-      const dockedNow = isDocked(value);
-      const button = getElement(dockId(value));
-
-      setButtonLabel(button, {
-        label: `${dockedNow ? "Undock" : "Dock"} ${label.toLowerCase()}`,
-        icon: getIcon(dockedNow ? "up" : "down"),
-      });
-
-      button?.classList.toggle("primary-inv", dockedNow);
-    }
-
-    refreshIcons();
   }
 
 
@@ -360,7 +272,7 @@ function createRecordComparison({
     if (taskDetail) return taskDetail;
 
     taskDetail = createTaskComparison({
-      container: getElement(TASK_ID),
+      container: getSectionBody(TASK_ID),
       picks: false,
       layout: "rows",
 
@@ -392,7 +304,7 @@ function createRecordComparison({
   }
 
   function renderTaskDetail() {
-    const container = getElement(TASK_ID);
+    const container = getSection(TASK_ID);
 
     if (!container) return;
 
@@ -594,20 +506,17 @@ function createRecordComparison({
       openTask = "";
     }
 
-    const shown = new Set([
-      openPanel(),
-      ...getDockedTabs(),
-    ]);
+    const visibleTabs = dock.getVisibleTabs();
 
-    if (shown.has(DETAILS)) {
+    if (visibleTabs.has(DETAILS)) {
       renderDetails();
     }
 
-    if (shown.has(BREAKDOWN)) {
+    if (visibleTabs.has(BREAKDOWN)) {
       renderBreakdown();
     }
 
-    if (shown.has(DIFFERENCE)) {
+    if (visibleTabs.has(DIFFERENCE)) {
       renderDifferences();
     }
 
@@ -638,8 +547,7 @@ function createRecordComparison({
 
     renderBaselineOptions();
 
-    showTab();
-    renderDock();
+    dock.render();
     renderPanel();
   }
 
@@ -649,13 +557,12 @@ function createRecordComparison({
     compared = [];
     tasks = [];
 
-    if (!canOpen(BREAKDOWN)) {
+    if (!nSelected()) {
       closeTaskDetail();
       renderSelected();
     }
 
-    showTab();
-    renderDock();
+    dock.render();
   }
 
 
@@ -663,9 +570,8 @@ function createRecordComparison({
 
   function attachEvents() {
     attachViewEvents();
-    attachTabEvents();
+    dock.attachTabEvents();
     attachPickEvents();
-    attachDockEvents();
     attachPlotEvents();
     attachSelectEvents();
   }
@@ -680,26 +586,6 @@ function createRecordComparison({
     }
   }
 
-  function attachTabEvents() {
-    root.addEventListener("click", (event) => {
-      const tab = tabFromEvent(event);
-
-      if (
-        !tab ||
-        tab.name !== PANELS ||
-        tab.value === openPanel()
-      ) {
-        return;
-      }
-
-      chosenTab = tab.value;
-
-      showTab();
-      renderDock();
-      renderPanel();
-    });
-  }
-
   function attachPickEvents() {
     getElement(PICKS_ID)?.addEventListener("click", (event) => {
       const key = dropFromClick(event);
@@ -708,22 +594,6 @@ function createRecordComparison({
         comparison.drop(key);
       }
     });
-  }
-
-  function attachDockEvents() {
-    for (const { value } of DOCKABLE) {
-      getElement(dockId(value))?.addEventListener("click", () => {
-        if (dockedTabs.has(value)) {
-          dockedTabs.delete(value);
-        } else {
-          dockedTabs.add(value);
-        }
-
-        showTab();
-        renderDock();
-        renderPanel();
-      });
-    }
   }
 
   function attachPlotEvents() {
@@ -772,21 +642,7 @@ function createRecordComparison({
     const pageHtml = `
       <span class="row left gap-sm compare-picks" id="${PICKS_ID}"></span>
 
-      ${buildTabs({
-        name: PANELS,
-        tabs: TABS.map((tab) => ({
-          ...tab,
-          control:
-            tab.value === ANCHOR
-              ? ""
-              : buildButton({
-                  id: dockId(tab.value),
-                  label: `Dock ${tab.label.toLowerCase()}`,
-                  icon: getIcon("down"),
-                  className: "tab-control",
-                }),
-        })),
-      })}
+      ${dock.buildTabs()}
 
       ${buildSections([
         {
@@ -813,12 +669,16 @@ function createRecordComparison({
           className: "chart-pickable",
           hidden: true,
         },
+      {
+        id: TASK_ID,
+        title: "Individual scores",
+        hidden: true,
+      }
       ])}
 
-      <div id="${TASK_ID}" hidden></div>
     `;
 
-    root = renderHtml(container, pageHtml);
+    renderHtml(container, pageHtml);
 
     attachEvents();
 

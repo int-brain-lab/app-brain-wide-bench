@@ -15,9 +15,6 @@ function barMark(entry) {
     borderWidth: 0,
     borderRadius: 2,
     semColor: SEM_INK,
-    // What the legend draws its swatch as, since `usePointStyle` is on: a rectangle, so the
-    // key looks like the thing it is a key to.
-    pointStyle: "rect",
     // The bars of one category sit together with a gap to the next group, so the eye reads
     // "these belong to this task" before it reads any single value.
     categoryPercentage: 0.72,
@@ -50,7 +47,6 @@ function packLeft(datasets) {
     ...dataset,
     data: [],
     sems: [],
-    notes: [],
     backgroundColor: [],
     borderColor: [],
     barNames: [],
@@ -64,7 +60,6 @@ function packLeft(datasets) {
 
       target.data.push(source ? source.data[at] : null);
       target.sems.push(source ? source.sems[at] : null);
-      target.notes.push(source ? source.notes?.[at] : null);
       target.backgroundColor.push(source ? source.backgroundColor : "#0000");
       target.borderColor.push(source ? source.borderColor : "#0000");
       target.barNames.push(source ? source.label : "");
@@ -97,7 +92,6 @@ function createBarPlot({
   title = null,
   height = DEFAULT_HEIGHT,
   showAxis = true,
-  legend = true,
 }) {
   return createCategoryChart({
     type: "bar",
@@ -112,15 +106,17 @@ function createBarPlot({
     title,
     height,
     showAxis,
-    legend,
+    // The series are named outside the plot — a comparison's chips, a grid's headings — so
+    // no chart here draws one of its own.
+    legend: false,
     caller: "createBarPlot",
   });
 }
 
 /**
- * Several of them, arranged — in a row by default, and tall: bars are for the few categories
- * a reader compares across rather than reads down, and a group of them per category needs
- * the width to breathe. Each carries its own axis, since nothing is under anything.
+ * Several of them, arranged — tall by default: bars are for the few categories a reader
+ * compares across rather than reads down, and a group of them per category needs the width
+ * to breathe.
  *
  * @param entries the series.
  * @param rest    as arrangePlots in figure.js.
@@ -129,12 +125,11 @@ function createBarPlot({
 function createBarPlots({
   entries,
   facet = "metric",
-  layout = "row",
+  layout = "stack",
   size = "tall",
   order = "given",
   scale = "metric",
   tickLabel = (key) => key,
-  legend = true,
   height = null,
 }) {
   return arrangePlots({
@@ -146,7 +141,6 @@ function createBarPlots({
     order,
     scale,
     tickLabel,
-    legend,
     height,
   });
 }
