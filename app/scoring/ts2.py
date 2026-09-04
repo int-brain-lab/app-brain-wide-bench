@@ -19,7 +19,7 @@ class TS2Scorer(BaseScorer):
 
     def score(self, pred_dir: Path, gt_dir: Path) -> dict:
         """Score predictions and return a JSON-serialisable result dict."""
-        from core.scoring.ts2_scoring import score_dir, summarize
+        from ibl_bwb_eval.scoring.ts2 import score_dir, summarize
 
         raw = score_dir(pred_dir, gt_dir)
         summary = summarize(raw)  # {(label, task, recording_id): {metric: (mean, sem, n)}}

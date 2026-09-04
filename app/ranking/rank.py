@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable, Iterable, Mapping
 
-from core.scoring.aggregation import NO_RECORDING_ID, rank as rank_labels
+from ibl_bwb_eval.scoring.aggregation import NO_RECORDING_ID, rank as rank_labels
 
 from app.models import Submission, Task, TaskSubmission
 
