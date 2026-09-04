@@ -393,6 +393,7 @@ class Submission(SQLModel, table=True):
     narrative_public: str | None = None
     narrative_private: str | None = None
     is_public: bool = Field(default=False)
+    is_deterministic: bool = Field(default=False)
     created_at: datetime | None = _ts()
     updated_at: datetime | None = _updated_ts()
 

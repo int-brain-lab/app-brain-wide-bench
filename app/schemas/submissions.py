@@ -29,6 +29,7 @@ class SubmissionBase(BaseModel):
     created_at: datetime
     updated_at: datetime | None = None
     is_public: bool
+    is_deterministic: bool
 
     # All three live on the ``model`` relationship rather than on the submission row —
     # a submission's team is its model's — so ``model_validate`` can't populate them and
@@ -106,8 +107,8 @@ class SubmissionDetail(SubmissionBase):
     # a viewer outside the team.
     s3_key: str | None = None
     narrative_private: str | None = None
-
     narrative_public: str | None = None
+    is_deterministic: bool = False
     task_submissions: list[TaskSubmissionDetail] = []
 
     # Populated by ``from_submission`` via ``model_validate``, which reads the eager-loaded
@@ -134,6 +135,7 @@ class SubmissionCreate(BaseModel):
     model_id: uuid.UUID
     label: str
     is_public: bool = False
+    is_deterministic: bool = False
     narrative_public: str | None = None
     narrative_private: str | None = None
     tasks: list[TaskSubmissionCreate]
@@ -148,5 +150,6 @@ class SubmissionUpdate(BaseModel):
     model_id: uuid.UUID | None = None
     label: str | None = None
     is_public: bool | None = None
+    is_deterministic: bool | None = None
     narrative_public: str | None = None
     narrative_private: str | None = None

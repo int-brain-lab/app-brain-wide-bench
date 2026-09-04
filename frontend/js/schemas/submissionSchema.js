@@ -61,6 +61,15 @@ const SUBMISSION_FIELDS = {
     required: true,
   },
 
+  is_deterministic: {
+    label: "Deterministic",
+    input: "select",
+    default: false,
+    options: [true, false],
+    panel: "information",
+    required: true,
+  },
+
   // `s3_key`, not `s3_url` — matches SubmissionDetail and the mock fixture.
   s3_key: {
     label: "S3 file name",
