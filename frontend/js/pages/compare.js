@@ -251,20 +251,22 @@ function renderComparePage({ model, models }) {
   const comparison = createModelComparison({
     container: getSectionBody("comparison"),
 
-    toEntry: (row) => ({
+    toPick: (row) => ({
       key: row.id,
-      recordId: row.id,
       name: row.name,
-      teamName: row.team_name,
     }),
 
+    // The one the others are read against, badged in the grids. A set has no such model, so
+    // nothing is badged there.
+    referenceId: reference?.id ?? "",
+
     // The reference leads, whatever order the rows were picked in: this page is about that
-    // model, and the comparison reads the first of them as the one the others are against.
-    // A set has no such model, so it keeps the order the list picked them in.
+    // model, and the comparison reads the first of them as the default baseline. A set has no
+    // such model, so it keeps the order the list picked them in.
     order: reference
-      ? (entries) => [
-          ...entries.filter((entry) => entry.key === reference.id),
-          ...entries.filter((entry) => entry.key !== reference.id),
+      ? (picks) => [
+          ...picks.filter((pick) => pick.key === reference.id),
+          ...picks.filter((pick) => pick.key !== reference.id),
         ]
       : null,
   });

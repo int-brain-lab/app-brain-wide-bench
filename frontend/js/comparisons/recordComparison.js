@@ -2,9 +2,9 @@
 //
 // A record can be a model, submission, or another entity supplied by the host. The host
 // provides:
-// - `toEntry`    how a row becomes a comparison record
+// - `toPick`     how a row becomes a comparison pick
 // - `details`    how its attributes are displayed
-// - `scoresOf`   where its task scores come from
+// - `readScores` where its task scores come from
 //
 // Everything else is shared between record types.
 //
@@ -34,14 +34,14 @@ import {
   dropFromClick,
 } from "../components/comparisonGrid.js";
 import { createCompareTable } from "../tables/compareTable.js";
-import { createModelPlots } from "../plots/modelPlots.js";
+import { createModelsByTask } from "../plots/modelPlots.js";
 import { SERIES_COLOURS } from "../plots/palette.js";
 import {
-  compareTasks,
+  scoredTasksIn,
   diffMode,
   scoreMode,
-  toCompareEntries,
   toCompareRows,
+  toRecord,
 } from "./compareData.js";
 import { SUITES, suiteFromTask, suiteLabel } from "../core/suites.js";
 import { createComparison } from "./comparison.js";
@@ -72,14 +72,14 @@ const TABS = [
 
 // ─── DETAILS ─────────────────────────────────────────────────────────────────
 
-function buildDetails(entries, details, colourOf) {
+function buildDetails(picks, details, colourOf) {
   return buildComparisonGrid({
     layout: "columns",
     attributes: details.attributes(),
-    entities: entries.map((entry) => ({
-      label: entry.name,
-      ink: colourOf(entry.key),
-      cells: details.cells(entry),
+    entities: picks.map((pick) => ({
+      label: pick.name,
+      ink: colourOf(pick.key),
+      cells: details.cells(pick),
     })),
   });
 }
@@ -87,29 +87,12 @@ function buildDetails(entries, details, colourOf) {
 
 // ─── SCORES ──────────────────────────────────────────────────────────────────
 
-function scoresForRecords(entries, scoresOf, suite, colourOf) {
-  const scored = entries.filter((entry) => scoresOf(entry) != null);
-
-  const compared = toCompareEntries(
-    scored,
-    scoresOf,
-    suite,
-    entries[0]?.recordId,
-  ).map((entry) => ({
-    ...entry,
-    colour: colourOf(entry.recordId),
-  }));
-
-  return {
-    compared,
-    tasks: compareTasks(compared),
-  };
-}
-
-function availableSuites(entries, scoresOf) {
+// The suites the picks have a score on, in SUITES order. Over the resolved scores rather
+// than the picks, so readScores is not asked a second time.
+function availableSuitesIn(scored) {
   const suites = new Set(
-    entries
-      .flatMap((entry) => Object.keys(scoresOf(entry) ?? {}))
+    scored
+      .flatMap(({ scores }) => Object.keys(scores))
       .map(suiteFromTask)
       .filter(Boolean),
   );
@@ -150,8 +133,15 @@ function buildBaselineSelect(noun) {
  * @param {string} noun
  * @param {number} max
  * @param {object} details
- * @param {Function} scoresOf
+ * @param {Function} readScores (pick) => `{ [taskId]: { mean, sem, metric, … } }`.
+ *                               null while the pick's scores have not arrived — the pick
+ *                               is skipped. `{}` when it scored none of them — the pick is
+ *                               kept and drawn as dashes. Called once per pick per render;
+ *                               may allocate.
  * @param {boolean} showSuites
+ * @param {string} referenceId the record the others are read against, badged "This model".
+ *                             Omit where the host has no such record — a leaderboard's picks
+ *                             are six models with no one of them the reader's own.
  * @param {object} options
  */
 function createRecordComparison({
@@ -159,8 +149,9 @@ function createRecordComparison({
   noun = "record",
   max,
   details,
-  scoresOf,
+  readScores,
   showSuites = true,
+  referenceId = "",
   tabView = true,
   ...options
 }) {
@@ -175,8 +166,9 @@ function createRecordComparison({
   let selectedSuite = "";
   let selectedBaseline = "";
 
-  let compared = [];
-  let tasks = [];
+  let records = [];
+  let scoredTasks = [];
+  let availableSuites = [];
 
   let breakdownCharts = [];
   let differenceCharts = [];
@@ -189,7 +181,7 @@ function createRecordComparison({
     noun: "model",
     tabs: TABS,
     container,
-    hasContent: () => (comparison?.entries().length ?? 0) > 0,
+    hasContent: () => (comparison?.picks().length ?? 0) > 0,
     onChange: renderPanel,
   });
 
@@ -197,44 +189,48 @@ function createRecordComparison({
   // ─── State helpers ────────────────────────────────────────────────────────
 
 
-  function getSuite() {
-
-    return availableSuites(comparison.entries(), scoresOf).includes(selectedSuite)
-      ? selectedSuite
-      : "";
-  }
-
   function getBaseline() {
-    return compared.some(
-      (entry) => entry.recordId === selectedBaseline,
-    )
+    return records.some((record) => record.key === selectedBaseline)
       ? selectedBaseline
-      : compared[0]?.recordId ?? "";
+      : records[0]?.key ?? "";
   }
+
 
   function updateScores() {
-    ({ compared, tasks } = scoresForRecords(
-      comparison.entries(),
-      scoresOf,
-      getSuite(),
-      comparison.colourOf,
-    ));
+    const scored = comparison
+      .picks()
+      .map((pick) => ({ pick, scores: readScores(pick) }))
+      .filter(({ scores }) => scores != null);
+
+    availableSuites = availableSuitesIn(scored);
+    const suite =
+      showSuites && availableSuites.includes(selectedSuite) ? selectedSuite : "";
+
+    records = scored.map(({ pick, scores }) => ({
+      ...toRecord(pick, scores, suite),
+      isReference: Boolean(referenceId) && pick.key === referenceId,
+      colour: comparison.colourOf(pick.key),
+    }));
+
+
+    scoredTasks = scoredTasksIn(records);
+
   }
 
 
   // ─── Selected ────────────────────────────────────────────────────────────────
 
   function nSelected() {
-    return comparison?.entries().length ?? 0;
+    return comparison?.picks().length ?? 0;
   }
 
 
   function renderSelected() {
     const selectedRecords = comparison
-      ? comparison.entries().map((entry) => ({
-          key: entry.key,
-          label: entry.name,
-          ink: comparison.colourOf(entry.key),
+      ? comparison.picks().map((pick) => ({
+          key: pick.key,
+          label: pick.name,
+          ink: comparison.colourOf(pick.key),
         }))
       : [];
 
@@ -248,22 +244,20 @@ function createRecordComparison({
 
   // ─── Task detail ──────────────────────────────────────────────────────────
 
-  function toTaskRows(taskId) {
-    return compared.flatMap((entry) => {
-      const score = entry.tasks[taskId];
+  function toTaskPicks(taskId) {
+    return records.flatMap((record) => {
+      const score = record.tasks[taskId];
 
       if (!score?.task_submission_id || !score.submission_id) {
         return [];
       }
 
       return [{
-        taskSubmissionId: score.task_submission_id,
+        key: score.task_submission_id,
         submissionId: score.submission_id,
         taskId,
-        modelName: entry.modelName ?? entry.recordName,
-        submissionLabel: entry.submissionLabel ?? null,
-        metric: score.metric,
-        colour: entry.colour,
+        modelName: record.name,
+        colour: record.colour,
       }];
     });
   }
@@ -273,18 +267,8 @@ function createRecordComparison({
 
     taskDetail = createTaskComparison({
       container: getSectionBody(TASK_ID),
-      picks: false,
-      layout: "rows",
-
-      toEntry: (row) => ({
-        key: row.taskSubmissionId,
-        taskId: row.taskId,
-        submissionId: row.submissionId,
-        submissionLabel: row.submissionLabel,
-        modelName: row.modelName,
-        metric: row.metric,
-        colour: row.colour,
-      }),
+      showPicks: false,
+      nested: true,
     });
 
     return taskDetail;
@@ -294,10 +278,10 @@ function createRecordComparison({
     for (const panel of [BREAKDOWN, DIFFERENCE]) {
       const body = getSectionBody(panel);
 
-      for (const plot of body?.querySelectorAll("[data-group]") ?? []) {
+      for (const plot of body?.querySelectorAll("[data-axis]") ?? []) {
         plot.classList.toggle(
           "selected",
-          plot.dataset.group === openTask,
+          plot.dataset.axis === openTask,
         );
       }
     }
@@ -308,9 +292,9 @@ function createRecordComparison({
 
     if (!container) return;
 
-    const rows = openTask ? toTaskRows(openTask) : [];
+    const picks = openTask ? toTaskPicks(openTask) : [];
 
-    if (!rows.length) {
+    if (!picks.length) {
       openTask = "";
       container.hidden = true;
       taskDetail?.clear();
@@ -318,15 +302,9 @@ function createRecordComparison({
       return;
     }
 
-    const returning = container.hidden;
-
     container.hidden = false;
 
-    const detail = ensureTaskDetail();
-
-    if (!detail.set(rows) && returning) {
-      detail.refresh();
-    }
+    ensureTaskDetail().set(picks);
 
     markOpenPlot();
   }
@@ -353,7 +331,7 @@ function createRecordComparison({
     disposeAll(breakdownCharts);
     breakdownCharts = [];
 
-    if (!tasks.length) {
+    if (!scoredTasks.length) {
       renderHtml(section, buildEmptyMessage(nothingScored));
       return;
     }
@@ -361,11 +339,7 @@ function createRecordComparison({
     const mode = scoreMode();
 
     if (view === PLOT_VIEW) {
-      const plots = createModelPlots({
-        entries: compared,
-        tasks,
-        mode,
-      });
+      const plots = createModelsByTask({ records, scoredTasks, mode });
 
       section.replaceChildren(plots.element);
       breakdownCharts = plots.charts;
@@ -373,8 +347,8 @@ function createRecordComparison({
     }
 
     const { element, table } = createCompareTable({
-      rows: toCompareRows(compared, tasks, mode),
-      tasks,
+      rows: toCompareRows(records, scoredTasks, mode),
+      scoredTasks,
       mode: "score",
     });
 
@@ -388,12 +362,12 @@ function createRecordComparison({
     disposeAll(differenceCharts);
     differenceCharts = [];
 
-    if (!tasks.length) {
+    if (!scoredTasks.length) {
       renderHtml(section, buildEmptyMessage(nothingScored));
       return;
     }
 
-    if (compared.length < 2) {
+    if (records.length < 2) {
       renderHtml(
         section,
         buildInfoMessage(`Select a second ${noun} to see the difference.`),
@@ -401,15 +375,10 @@ function createRecordComparison({
       return;
     }
 
-    const mode = diffMode(compared, getBaseline());
+    const mode = diffMode(records, getBaseline());
 
     if (view === PLOT_VIEW) {
-      const plots = createModelPlots({
-        entries: compared,
-        tasks,
-        mode,
-        scale: "all",
-      });
+      const plots = createModelsByTask({ records, scoredTasks, mode });
 
       section.replaceChildren(plots.element);
       differenceCharts = plots.charts;
@@ -417,8 +386,8 @@ function createRecordComparison({
     }
 
     const { element, table } = createCompareTable({
-      rows: toCompareRows(compared, tasks, mode),
-      tasks,
+      rows: toCompareRows(records, scoredTasks, mode),
+      scoredTasks,
       mode: "diff",
     });
 
@@ -436,12 +405,10 @@ function createRecordComparison({
 
     if (!select) return;
 
-    const suites = availableSuites(comparison.entries(), scoresOf);
-
     renderHtml(
       select,
       buildOptions(
-        suites.map((suite) => ({
+        availableSuites.map((suite) => ({
           value: suite,
           label: suiteLabel(suite),
         })),
@@ -463,9 +430,9 @@ function createRecordComparison({
     renderHtml(
       select,
       buildOptions(
-        compared.map((entry) => ({
-          value: entry.recordId,
-          label: entry.recordName,
+        records.map((record) => ({
+          value: record.key,
+          label: record.name,
         })),
         { selected: getBaseline() },
       ),
@@ -527,7 +494,7 @@ function createRecordComparison({
     renderHtml(
       getSectionBody(DETAILS),
       buildDetails(
-        comparison.entries(),
+        comparison.picks(),
         details,
         comparison.colourOf,
       ),
@@ -554,8 +521,9 @@ function createRecordComparison({
   function clearUp() {
     clearCharts();
 
-    compared = [];
-    tasks = [];
+    records = [];
+    scoredTasks = [];
+    availableSuites = [];
 
     if (!nSelected()) {
       closeTaskDetail();
@@ -598,14 +566,12 @@ function createRecordComparison({
 
   function attachPlotEvents() {
     function handlePlotClick(event) {
-      const plot = event.target?.closest?.("[data-group]");
+      const plot = event.target?.closest?.("[data-axis]");
 
       if (!plot) return;
 
       openTask =
-        plot.dataset.group === openTask
-          ? ""
-          : plot.dataset.group;
+        plot.dataset.axis === openTask ? "" : plot.dataset.axis;
 
       renderTaskDetail();
     }
@@ -687,8 +653,6 @@ function createRecordComparison({
       max,
       prompt: `Select up to ${max} ${noun}s to compare them.`,
       palette: SERIES_COLOURS,
-
-      cacheKey: (entry) => entry.recordId,
 
       render: renderSections,
       clearUp,

@@ -1,19 +1,17 @@
 // Dots with error bars, over categories.
 //
-// For many categories, or a scale a bar has no business claiming a baseline on: a dot says
-// only where a value sits. Never a line joining them — the categories have no order, so a
-// line draws a trend that isn't there.
+// Never a line joining them: the categories have no order, so a line draws a trend that
+// isn't there.
 
 import { SURFACE, createCategoryChart } from "./chartjs.js";
-import { DEFAULT_HEIGHT, arrangePlots, toDatasets } from "./figure.js";
+import { toDatasets } from "./figure.js";
 
-// The series' colour, ringed in the surface colour so two series landing on the same value
-// stay two marks rather than one muddled blob.
-function pointMark(entry) {
+function pointMark(series) {
   return {
-    borderColor: entry.colour,
-    backgroundColor: entry.colour,
+    borderColor: series.colour,
+    backgroundColor: series.colour,
     pointStyle: "circle",
+    // Ringed in the surface colour, so two series on one value stay two marks.
     pointBorderColor: SURFACE,
     pointBorderWidth: 2,
     pointRadius: 5,
@@ -24,72 +22,40 @@ function pointMark(entry) {
 }
 
 /**
- * @param series    the plot's series.
- * @param labels    the axis, as category keys, in the order it shows them.
- * @param axisTitle what the y axis is measured in.
- * @param tickLabel (key) => what the axis shows for a category.
- * @param range     {min, max} the plot spans, shared with every plot of the same metric.
- *                  Omit to let the values frame themselves.
- * @param title     a heading inside the plot. Omit for none.
- * @param height    plot height in px.
- * @param showAxis  false where the axis is repeated below, or unreadable at this width.
- * @returns { element, chart } — `element` is detached until the caller places it, and
- *          `chart` has to be destroyed before it is replaced.
+ * One plot of points.
+ *
+ * @param series
+ * @param categories      the x axis, as category keys.
+ * @param yAxisLabel      what the y axis is measured in.
+ * @param xTickLabel      (key, index) => what the axis shows for a category.
+ * @param yRange          { min, max } the plot spans. Omit to let the values frame
+ *                        themselves.
+ * @param plotTitle       a heading inside the plot. Omit for none.
+ * @param height          plot height in px.
+ * @param showXTickLabels false where the labels are repeated below, or unreadable here.
+ * @returns { element, chart }.
  */
 function createScatterPlot({
   series,
-  labels,
-  axisTitle,
-  tickLabel = (key) => key,
-  range = null,
-  title = null,
-  height = DEFAULT_HEIGHT,
-  showAxis = true,
+  categories,
+  yAxisLabel,
+  xTickLabel,
+  yRange,
+  plotTitle,
+  height,
+  showXTickLabels,
 }) {
   return createCategoryChart({
     type: "line",
-    labels,
-    datasets: toDatasets(series, labels, pointMark),
-    axisTitle,
-    tickLabel,
-    // Dots say only where a value sits, so the axis is free to frame the data.
-    span: range,
-    title,
+    categories,
+    datasets: toDatasets(series, categories, pointMark),
+    yAxisLabel,
+    xTickLabel,
+    yRange,
+    plotTitle,
     height,
-    showAxis,
-    // The series are named outside the plot — see createBarPlot.
-    legend: false,
-    caller: "createScatterPlot",
+    showXTickLabels,
   });
 }
 
-/**
- * Several of them, arranged — stacked by default, since a stack can share one axis and a
- * reader comparing across recordings reads down.
- *
- * @param entries the series.
- * @param rest    as arrangePlots in figure.js.
- * @returns { element, charts }.
- */
-function createScatterPlots({
-  entries,
-  facet = "metric",
-  layout = facet === "series" ? "grid" : "stack",
-  size = "regular",
-  order = "value",
-  scale = "metric",
-  tickLabel = (key) => key,
-}) {
-  return arrangePlots({
-    entries,
-    createPlot: createScatterPlot,
-    facet,
-    layout,
-    size,
-    order,
-    scale,
-    tickLabel,
-  });
-}
-
-export { createScatterPlot, createScatterPlots };
+export { createScatterPlot };

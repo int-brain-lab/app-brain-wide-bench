@@ -54,7 +54,7 @@ loadListPage({
 
     label: "Compare",
 
-    toEntry: (row) => ({ key: row.id }),
+    toPick: (row) => ({ key: row.id }),
 
     onCompare: (ids) => {
       location.href = `${COMPARE_PAGE}?${WITH_PARAM}=${encodeURIComponent(ids.join(","))}`;

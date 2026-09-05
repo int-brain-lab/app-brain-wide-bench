@@ -1,4 +1,4 @@
-// What a reader has picked, keyed on the entry key, in pick order.
+// What a reader has picked, keyed on the pick key, in pick order.
 
 /**
  * @param max      how many can be held at once. Extras are refused unless `rolling`.
@@ -17,7 +17,7 @@ function createSelection({
 } = {}) {
   const held = new Map();
 
-  // key => slot, for as long as the entry is held.
+  // key => slot, for as long as the pick is held.
   const places = new Map();
 
   // The slot handed out last. A new one takes the next free slot going forward from here,
@@ -58,7 +58,7 @@ function createSelection({
     return new Set(held.keys());
   }
 
-  function entries() {
+  function picks() {
     return [...held.values()];
   }
 
@@ -66,23 +66,23 @@ function createSelection({
     return held.get(key);
   }
 
-  function add(entry) {
-    if (held.has(entry.key)) return false;
+  function add(pick) {
+    if (held.has(pick.key)) return false;
 
     if (held.size >= max) {
       if (!rolling) return false;
 
       // Evicted here rather than through `remove`, so the pick and the drop it made room for
       // are one mutation and one render. Its slot goes with it, which is what lets the
-      // incoming entry take it.
+      // incoming pick take it.
       const oldest = keys()[0];
 
       held.delete(oldest);
       places.delete(oldest);
     }
 
-    held.set(entry.key, entry);
-    takeSlot(entry.key);
+    held.set(pick.key, pick);
+    takeSlot(pick.key);
     onChange();
 
     return true;
@@ -97,18 +97,18 @@ function createSelection({
     return true;
   }
 
-  function toggle(entry) {
-    return held.has(entry.key) ? remove(entry.key) : add(entry);
+  function toggle(pick) {
+    return held.has(pick.key) ? remove(pick.key) : add(pick);
   }
 
   /**
-   * Set the whole selection at once. Entries already held keep their places; new ones are
+   * Set the whole selection at once. Picks already held keep their places; new ones are
    * appended.
    *
-   * @param incoming every entry that should now be held.
+   * @param incoming every pick that should now be held.
    */
   function replace(incoming) {
-    const wanted = new Map(incoming.map((entry) => [entry.key, entry]));
+    const wanted = new Map(incoming.map((pick) => [pick.key, pick]));
 
     const kept = keys().filter((key) => wanted.has(key));
     const added = [...wanted.keys()].filter((key) => !held.has(key));
@@ -120,7 +120,7 @@ function createSelection({
     if (!changed(next)) return false;
 
     held.clear();
-    for (const [key, entry] of next) held.set(key, entry);
+    for (const [key, pick] of next) held.set(key, pick);
 
     for (const key of [...places.keys()]) {
       if (!held.has(key)) places.delete(key);
@@ -155,12 +155,12 @@ function createSelection({
   return {
     add,
     clear,
-    entries,
     get,
     has,
     keySet,
     keys,
     max,
+    picks,
     remove,
     replace,
     slotOf,

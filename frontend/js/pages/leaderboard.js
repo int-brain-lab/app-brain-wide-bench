@@ -122,10 +122,6 @@ function filterControls() {
       label: MODEL_FIELDS[key].label,
       options: MODEL_FIELDS[key].options ?? [],
     })),
-
-    // The parameter count is logarithmic: it runs from a thousand to two hundred billion, and
-    // on a linear track a step is either invisible at the bottom or a hundred million at the
-    // top. Which is also why it reads 1.2K and 200B rather than in full.
     {
       type: "range",
       name: "n_parameters",
@@ -230,15 +226,13 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   // are the same key, and the comparison's own cache key is that key too. The rest is what it
   // shows before its fetch lands.
   //
-  // The ids are the entries this row's scores came from, so what the comparison fetches
+  // The ids are the runs this row's scores came from, so what the comparison fetches
   // describes what the board ranked rather than whatever is newest by the time it is asked —
-  // a filtered board stands on the newest *matching* entry, which is not always the newest.
-  function toModelEntry(row) {
+  // a filtered board stands on the newest *matching* run, which is not always the newest.
+  function toModelPick(row) {
     return {
       key: row.modelId,
-      recordId: row.modelId,
       name: row.model_name,
-      teamName: row.team_name,
       taskSubmissionIds: Object.values(row.scores ?? {}).map(
         (score) => score.task_submission_id,
       ),
@@ -257,9 +251,9 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   }
 
   // The board's own scores, so a comparison and the rows it was picked from cannot disagree:
-  // already the newest entry per task that matches the applied filters, and already
-  // public-only. Looked up on every render rather than carried on the entry — Apply refetches
-  // the board under the picks, and the selection keeps the entry object it already holds.
+  // already the newest run per task that matches the applied filters, and already
+  // public-only. Looked up on every render rather than carried on the pick — Apply refetches
+  // the board under the picks, and the selection keeps the pick object it already holds.
   //
   // Narrowed to the tasks the board is ranked over, which is the other half of that: a row
   // carries every score whatever is chosen, so without this the panel would plot tasks the
@@ -268,19 +262,18 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   //
   // A model with nothing on the chosen tasks comes back as an empty set rather than as null,
   // which is the difference between "scored none of these" and "its scores have not arrived":
-  // the first is kept and drawn as dashes, since it was explicitly picked — see
-  // toCompareEntries.
+  // the first is kept and drawn as dashes, since it was explicitly picked — see toRecords.
   //
   // The numbers stay the board's; how each was produced comes off the breakdown fetched for
-  // this pick, by the same entry ids. So a failed fetch costs the tooltip its methodology
+  // this pick, by the same run ids. So a failed fetch costs the tooltip its methodology
   // rather than the plot its bars — and `clearDetails` on Apply is what keeps the two halves
   // describing one set of runs.
-  function scoresOf(entry) {
-    const scores = scoresByModel.get(String(entry.recordId));
+  function readScores(pick) {
+    const scores = scoresByModel.get(String(pick.key));
 
     if (!scores) return null;
 
-    const tasks = entry.detail?.tasks;
+    const tasks = pick.detail?.tasks;
 
     return Object.fromEntries(
       chosen
@@ -323,8 +316,8 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   // to — the comparison is what a picked row opens, from the moment the page loads.
   const comparison = createModelComparison({
     container: getSectionBody(COMPARE_SECTION),
-    toEntry: toModelEntry,
-    scoresOf,
+    toPick: toModelPick,
+    readScores,
     showSuites: false,
   });
 
@@ -338,7 +331,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   // would hold a model whose every column is a dash, which reads as a model that scored
   // nothing rather than as one the reader has stopped looking at.
   //
-  // The survivors correct themselves — the comparison reads its scores through `scoresOf` on
+  // The survivors correct themselves — the comparison reads its scores through `readScores` on
   // every render — so only the departed have to be dropped by hand.
   //
   // Two states this declines to judge, because neither is a field a pick can be off: a board
@@ -359,7 +352,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
 
   // What a re-filtered board does to the picks under it: the departed go, and the survivors
   // keep their place but forget what was fetched for them — that was asked for by the old
-  // board's entry ids, and while the values they draw are the board's and correct themselves,
+  // board's run ids, and while the values they draw are the board's and correct themselves,
   // the methodology in their tooltips does not.
   function settlePicks() {
     if (!standings) return;
@@ -611,20 +604,6 @@ loadPage({
   requiresAuth: false,
 
   load: async (id, { signedIn }) => {
-    // The task table is what the columns are built from, and it doesn't change with the
-    // choice — only which of them are shown does. A failure here is the page failing, which
-    // is loadPage's to report.
-    //
-    // `loadTaskFields` costs no second request: it awaits the same memoised /api/meta that
-    // getTasks does, and fills the methodology fields' options in place from the server's own
-    // enums — so a new modality is a filter option without a change here.
-    //
-    // The memberships are fetched only when there is a session to fetch them for, and a
-    // failure leaves the set empty: the board then renders without the "Yours" pill rather
-    // than not at all.
-    // Caught rather than allowed to reject: it fails only when /api/meta does, and getTasks
-    // is already the one reporting that — so the failure reads the same as it always did,
-    // rather than becoming a page error because a second caller of the same request threw.
     const [tasks, , , teams] = await Promise.all([
       getTasks(),
       loadTaskFields().catch(() => undefined),

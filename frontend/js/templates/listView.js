@@ -43,7 +43,7 @@ const MODE_NAMES = ["base", "active"];
  *                       components/filterState.js. Omit for no filter bar.
  * @param modes          `{ base, active }` panel definitions. Omit for a list whose rows
  *                       open nothing beside them.
- * @param picking        `{ max, palette, label, toEntry, onCompare }` for a list whose rows are
+ * @param picking        `{ max, palette, label, toPick, onCompare }` for a list whose rows are
  *                       picked and then acted on elsewhere, rather than opening a panel beside
  *                       them: a click highlights a row, at most `max` are held, and the button
  *                       calls `onCompare(keys)` with what is picked. The record's own link
@@ -95,7 +95,7 @@ function createListView({
         const controller = createPicker({
           max: picking.max,
           palette: picking.palette,
-          toEntry: picking.toEntry,
+          toPick: picking.toPick,
         });
 
         return {

@@ -7,7 +7,7 @@
 // which model a submission was made with, and whether anyone can read it — because a
 // submission has no parameters of its own; the model's are the model's. And the scores come
 // off the submission's own detail response rather than a breakdown endpoint: a submission is
-// one set of task entries, so there is nothing to collapse and no "newest" to pick.
+// one set of task runs, so there is nothing to collapse and no "newest" to pick.
 //
 // Submissions of different models compare perfectly well — which is the reason the model's
 // name is the first thing the details panel says.
@@ -36,32 +36,32 @@ const DETAILS = {
     { key: VISIBILITY, label: "Visibility" },
   ],
 
-  cells: (entry) => ({
-    [MODEL]: { value: entry.modelName ?? null },
+  cells: (pick) => ({
+    [MODEL]: { value: pick.modelName ?? null },
 
     // The badge every other reading of a submission wears for this, so the answer looks the
     // same wherever it is given. `value` is what decides whether the row recedes when every
     // submission agrees, so it is the fact rather than the markup.
     [VISIBILITY]: {
-      value: entry.isPublic == null ? null : String(entry.isPublic),
-      html: buildVisibleBadge(entry.isPublic, "sm"),
+      value: pick.isPublic == null ? null : String(pick.isPublic),
+      html: buildVisibleBadge(pick.isPublic, "sm"),
     },
   }),
 };
 
 // ─── SCORES ──────────────────────────────────────────────────────────────────
 
-// The submission's own task entries, in the shape the comparison reads: one score per task,
+// The submission's own task runs, in the shape the comparison reads: one score per task,
 // with the ids a task panel is opened by and the methodology the plot tooltips print.
 //
-// No collapse and no "latest": a submission is one attempt, so it has at most one entry per
+// No collapse and no "latest": a submission is one attempt, so it has at most one run per
 // task, where a model's breakdown has to pick between the several it has accumulated.
 //
 // A task still being scored has no score to show and is left out rather than carried as a
 // gap: the axis is the union across the compared submissions, so a task nobody has scored
 // simply isn't on it.
-function toSubmissionScores(entry) {
-  const detail = entry.detail;
+function toSubmissionScores(pick) {
+  const detail = pick.detail;
 
   if (!detail) return null;
 
@@ -77,7 +77,7 @@ function toSubmissionScores(entry) {
 
           // What the task panel fetches the per-recording breakdown by.
           task_submission_id: task.id,
-          submission_id: entry.recordId,
+          submission_id: pick.key,
 
           ...Object.fromEntries(
             trainingFieldKeys().map((key) => [key, task[key] ?? null]),
@@ -87,17 +87,15 @@ function toSubmissionScores(entry) {
   );
 }
 
-// ─── ENTRIES ─────────────────────────────────────────────────────────────────
+// ─── PICKS ───────────────────────────────────────────────────────────────────
 
 // For a host whose rows came from toSubmissionRows. The label is the record's name, and the
 // model's name rides along for the details panel — and for naming a score of this submission
 // where a task is opened out, which wants both.
-function toSubmissionEntry(row) {
+function toSubmissionPick(row) {
   return {
     key: row.id,
-    recordId: row.id,
     name: row.label,
-    teamName: row.team_name,
     modelName: row.model_name,
     submissionLabel: row.label,
     isPublic: row.is_public ?? null,
@@ -113,14 +111,14 @@ function createSubmissionComparison(options) {
     max: MAX_SUBMISSIONS,
     details: DETAILS,
 
-    toEntry: toSubmissionEntry,
+    toPick: toSubmissionPick,
 
-    // The whole submission, which is the one response carrying its task entries with their
+    // The whole submission, which is the one response carrying its task runs with their
     // methodology. It carries the per-recording breakdown too, which nothing here draws — the
-    // task panel asks for that one entry at a time — but there is no lighter shape to ask for.
-    loadDetail: (entry) => loadSubmission(entry.recordId),
+    // task panel asks for that one run at a time — but there is no lighter shape to ask for.
+    loadDetail: (pick) => loadSubmission(pick.key),
 
-    scoresOf: toSubmissionScores,
+    readScores: toSubmissionScores,
 
     ...options,
   });

@@ -53,6 +53,23 @@ function suitesFromModel(model) {
   return SUITES.filter((suite) => derived.has(suite));
 }
 
+// Keyed by the ids in alembic/versions/0001_initial.py, as TASK_NAMES is. What a task's
+// numbers mean rather than which suite they came from: ts1's poisson_d2 reads out behaviour
+// and ts2's reconstructs firing, so the two are not one scale.
+const TASK_TYPES = {
+  "ts1-choice": "categorical",
+  "ts1-left_paw_speed": "continuous",
+  "ts1-licking_rate": "point_process",
+  "ts1-reward": "categorical",
+  "ts1-right_paw_speed": "continuous",
+  "ts1-stimulus_contrast": "categorical",
+  "ts1-wheel_speed": "continuous",
+  "ts1-whisker_motion_energy": "continuous",
+  "ts2-co_smoothing": "firing_rate",
+  "ts2-forecasting": "firing_rate",
+  "ts3-cosmos": "brain_region",
+};
+
 function suiteFromTask(taskId) {
   const prefix = String(taskId ?? "").split("-")[0];
 
@@ -69,11 +86,16 @@ function taskLabel(taskId) {
   return suiteFromTask(taskId) ? taskId.slice(taskId.indexOf("-") + 1) : taskId;
 }
 
+function taskTypeOf(taskId) {
+  return TASK_TYPES[taskId] ?? suiteFromTask(taskId) ?? "";
+}
+
 export {
   SUITES,
   suiteFromTask,
   suiteLabel,
   taskLabel,
+  taskTypeOf,
   suitesFromModel,
   suitesFromSubmission,
 };

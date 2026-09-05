@@ -38,9 +38,9 @@ const HEX = /^#[0-9a-f]{3,8}$/i;
 //
 // Model and team names are user-supplied, so both are escaped.
 function modelFormatter(cell) {
-  const { recordName, teamName, isSelected, colour } = cell.getData();
+  const { name, teamName, isReference, colour } = cell.getData();
 
-  const badge = isSelected
+  const badge = isReference
     ? `<span class="badge sm neutral">This model</span>`
     : "";
 
@@ -49,7 +49,7 @@ function modelFormatter(cell) {
   return `
     <span class="column gap-xs compare-model"${ink}>
       <span class="row left gap-sm">
-        <span class="label">${escapeHtml(recordName)}</span>
+        <span class="label">${escapeHtml(name)}</span>
         ${badge}
       </span>
       <span class="metadata">${escapeHtml(teamName ?? "")}</span>
@@ -60,12 +60,12 @@ function modelFormatter(cell) {
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
 
-function getCompareColumns(tasks, { formatter, sorter }) {
+function getCompareColumns(scoredTasks, { formatter, sorter }) {
 
   return [
     {
       title: "Model",
-      field: "recordName",
+      field: "name",
       formatter: modelFormatter,
       // Fixed rather than growing: a model name has a natural size, and the space a
       // comparison of two models leaves over belongs to the tasks being compared.
@@ -74,7 +74,7 @@ function getCompareColumns(tasks, { formatter, sorter }) {
       // readable, and a suite of a dozen tasks is wider than the page.
       frozen: true,
     },
-    ...tasks.map((task) => ({
+    ...scoredTasks.map((task) => ({
       title: taskHeader(task.taskId, task.metric),
       // The header is markup, so Tabulator has to be told not to escape it.
       titleFormatter: "html",
@@ -98,14 +98,14 @@ function getCompareColumns(tasks, { formatter, sorter }) {
 // ─── TABLE ───────────────────────────────────────────────────────────────────
 
 /**
- * @param rows  from compareData's toCompareRows — one per model.
- * @param tasks from compareData's compareTasks — the columns, in the order the plots put
- *              them on their axis.
- * @param mode  "score" for mean ± sem cells, "diff" for signed differences.
+ * @param rows           from compareData's toCompareRows — one per record.
+ * @param scoredTasks from compareData's scoredTasksIn — the columns, in the order the
+ *                       plots put them on their axis.
+ * @param mode           "score" for mean ± sem cells, "diff" for signed differences.
  * @returns { element, table } — `element` is detached until the caller places it, and
  *          `table` has to be destroyed before it is replaced.
  */
-function createCompareTable({ rows, tasks, mode = "score" }) {
+function createCompareTable({ rows, scoredTasks, mode = "score" }) {
   // One sorter either way: a difference is a `{ mean, sem }` like a score is, since both come
   // from the same mode in compareData. Only the rendering differs — signed and coloured.
   const cells =
@@ -115,7 +115,7 @@ function createCompareTable({ rows, tasks, mode = "score" }) {
 
   return createTable({
     rows,
-    columns: getCompareColumns(tasks, cells),
+    columns: getCompareColumns(scoredTasks, cells),
     noun: "model",
 
     // fitColumns, as every other grid in the app uses: the number of columns here changes

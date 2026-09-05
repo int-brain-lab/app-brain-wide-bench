@@ -31,19 +31,20 @@ import { buildEmptyMessage } from "../components/messages.js";
  *                   thing at a time. A table bound to it wants the same flag, since
  *                   Tabulator enforces its own cap: see bindTableSelection.
  * @param prompt     what to say with nothing picked.
- * @param loadDetail (entry) => the record to attach as `entry.detail`. Absent until it
+ * @param loadDetail (pick) => the record to attach as `pick.detail`. Absent until it
  *                   lands, so every render has to expect it missing.
- * @param cacheKey   (entry) => what loadDetail is cached under, across selections.
+ * @param cacheKey   (pick) => what loadDetail is cached under, across selections.
  * @param palette    the colours a pick can take, one per slot — see slotOf in
  *                   core/selection.js. A pick keeps its colour for as long as it is held,
  *                   so dropping one leaves the others as they were. Omit for no colouring.
- * @param render     ({ root, entries, colourOf, context, refresh, track }) => void, on every
+ * @param render     ({ root, picks, colourOf, context, refresh, track }) => void, on every
  *                   change.
  *                   `root` holds whatever the last call left there. Anything needing
  *                   teardown goes to `track`; listeners go on elements the render just
  *                   made. `refresh()` draws again.
- * @param toEntry    (row) => entry, or null for a row this comparison can't take.
- * @param order      optional (entries) => entries. Defaults to pick order.
+ * @param toPick     (row) => pick, or null for a row this comparison can't take.
+ *                   Defaults to identity, for a host whose rows are already picks.
+ * @param order      optional (picks) => picks. Defaults to pick order.
  */
 function createComparison({
   container,
@@ -51,11 +52,11 @@ function createComparison({
   rolling = false,
   prompt = "Select things to compare them.",
   loadDetail,
-  cacheKey = (entry) => entry.key,
+  cacheKey = (pick) => pick.key,
   palette = [],
   render: draw,
   clearUp,
-  toEntry,
+  toPick = (row) => row,
   order = null,
 }) {
   const root = resolveContainer(container);
@@ -79,8 +80,8 @@ function createComparison({
 
   const listeners = new Set();
 
-  function entries() {
-    const held = selection.entries();
+  function picks() {
+    const held = selection.picks();
 
     return order ? order(held) : held;
   }
@@ -100,25 +101,25 @@ function createComparison({
   // ── picking ──
 
   function keyOf(row) {
-    return toEntry(row)?.key;
+    return toPick(row)?.key;
   }
 
   function pick(row) {
-    const entry = toEntry(row);
+    const picked = toPick(row);
 
-    if (!entry || !selection.add(entry)) return false;
+    if (!picked || !selection.add(picked)) return false;
 
-    ensureDetail(entry);
+    ensureDetail(picked);
 
     return true;
   }
 
   function toggle(row) {
-    const entry = toEntry(row);
+    const picked = toPick(row);
 
-    if (!entry) return false;
+    if (!picked) return false;
 
-    return selection.has(entry.key) ? selection.remove(entry.key) : pick(row);
+    return selection.has(picked.key) ? selection.remove(picked.key) : pick(row);
   }
 
   function drop(key) {
@@ -126,16 +127,16 @@ function createComparison({
   }
 
   /**
-   * The whole selection at once. Rows `toEntry` returns nothing for are dropped.
+   * The whole selection at once. Rows `toPick` returns nothing for are dropped.
    *
    * @param rows    every row that should now be picked.
    */
   function set(rows) {
 
 
-    const changed = selection.replace(rows.map(toEntry).filter(Boolean));
+    const changed = selection.replace(rows.map(toPick).filter(Boolean));
 
-    for (const entry of selection.entries()) ensureDetail(entry);
+    for (const picked of selection.picks()) ensureDetail(picked);
 
     if (!changed) render();
 
@@ -151,7 +152,7 @@ function createComparison({
    * Forgets what has been fetched, keeping the picks: whatever is held is asked for again.
    *
    * For a host whose picks outlive the thing they describe — a leaderboard refetches its board
-   * under them, and a detail fetched against the entries the old board named is no longer
+   * under them, and a detail fetched against the runs the old board named is no longer
    * about what is on screen. The picks are the reader's; the data behind them is not.
    */
   function clearDetails() {
@@ -159,9 +160,9 @@ function createComparison({
 
     details.clear();
 
-    for (const entry of selection.entries()) {
-      entry.detail = undefined;
-      ensureDetail(entry);
+    for (const picked of selection.picks()) {
+      picked.detail = undefined;
+      ensureDetail(picked);
     }
 
     render();
@@ -169,16 +170,16 @@ function createComparison({
 
   // ── loading ──
 
-  function ensureDetail(entry) {
-    if (entry.detail) return;
+  function ensureDetail(picked) {
+    if (picked.detail) return;
 
-    const key = cacheKey(entry);
+    const key = cacheKey(picked);
 
     if (!details.has(key)) {
       details.set(
         key,
         Promise.resolve()
-          .then(() => loadDetail(entry))
+          .then(() => loadDetail(picked))
           .catch((error) => {
             console.error(error);
 
@@ -191,10 +192,10 @@ function createComparison({
     }
 
     details.get(key).then((detail) => {
-      entry.detail = detail;
+      picked.detail = detail;
 
-      // Identity, not the key: unticking and reticking makes a new entry.
-      if (selection.get(entry.key) === entry) render();
+      // Identity, not the key: unticking and reticking makes a new pick.
+      if (selection.get(picked.key) === picked) render();
     });
   }
 
@@ -229,12 +230,12 @@ function createComparison({
     colourOf,
     destroy,
     drop,
-    entries,
     keyOf,
     keySet: selection.keySet,
     keys: selection.keys,
     max,
     pick,
+    picks,
     refresh: render,
     set,
     get size() {
@@ -267,9 +268,9 @@ function createComparison({
  *                a pick is marked in the colour it will be drawn in wherever it is handed on
  *                — slots go out in pick order, so a list and the page it hands its picks to
  *                agree without either being told the other's colours. Omit for no colouring.
- * @param toEntry (row) => { key }, or null for a row this picker can't take.
+ * @param toPick  (row) => { key }, or null for a row this picker can't take.
  */
-function createPicker({ max = Infinity, palette = [], toEntry }) {
+function createPicker({ max = Infinity, palette = [], toPick }) {
   const listeners = new Set();
 
   const selection = createSelection({
@@ -281,17 +282,17 @@ function createPicker({ max = Infinity, palette = [], toEntry }) {
   });
 
   function pick(row) {
-    const entry = toEntry(row);
+    const picked = toPick(row);
 
-    return Boolean(entry) && selection.add(entry);
+    return Boolean(picked) && selection.add(picked);
   }
 
   function toggle(row) {
-    const entry = toEntry(row);
+    const picked = toPick(row);
 
-    if (!entry) return false;
+    if (!picked) return false;
 
-    return selection.has(entry.key) ? selection.remove(entry.key) : pick(row);
+    return selection.has(picked.key) ? selection.remove(picked.key) : pick(row);
   }
 
   return {
@@ -305,12 +306,12 @@ function createPicker({ max = Infinity, palette = [], toEntry }) {
       return slot == null ? null : (palette[slot] ?? null);
     },
     drop: (key) => selection.remove(key),
-    entries: selection.entries,
-    keyOf: (row) => toEntry(row)?.key,
+    keyOf: (row) => toPick(row)?.key,
     keySet: selection.keySet,
     keys: selection.keys,
     max,
     pick,
+    picks: selection.picks,
     get size() {
       return selection.size;
     },
@@ -330,8 +331,8 @@ function createPicker({ max = Infinity, palette = [], toEntry }) {
 
 /**
  * @param comparison what to bind to.
- * @param rowIndex   (entry) => the value the table identifies its row by. Defaults to the
- *                   entry's key.
+ * @param rowIndex   (pick) => the value the table identifies its row by. Defaults to the
+ *                   pick's key.
  * @param claimLinks as createFilterableTable. Left on, since a table bound to a comparison
  *                   is usually there to build the selection; a panel whose rows also link
  *                   somewhere passes false.
@@ -343,7 +344,7 @@ function createPicker({ max = Infinity, palette = [], toEntry }) {
  */
 function bindTableSelection(
   comparison,
-  { rowIndex = (entry) => entry.key, claimLinks = true, rolling = false } = {},
+  { rowIndex = (pick) => pick.key, claimLinks = true, rolling = false } = {},
 ) {
   let table = null;
 
@@ -355,7 +356,7 @@ function bindTableSelection(
     if (!table?.initialized || syncing) return;
 
     const wanted = new Set(
-      comparison.entries().map((entry) => String(rowIndex(entry))),
+      comparison.picks().map((pick) => String(rowIndex(pick))),
     );
 
     syncing = true;
@@ -391,10 +392,10 @@ function bindTableSelection(
 
     const inks = new Map(
       comparison
-        .entries()
-        .map((entry) => [
-          String(rowIndex(entry)),
-          comparison.colourOf(entry.key),
+        .picks()
+        .map((pick) => [
+          String(rowIndex(pick)),
+          comparison.colourOf(pick.key),
         ]),
     );
 

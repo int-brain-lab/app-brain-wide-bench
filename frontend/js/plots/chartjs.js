@@ -5,27 +5,27 @@
 // here knows what a recording or a task is, and colours always come from the caller so a
 // plot and the UI that names a series stay consistent.
 
-import { dispose } from "../core/disposable.js";
 import { resolveContainer } from "../core/dom.js";
 import { score } from "../core/utils.js";
 
 // ─── DEFAULTS ────────────────────────────────────────────────────────────────
 
 const AXIS = "#666";
-const GRID = "#ededed";
+const GRID_INK = "#ededed";
 const SURFACE = "#fff";
 const SEM_INK = "#1a1a1a";
 
-const DEFAULT_HEIGHT = 320;
 const ERROR_BAR_CAP = 3;
-const LEGEND_GAP = 16;
+
+// Plots stand as low as 120px.
+const MAX_Y_TICKS = 5;
 
 /**
  * Shared Chart.js configuration.
  *
  * Domain-specific options are merged over these defaults by createChart().
  */
-function createDefaults({ legend = true, tooltip = {} } = {}) {
+function createDefaults({ tooltip = {} } = {}) {
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -37,17 +37,9 @@ function createDefaults({ legend = true, tooltip = {} } = {}) {
     },
 
     plugins: {
-      legend: {
-        display: legend,
-        position: "top",
-        align: "start",
-        labels: {
-          color: AXIS,
-          boxWidth: 10,
-          boxHeight: 10,
-          usePointStyle: true,
-        },
-      },
+      // No chart here names its own series: a comparison's chips and a grid's headings do it
+      // outside the plot, where they are read once rather than repeated per panel.
+      legend: { display: false },
 
       tooltip: {
         backgroundColor: SEM_INK,
@@ -72,13 +64,14 @@ function createDefaults({ legend = true, tooltip = {} } = {}) {
 
       y: {
         grid: {
-          color: GRID,
+          color: GRID_INK,
         },
         border: {
           display: false,
         },
         ticks: {
           color: AXIS,
+          maxTicksLimit: MAX_Y_TICKS,
         },
       },
     },
@@ -191,28 +184,6 @@ const errorBars = {
   },
 };
 
-// ─── LEGEND ──────────────────────────────────────────────────────────────────
-
-/**
- * Adds a small gap between the legend and the plot.
- */
-const legendGap = {
-  id: "legendGap",
-
-  beforeInit(chart) {
-    const { legend } = chart;
-    const originalFit = legend.fit;
-
-    legend.fit = function fitWithGap() {
-      originalFit.call(this);
-
-      if (this.options.display) {
-        this.height += LEGEND_GAP;
-      }
-    };
-  },
-};
-
 // ─── CHART ───────────────────────────────────────────────────────────────────
 
 /**
@@ -223,23 +194,19 @@ const legendGap = {
  * @param data Chart.js data: { labels, datasets }.
  * @param options Chart.js options merged over the shared defaults.
  * @param height CSS height of the chart container.
- * @param legend whether to show the legend.
  * @param tooltip tooltip overrides.
- * @param caller name used in the Chart.js availability error.
  */
 function createChart({
   container,
-  type = "line",
+  type,
   data,
-  options = {},
-  height = DEFAULT_HEIGHT,
-  legend = true,
+  options,
+  height,
   tooltip,
-  caller = "createChart",
 }) {
   if (typeof Chart === "undefined") {
     throw new Error(
-      `${caller}: Chart.js is not loaded — add its <script> to the page.`,
+      `createChart: Chart.js is not loaded — add its <script> to the page.`,
     );
   }
 
@@ -256,8 +223,8 @@ function createChart({
   return new Chart(canvas, {
     type,
     data,
-    options: mergeOptions(options, createDefaults({ legend, tooltip })),
-    plugins: [errorBars, legendGap],
+    options: mergeOptions(options, createDefaults({ tooltip })),
+    plugins: [errorBars],
   });
 }
 
@@ -265,46 +232,42 @@ function createChart({
  * A chart over categories, with the house axes and tooltip: the shape both canvas plot
  * kinds are. Built detached, for the caller to place.
  *
- * @param type      Chart.js chart type.
- * @param labels    the axis, as category keys — the keys themselves, so two series line up
- *                  on the same category even where the axis shows an abbreviation of it.
- * @param datasets  from toDatasets in figure.js.
- * @param axisTitle what the y axis is measured in.
- * @param tickLabel (key, index) => what the axis shows for that category, or null to leave
- *                  it unlabelled — Chart.js draws no tick label for a null.
- * @param span      {min, max} suggested for the y axis. Omit to let the values frame
- *                  themselves.
- * @param yGrid     y-axis grid overrides — see createBarPlot, which draws zero as a line.
- * @param title     a heading inside the plot. Omit for none.
- * @param height    plot height in px.
- * @param showAxis  false where the axis is repeated below, or unreadable at this width.
- * @param legend    whether the plot names its series.
- * @param caller    name used in the Chart.js availability error.
+ * @param type             Chart.js chart type.
+ * @param categories       the x axis, as category keys — the keys themselves, so two series
+ *                         line up even where the axis shows an abbreviation of one.
+ * @param datasets         from toDatasets in figure.js.
+ * @param yAxisLabel       what the y axis is measured in.
+ * @param xTickLabel       (key, index) => what the axis shows for that category, or null to
+ *                         leave it unlabelled.
+ * @param yRange           { min, max } suggested for the y axis. Omit to let the values
+ *                         frame themselves.
+ * @param yGrid            y-axis grid overrides — see createBarPlot, which draws zero as a
+ *                         line.
+ * @param plotTitle        a heading inside the plot. Omit for none.
+ * @param height           plot height in px.
+ * @param showXTickLabels  false where the labels are repeated below, or unreadable at this
+ *                         width. The tick marks stay either way.
  * @returns { element, chart }.
  */
 function createCategoryChart({
   type,
-  labels,
+  categories,
   datasets,
-  axisTitle,
-  tickLabel,
-  span,
+  yAxisLabel,
+  xTickLabel,
+  yRange,
   yGrid = {},
-  title = null,
+  plotTitle,
   height,
-  showAxis = true,
-  legend = true,
-  caller = "createCategoryChart",
+  showXTickLabels,
 }) {
   const element = document.createElement("div");
 
   element.className = "chart-facet";
-
   const chart = createChart({
     container: element,
     type,
-    data: { labels, datasets },
-    legend,
+    data: { labels: categories, datasets },
     height,
     tooltip: {
       callbacks: {
@@ -324,16 +287,14 @@ function createCategoryChart({
       },
     },
     options: {
-      plugins: title
-        ? { title: { display: true, text: title, align: "start", color: AXIS } }
+      plugins: plotTitle
+        ? { title: { display: true, text: plotTitle, align: "start", color: AXIS } }
         : {},
       scales: {
         x: {
           type: "category",
-          // The marks stay where the labels are off: they say where the categories are and
-          // how many, which a plot too narrow to name them still owes the reader. Chart.js
-          // draws them from the grid config, so `drawOnChartArea` is what keeps the vertical
-          // gridlines away — `grid.display: false` would take the marks with them.
+          // Chart.js draws the tick marks from the grid config, so `drawOnChartArea` is what
+          // keeps the vertical gridlines away — `grid.display: false` takes the marks too.
           grid: {
             display: true,
             drawOnChartArea: false,
@@ -342,40 +303,25 @@ function createCategoryChart({
             tickColor: AXIS,
           },
           ticks: {
-            display: showAxis,
+            display: showXTickLabels,
             color: AXIS,
-            // Every category, and the caller decides which of them are named: autoSkip
-            // would drop them by width, which moves the labels as the panel resizes.
+            // autoSkip drops labels by width, which moves them as the panel resizes.
             autoSkip: false,
-            callback: (_, index) => tickLabel(labels[index], index),
+            callback: (_, index) => xTickLabel(categories[index], index),
           },
         },
         y: {
-          title: { display: true, text: axisTitle, color: AXIS },
+          title: { display: true, text: yAxisLabel, color: AXIS },
           ...yGrid,
-          ...(span ? { suggestedMin: span.min, suggestedMax: span.max } : {}),
+          ...(yRange
+            ? { suggestedMin: yRange.min, suggestedMax: yRange.max }
+            : {}),
         },
       },
     },
-    caller,
   });
 
   return { element, chart };
 }
 
-/**
- * Destroy a Chart.js instance before its container is replaced.
- */
-function destroyChart(chart) {
-  dispose(chart);
-}
-
-export {
-  AXIS,
-  GRID,
-  SEM_INK,
-  SURFACE,
-  createCategoryChart,
-  createChart,
-  destroyChart,
-};
+export { AXIS, GRID_INK, SEM_INK, SURFACE, createCategoryChart };

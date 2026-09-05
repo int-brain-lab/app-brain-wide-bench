@@ -45,29 +45,27 @@ const DETAILS = {
       label: MODEL_FIELDS[key]?.label ?? key,
     })),
 
-  cells: (entry) =>
+  cells: (pick) =>
     Object.fromEntries(
-      detailKeys().map((key) => [key, { value: valueOf(entry.detail, key) }]),
+      detailKeys().map((key) => [key, { value: valueOf(pick.detail, key) }]),
     ),
 };
 
-// ─── ENTRIES ─────────────────────────────────────────────────────────────────
+// ─── PICKS ───────────────────────────────────────────────────────────────────
 
 // For a host whose rows came from toModelRows. The leaderboard's are standings, and it
 // passes its own.
-function toModelEntry(row) {
+function toModelPick(row) {
   return {
     key: row.id,
-    recordId: row.id,
     name: row.name,
-    teamName: row.team_name,
   };
 }
 
 // ─── WIDGET ──────────────────────────────────────────────────────────────────
 
 /**
- * @param rest as createRecordComparison. `scoresOf` defaults to the breakdown fetched below;
+ * @param rest as createRecordComparison. `readScores` defaults to the breakdown fetched below;
  *             a host holding the scores already passes its own.
  */
 function createModelComparison(options) {
@@ -76,22 +74,22 @@ function createModelComparison(options) {
     max: MAX_MODELS,
     details: DETAILS,
 
-    toEntry: toModelEntry,
+    toPick: toModelPick,
 
     // The breakdown rather than the whole model: the same specification fields, the collapse
-    // done by the server that does the ranking, and the methodology of each entry — which is
+    // done by the server that does the ranking, and the methodology of each run — which is
     // what the plots put in their tooltips. Without the submission tree, which is tens of
     // kilobytes of per-recording detail nothing here draws.
     //
-    // `taskSubmissionIds` where the host knows which entries it means — a leaderboard row
+    // `taskSubmissionIds` where the host knows which runs it means — a leaderboard row
     // names the ones it ranked — so a filtered board and this describe the same runs.
-    loadDetail: (entry) =>
-      loadModelBreakdown(entry.recordId, {
-        taskSubmissionIds: entry.taskSubmissionIds,
+    loadDetail: (pick) =>
+      loadModelBreakdown(pick.key, {
+        taskSubmissionIds: pick.taskSubmissionIds,
       }),
 
     // What the breakdown calls them, for a host that left the fetch to this.
-    scoresOf: (entry) => entry.detail?.tasks ?? null,
+    readScores: (pick) => pick.detail?.tasks ?? null,
 
     ...options,
   });

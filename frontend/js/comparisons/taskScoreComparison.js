@@ -1,6 +1,6 @@
 // Compare several task scores side by side.
 //
-// A score is identified by `entry.key` and may provide:
+// A score is identified by `pick.key` and may provide:
 //   - means:     one bar per score for each metric
 //   - methodology: one score per column and training field per row
 //   - recordings: the recordings behind each score
@@ -17,8 +17,7 @@ import {
   getElement,
   renderHtml,
 } from "../core/render.js";
-import { escapeHtml } from "../core/html.js";
-import { taskLabel } from "../core/suites.js";
+import { taskLabel, taskTypeOf } from "../core/suites.js";
 
 import {
   buildComparisonGrid,
@@ -27,15 +26,23 @@ import {
 } from "../components/comparisonGrid.js";
 
 import {
-  buildRecordingHeatmaps,
-  createMeanBars,
-  createRecordingBars,
-  createRecordingPlots,
+  buildScoreHeatmaps,
+  createScoreMeans,
+  createScoresByRecording,
   toMeanSeries,
   toScoreSeries,
 } from "../plots/recordingScorePlots.js";
 
-import { CATEGORIES_PER_LINE, SHARED_HEIGHT } from "../plots/figure.js";
+import { createBarPlot } from "../plots/bar.js";
+import { createScatterPlot } from "../plots/scatter.js";
+
+import {
+  GRID,
+  PAIR,
+  STACK,
+  TRACKS_PER_LINE,
+  WEIGHTED,
+} from "../plots/figure.js";
 import { SERIES_COLOURS } from "../plots/palette.js";
 
 import { loadTaskSubmission } from "../api/taskSubmissionApi.js";
@@ -86,7 +93,10 @@ const PICKS_ID = "score-picks";
 const PROMPT_ID = "score-prompt";
 
 const METRIC = "metric";
-const GROUP = "group";
+
+// The cell a metric group is drawn in, addressed by the group's own key — which is what
+// `selectedMetrics` is keyed on, so a change reads straight into it.
+const METRIC_GROUP = "metrics";
 
 const SEPARATE_VIEW = "separate-view";
 const BARS_VIEW = "bars-view";
@@ -99,14 +109,41 @@ const VIEWS = [
 ];
 
 
+// ─── MOUNTINGS ───────────────────────────────────────────────────────────────
+//
+// What differs between the two ways this component is mounted:
+//
+//   sideBySide  means beside recordings rather than above them.
+//   meanTracks  how many of the page's tracks the means grid spans — see TRACKS_PER_LINE.
+//   meanHeight  what one mean plot stands at, in px.
+//   recordings  (count) => the arrangement for that many scores.
+
+// On its own, in the task-scores list.
+const STANDALONE = {
+  sideBySide: false,
+  meanTracks: TRACKS_PER_LINE,
+  meanHeight: 160,
+  recordings: () => ({ ...GRID, height: 200 }),
+};
+
+// Under a record comparison's plots.
+const NESTED = {
+  sideBySide: true,
+  meanTracks: 1,
+  meanHeight: 200,
+  recordings: (count) =>
+    count < 4 ? { ...STACK, height: 120 } : { ...PAIR, height: 160 },
+};
+
+
 // ─── SCORE DATA ──────────────────────────────────────────────────────────────
 
 // The recording store is cached against the fetched detail object.
 // Re-selecting a score therefore reuses its already-loaded recording data.
 const stores = new WeakMap();
 
-function storeOf(entry) {
-  const detail = entry.detail;
+function storeOf(pick) {
+  const detail = pick.detail;
 
   if (!detail) return EMPTY_STORE;
 
@@ -120,59 +157,57 @@ function storeOf(entry) {
   return store;
 }
 
-function colourOf(entry, comparison) {
-  return entry.colour ?? comparison.colourOf(entry.key);
+function colourOf(pick, comparison) {
+  return pick.colour ?? comparison.colourOf(pick.key);
 }
 
-function labelOf(entry, entries) {
-  const name = entry.modelName ?? entry.submissionLabel;
-  const multipleTasks = new Set(entries.map(({ taskId }) => taskId)).size > 1;
+// A score's label is contextual: with one task in play the name alone tells the picks apart,
+// with several it does not. `multipleTasks` is that fact about the whole set — see updateGroups.
+function labelOf(pick, multipleTasks) {
+  const name = pick.modelName ?? pick.submissionLabel;
 
-  if (!name) return entry.taskId;
+  if (!name) return pick.taskId;
   if (!multipleTasks) return name;
 
-  return `${name} · ${entry.taskId}`;
+  return `${name} · ${pick.taskId}`;
 }
 
 
 // ─── METRIC GROUPS ────────────────────────────────────────────────────────────
 
-function metricsOf(entry) {
-  return Object.keys(storeOf(entry).metrics);
-}
-
-function combinationOf(entry) {
-  return metricsOf(entry).slice().sort().join("|");
-}
-
-function toMetricGroups(entries) {
+// Grouped by the *set* of metrics a score has, because one plot and one metric selector can
+// only serve scores measured the same way. The key is that set, sorted so order can't split a
+// group in two.
+function toMetricGroups(picks) {
   const groups = new Map();
 
-  for (const entry of entries) {
-    const metrics = metricsOf(entry);
+  for (const pick of picks) {
+    const metrics = Object.keys(storeOf(pick).metrics);
 
     // The score has not loaded yet.
     if (!metrics.length) continue;
 
-    const key = combinationOf(entry);
+    const key = metrics.slice().sort().join("|");
 
     if (!groups.has(key)) {
       groups.set(key, {
         key,
         metrics,
-        entries: [],
+        picks: [],
       });
     }
 
-    groups.get(key).entries.push(entry);
+    groups.get(key).picks.push(pick);
   }
 
   return [...groups.values()];
 }
 
-function tasksIn(group) {
+// What a group's plot is titled: a group can span tasks — same metrics, different task — so
+// the title has to say which.
+function groupLabel(group) {
   return [...new Set(
-    group.entries
+    group.picks
       .map(({ taskId }) => taskLabel(taskId))
       .filter(Boolean),
   )].join(" · ");
@@ -184,8 +219,8 @@ function tasksIn(group) {
 function buildMetricSelect(group, metric) {
   return `
     <span class="row left gap-md">
-      <span class="metadata">Metric</span>
-      <span class="inline-select">
+      <span class="metadata">Selected metric:</span>
+      <span>
         ${buildSelect({
           name: METRIC,
           hook: "role",
@@ -203,14 +238,14 @@ function buildMetricSelect(group, metric) {
 
 // ─── METHODOLOGY ─────────────────────────────────────────────────────────────
 
-function buildMethodologyGrid(entries, fields, comparison, nameOf) {
+function buildMethodologyGrid(picks, fields, comparison, nameOf) {
   return buildComparisonGrid({
     attributes: methodologyColumns(fields),
-    entities: entries.map((entry) => ({
-      label: nameOf(entry),
-      ink: colourOf(entry, comparison),
+    entities: picks.map((pick) => ({
+      label: nameOf(pick),
+      ink: colourOf(pick, comparison),
       cells: methodologyCells({
-        record: entry.detail ?? null,
+        record: pick.detail ?? null,
         fields,
       }),
     })),
@@ -223,7 +258,7 @@ function buildMethodologyGrid(entries, fields, comparison, nameOf) {
 /**
  * Create a comparison of task scores.
  *
- * `options.toEntry` must return:
+ * A pick must be — off `options.toPick`, or handed to `set` directly:
  *
  *   {
  *     key,
@@ -234,20 +269,20 @@ function buildMethodologyGrid(entries, fields, comparison, nameOf) {
  *     colour?
  *   }
  *
- * `picks` controls whether the component owns the score-selection row.
+ * `showPicks` controls whether the component owns the score-selection row.
  *
  * `methodology` controls whether the methodology panel is shown.
  *
- * `layout: "rows"` places means beside recordings.
+ * `nested` says which mounting this is — see STANDALONE and NESTED above.
  */
 function createTaskComparison({
   container,
-  layout = "",
-  picks = true,
+  nested = false,
+  showPicks = true,
   methodology = true,
   ...options
 }) {
-  const beside = layout === "rows";
+  const arrangement = nested ? NESTED : STANDALONE;
 
   const panels = methodology
     ? TABS
@@ -260,11 +295,9 @@ function createTaskComparison({
     tabs: panels,
     container,
     hasContent: (value) =>
-      value === METHODOLOGY_PANEL || entries().length > 0,
+      value === METHODOLOGY_PANEL || picks().length > 0,
     onChange: render,
   });
-
-  const meanHeight = hasTabs ? null : SHARED_HEIGHT;
 
   let view = SEPARATE_VIEW;
   let comparison = null;
@@ -272,18 +305,26 @@ function createTaskComparison({
   // Metric choice is stored per metric combination rather than per plot index.
   const selectedMetrics = new Map();
 
+  let metricGroups = [];
+  let multipleTasks = false;
+
   let meanCharts = [];
   let plotCharts = [];
 
 
   // ─── STATE ────────────────────────────────────────────────────────────────
 
-  function entries() {
-    return comparison?.entries() ?? [];
+  function picks() {
+    return comparison?.picks() ?? [];
   }
 
-  function groups() {
-    return toMetricGroups(entries());
+  // Both derived from the pick set, once per render rather than per consumer: toMetricGroups
+  // walks every pick's store, and the means and recordings panels both want the answer.
+  function updateGroups() {
+    const held = picks();
+
+    metricGroups = toMetricGroups(held);
+    multipleTasks = new Set(held.map(({ taskId }) => taskId)).size > 1;
   }
 
   function metricFor(group) {
@@ -299,19 +340,19 @@ function createTaskComparison({
   function metricsByScore() {
     const result = new Map();
 
-    for (const group of groups()) {
+    for (const group of metricGroups) {
       const metric = metricFor(group);
 
-      for (const entry of group.entries) {
-        result.set(entry.key, metric);
+      for (const pick of group.picks) {
+        result.set(pick.key, metric);
       }
     }
 
     return result;
   }
 
-  function nameOf(entry) {
-    return labelOf(entry, entries());
+  function nameOf(pick) {
+    return labelOf(pick, multipleTasks);
   }
 
 
@@ -330,6 +371,9 @@ function createTaskComparison({
   function clearUp() {
     clearMeans();
     clearPlots();
+
+    metricGroups = [];
+    multipleTasks = false;
 
     renderPicks();
 
@@ -354,10 +398,10 @@ function createTaskComparison({
     renderHtml(
       row,
       buildPicks(
-        entries().map((entry) => ({
-          key: entry.key,
-          label: nameOf(entry),
-          ink: colourOf(entry, comparison),
+        picks().map((pick) => ({
+          key: pick.key,
+          label: nameOf(pick),
+          ink: colourOf(pick, comparison),
         })),
       ),
       { refresh: true },
@@ -366,7 +410,6 @@ function createTaskComparison({
 
   function renderMeans() {
     const section = getSectionBody(MEANS_SECTION);
-    const metricGroups = groups();
 
     clearMeans();
 
@@ -377,57 +420,55 @@ function createTaskComparison({
       return;
     }
 
-    renderHtml(
-      section,
-      `
-        <div
-          class="chart-weighted"
-          style="--plot-tracks:${beside ? 1 : CATEGORIES_PER_LINE}"
-        >
-          ${metricGroups.map((group, index) => `
-            <div
-              class="column gap-sm"
-              data-${GROUP}="${index}"
-            >
-              ${buildMetricSelect(group, metricFor(group))}
-            </div>
-          `).join("")}
-        </div>
-      `,
+    // The grid arrangePlots can't do: a metric select above each plot, which it has nowhere
+    // to put. Built as elements rather than markup, so each cell is in hand when its chart is
+    // made — and assembled detached, then swapped in once, as the other two panels are.
+    const grid = document.createElement("div");
+
+    grid.className = WEIGHTED.className;
+    grid.style.setProperty(
+      "--plot-tracks",
+      String(arrangement.meanTracks),
     );
 
-    for (const [index, group] of metricGroups.entries()) {
+    for (const group of metricGroups) {
       const metric = metricFor(group);
 
-      const plots = createMeanBars({
-        entries: group.entries.map((entry) =>
-          toMeanSeries(
-            storeOf(entry),
+      const cell = document.createElement("div");
+
+      cell.className = "column gap-sm";
+      cell.dataset[METRIC_GROUP] = group.key;
+
+      renderHtml(cell, buildMetricSelect(group, metric));
+
+      const plots = createScoreMeans({
+        allSeries: group.picks.map((pick) =>
+          toMeanSeries({
+            store: storeOf(pick),
             metric,
-            {
-              colour: colourOf(entry, comparison),
-              label: nameOf(entry),
-            },
-            group.key,
-          ),
+            taskType: taskTypeOf(pick.taskId),
+            colour: colourOf(pick, comparison),
+            label: nameOf(pick),
+          }),
         ),
-        label: tasksIn(group),
-        height: meanHeight,
+        label: groupLabel(group),
+        height: arrangement.meanHeight,
       });
 
-      section
-        .querySelector(`[data-${GROUP}="${index}"]`)
-        ?.appendChild(plots.element);
+      cell.appendChild(plots.element);
+      grid.appendChild(cell);
 
       meanCharts.push(...plots.charts);
     }
+
+    section.replaceChildren(grid);
   }
 
   function renderMethodology() {
     renderHtml(
       getSectionBody(METHODOLOGY_SECTION),
       buildMethodologyGrid(
-        entries(),
+        picks(),
         TASK_FIELDS,
         comparison,
         nameOf,
@@ -443,40 +484,25 @@ function createTaskComparison({
 
     const metricByScore = metricsByScore();
 
-    const plotEntries = entries().map((entry) =>
-      toScoreSeries(
-        storeOf(entry),
-        metricByScore.get(entry.key),
-        {
-          colour: colourOf(entry, comparison),
-          label: nameOf(entry),
-        },
-      ),
+    const allSeries = picks().map((pick) =>
+      toScoreSeries({
+        store: storeOf(pick),
+        metric: metricByScore.get(pick.key),
+        taskType: taskTypeOf(pick.taskId),
+        colour: colourOf(pick, comparison),
+        label: nameOf(pick),
+      }),
     );
 
     if (view === HEATMAP_VIEW) {
-      renderHtml(
-        section,
-        buildRecordingHeatmaps({ entries: plotEntries }),
-      );
+      renderHtml(section, buildScoreHeatmaps({ allSeries }));
       return;
     }
 
-    const draw =
-      view === BARS_VIEW
-        ? createRecordingBars
-        : createRecordingPlots;
-
-    const layout = hasTabs
-      ? plotEntries.length < 4
-        ? "stack"
-        : "pair"
-      : "grid";
-
-    const plots = draw({
-      entries: plotEntries,
-      facet: "score",
-      layout,
+    const plots = createScoresByRecording({
+      ...arrangement.recordings(allSeries.length),
+      allSeries,
+      createPlot: view === BARS_VIEW ? createBarPlot : createScatterPlot,
     });
 
     section.replaceChildren(plots.element);
@@ -484,6 +510,8 @@ function createTaskComparison({
   }
 
   function render() {
+    updateGroups();
+
     setActiveView(view);
     renderPicks();
 
@@ -555,15 +583,13 @@ function createTaskComparison({
 
         if (!select) return;
 
-        const index = Number(
-          select.closest(`[data-${GROUP}]`)?.dataset[GROUP],
-        );
+        const key = select.closest(`[data-${METRIC_GROUP}]`)?.dataset[
+          METRIC_GROUP
+        ];
 
-        const group = groups()[index];
+        if (!key) return;
 
-        if (!group) return;
-
-        selectedMetrics.set(group.key, select.value);
+        selectedMetrics.set(key, select.value);
 
         renderMeans();
         renderRecordings();
@@ -594,7 +620,7 @@ function createTaskComparison({
     renderHtml(
       container,
       `
-        ${picks
+        ${showPicks
           ? `<span
                class="row left gap-sm compare-picks"
                id="${PICKS_ID}"
@@ -606,7 +632,7 @@ function createTaskComparison({
 
         <div id="${SCORES_PANEL}">
           ${buildSections(
-            beside
+            arrangement.sideBySide
               ? [
                   {
                     sections: [means, recordings],
@@ -643,10 +669,10 @@ function createTaskComparison({
 
       palette: SERIES_COLOURS,
 
-      loadDetail: (entry) =>
+      loadDetail: (pick) =>
         loadTaskSubmission(
-          entry.submissionId,
-          entry.key,
+          pick.submissionId,
+          pick.key,
         ),
 
       render,

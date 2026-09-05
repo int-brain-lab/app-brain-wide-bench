@@ -1,41 +1,45 @@
 // What a task score measured on every recording it was run on, with its spread.
 //
-// The domain half: this says what a category is — a recording for TS1 and TS2, a brain
-// region for TS3 — and figure.js does the arranging.
-//
-// The means over those recordings are here too — a mean is one number from the same store, and
-// the bar drawn from it belongs beside the plots it summarises.
-//
-// A store carries its own dimension, so this module never asks which suite it is holding.
-// What it does have to know is that the dimensions don't mix: a region is not a recording,
-// and an axis holding both would be one axis pretending to be two. So the dimension is the
-// group the arrangement keys its axes on.
+// This says what a category is — a recording for TS1 and TS2, a brain region for TS3 — and
+// figure.js does the arranging. The means over those recordings are here too.
 
 import { mean, sem } from "../core/utils.js";
-import { createBarPlots } from "./bar.js";
+import { createBarPlot } from "./bar.js";
+import {
+  STACK,
+  arrangePlots,
+  categoriesPerAxis,
+  withRanges,
+} from "./figure.js";
 import { buildHeatmaps } from "./heatmap.js";
-import { createScatterPlots } from "./scatter.js";
 
-// Nothing to draw: a metric the store never recorded, which is a series of gaps rather than
-// a missing series — the plot is still one of the metrics on offer.
+// ─── CONFIGURATION ───────────────────────────────────────────────────────────
+
+// A metric the store never recorded: a series of gaps rather than a missing series.
 const NO_VALUES = { mean: [], sem: [] };
 
-// How many recordings a plot names, by how many columns it shares the page with: a recording
-// id is a uuid, so a label is the eight-character head of one, and three of those is what a
-// third of the page holds. The marks are still every recording, and the tooltip carries the
-// whole id.
+// How many recordings a plot names, by how many columns it shares the page with. A recording
+// id is a uuid, so a label is the eight-character head of one.
 const LABELS = { 1: 10, 2: 5, 3: 3 };
 const NARROWEST = LABELS[3];
 
-// Region and metric names are few, short, and the point of their own axis, so they are shown
-// whole. The defaults are a labelled position on an unshared axis, for a caller with no
-// arrangement to report.
-//
-// The label sits in the middle of the stride rather than at the start of it, so the first one
-// is clear of the y axis: at index 0 it is drawn against the value labels and the two read as
-// one smudge.
-function recordingTickLabel(key, { group, index = 0, count = 1, columns = 1 }) {
-  if (group !== "recording") return key;
+// The one category a plot of means has. Never shown — createScoreMeans labels it.
+const MEAN_CATEGORY = "mean";
+
+/**
+ * What a recording axis shows for a category.
+ *
+ * The label sits in the middle of its stride, so the first is clear of the y axis.
+ *
+ * @param key
+ * @param axis    the series' own — region and metric names are shown whole.
+ * @param index   the category's position.
+ * @param count   how many categories the axis holds.
+ * @param columns how many plots the page holds across.
+ * @returns the label, or null to leave the tick unnamed.
+ */
+function recordingTickLabel(key, { axis, index, count, columns }) {
+  if (axis !== "recording") return key;
 
   const named = LABELS[columns] ?? NARROWEST;
   const stride = Math.max(1, Math.ceil(count / named));
@@ -45,106 +49,51 @@ function recordingTickLabel(key, { group, index = 0, count = 1, columns = 1 }) {
     : null;
 }
 
+// ─── SERIES ──────────────────────────────────────────────────────────────────
+
 /**
  * One score, read in one metric, as a plot series.
  *
- * @param store  from toRecordingStore — the score's breakdown, column-wise.
- * @param metric which of `store.metrics` this series draws.
- * @param style  the presentation: `{ colour, label }`.
+ * @param store    from toRecordingStore — the score's breakdown, column-wise.
+ * @param metric   which of `store.metrics` this series draws.
+ * @param taskType what the score's numbers mean — see taskTypeOf.
+ * @param colour
+ * @param label
+ * @returns the series.
  */
-function toScoreSeries(store, metric, style) {
+function toScoreSeries({ store, metric, taskType, colour, label }) {
   return {
-    ...style,
+    colour,
+    label,
     metric,
-    group: store.group,
+    taskType,
+    axis: store.group,
     index: store.index,
     values: store.metrics[metric] ?? NO_VALUES,
   };
 }
 
 /**
- * @param entries the series, from toScoreSeries.
- * @param facet   "metric" for one plot per metric, "score" for one plot per score — see
- *                groupSeries in figure.js.
- * @param layout  "stack", "pair", "weighted" or "grid" — see LAYOUTS in figure.js. Omit for
- *                the arrangement each facet is usually wanted in.
- * @param size    "regular" or "tall".
- * @returns { element, charts } — as createScatterPlots.
- */
-function createRecordingPlots({
-  entries,
-  facet = "metric",
-  layout,
-  size = "regular",
-}) {
-  return createScatterPlots({
-    entries,
-    // A plot per score is a plot per series here: a score contributes one.
-    facet: facet === "score" ? "series" : "metric",
-    layout,
-    size,
-    // Recordings have no order of their own, so the strongest series orders the axis.
-    order: "value",
-    tickLabel: recordingTickLabel,
-  });
-}
-
-/**
- * The same scores as bars: a plot per score, a bar per recording.
- *
- * The other way of reading what createRecordingPlots draws — the same panels, the same axis in
- * the same order, and only the mark different. A bar says how much of the metric a recording
- * got, read against a baseline the axis includes; a point says where it sits. Which of the two
- * answers the question is the reader's to decide, so both are on offer and nothing else about
- * the arrangement moves when they switch.
- *
- * The same arguments as createRecordingPlots, so a caller offering both can hand the reader's
- * choice to whichever of them it is — see renderPlot in comparisons/taskScoreComparison.js.
- *
- * @param entries the series, from toScoreSeries.
- * @param facet   as createRecordingPlots.
- * @param layout  as createRecordingPlots.
- * @param size    as createRecordingPlots.
- * @returns { element, charts } — as createBarPlots.
- */
-function createRecordingBars({
-  entries,
-  facet = "metric",
-  layout,
-  size = "regular",
-}) {
-  return createBarPlots({
-    entries,
-    // A plot per score is a plot per series here: a score contributes one.
-    facet: facet === "score" ? "series" : "metric",
-    layout,
-    size,
-    // As createRecordingPlots: recordings have no order of their own, so the strongest series
-    // orders the axis and the rest are read against it.
-    order: "value",
-    tickLabel: recordingTickLabel,
-  });
-}
-
-/**
  * One score's mean in one metric, as a plot series: one category, so one bar.
  *
- * @param store  from toRecordingStore — the score's breakdown, column-wise.
- * @param metric which of `store.metrics` is averaged.
- * @param style  the presentation: `{ colour, label }`.
- * @param group  the category the bar sits in. The metric group's own key, since the mean is
- *               over whatever that group covers — see toMetricGroups.
+ * @param store    from toRecordingStore.
+ * @param metric   which of `store.metrics` is averaged.
+ * @param taskType as toScoreSeries.
+ * @param colour
+ * @param label
+ * @returns the series.
  */
-function toMeanSeries(store, metric, style, group) {
+function toMeanSeries({ store, metric, taskType, colour, label }) {
   const values = (store.metrics[metric]?.mean ?? []).filter(
     (value) => value != null,
   );
 
   return {
-    ...style,
+    colour,
+    label,
     metric,
-    group,
-    index: new Map([[group, 0]]),
+    taskType,
+    index: new Map([[MEAN_CATEGORY, 0]]),
     values: {
       mean: [mean(values)],
       sem: [sem(values)],
@@ -152,50 +101,111 @@ function toMeanSeries(store, metric, style, group) {
   };
 }
 
+// ─── PLOTS ───────────────────────────────────────────────────────────────────
+
+// Scores measured the same way share a y range; a behavioural readout and a neural
+// reconstruction reported in one metric do not.
+function yRangeKeyOf(series) {
+  return `${series.taskType}|${series.metric}`;
+}
+
 /**
- * The means of one metric group: a bar per score, with the spread of each mean.
+ * A plot per score, its recordings across.
  *
- * One group per plot and one plot per call, so the arrangement has nothing to arrange and
- * stacking is the one layout that leaves the caller's own cell width alone.
- *
- * @param entries the series, from toMeanSeries.
- * @param label   what the single category is called. Its key is the group's, which is not a
- *                thing a reader has a name for — the tasks in it are.
- * @param height  as createBarPlots. Omit for the arrangement's own.
- * @returns { element, charts } — as createBarPlots.
+ * @param allSeries  from toScoreSeries.
+ * @param createPlot createBarPlot or createScatterPlot.
+ * @param layout     as arrangePlots — the caller's mounting decides it.
+ * @returns { element, charts } — as arrangePlots.
  */
-function createMeanBars({ entries, label, height = null }) {
-  return createBarPlots({
-    entries,
-    facet: "metric",
-    layout: "stack",
-    size: "regular",
-    order: "given",
-    height,
-    tickLabel: () => label,
+function createScoresByRecording({ allSeries, createPlot, ...layout }) {
+  // One list per axis, handed to every plot on it: a score missing four recordings draws
+  // gaps rather than a shorter axis of its own.
+  const categories = categoriesPerAxis(allSeries, "byValue");
+
+  const plots = withRanges(
+    allSeries.map((series) => ({
+      axis: series.axis,
+      name: series.label,
+      categories: categories.get(series.axis) ?? [],
+      yRangeKey: yRangeKeyOf(series),
+      series: [series],
+    })),
+  );
+
+  return arrangePlots({
+    ...layout,
+    plots,
+    createPlot,
+    xTickLabel: recordingTickLabel,
   });
 }
 
 /**
- * The same scores as blocks of cells — see buildHeatmaps.
+ * One plot of means: a bar per score, with the spread of each.
  *
- * @param entries the series, from toScoreSeries.
+ * @param allSeries from toMeanSeries, all sharing one category.
+ * @param label     what that category is called.
+ * @param height    in px, from the caller's own arrangement.
+ * @returns { element, charts } — as arrangePlots.
+ */
+function createScoreMeans({ allSeries, label, height }) {
+  const plots = withRanges([
+    {
+      axis: MEAN_CATEGORY,
+      name: null,
+      categories: [MEAN_CATEGORY],
+      yRangeKey: MEAN_CATEGORY,
+      series: allSeries,
+    },
+  ]);
+
+  return arrangePlots({
+    ...STACK,
+    height,
+    plots,
+    createPlot: createBarPlot,
+    xTickLabel: () => label,
+  });
+}
+
+/**
+ * The same scores as blocks of cells, one block per way of measuring.
+ *
+ * @param allSeries from toScoreSeries.
  * @returns the markup.
  */
-function buildRecordingHeatmaps({ entries }) {
+function buildScoreHeatmaps({ allSeries }) {
+  const categories = categoriesPerAxis(allSeries, "byValue");
+  const blocks = new Map();
+
+  for (const series of allSeries) {
+    const key = yRangeKeyOf(series);
+
+    blocks.set(key, [...(blocks.get(key) ?? []), series]);
+  }
+
+  const plots = withRanges(
+    [...blocks].map(([key, members]) => ({
+      axis: members[0].axis,
+      name: members[0].metric,
+      categories: categories.get(members[0].axis) ?? [],
+      yRangeKey: key,
+      series: members,
+    })),
+  );
+
   return buildHeatmaps({
-    entries,
-    tickLabel: recordingTickLabel,
+    plots,
+    xTickLabel: recordingTickLabel,
     // Uuids are unreadable at a cell's width; a region name is the point of the row.
-    showColumns: (group) => group !== "recording",
+    showHeader: (axis) => axis !== "recording",
   });
 }
 
 export {
-  buildRecordingHeatmaps,
-  createMeanBars,
-  createRecordingBars,
-  createRecordingPlots,
+  buildScoreHeatmaps,
+  createScoreMeans,
+  createScoresByRecording,
   toMeanSeries,
   toScoreSeries,
 };

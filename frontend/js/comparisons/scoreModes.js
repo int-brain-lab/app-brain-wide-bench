@@ -12,14 +12,13 @@ import { bindTableSelection } from "./comparison.js";
 
 // What the panel needs to start on a row: the rest — the methodology, the per-recording
 // breakdown — it fetches for itself.
-function toScoreEntry(row) {
+function toScorePick(row) {
   return {
     key: row.id,
     taskId: row.task_id,
     submissionId: row.submission_id,
     submissionLabel: row.submission_label,
     modelName: row.model_name,
-    metric: row.metric,
   };
 }
 
@@ -31,7 +30,7 @@ const SCORE_MODES = {
   base: {
     title: "Compare task scores",
     create: (container) =>
-      createTaskComparison({ container, toEntry: toScoreEntry, methodology: false }),
+      createTaskComparison({ container, toPick: toScorePick, methodology: false }),
 
     // `claimLinks: false`: the model and submission a score belongs to still link to their own
     // pages, and a click anywhere else on the row is a pick. The rows are always picking now,

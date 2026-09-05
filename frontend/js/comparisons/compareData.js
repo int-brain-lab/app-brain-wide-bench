@@ -1,11 +1,10 @@
-// Shaping for the comparison page: several models' scores on one suite, as a matrix.
+// Shaping for the comparison page: several records' scores on one suite, as a matrix.
 //
-// The output is table-shaped — one row per task, one field per model id — so the two grids
-// in compareTable.js bind to it with no reshaping. Tasks are the rows because a suite has
-// many more tasks than a comparison has models, which also makes the metric a property of
-// the row and filtering by it a plain row filter.
+// The output is table-shaped — one row per record, one field per task id — so the two grids
+// in compareTable.js bind to it with no reshaping. Records are the rows because a record is
+// the thing being compared; the tasks they are compared over are the columns.
 //
-// Four rules the page depends on:
+// Three rules the page depends on:
 //
 //   1. A task's score is the *latest* submitted for it, never the best, and latest per
 //      task — the same collapse app/ranking/rank.py does before ranking, which is what lets a
@@ -15,11 +14,8 @@
 //   2. A missing score is `null`, not `0`, so an unattempted suite doesn't drag a mean down.
 //   3. The task rows are the *union* across the models compared, not the selected model's
 //      own. A comparator scoring something it never attempted shows as "—" in its column.
-//   4. A model's mean is over the tasks it actually scored, so `scored`/`total` travel
-//      alongside for the overview's coverage.
 
-import { mean } from "../core/utils.js";
-import { suiteFromTask } from "../core/suites.js";
+import { suiteFromTask, taskTypeOf } from "../core/suites.js";
 
 // ─── LATEST ──────────────────────────────────────────────────────────────────
 
@@ -64,22 +60,21 @@ function latestScoresByTask(submissions) {
   );
 }
 
-// ─── ENTRIES ─────────────────────────────────────────────────────────────────
+// ─── RECORDS ─────────────────────────────────────────────────────────────────
 
 // One record — a model, a submission — reduced to its scores.
 //
-// `entry` is a comparison entry: it already knows the record's name and team, from the row it
-// was picked in, so neither is waited on. `scores` is `{ task_id: { mean, sem, metric } }`,
-// whoever collapsed it: a leaderboard row's `scores` and latestScoresByTask agree on those
-// three fields, and anything else a producer carries rides along unread.
+// `pick` carries the key and the name, from the row it was picked in, so neither waits on a
+// request. The team comes off the fetched detail instead — every response that backs a
+// comparison carries `team_name`, and a team line arriving a beat after the name reads as the
+// row filling in rather than as a missing label.
 //
-// `recordId` and `recordName` rather than `modelId` and `modelName`: what is being compared is
-// whatever the host picked, and the shape below is the same for a model, a submission, or the
-// next thing with a score per task.
+// `scores` is `{ task_id: { mean, sem, metric } }`, whoever collapsed it: a leaderboard row's
+// `scores` and latestScoresByTask agree on those three fields, and anything else a producer
+// carries rides along unread.
 //
-// `suite` narrows them to one; omit it for every task the model has scored, which is what a
-// comparison shows until the reader asks for less.
-function toCompareEntry(entry, scores, suite = "") {
+// `suite` narrows them to one; omit it for every task the record has scored.
+function toRecord(pick, scores, suite = "") {
   const tasks = Object.fromEntries(
     Object.entries(scores ?? {}).filter(
       ([taskId]) => !suite || suiteFromTask(taskId) === suite,
@@ -87,51 +82,30 @@ function toCompareEntry(entry, scores, suite = "") {
   );
 
   return {
-    recordId: entry.recordId,
-    recordName: entry.name,
-    teamName: entry.teamName ?? null,
+    key: pick.key,
+    name: pick.name,
+    teamName: pick.detail?.team_name ?? null,
     // { "ts1-choice": { mean, sem, metric }, … }
     tasks,
-    mean: mean(Object.values(tasks).map((task) => task.mean)),
-    scored: Object.keys(tasks).length,
   };
-}
-
-/**
- * @param entries    comparison entries, in the order they were picked.
- * @param scoresOf   (entry) => its scores. Read here rather than held on the entry because
- *                   an entry outlives the data behind it: the leaderboard refetches its
- *                   board under the picks, and the selection keeps the entry object it
- *                   already had.
- * @param suite      which suite to narrow to, or "" for all of them.
- * @param selectedId the record being compared *against*, which is badged rather than moved.
- * @returns one entry per record, in the order given. Pick order rather than ranked: a mean
- *          over a mixed set of metrics is not a ranking, and the reader chose the order the
- *          picker is in. A model with no score on the suite is kept — it was explicitly
- *          chosen, and silently omitting it would read as a bug in the picker.
- */
-function toCompareEntries(entries, scoresOf, suite, selectedId) {
-  return entries
-    .map((entry) => toCompareEntry(entry, scoresOf(entry), suite))
-    .map((entry) => ({ ...entry, isSelected: entry.recordId === selectedId }));
 }
 
 // ─── TASKS ───────────────────────────────────────────────────────────────────
 
 /**
- * The union of scored tasks across `entries`, sorted by id, each with the metric it is
+ * The union of scored tasks across `records`, sorted by id, each with the metric it is
  * measured in.
  *
- * The metric comes from whichever entry scored the task first — it is a property of the
+ * The metric comes from whichever record scored the task first — it is a property of the
  * task, not of the model, so any of them answers the same. Taken from the scores rather
  * than GET /api/tasks so the page needs no second source of truth for what it is already
  * displaying.
  */
-function compareTasks(entries) {
+function scoredTasksIn(records) {
   const metrics = new Map();
 
-  for (const entry of entries) {
-    for (const [taskId, task] of Object.entries(entry.tasks)) {
+  for (const record of records) {
+    for (const [taskId, task] of Object.entries(record.tasks)) {
       if (!metrics.has(taskId)) metrics.set(taskId, task.metric);
     }
   }
@@ -148,17 +122,19 @@ function compareTasks(entries) {
 // Written once, because the grid and the chart drawing the same comparison differently must
 // not be able to disagree about it.
 //
-// A mode is `{ valueOf, axisTitle, skip }`:
+// A mode is `{ valueOf, yAxisLabelOf, skip, yRangeKeyOf }`:
 //
-//   valueOf(entry, taskId)  the cell, as `{ mean, sem }`, or null for nothing to show
-//   axisTitle(metric)       what the y axis of that metric's plot is called
-//   skip                    a model id to leave out of the columns and the series
+//   valueOf(record, taskId)  the cell, as `{ mean, sem }`, or null for nothing to show
+//   yAxisLabelOf(metric)     what the y axis of that metric's plot is called
+//   skip                     a record key to leave out of the columns and the series
+//   yRangeKeyOf(task)        which plots share a y range — see withRanges in plots/figure.js
 
 function scoreMode() {
   return {
-    valueOf: (entry, taskId) => entry.tasks[taskId] ?? null,
-    axisTitle: (metric) => metric,
+    valueOf: (record, taskId) => record.tasks[taskId] ?? null,
+    yAxisLabelOf: (metric) => metric,
     skip: null,
+    yRangeKeyOf: (task) => `${taskTypeOf(task.taskId)}|${task.metric}`,
   };
 }
 
@@ -169,8 +145,8 @@ function scoreMode() {
  *                   the same comparison read two ways. It gets no column and no series of
  *                   its own: it would be a row of zeros.
  */
-function diffMode(entries, baselineId) {
-  const baseline = entries.find((entry) => entry.recordId === baselineId);
+function diffMode(records, baselineId) {
+  const baseline = records.find((record) => record.key === baselineId);
 
   return {
     // A task only one of the two scored has no difference to state, so the cell is empty
@@ -180,24 +156,26 @@ function diffMode(entries, baselineId) {
     // No sem, and deliberately: the spread of a difference is not either model's, and the
     // usual √(s₁² + s₂²) would assume the two were measured independently when they were
     // scored on the same recordings.
-    valueOf: (entry, taskId) => {
-      const other = entry.tasks[taskId];
+    valueOf: (record, taskId) => {
+      const other = record.tasks[taskId];
       const against = baseline?.tasks[taskId];
 
       return other && against
         ? { mean: other.mean - against.mean, sem: null }
         : null;
     },
-    axisTitle: (metric) => `Δ ${metric}`,
+    yAxisLabelOf: (metric) => `Δ ${metric}`,
     skip: baselineId,
+    // Differences are distances from one baseline, so every plot shares one range.
+    yRangeKeyOf: () => "all",
   };
 }
 
 // ─── ROWS ────────────────────────────────────────────────────────────────────
 
-// One row per record, in the order they should appear: the page's own first, then by
-// mean descending — the order toCompareEntries already put them in. `skip` leaves out the
-// difference grid's baseline, which would be a row of zeros.
+// One row per record, in the order given — pick order, never ranked: a mean over a mixed
+// set of metrics is not a ranking. `skip` leaves out the difference grid's baseline, which
+// would be a row of zeros.
 //
 // Tabulator binds a column to a field name, so each task id becomes a field. The value is the
 // whole { mean, sem } object rather than a number — the cell renders both halves, and a sorter
@@ -205,27 +183,26 @@ function diffMode(entries, baselineId) {
 //
 // The record's own fields ride along because the row identifies itself: its name, its team and
 // the colour it is drawn in everywhere else.
-function toCompareRows(entries, tasks, { valueOf, skip = null }) {
-  return entries
-    .filter((entry) => entry.recordId !== skip)
-    .map((entry) => ({
-      recordId: entry.recordId,
-      recordName: entry.recordName,
-      teamName: entry.teamName,
-      isSelected: entry.isSelected,
-      colour: entry.colour,
+function toCompareRows(records, scoredTasks, { valueOf, skip = null }) {
+  return records
+    .filter((record) => record.key !== skip)
+    .map((record) => ({
+      key: record.key,
+      name: record.name,
+      teamName: record.teamName,
+      isReference: record.isReference,
+      colour: record.colour,
       ...Object.fromEntries(
-        tasks.map(({ taskId }) => [taskId, valueOf(entry, taskId)]),
+        scoredTasks.map(({ taskId }) => [taskId, valueOf(record, taskId)]),
       ),
     }));
 }
 
 export {
-  compareTasks,
   diffMode,
   latestScoresByTask,
   scoreMode,
-  toCompareEntries,
-  toCompareEntry,
+  scoredTasksIn,
   toCompareRows,
+  toRecord,
 };
