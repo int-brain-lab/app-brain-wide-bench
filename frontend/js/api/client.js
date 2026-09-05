@@ -1,20 +1,20 @@
-// const CONFIG = {
-//   apiBase: "", // same origin; set to e.g. "http://localhost:8080" for split hosting
-//   // auth0Domain: "dev-dmv00yvt1n0i036m.us.auth0.com",
-//   auth0Domain: "YOUR_AUTH0_DOMAIN",
-//   // The sentinel `devMode` reads, so a local run signs in against the API's stub user
-//   // rather than the real tenant. Swap the two lines back to test a genuine sign-in.
-//   // auth0ClientId: "jYERzEVe5MWl0r8SKGshQLRvxswseQlS",
-//   auth0ClientId: "YOUR_AUTH0_CLIENT_ID",
-//   auth0Audience: "https://brainwidebench.iblcore.org",
-// };
-
 const CONFIG = {
   apiBase: "", // same origin; set to e.g. "http://localhost:8080" for split hosting
-  auth0Domain: "dev-dmv00yvt1n0i036m.us.auth0.com",
-  auth0ClientId: "jYERzEVe5MWl0r8SKGshQLRvxswseQlS",
+  // auth0Domain: "dev-dmv00yvt1n0i036m.us.auth0.com",
+  auth0Domain: "YOUR_AUTH0_DOMAIN",
+  // The sentinel `devMode` reads, so a local run signs in against the API's stub user
+  // rather than the real tenant. Swap the two lines back to test a genuine sign-in.
+  // auth0ClientId: "jYERzEVe5MWl0r8SKGshQLRvxswseQlS",
+  auth0ClientId: "YOUR_AUTH0_CLIENT_ID",
   auth0Audience: "https://brainwidebench.iblcore.org",
 };
+
+// const CONFIG = {
+//   apiBase: "", // same origin; set to e.g. "http://localhost:8080" for split hosting
+//   auth0Domain: "dev-dmv00yvt1n0i036m.us.auth0.com",
+//   auth0ClientId: "jYERzEVe5MWl0r8SKGshQLRvxswseQlS",
+//   auth0Audience: "https://brainwidebench.iblcore.org",
+// };
 
 // Every sign-in returns here, whichever page it started from, so Auth0 needs one entry
 // in Allowed Callback URLs rather than one per page. Where the user was is carried in

@@ -539,6 +539,18 @@ GRIDS, COLUMNS AND ROWS
   gap: var(--gap-md);
 }
 
+.grid-6 {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--gap-md);
+}
+
+.grid-8 {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: var(--gap-md);
+}
+
 .grid-row-4 {
   display: grid;
   grid-template-rows: repeat(4, minmax(0, 1fr));

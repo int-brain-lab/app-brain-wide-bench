@@ -30,7 +30,7 @@ import {
   buildStaticTaskSubmissionsTable,
   createTaskSubmissionsTable,
 } from "../tables/taskSubmissionTable.js";
-import { SCORE_MODES } from "../comparisons/scoreModes.js";
+import { SCORE_MODES } from "../comparisons/taskScoreComparison.js";
 import { buildDetailsCard } from "../cards/detailsCard.js";
 import { buildStatCards } from "../cards/statCards.js";
 import {

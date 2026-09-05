@@ -80,7 +80,7 @@ function getSubmissionColumns({ showModel = false } = {}) {
  * @param showModel   add Model and Team columns. For a list spanning models.
  * @param showFilters keep the filter bar above the grid. False for a caller with a bar of
  *                    its own over both its views — see templates/listPage.js.
- * @param selection   from bindTableSelection, to make the rows pickable. Omit for a table
+ * @param selection   from createTableBinding, to make the rows pickable. Omit for a table
  *                    that is only read.
  *
  * @returns { element, table } — as createModelsTable; the caller mounts the element.

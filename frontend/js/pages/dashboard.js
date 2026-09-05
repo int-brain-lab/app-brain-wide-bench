@@ -28,7 +28,7 @@ import {
   createTaskScoresTable,
 } from "../tables/taskScoreTable.js";
 import { buildStaticTeamsTable } from "../tables/teamTable.js";
-import { SCORE_MODES } from "../comparisons/scoreModes.js";
+import { SCORE_MODES } from "../comparisons/taskScoreComparison.js";
 import { buildCreateCard } from "../cards/createCard.js";
 import { buildStatCards } from "../cards/statCards.js";
 import { buildCreateButton } from "../components/buttons.js";

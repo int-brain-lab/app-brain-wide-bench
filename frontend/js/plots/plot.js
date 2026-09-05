@@ -1,9 +1,9 @@
-// Chart.js, analogous to table.js and Tabulator.
+// Chart.js, as table.js is Tabulator.
 //
-// This module owns the Chart.js instance, the house defaults and the custom plugins. The
-// plot kinds above it — scatter.js, bar.js — supply the datasets and the marks; nothing
-// here knows what a recording or a task is, and colours always come from the caller so a
-// plot and the UI that names a series stay consistent.
+// The Chart.js instance, the house defaults and the custom plugins. The plot kinds above it
+// — bar.js, scatter.js — supply the datasets and the marks. Nothing here knows what a
+// recording or a task is, and colours always come from the caller, so a plot and the UI
+// naming its series cannot disagree.
 
 import { resolveContainer } from "../core/dom.js";
 import { score } from "../core/utils.js";
@@ -56,8 +56,6 @@ function createDefaults({ tooltip = {} } = {}) {
         },
         ticks: {
           color: AXIS,
-          maxRotation: 90,
-          minRotation: 45,
           autoSkip: false,
         },
       },
@@ -235,18 +233,20 @@ function createChart({
  * @param type             Chart.js chart type.
  * @param categories       the x axis, as category keys — the keys themselves, so two series
  *                         line up even where the axis shows an abbreviation of one.
- * @param datasets         from toDatasets in figure.js.
+ * @param datasets         from toDatasets in series.js.
  * @param yAxisLabel       what the y axis is measured in.
  * @param xTickLabel       (key, index) => what the axis shows for that category, or null to
  *                         leave it unlabelled.
+ * @param categoryLabel    (key) => what a tooltip calls that category. Omit to show the key
+ *                         itself, which is what an abbreviated axis owes the reader.
  * @param yRange           { min, max } suggested for the y axis. Omit to let the values
  *                         frame themselves.
  * @param yGrid            y-axis grid overrides — see createBarPlot, which draws zero as a
  *                         line.
+ * @param xTickRotation    degrees to turn the x tick labels by. 0 for names short enough
+ *                         to read across.
  * @param plotTitle        a heading inside the plot. Omit for none.
  * @param height           plot height in px.
- * @param showXTickLabels  false where the labels are repeated below, or unreadable at this
- *                         width. The tick marks stay either way.
  * @returns { element, chart }.
  */
 function createCategoryChart({
@@ -255,13 +255,15 @@ function createCategoryChart({
   datasets,
   yAxisLabel,
   xTickLabel,
+  categoryLabel = (key) => key,
+  xTickRotation,
   yRange,
   yGrid = {},
   plotTitle,
   height,
-  showXTickLabels,
 }) {
   const element = document.createElement("div");
+
 
   element.className = "chart-facet";
   const chart = createChart({
@@ -271,14 +273,11 @@ function createCategoryChart({
     height,
     tooltip: {
       callbacks: {
-        // The whole key, where the axis had room only for a short form of it.
-        title: (items) => items[0]?.label ?? "",
+        title: (items) =>
+          items[0] ? (categoryLabel(items[0].label) ?? items[0].label) : "",
         label: (item) => {
           const sem = item.dataset.sems?.[item.dataIndex];
-          // `barNames` where the bars have been packed and a dataset is no longer one series
-          // — see packLeft in bar.js.
-          const name =
-            item.dataset.barNames?.[item.dataIndex] ?? item.dataset.label;
+          const name = item.dataset.label;
 
           const value = `${score(item.raw)}${sem == null ? "" : ` ± ${score(sem)}`}`;
 
@@ -303,8 +302,9 @@ function createCategoryChart({
             tickColor: AXIS,
           },
           ticks: {
-            display: showXTickLabels,
             color: AXIS,
+            minRotation: xTickRotation,
+            maxRotation: xTickRotation,
             // autoSkip drops labels by width, which moves them as the panel resizes.
             autoSkip: false,
             callback: (_, index) => xTickLabel(categories[index], index),

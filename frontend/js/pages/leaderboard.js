@@ -47,7 +47,7 @@ import {
   getSectionBody,
 } from "../components/sections.js";
 import { createModelComparison } from "../comparisons/modelComparison.js";
-import { bindTableSelection } from "../comparisons/comparison.js";
+import { createTableBinding } from "../comparisons/binding.js";
 import { createTaskSelection } from "../widgets/taskSelection.js";
 import { loadPage } from "../templates/page.js";
 import { renderHeader, renderPage } from "../templates/pageChrome.js";
@@ -324,7 +324,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   // `claimLinks: false`: the model name still goes to the model's own page, and a click
   // anywhere else on the row is a pick. The board is always picking now, so it cannot also be
   // the thing that swallows the one link a row carries.
-  const picking = bindTableSelection(comparison, { claimLinks: false });
+  const picking = createTableBinding(comparison, { claimLinks: false });
 
   // A pick the board no longer shows anything for: its model has left the filtered field, or
   // the tasks it was scored on are no longer among the chosen ones. Either way the comparison
@@ -403,7 +403,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
       metrics,
       // Selection behaviour is fixed when a Tabulator is created, which is why every rebuild
       // of the board asks the binding for it again rather than reconfiguring what is there.
-      selection: picking.selection(),
+      selection: picking.selectionOptions(),
     });
 
     body.replaceChildren(mounted.element);

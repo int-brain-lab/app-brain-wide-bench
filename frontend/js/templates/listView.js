@@ -19,10 +19,10 @@ import {
 import { dispose } from "../core/disposable.js";
 import { refreshIcons, renderHtml } from "../core/render.js";
 import {
-  bindCardSelection,
-  bindTableSelection,
-  createPicker,
-} from "../comparisons/comparison.js";
+  createCardBinding,
+  createTableBinding,
+} from "../comparisons/binding.js";
+import { createPicks } from "../comparisons/picks.js";
 
 const MODE_NAMES = ["base", "active"];
 
@@ -92,7 +92,7 @@ function createListView({
   // lets the table, the cards and the filtering below stay as they are.
   const picker = picking
     ? (() => {
-        const controller = createPicker({
+        const controller = createPicks({
           max: picking.max,
           palette: picking.palette,
           toPick: picking.toPick,
@@ -102,8 +102,8 @@ function createListView({
           controller,
           // The row is the pick and the record's own name is the link out of the list, so a
           // click on the name follows it and leaves the picks alone.
-          table: bindTableSelection(controller, { claimLinks: false }),
-          cards: createCards ? bindCardSelection(controller) : null,
+          table: createTableBinding(controller, { claimLinks: false }),
+          cards: createCards ? createCardBinding(controller) : null,
         };
       })()
     : null;
@@ -157,8 +157,8 @@ function createListView({
 
     const {
       create,
-      bindTable = bindTableSelection,
-      bindCards = bindCardSelection,
+      bindTable = createTableBinding,
+      bindCards = createCardBinding,
     } = modes[mode];
 
     const controller = create(getSlot(`#section-${panelId(mode)}-body`));
@@ -198,7 +198,7 @@ function createListView({
     const panel = activePanel();
 
     panel?.cards?.attach(cardView.element);
-    cardView.setSelection(panel?.cards?.selection() ?? null);
+    cardView.setSelection(panel?.cards?.selectionOptions() ?? null);
   }
 
   function setMode(mode) {
@@ -231,7 +231,7 @@ function createListView({
 
     const panel = activePanel();
 
-    cardView.setSelection(panel?.cards?.selection() ?? null);
+    cardView.setSelection(panel?.cards?.selectionOptions() ?? null);
     panel?.cards?.attach(cardView.element);
 
     return cardView;
@@ -250,7 +250,7 @@ function createListView({
 
     tableView = createTable({
       rows,
-      selection: panel?.table?.selection() ?? null,
+      selection: panel?.table?.selectionOptions() ?? null,
     });
 
     panel?.table?.attach(tableView.table);
@@ -298,7 +298,7 @@ function createListView({
     const tableSelection = activePanel()?.table;
 
     if (tableSelection) {
-      tableSelection.apply(apply);
+      tableSelection.quietly(apply);
     } else {
       apply();
     }

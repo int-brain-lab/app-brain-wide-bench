@@ -1,21 +1,15 @@
 // Several submissions side by side, as the record comparison reads them.
 //
-// The preset, not the widget: the tabs, the plots, the differences and the task panel are
-// recordComparison.js, and this is only what makes them a comparison of *submissions*.
+// The preset, not the widget: what makes recordComparison.js a comparison of *submissions* —
+// two details, and scores read off the submission's own response. A submission has no
+// parameters of its own; the model's are the model's.
 //
-// Two things differ from the model preset. The details panel is two lines rather than nine —
-// which model a submission was made with, and whether anyone can read it — because a
-// submission has no parameters of its own; the model's are the model's. And the scores come
-// off the submission's own detail response rather than a breakdown endpoint: a submission is
-// one set of task runs, so there is nothing to collapse and no "newest" to pick.
-//
-// Submissions of different models compare perfectly well — which is the reason the model's
-// name is the first thing the details panel says.
+// The compared submissions need not be of one model.
 
-import { createRecordComparison } from "./recordComparison.js";
-import { buildVisibleBadge } from "../components/badges.js";
 import { loadSubmission } from "../api/submissionApi.js";
 import { trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
+import { buildVisibleBadge } from "../components/badges.js";
+import { createRecordComparison } from "./recordComparison.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
@@ -27,9 +21,8 @@ const MAX_SUBMISSIONS = 6;
 const MODEL = "model_name";
 const VISIBILITY = "is_public";
 
-// Both read off the row the submission was picked in rather than off its detail, so the panel
-// is filled before the first request lands — a listing carries them, and neither can change
-// while the comparison is open.
+// Both off the picked row rather than the fetched detail, so the panel is filled before the
+// first request lands.
 const DETAILS = {
   attributes: () => [
     { key: MODEL, label: "Model" },
@@ -39,9 +32,8 @@ const DETAILS = {
   cells: (pick) => ({
     [MODEL]: { value: pick.modelName ?? null },
 
-    // The badge every other reading of a submission wears for this, so the answer looks the
-    // same wherever it is given. `value` is what decides whether the row recedes when every
-    // submission agrees, so it is the fact rather than the markup.
+    // `value` is what decides whether the row recedes when every submission agrees, so it
+    // carries the fact and `html` the badge.
     [VISIBILITY]: {
       value: pick.isPublic == null ? null : String(pick.isPublic),
       html: buildVisibleBadge(pick.isPublic, "sm"),
@@ -51,15 +43,10 @@ const DETAILS = {
 
 // ─── SCORES ──────────────────────────────────────────────────────────────────
 
-// The submission's own task runs, in the shape the comparison reads: one score per task,
-// with the ids a task panel is opened by and the methodology the plot tooltips print.
+// One score per task, with the ids a task panel is opened by and the methodology the plot
+// tooltips print. At most one run per task, so nothing to collapse.
 //
-// No collapse and no "latest": a submission is one attempt, so it has at most one run per
-// task, where a model's breakdown has to pick between the several it has accumulated.
-//
-// A task still being scored has no score to show and is left out rather than carried as a
-// gap: the axis is the union across the compared submissions, so a task nobody has scored
-// simply isn't on it.
+// A task still being scored is left out rather than carried as a gap.
 function toSubmissionScores(pick) {
   const detail = pick.detail;
 
@@ -89,9 +76,8 @@ function toSubmissionScores(pick) {
 
 // ─── PICKS ───────────────────────────────────────────────────────────────────
 
-// For a host whose rows came from toSubmissionRows. The label is the record's name, and the
-// model's name rides along for the details panel — and for naming a score of this submission
-// where a task is opened out, which wants both.
+// For a host whose rows came from toSubmissionRows. The model's name rides along for the
+// details panel and for naming a score where a task is opened out.
 function toSubmissionPick(row) {
   return {
     key: row.id,
@@ -104,7 +90,12 @@ function toSubmissionPick(row) {
 
 // ─── WIDGET ──────────────────────────────────────────────────────────────────
 
-/** @param rest as createRecordComparison. */
+/**
+ * A record comparison of submissions.
+ *
+ * @param options as createRecordComparison.
+ * @returns the comparison — see createRecordComparison.
+ */
 function createSubmissionComparison(options) {
   return createRecordComparison({
     noun: "submission",
@@ -113,9 +104,8 @@ function createSubmissionComparison(options) {
 
     toPick: toSubmissionPick,
 
-    // The whole submission, which is the one response carrying its task runs with their
-    // methodology. It carries the per-recording breakdown too, which nothing here draws — the
-    // task panel asks for that one run at a time — but there is no lighter shape to ask for.
+    // The one response carrying the task runs with their methodology. It carries the
+    // per-recording breakdown too, which nothing here draws.
     loadDetail: (pick) => loadSubmission(pick.key),
 
     readScores: toSubmissionScores,

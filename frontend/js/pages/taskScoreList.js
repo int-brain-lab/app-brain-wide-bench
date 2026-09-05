@@ -1,8 +1,8 @@
 // Every task score the viewer may see: the dashboard's scores view, unscoped.
 //
 // The rows, the columns, the filter bar and the comparison panel are the dashboard's own —
-// utils/taskScoreUtils.js, tables/taskScoreTable.js and comparisons/scoreModes.js — so the two
-// pages differ only in which task submissions they are handed.
+// utils/taskScoreUtils.js, tables/taskScoreTable.js and comparisons/taskScoreComparison.js
+// — so the two pages differ only in which task submissions they are handed.
 
 import { getTaskSubmissions } from "../api/taskSubmissionApi.js";
 import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
@@ -11,7 +11,7 @@ import {
   toScoreResultRows,
 } from "../utils/taskScoreUtils.js";
 import { createTaskScoresTable } from "../tables/taskScoreTable.js";
-import { SCORE_MODES } from "../comparisons/scoreModes.js";
+import { SCORE_MODES } from "../comparisons/taskScoreComparison.js";
 import { loadListPage } from "../templates/listPage.js";
 
 // The rows span every model and submission, so both columns are named rather than assumed.

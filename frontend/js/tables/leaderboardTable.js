@@ -14,9 +14,6 @@
 // Columns and the mount only. The rows and the ranking over them are
 // utils/leaderboardUtils.js, as every other table's are.
 
-import { suiteFromTask, taskLabel } from "../core/suites.js";
-import { escapeHtml } from "../core/html.js";
-import { buildMetricBadge, buildTaskBadge } from "../components/badges.js";
 import { createTable } from "./table.js";
 import {
   buildMeanSem,
@@ -129,7 +126,7 @@ function getColumns(taskIds, metrics) {
  * @param taskIds   the chosen tasks, in column order.
  * @param metrics   `{ taskId: metric }` — from toTaskMetrics, so a header can name its unit
  *                  whether or not anyone has been scored on it yet.
- * @param selection from bindTableSelection, to make the rows pickable for a comparison. Omit
+ * @param selection from createTableBinding, to make the rows pickable for a comparison. Omit
  *                  for a board that is only read.
  * @returns { element, table } — `element` is detached until the caller places it, and
  *          `table` has to be destroyed before it is replaced.

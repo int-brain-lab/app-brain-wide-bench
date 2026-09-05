@@ -34,8 +34,7 @@ import { getIcon } from "../components/icons.js";
 import { buildSuiteBadgeList } from "../components/badges.js";
 import { suiteFromTask, suiteLabel } from "../core/suites.js";
 import { sortSuites } from "../tables/formatters.js";
-import { latestScoresByTask } from "../comparisons/compareData.js";
-import { getModels, loadModel } from "../api/modelApi.js";
+import { getModels, loadModelBreakdown } from "../api/modelApi.js";
 import { toModelRows } from "../utils/modelUtils.js";
 import { loadPage } from "../templates/page.js";
 import { createModelsTable } from "../tables/modelTable.js";
@@ -43,7 +42,7 @@ import {
   MAX_MODELS,
   createModelComparison,
 } from "../comparisons/modelComparison.js";
-import { bindTableSelection } from "../comparisons/comparison.js";
+import { createTableBinding } from "../comparisons/binding.js";
 import { renderHeader, renderPage } from "../templates/pageChrome.js";
 import {
   buildHeader,
@@ -123,12 +122,12 @@ function writeSelection({ suite, withIds }) {
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
 
-// From the model's own scores rather than the list endpoint's `task_suites`, so the
+// From what the model stands on rather than the list endpoint's `task_suites`, so the
 // dropdown can only ever offer a suite the page has something to draw for. The two agree
 // today — both count a suite once it has a scored task — but only one of them is the data
 // this page actually renders.
 function suitesOf(model) {
-  const suites = Object.keys(latestScoresByTask(model.submissions))
+  const suites = Object.keys(model.tasks ?? {})
     .map(suiteFromTask)
     .filter(Boolean);
 
@@ -271,7 +270,7 @@ function renderComparePage({ model, models }) {
       : null,
   });
 
-  const picking = bindTableSelection(comparison);
+  const picking = createTableBinding(comparison);
 
   function showSections(ids, shown) {
     for (const id of ids) {
@@ -394,7 +393,7 @@ function renderComparePage({ model, models }) {
   }
 
   function onSelection(rows) {
-    comparison.set(inChosenOrder(rows), state.suite);
+    comparison.setPicks(inChosenOrder(rows));
 
     // The comparison refuses a pick past its cap, so the table may be showing a highlight it
     // doesn't hold; this takes it back.
@@ -506,8 +505,11 @@ loadPage({
     // The list either way: `task_suites` is only populated by the list endpoint, and it is
     // what says which models can be compared on a suite — and, on the set entrance, the only
     // source for the models the URL names.
+    // The breakdown rather than the model: it arrives already collapsed to the newest
+    // scored entry per task, by the server that does the ranking, and without the submission
+    // tree — which is tens of kilobytes of per-recording detail this page never draws.
     const [model, models] = await Promise.all([
-      referenceId ? loadModel(referenceId) : null,
+      referenceId ? loadModelBreakdown(referenceId) : null,
       getModels(),
     ]);
 

@@ -3,8 +3,8 @@
 // Never a line joining them: the categories have no order, so a line draws a trend that
 // isn't there.
 
-import { SURFACE, createCategoryChart } from "./chartjs.js";
-import { toDatasets } from "./figure.js";
+import { SURFACE, createCategoryChart } from "./plot.js";
+import { toDatasets } from "./series.js";
 
 function pointMark(series) {
   return {
@@ -28,11 +28,11 @@ function pointMark(series) {
  * @param categories      the x axis, as category keys.
  * @param yAxisLabel      what the y axis is measured in.
  * @param xTickLabel      (key, index) => what the axis shows for a category.
+ * @param xTickRotation   degrees to turn the x tick labels by.
  * @param yRange          { min, max } the plot spans. Omit to let the values frame
  *                        themselves.
  * @param plotTitle       a heading inside the plot. Omit for none.
  * @param height          plot height in px.
- * @param showXTickLabels false where the labels are repeated below, or unreadable here.
  * @returns { element, chart }.
  */
 function createScatterPlot({
@@ -40,10 +40,10 @@ function createScatterPlot({
   categories,
   yAxisLabel,
   xTickLabel,
+  xTickRotation,
   yRange,
   plotTitle,
   height,
-  showXTickLabels,
 }) {
   return createCategoryChart({
     type: "line",
@@ -51,10 +51,10 @@ function createScatterPlot({
     datasets: toDatasets(series, categories, pointMark),
     yAxisLabel,
     xTickLabel,
+    xTickRotation,
     yRange,
     plotTitle,
     height,
-    showXTickLabels,
   });
 }
 

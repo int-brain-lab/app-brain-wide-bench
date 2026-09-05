@@ -3,7 +3,7 @@
 
 import { escapeHtml } from "../core/html.js";
 import { score } from "../core/utils.js";
-import { positionsOf } from "./figure.js";
+import { positionsOf } from "./series.js";
 import { SEQUENTIAL } from "./palette.js";
 
 // Which step of the ramp a value falls on.
@@ -105,10 +105,10 @@ function buildHeatmap({
 /**
  * One block per plot, series down the rows and categories across.
  *
- * @param plots      from withRanges — `{ axis, name, categories, range, series }` each.
- * @param xTickLabel (key, {axis, index, count, columns}) => what a column is headed with. A
- *                   block spans the page, so one column.
- * @param showHeader (axis) => whether that block heads its columns at all.
+ * @param plots      from withRanges — `{ taskType, name, categories, yRange, series }` each.
+ * @param xTickLabel (key, {taskType, index, count, columns}) => what a column is headed with.
+ *                   A block spans the page, so one column.
+ * @param showHeader (taskType) => whether that block heads its columns at all.
  * @param cellTitle  (key, mean, sem) => a cell's hover text.
  * @returns the markup.
  */
@@ -131,11 +131,11 @@ function buildHeatmaps({
         title: plot.name,
         range: plot.yRange ?? { min: 0, max: 1 },
         format: (value) => score(value),
-        showHeader: showHeader(plot.axis),
+        showHeader: showHeader(plot.taskType),
         columns: plot.categories.map((key, column) => ({
           key,
           label: xTickLabel(key, {
-            axis: plot.axis,
+            taskType: plot.taskType,
             index: column,
             count: plot.categories.length,
             columns: 1,

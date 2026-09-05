@@ -1,6 +1,6 @@
 // A task score as the pages read it: its rows and the filters over them.
 //
-// The panels a score row opens are comparisons/scoreModes.js.
+// The panel a score row opens is SCORE_MODES in comparisons/taskScoreComparison.js.
 
 import { suiteFromTask, taskLabel } from "../core/suites.js";
 import {

@@ -98,16 +98,16 @@ function getCompareColumns(scoredTasks, { formatter, sorter }) {
 // ─── TABLE ───────────────────────────────────────────────────────────────────
 
 /**
- * @param rows           from compareData's toCompareRows — one per record.
- * @param scoredTasks from compareData's scoredTasksIn — the columns, in the order the
- *                       plots put them on their axis.
- * @param mode           "score" for mean ± sem cells, "diff" for signed differences.
+ * @param rows        from recordComparison's toCompareRows — one per record.
+ * @param scoredTasks from recordComparison's scoredTasksIn — the columns, in the order the
+ *                    plots put them on their axis.
+ * @param mode        "score" for mean ± sem cells, "diff" for signed differences.
  * @returns { element, table } — `element` is detached until the caller places it, and
  *          `table` has to be destroyed before it is replaced.
  */
 function createCompareTable({ rows, scoredTasks, mode = "score" }) {
   // One sorter either way: a difference is a `{ mean, sem }` like a score is, since both come
-  // from the same mode in compareData. Only the rendering differs — signed and coloured.
+  // from the same mode in recordComparison. Only the rendering differs — signed and coloured.
   const cells =
     mode === "diff"
       ? { formatter: diffFormatter, sorter: meanSorter }

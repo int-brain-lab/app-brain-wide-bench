@@ -32,14 +32,14 @@ import {
   buildStaticTaskScoresTable,
   createTaskScoresTable,
 } from "../tables/taskScoreTable.js";
-import { SCORE_MODES } from "../comparisons/scoreModes.js";
+import { SCORE_MODES } from "../comparisons/taskScoreComparison.js";
 import { buildCreateCard } from "../cards/createCard.js";
 import { buildDetailsCard } from "../cards/detailsCard.js";
 import { buildRankCard } from "../cards/rankCard.js";
 import { buildStatCards } from "../cards/statCards.js";
 import { createSubmissionCardGrid } from "../cards/submissionCards.js";
 import { createSubmissionComparison } from "../comparisons/submissionComparison.js";
-import { bindTableSelection } from "../comparisons/comparison.js";
+import { createTableBinding } from "../comparisons/binding.js";
 import { buildTaskScoreBars } from "../components/bars.js";
 import {
   buildCompareButton,
@@ -332,7 +332,7 @@ function renderSubmissionsView({ model }) {
         // anywhere else on the row is a pick. The rows are always picking now, so they cannot
         // also be the thing that swallows the one link each carries.
         bindTable: (controller) =>
-          bindTableSelection(controller, { claimLinks: false }),
+          createTableBinding(controller, { claimLinks: false }),
       },
     },
   });

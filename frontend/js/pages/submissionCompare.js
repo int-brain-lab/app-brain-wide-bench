@@ -31,7 +31,7 @@ import {
   MAX_SUBMISSIONS,
   createSubmissionComparison,
 } from "../comparisons/submissionComparison.js";
-import { bindTableSelection } from "../comparisons/comparison.js";
+import { createTableBinding } from "../comparisons/binding.js";
 import { renderHeader, renderPage } from "../templates/pageChrome.js";
 import {
   buildHeader,
@@ -118,7 +118,7 @@ function renderComparePage({ submissions }) {
     container: getSectionBody("comparison"),
   });
 
-  const picking = bindTableSelection(comparison);
+  const picking = createTableBinding(comparison);
 
   function showSections(ids, shown) {
     for (const id of ids) {
@@ -158,7 +158,7 @@ function renderComparePage({ submissions }) {
   }
 
   function onSelection(rows) {
-    comparison.set(inChosenOrder(rows));
+    comparison.setPicks(inChosenOrder(rows));
 
     // The comparison refuses a pick past its cap, so the table may be showing a highlight it
     // doesn't hold; this takes it back.
