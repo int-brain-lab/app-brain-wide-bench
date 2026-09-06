@@ -32,12 +32,9 @@ const DETAILS = {
   cells: (pick) => ({
     [MODEL]: { value: pick.modelName ?? null },
 
-    // `value` is what decides whether the row recedes when every submission agrees, so it
-    // carries the fact and `html` the badge.
-    [VISIBILITY]: {
-      value: pick.isPublic == null ? null : String(pick.isPublic),
-      html: buildVisibleBadge(pick.isPublic, "sm"),
-    },
+    // Empty markup for a submission whose visibility is not known, which the grid draws as
+    // a dash.
+    [VISIBILITY]: { html: buildVisibleBadge(pick.isPublic, "sm") },
   }),
 };
 

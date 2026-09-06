@@ -32,12 +32,7 @@
 import { disposeAll } from "../core/disposable.js";
 import { escapeHtml } from "../core/html.js";
 import { getElement, refreshIcons, renderHtml } from "../core/render.js";
-import {
-  SUITES,
-  suiteFromTask,
-  suiteLabel,
-  taskTypeOf,
-} from "../core/suites.js";
+import { SUITES, suiteFromTask, suiteLabel } from "../core/suites.js";
 import { withRanges } from "../plots/series.js";
 import { createTaskPlot } from "../plots/recordPlots.js";
 import { SERIES_COLOURS } from "../plots/palette.js";
@@ -59,7 +54,10 @@ import {
   getSection,
   getSectionBody,
 } from "../components/sections.js";
-import { createTabDock } from "../components/tabDock.js";
+import {
+  createSectionStack,
+  createTabDock,
+} from "../components/tabDock.js";
 import { createComparison } from "./comparison.js";
 import { createTaskComparison } from "./taskScoreComparison.js";
 
@@ -70,6 +68,10 @@ const DETAILS = "summary";
 const BREAKDOWN = "breakdown";
 const DIFFERENCE = "differences";
 
+
+// Every metric here runs 0 to 1, so every task in the breakdown is drawn against the same
+// span and any two can be read against each other.
+const SCORE_RANGE = { min: 0, max: 1 };
 
 const PICKS_ID = "compare-picks";
 const TASK_ID = "compare-task";
@@ -154,19 +156,21 @@ function scoredTasksIn(records) {
 // reads a record's score on a task, the other how far it is from the baseline's. The grid and
 // the plot of one comparison share a mode.
 //
-// A mode is `{ valueOf, yAxisLabelOf, skip, yRangeKeyOf }`:
+// A mode is `{ valueOf, yAxisLabelOf, skip, yRange | yRangeKeyOf }`:
 //
 //   valueOf(record, taskId)  the cell, as `{ mean, sem }`, or null for nothing to show
 //   yAxisLabelOf(metric)     what the y axis of that metric's plot is called
 //   skip                     a record key to leave out of the columns and the series
-//   yRangeKeyOf(task)        which plots share a y range — see withRanges in plots/series.js
+//   yRange                   the span every plot is drawn against, where the mode fixes one
+//   yRangeKeyOf(task)        which plots share a span the data decides — see withRanges in
+//                            plots/series.js. For a mode with no `yRange`
 
 function scoreMode() {
   return {
     valueOf: (record, taskId) => record.tasks[taskId] ?? null,
     yAxisLabelOf: (metric) => metric,
     skip: null,
-    yRangeKeyOf: (task) => `${taskTypeOf(task.taskId)}|${task.metric}`,
+    yRange: SCORE_RANGE,
   };
 }
 
@@ -222,7 +226,6 @@ function toCompareRows(records, scoredTasks, { valueOf, skip = null }) {
 
 // ─── SCORES ──────────────────────────────────────────────────────────────────
 
-const PLOT_HEIGHT = 250;
 
 // One task's scores as a plot series: a category per record, so a bar each.
 function toTaskSeries(records, task, { valueOf, yAxisLabelOf }) {
@@ -309,6 +312,8 @@ function buildBaselineSelect(noun) {
  * @param referenceId the record the others are read against, badged "This model". Omit where
  *                    the host has no such record — a leaderboard's picks are six models with
  *                    no one of them the reader's own.
+ * @param tabView     the panels behind a tab strip, one at a time. False stacks all three down
+ *                    the page instead, for a host with room for them.
  * @param options     as createComparison.
  * @returns the comparison — see createComparison.
  */
@@ -320,8 +325,13 @@ function createRecordComparison({
   readScores,
   showSuites = true,
   referenceId = "",
+  fixedKeys = [],
+  tabView = true,
   ...options
 }) {
+  // Picks that cannot be taken out: their chips are drawn without a ✕.
+  const fixed = new Set(fixedKeys);
+
   const nothingScored = `None of these ${noun}s has a scored task yet.`;
   const emptyPrompt = `Select up to ${max} ${noun}s to compare them.`;
 
@@ -344,13 +354,17 @@ function createRecordComparison({
   let selectedTask = "";
   let taskDetail = null;
 
-  const dock = createTabDock({
-    noun,
-    tabs: TABS,
-    container,
-    hasContent: () => (comparison?.picks().length ?? 0) > 0,
-    onChange: renderPanel,
-  });
+  const hasContent = () => heldCount() > 0;
+
+  const dock = tabView
+    ? createTabDock({
+        noun,
+        tabs: TABS,
+        container,
+        hasContent,
+        onChange: renderPanel,
+      })
+    : createSectionStack({ tabs: TABS, hasContent });
 
 
   // ─── STATE HELPERS ─────────────────────────────────────────────────────────
@@ -402,6 +416,7 @@ function createRecordComparison({
           key: pick.key,
           label: pick.name,
           ink: comparison.colourFor(pick.key),
+          fixed: fixed.has(pick.key),
         }))
       : [];
 
@@ -493,27 +508,28 @@ function createRecordComparison({
     differenceCharts = [];
   }
 
-  // A plot per task, grouped by suite. The y ranges are taken across every task first, so
-  // tasks measured the same way share a span whichever group they land in.
+  // A plot per task, grouped by suite. The breakdown draws them all against the mode's own
+  // span; the differences have no such span, so those are taken across the tasks first and
+  // shared by whichever of them the mode groups together.
   function buildTaskPlots(mode) {
     const shown = selectedRecords.filter((record) => record.key !== mode.skip);
     const names = new Map(shown.map((record) => [record.key, record.name]));
     const categories = shown.map((record) => record.key);
 
-    const plots = withRanges(
-      taskSuiteGroups.flatMap((group) =>
-        group.tasks.map((task) => ({
-          id: task.taskId,
-          yRangeKey: mode.yRangeKeyOf(task),
-          series: [toTaskSeries(shown, task, mode)],
-        })),
-      ),
-    );
+    const tasks = allTasks().map((task) => ({
+      id: task.taskId,
+      yRangeKey: mode.yRangeKeyOf?.(task),
+      series: [toTaskSeries(shown, task, mode)],
+    }));
+
+    const plots = mode.yRange
+      ? tasks.map((task) => ({ ...task, yRange: mode.yRange }))
+      : withRanges(tasks);
 
     const element = document.createElement("div");
     const charts = [];
 
-    element.className = "grid-8";
+    element.className = "grid-6";
 
     for (const plot of plots) {
       const built = createTaskPlot({
@@ -521,7 +537,8 @@ function createRecordComparison({
         categories,
         categoryLabel: (key) => names.get(key),
         yRange: plot.yRange,
-        height: PLOT_HEIGHT,
+        task: plot.id,
+        height: 100,
       });
 
       built.element.dataset.plot = plot.id;
@@ -713,6 +730,10 @@ function createRecordComparison({
 
   function renderSections(held) {
     if (!held.length) {
+      // Shown against the dock, which hides a section with nothing in it: the prompt is what
+      // this section has to say while there is nothing to compare.
+      getSection(DETAILS).hidden = false;
+
       renderHtml(getSectionBody(DETAILS), buildEmptyMessage(emptyPrompt));
       refreshIcons();
 
@@ -832,6 +853,8 @@ function createRecordComparison({
       ${buildSections([
         {
           id: DETAILS,
+          title: tabView ? "" : "Details",
+          collapsible: !tabView,
           hidden: true,
         },
         {
@@ -842,6 +865,7 @@ function createRecordComparison({
             buildPlotTableToggle(BREAKDOWN),
           ],
           className: "chart-pickable",
+          collapsible: !tabView,
           hidden: true,
         },
         {
@@ -852,11 +876,13 @@ function createRecordComparison({
             buildPlotTableToggle(DIFFERENCE),
           ],
           className: "chart-pickable",
+          collapsible: !tabView,
           hidden: true,
         },
       {
         id: TASK_ID,
         title: "Individual scores",
+        collapsible: !tabView,
         hidden: true,
       }
       ])}

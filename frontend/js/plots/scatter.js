@@ -27,6 +27,8 @@ function pointMark(series) {
  * @param series
  * @param categories      the x axis, as category keys.
  * @param yAxisLabel      what the y axis is measured in.
+ * @param xAxisLabel      what the categories are, named once under them. Omit for an
+ *                  unlabelled axis.
  * @param xTickLabel      (key, index) => what the axis shows for a category.
  * @param xTickRotation   degrees to turn the x tick labels by.
  * @param yRange          { min, max } the plot spans. Omit to let the values frame
@@ -39,6 +41,7 @@ function createScatterPlot({
   series,
   categories,
   yAxisLabel,
+  xAxisLabel,
   xTickLabel,
   xTickRotation,
   yRange,
@@ -50,6 +53,7 @@ function createScatterPlot({
     categories,
     datasets: toDatasets(series, categories, pointMark),
     yAxisLabel,
+    xAxisLabel,
     xTickLabel,
     xTickRotation,
     yRange,

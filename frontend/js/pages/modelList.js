@@ -14,7 +14,7 @@ import { loadListPage } from "../templates/listPage.js";
 const MINE = document.body.dataset.scope === "mine";
 
 // Where Compare goes, and under what name. `with` is the compare page's own parameter for the
-// models a comparison holds — see pages/compare.js.
+// models a comparison holds — see pages/modelCompare.js.
 const COMPARE_PAGE = "/html/models/compare.html";
 const WITH_PARAM = "with";
 

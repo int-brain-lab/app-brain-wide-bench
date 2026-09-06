@@ -12,10 +12,6 @@ import { buildHeatmaps } from "./heatmap.js";
 // read against any other.
 const SCORE_RANGE = { min: 0, max: 1 };
 
-// A region name reads across; the head of a uuid does not.
-const REGION_ROTATION = 0;
-const RECORDING_ROTATION = 45;
-
 // How many categories an axis names, by how many plots share the width of the page.
 const NAMED_TICKS = { 1: 10, 2: 6, 3: 4 };
 const NARROWEST = 4;
@@ -51,39 +47,35 @@ function blockKeyOf(series) {
   return `${series.taskType}|${series.metric}`;
 }
 
+// What the axis holds, named once under it rather than tick by tick: a recording id is a
+// uuid, and a plot three across has no room to name forty of them.
+function categoryLabelOf(taskType) {
+  return taskType === REGION_TASK_TYPE ? "Regions" : "Recordings";
+}
+
 /**
  * One score's categories as a plot.
  *
  * @param series     from toScoreSeries.
  * @param categories the axis, shared by every plot measured the same way.
  * @param createPlot createBarPlot or createScatterPlot.
- * @param columns    how many plots the grid puts across, for thinning the tick labels.
  * @param height     in px.
  * @returns { element, chart }.
  */
-function createCategoryPlot({
-  series,
-  categories,
-  createPlot,
-  columns,
-  height,
-}) {
+function createCategoryPlot({ series, categories, createPlot, height }) {
   return createPlot({
     series: [series],
     categories,
-    yAxisLabel: series.metric,
-    xTickLabel: (key, index) =>
-      categoryTickLabel(key, {
-        taskType: series.taskType,
-        index,
-        count: categories.length,
-        columns,
-      }),
-    xTickRotation:
-      series.taskType === REGION_TASK_TYPE
-        ? REGION_ROTATION
-        : RECORDING_ROTATION,
+    xAxisLabel: categoryLabelOf(series.taskType),
+
+    // The axis says what its categories are; naming each one says nothing a reader can use.
+    // Blank rather than null, which would take the tick mark with the label — the marks are
+    // what show how many categories the axis holds and where they fall.
+    xTickLabel: () => "",
+    xTickRotation: 0,
+
     yRange: SCORE_RANGE,
+
     plotTitle: null,
     height,
   });
@@ -102,9 +94,11 @@ function createMeanPlot({ series, categories, categoryLabel, height }) {
   return createBarPlot({
     series: [series],
     categories,
-    yAxisLabel: series.metric,
+
+    // Null rather than blank, which takes the tick marks with the labels: a bar is one
+    // score, named by the chips above, so a mark under it marks nothing.
     xTickLabel: () => null,
-    xTickRotation: REGION_ROTATION,
+    xTickRotation: 0,
     categoryLabel,
     yRange: SCORE_RANGE,
     plotTitle: null,

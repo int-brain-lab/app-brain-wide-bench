@@ -37,14 +37,22 @@ function suitesFromSubmission(submission) {
   return SUITES.filter((suite) => derived.has(suite));
 }
 
-// A model's suites, from whichever it carries: a list endpoint names them outright, while a
-// detail leaves them to be read off the submissions.
+// A model's suites, from whichever it carries: a list endpoint names them outright, a
+// breakdown names its tasks, and a detail leaves them to be read off the submissions.
 function suitesFromModel(model) {
   const named = model.task_suites ?? model.suites;
 
   if (named?.length) {
     return SUITES.filter((suite) => named.includes(suite));
   }
+
+  const scored = new Set(
+    Object.keys(model.tasks ?? {})
+      .map(suiteFromTask)
+      .filter(Boolean),
+  );
+
+  if (scored.size) return SUITES.filter((suite) => scored.has(suite));
 
   const derived = new Set(
     (model.submissions ?? []).flatMap(suitesFromSubmission),

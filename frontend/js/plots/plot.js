@@ -234,9 +234,12 @@ function createChart({
  * @param categories       the x axis, as category keys — the keys themselves, so two series
  *                         line up even where the axis shows an abbreviation of one.
  * @param datasets         from toDatasets in series.js.
- * @param yAxisLabel       what the y axis is measured in.
- * @param xTickLabel       (key, index) => what the axis shows for that category, or null to
- *                         leave it unlabelled.
+ * @param yAxisLabel       what the y axis is measured in. Omit for an unlabelled axis,
+ *                         where the caller names the measure beside the plot.
+ * @param xAxisLabel       what the categories are, named once under them. Omit for an
+ *                         unlabelled axis.
+ * @param xTickLabel       (key, index) => what the axis shows for that category. "" for a
+ *                         tick with no name under it; null drops the tick mark as well.
  * @param categoryLabel    (key) => what a tooltip calls that category. Omit to show the key
  *                         itself, which is what an abbreviated axis owes the reader.
  * @param yRange           { min, max } suggested for the y axis. Omit to let the values
@@ -254,6 +257,7 @@ function createCategoryChart({
   categories,
   datasets,
   yAxisLabel,
+  xAxisLabel,
   xTickLabel,
   categoryLabel = (key) => key,
   xTickRotation,
@@ -292,6 +296,7 @@ function createCategoryChart({
       scales: {
         x: {
           type: "category",
+          title: { display: Boolean(xAxisLabel), text: xAxisLabel, color: AXIS },
           // Chart.js draws the tick marks from the grid config, so `drawOnChartArea` is what
           // keeps the vertical gridlines away — `grid.display: false` takes the marks too.
           grid: {
@@ -300,6 +305,10 @@ function createCategoryChart({
             drawTicks: true,
             tickLength: 4,
             tickColor: AXIS,
+            // Chart.js puts a bar chart's marks between the categories, which reads as a
+            // boundary rather than as the bar's own. The scale keeps its own `offset`, so
+            // the end bars are still drawn whole.
+            offset: false,
           },
           ticks: {
             color: AXIS,
@@ -311,7 +320,7 @@ function createCategoryChart({
           },
         },
         y: {
-          title: { display: true, text: yAxisLabel, color: AXIS },
+          title: { display: Boolean(yAxisLabel), text: yAxisLabel, color: AXIS },
           ...yGrid,
           ...(yRange
             ? { suggestedMin: yRange.min, suggestedMax: yRange.max }

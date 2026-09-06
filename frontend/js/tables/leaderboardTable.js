@@ -75,7 +75,7 @@ function getColumns(taskIds, metrics) {
 
   return [
     {
-      title: "Rank",
+      title: "#",
       field: "rank",
       formatter: rankFormatter,
       // Not numericSorter: it sorts a null first ascending, which puts every unranked model
@@ -83,7 +83,7 @@ function getColumns(taskIds, metrics) {
       sorter: rankSorter,
       // A number, not a layout name: a column's `width` is a width, and Tabulator reads
       // anything else as none at all.
-      width: 90,
+      width: 70,
       frozen: true,
     },
     {

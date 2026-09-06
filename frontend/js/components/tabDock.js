@@ -14,7 +14,7 @@ import { getSection } from "./sections.js";
 
 const TAB_DATA = "tab";
 
-// ─── TABS ─────────────────────────────────────────────────────────────────────
+// ─── TABS ────────────────────────────────────────────────────────────────────
 
 /**
  * Build a tab strip.
@@ -244,7 +244,41 @@ function createTabDock({ noun, tabs, container, hasContent, onChange }) {
   };
 }
 
+// ─── SECTION STACK ───────────────────────────────────────────────────────────
+
+/**
+ * The same sections with no tabs over them: all of them at once, in the order the page holds
+ * them, each hidden while it has nothing to show. Stands in for a dock, so a host can take
+ * either without knowing which it has.
+ *
+ * @param tabs       [{ value }] — the section ids, as createTabDock takes them.
+ * @param hasContent (value) => whether that section has anything to show.
+ * @returns { buildTabs, attachTabEvents, render, getVisibleTabs } as createTabDock. There is
+ *          no strip to build and nothing to listen to, so the first two do nothing.
+ */
+function createSectionStack({ tabs, hasContent = () => true }) {
+  function shown() {
+    return tabs.map(({ value }) => value).filter(hasContent);
+  }
+
+  function render() {
+    for (const { value } of tabs) {
+      const section = getSection(value);
+
+      if (section) section.hidden = !hasContent(value);
+    }
+  }
+
+  return {
+    attachTabEvents: () => {},
+    buildTabs: () => "",
+    getVisibleTabs: () => new Set(shown()),
+    render,
+  };
+}
+
 export {
+  createSectionStack,
   createTabDock,
 };
 

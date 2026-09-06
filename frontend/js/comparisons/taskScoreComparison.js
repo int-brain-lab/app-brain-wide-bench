@@ -11,6 +11,7 @@
 // those scores are drawn.
 
 import { disposeAll } from "../core/disposable.js";
+import { escapeHtml } from "../core/html.js";
 import {
   clearContent,
   getElement,
@@ -32,13 +33,13 @@ import {
   createMeanPlot,
 } from "../plots/taskScorePlots.js";
 import { createScatterPlot } from "../plots/scatter.js";
+import { buildMetricBadge } from "../components/badges.js";
 import { buildToggle } from "../components/buttons.js";
 import {
   buildComparisonGrid,
   buildPicks,
   dropFromClick,
 } from "../components/comparisonGrid.js";
-import { buildSelect } from "../components/filters.js";
 import { buildEmptyMessage } from "../components/messages.js";
 import {
   methodologyCells,
@@ -93,7 +94,7 @@ const VIEWS = [
   { id: HEATMAP_VIEW, label: "Heatmap", icon: "suite" },
 ];
 
-const PLOT_HEIGHT = 200;
+
 
 
 
@@ -204,20 +205,25 @@ function toTaskTypeGroups(scores) {
 
 // ─── MEANS ───────────────────────────────────────────────────────────────────
 
-function buildMetricSelect(taskType, metric) {
+// One badge per metric the task type reports, the one the plot below is read in lit. A row
+// of them rather than a select: there are two or three, and which is being read is then on
+// screen rather than behind a placeholder.
+function buildMetricBadges(taskType, metric) {
   return `
     <span class="row left gap-md">
-      <span class="metadata">Selected metric:</span>
-      <span>
-        ${buildSelect({
-          name: METRIC,
-          hook: "role",
-          options: metricsFor(taskType).map((name) => ({
-            value: name,
-            label: name,
-          })),
-          selected: metric,
-        })}
+      <span class="metadata">Metric:</span>
+      <span class="row left gap-sm">
+        ${metricsFor(taskType)
+          .map(
+            (name) => `
+              <button
+                type="button"
+                class="badge metric${name === metric ? " on" : ""}"
+                data-role="${METRIC}"
+                value="${escapeHtml(name)}"
+              >${escapeHtml(name)}</button>`,
+          )
+          .join("")}
       </span>
     </span>
   `;
@@ -277,7 +283,10 @@ function createTaskComparison({
     container,
     hasContent: (value) =>
       value === METHODOLOGY_PANEL || picks().length > 0,
-    onChange: render,
+
+    // The dock hands back its visible tabs, and `render` takes the picks: what a tab change
+    // has to draw is whatever is picked, in the panel that just came into view.
+    onChange: () => render(picks()),
   });
 
   let view = SEPARATE_VIEW;
@@ -425,18 +434,20 @@ function createTaskComparison({
     // detached, then swapped in once.
     const grid = document.createElement("div");
 
-    // Nested, the cells stack: the panel is too narrow for a row of them.
-    grid.className = nested ? "" : "grid-6";
+    // Nested, the cells stack: the panel is too narrow for a row of them. They are cards, so
+    // stacked they need the gap the grid would otherwise give them.
+    grid.className = nested ? "column gap-md" : "grid-6";
 
     for (const group of taskTypeGroups) {
       const metric = metricFor(group.key);
 
       const cell = document.createElement("div");
 
-      cell.className = "column gap-sm";
+      // A card each, as the task plots are: the badges over the plot they apply to.
+      cell.className = "card column gap-md";
       cell.dataset[METRIC_GROUP] = group.key;
 
-      renderHtml(cell, buildMetricSelect(group.key, metric));
+      renderHtml(cell, buildMetricBadges(group.key, metric));
 
       const labels = new Map(
         group.scores.map((score) => [score.key, score.label]),
@@ -446,7 +457,7 @@ function createTaskComparison({
         series: toMeanSeries(group.scores, metric),
         categories: group.scores.map((score) => score.key),
         categoryLabel: (key) => labels.get(key),
-        height: PLOT_HEIGHT,
+        height: 150,
       });
 
       cell.appendChild(plot.element);
@@ -484,9 +495,8 @@ function createTaskComparison({
 
     const element = document.createElement("div");
 
-    // The class and `columns` below are one fact: the tick labels are thinned to the width a
-    // plot is drawn at.
-    element.className = nested ? "grid-2" : "grid-3";
+    // element.className = nested ? "grid-2" : "grid-3";
+    element.className = "grid-3"
 
     const createPlot = view === BARS_VIEW ? createBarPlot : createScatterPlot;
 
@@ -498,12 +508,24 @@ function createTaskComparison({
           series,
           categories,
           createPlot,
-          columns: nested ? 2 : 3,
-          height: PLOT_HEIGHT,
+          height: 100,
         });
 
+        // A card each, as the mean plots and the task plots are. The badge names what the
+        // plot is measured in; the one that chooses it is over the means.
+        const cell = document.createElement("div");
+
+        cell.className = "card column gap-md";
+
+        renderHtml(
+          cell,
+          `<span class="row left gap-sm">${buildMetricBadge(series.metric)}</span>`,
+        );
+
+        cell.appendChild(plot.element);
+
         plotCharts.push(plot.chart);
-        element.appendChild(plot.element);
+        element.appendChild(cell);
       }
     }
 
@@ -584,27 +606,23 @@ function createTaskComparison({
 
     dock.attachTabEvents();
 
-    getSectionBody(MEANS_SECTION).addEventListener(
-      "change",
-      (event) => {
-        const select = event.target.closest(
-          `[data-role="${METRIC}"]`,
-        );
+    getSectionBody(MEANS_SECTION).addEventListener("click", (event) => {
+      const badge = event.target.closest(`[data-role="${METRIC}"]`);
 
-        if (!select) return;
+      if (!badge) return;
 
-        const key = select.closest(`[data-${METRIC_GROUP}]`)?.dataset[
-          METRIC_GROUP
-        ];
+      const key = badge.closest(`[data-${METRIC_GROUP}]`)?.dataset[
+        METRIC_GROUP
+      ];
 
-        if (!key) return;
+      // The lit one: clicking it would tear both plots down and build them again the same.
+      if (!key || badge.value === metricFor(key)) return;
 
-        selectedMetrics.set(key, select.value);
+      selectedMetrics.set(key, badge.value);
 
-        renderMeans();
-        renderRecordings();
-      },
-    );
+      renderMeans();
+      renderRecordings();
+    });
   }
 
 
@@ -646,7 +664,7 @@ function createTaskComparison({
               ? [
                   {
                     sections: [means, recordings],
-                    ratio: 4,
+                    ratio: 6,
                   },
                 ]
               : [means, recordings],

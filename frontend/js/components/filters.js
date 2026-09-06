@@ -1,5 +1,5 @@
-// The controls a list is narrowed by: a select, a search, a pinned select, a row of checks,
-// and the bar that holds them.
+// The controls a list is narrowed by: a select, a search, a pinned select, and the bar that
+// holds them.
 //
 // A control is markup and nothing else — the values behind one are components/filterState.js,
 // which reads them back off the DOM. Every control matches against *rows*, so the cards and
@@ -229,7 +229,7 @@ function buildPinnedControl({
     <span class="${escapeHtml(classes)}">
       ${label ? `<span class="metadata">${escapeHtml(label)}</span>` : ""}
       <select
-        class="input-select"
+        class="input-select pinned"
         data-${escapeHtml(hook)}="${escapeHtml(name)}"
         ${options.length ? "" : "disabled"}
       >
@@ -418,85 +418,6 @@ function unpinIn(root, name, value, hook = "filter") {
   return true;
 }
 
-// ─── CHECKS ──────────────────────────────────────────────────────────────────
-//
-// A box per value, each labelled by a badge: the multi-valued control for a handful of values
-// with a colour of their own, where a select would hide behind a placeholder what a badge says
-// outright.
-//
-// The box is the control and the badge beside it is only a label — it carries no listener, so
-// the one thing on the row that can be pressed is the one that looks like it.
-//
-// Three states, because a box can stand for several things and be part-way there: checked,
-// `indeterminate` for some of them, and clear. Indeterminate is only ever set from outside —
-// a click on one goes to checked, which is what "add the rest" should do.
-//
-// No state of its own, like the pinned selects: what is ticked is set by `markChecks` from
-// whatever the caller holds, so a box can stand for something it doesn't store — the
-// leaderboard's suites, which are ticked by the task chips under them.
-
-// The box's name, on every one in the row.
-const CHECK = "check";
-
-/**
- * One row of them, all clear — call markChecks to tick them.
- *
- * @param name    what a listener finds them by, on every box in the row.
- * @param options [{ value, label, className }]. The class is the badge's own modifier, so a
- *                value with a colour keeps it here.
- * @returns the markup.
- */
-function buildChecks({ name, options }) {
-  return `
-    <span class="row left gap-md">
-      ${options
-        .map(
-          (option) => `
-        <span class="row left gap-sm">
-          <input
-            class="input-checkbox"
-            type="checkbox"
-            data-${CHECK}="${escapeHtml(name)}"
-            value="${escapeHtml(option.value)}"
-            aria-label="${escapeHtml(option.label)}">
-          <span class="badge ${escapeHtml(option.className ?? "")}">${escapeHtml(option.label)}</span>
-        </span>`,
-        )
-        .join("")}
-    </span>`;
-}
-
-/**
- * Tick the boxes under `root`.
- *
- * @param states value => "on" | "partial" | anything falsy for clear.
- */
-function markChecks(root, name, states) {
-  for (const box of root.querySelectorAll(`[data-${CHECK}="${name}"]`)) {
-    const state = states[box.value];
-
-    box.checked = state === "on";
-    box.indeterminate = state === "partial";
-  }
-}
-
-/**
- * Which box was just ticked, and what it now says — so a caller can read it as "add these" or
- * "take these off".
- *
- * @returns { name, value, on }, or null for an event that wasn't a box's. `on` is the state
- *          the box is in *after* the click, which is what the caller has to make true — so
- *          acting on it twice is acting on it once, and a caller listening for both `click`
- *          and `change` hears the same answer from each.
- */
-function checkFromEvent(event) {
-  const box = event.target?.closest?.(`input[data-${CHECK}]`);
-
-  if (!box) return null;
-
-  return { name: box.dataset[CHECK], value: box.value, on: box.checked };
-}
-
 // ─── CONTROLS BY KIND ────────────────────────────────────────────────────────
 
 /**
@@ -506,25 +427,21 @@ function checkFromEvent(event) {
  *                  kind's builder takes.
  * @param value     what it holds: a string, the pinned values, or a pair of bounds.
  * @param className carried through to a pinned select's own row.
- * @param labelled  a label above a select or a search, which otherwise carry their field
- *                  name in the placeholder. A pinned select and a range label themselves.
  *
  * @returns the markup.
  */
-function buildFilterControl({
-  control,
-  value,
-  className = "",
-  labelled = false,
-}) {
+function buildFilterControl({ control, value, className = "" }) {
   if (control.type === "pinned") {
     return buildPinnedSelect({
       name: control.name,
       hook: control.hook,
       className,
-      label: control.label,
       options: control.options,
       selected: value ?? [],
+
+      // The field's name, since there is no label above it. A range keeps its own, having
+      // nowhere to put one.
+      placeholder: control.placeholder ?? control.label,
     });
   }
 
@@ -545,21 +462,17 @@ function buildFilterControl({
           name: control.name,
           options: control.options,
           selected: value || null,
-          placeholder: control.required ? "" : control.placeholder,
+          placeholder: control.required
+            ? ""
+            : (control.placeholder ?? control.label),
         })
       : buildSearch({
           name: control.name,
-          placeholder: control.placeholder,
+          placeholder: control.placeholder ?? control.label,
           value: value ?? "",
         });
 
-  if (!labelled) return input;
-
-  return `
-    <div class="column gap-sm">
-      ${control.label ? `<span class="metadata">${escapeHtml(control.label)}</span>` : ""}
-      ${input}
-    </div>`;
+  return input;
 }
 
 // ─── BAR ─────────────────────────────────────────────────────────────────────
@@ -597,9 +510,8 @@ function toFilterRows(controls) {
 function buildFilterBar(controls, values = {}) {
   if (controls.length === 0) return "";
 
-  // A pinned cell grows downwards as chips are added, so every cell states its field name —
-  // a bar of placeholders beside a labelled column reads as two bars — and each row is
-  // topped rather than stretched.
+  // A pinned cell grows downwards as chips are added, so each row is topped rather than
+  // stretched.
   const pinned = controls.some((control) => control.type === "pinned");
 
   const { rows, perRow } = toFilterRows(controls);
@@ -618,11 +530,7 @@ function buildFilterBar(controls, values = {}) {
         <div class="${layout}${align}">
           ${row
             .map((control) =>
-              buildFilterControl({
-                control,
-                value: values[control.name],
-                labelled: pinned,
-              }),
+              buildFilterControl({ control, value: values[control.name] }),
             )
             .join("")}
         </div>`,
@@ -635,7 +543,6 @@ function buildFilterBar(controls, values = {}) {
 export {
   SUITE_OPTIONS,
   UNPIN,
-  buildChecks,
   buildFilterBar,
   buildFilterControl,
   buildOptions,
@@ -644,8 +551,6 @@ export {
   buildPins,
   buildSearch,
   buildSelect,
-  checkFromEvent,
-  markChecks,
   matchEquals,
   matchInArray,
   matchIncludes,

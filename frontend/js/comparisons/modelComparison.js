@@ -3,9 +3,11 @@
 // The preset, not the widget: what makes recordComparison.js a comparison of *models* — the
 // specification fields the details panel shows, and where a model's scores come from.
 
+import { suitesFromModel } from "../core/suites.js";
 import { loadModelBreakdown } from "../api/modelApi.js";
 import { MODEL_FIELDS } from "../schemas/modelSchema.js";
 import { fieldsForPanel } from "../schemas/schemaPanels.js";
+import { buildSuiteBadgeList } from "../components/badges.js";
 import { displayValue } from "../forms/fields.js";
 import { createRecordComparison } from "./recordComparison.js";
 
@@ -16,9 +18,29 @@ const MAX_MODELS = 6;
 
 // ─── DETAILS ─────────────────────────────────────────────────────────────────
 
+// Ahead of the specification, and off the breakdown rather than the schema: whose model this
+// is and what it has been scored on are what tell two rows apart before any number is read.
+const TEAM = "team_name";
+const TASK_SUITES = "task_suites";
+
+const OWN_ATTRIBUTES = [
+  { key: TEAM, label: "Team" },
+  { key: TASK_SUITES, label: "Task suites" },
+];
+
 // Every specification field, editable or not.
 function detailKeys() {
   return fieldsForPanel(MODEL_FIELDS, "specification", false);
+}
+
+function ownCells(detail) {
+  const suites = detail ? suitesFromModel(detail) : [];
+
+  return {
+    [TEAM]: { value: detail?.team_name ?? null },
+    // Empty markup for a model with no suites, which the grid draws as a dash.
+    [TASK_SUITES]: { html: buildSuiteBadgeList(suites, "sm") },
+  };
 }
 
 // Null until the fetch lands, which the grid draws as a dash.
@@ -32,16 +54,20 @@ function valueOf(detail, key) {
 
 const DETAILS = {
   // loadModelMeta fills MODEL_FIELDS in place, so this cannot be built at module load.
-  attributes: () =>
-    detailKeys().map((key) => ({
+  attributes: () => [
+    ...OWN_ATTRIBUTES,
+    ...detailKeys().map((key) => ({
       key,
       label: MODEL_FIELDS[key]?.label ?? key,
     })),
+  ],
 
-  cells: (pick) =>
-    Object.fromEntries(
+  cells: (pick) => ({
+    ...ownCells(pick.detail),
+    ...Object.fromEntries(
       detailKeys().map((key) => [key, { value: valueOf(pick.detail, key) }]),
     ),
+  }),
 };
 
 // ─── PICKS ───────────────────────────────────────────────────────────────────

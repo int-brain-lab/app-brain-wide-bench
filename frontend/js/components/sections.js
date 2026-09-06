@@ -8,8 +8,10 @@
 // Sections have stable ids so views can render into them without owning the surrounding
 // page markup.
 
+import { resolveContainer } from "../core/dom.js";
 import { escapeHtml } from "../core/html.js";
 import { getElement } from "../core/render.js";
+import { getIcon } from "./icons.js";
 
 export const TITLE_ID = "title";
 export const DESCRIPTION_ID = "description";
@@ -124,28 +126,50 @@ function buildPage({
 
 // ─── SECTIONS ────────────────────────────────────────────────────────────────
 
+// The section a title turns off and on, by id.
+const COLLAPSE = "collapse";
+
 /**
- * @param controls markup to sit beside the heading rather than out at the end of the row —
- *                 for a control the title reads into ("Ranked over" and the suites it is
- *                 ranked over), where the gap of an action row would break the sentence.
- *                 `actions` is still the far end of the same row.
+ * @param controls    markup to sit beside the heading rather than out at the end of the row —
+ *                    for a control the title reads into ("Ranked over" and the suites it is
+ *                    ranked over), where the gap of an action row would break the sentence.
+ *                    `actions` is still the far end of the same row.
+ * @param collapsible the title turns the body off and on. Needs attachCollapse on an
+ *                    ancestor, once — the arrow is markup and the listener is not.
  */
 function buildSection({
   id,
   title = "",
+  description = "",
   controls = "",
   actions = [],
   className = "",
   hidden = false,
+  collapsible = false,
 }) {
-  const heading = `<h2 class="section-title">${escapeHtml(title)}</h2>`;
+  const heading = collapsible
+    ? `
+      <button
+        type="button"
+        class="section-toggle row left gap-sm"
+        data-${COLLAPSE}="${escapeHtml(id)}"
+        aria-expanded="true"
+      >
+        <h2 class="section-title">${escapeHtml(title)}</h2>
+        <i class="field-icon" data-lucide="${escapeHtml(getIcon("down"))}"></i>
+      </button>
+    `
+    : `<h2 class="section-title">${escapeHtml(title)}</h2>`;
 
   const header = title
     ? `
+    <div class="column gap-xs">
       <div class="row">
         ${controls ? `<div class="row left gap-lg">${heading}${controls}</div>` : heading}
         ${actions.length ? buildActions(actions) : ""}
       </div>
+      ${description ? `<p class="section-description">${escapeHtml(description)}</p>` : ""}
+     </div>  
     `
     : "";
 
@@ -211,6 +235,33 @@ function buildSections(sections = []) {
     .join("");
 }
 
+// ─── COLLAPSING ──────────────────────────────────────────────────────────────
+
+/**
+ * Let every collapsible title under `container` turn its own section off and on.
+ *
+ * Delegated and attached once: a section's body is written and rewritten by whoever owns it,
+ * and the state lives on the section itself, so what is collapsed survives a redraw.
+ *
+ * @param container element, or the id of one, holding the sections.
+ */
+function attachCollapse(container) {
+  resolveContainer(container).addEventListener("click", (event) => {
+    // `closest`, not the target: the click lands on the arrow or the title inside the button.
+    const toggle = event.target?.closest?.(`[data-${COLLAPSE}]`);
+
+    if (!toggle) return;
+
+    const section = getSection(toggle.dataset[COLLAPSE]);
+
+    if (!section) return;
+
+    const collapsed = section.classList.toggle("collapsed");
+
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+  });
+}
+
 // ─── DOM ACCESS ──────────────────────────────────────────────────────────────
 
 function getSection(id) {
@@ -222,6 +273,7 @@ function getSectionBody(id) {
 }
 
 export {
+  attachCollapse,
   buildHeader,
   buildSubtitle,
   buildTitleBadges,

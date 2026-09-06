@@ -104,25 +104,28 @@ a {
   /* Spacing */
   --gap-xs: 2px;
   --gap-sm: 4px;
+  --gap-ff: 8px;
   --gap-md: 1em;
   --gap-lg: 32px;
   --gap-xl: 64px;
 }
 
+/*// TODO UPDATE THIS*/
 .gap-xs {
   gap: var(--gap-xs);
 }
 .gap-sm {
   gap: var(--gap-sm);
 }
+
+.gap-ff {
+  gap: var(--gap-ff);
+}
 .gap-md {
   gap: var(--gap-md);
 }
 .gap-lg {
   gap: var(--gap-lg);
-}
-.gap-xl {
-  gap: var(--gap-xl);
 }
 
 /* Stops grid/flex children stretching to the tallest in their row. The dashboard needs it:
@@ -327,10 +330,6 @@ SIDE NAVIGATION BAR
   border-top: 1px solid var(--border-color);
 }
 
-.divider {
-  border: none;
-  border-top: 3px solid var(--border-color);
-}
 
 /*----------------------------------------------------------------------------------------
 USER LOGO
@@ -436,38 +435,6 @@ SECTIONS
   margin-bottom: 50px;
 }
 
-/*----------------------------------------------------------------------------------------
-MODEL OVERVIEW
---------------------------------------------------------------------------------------*/
-.model-overview {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  grid-template-rows: 3fr 1fr;
-  grid-template-areas:
-    "scores details"
-    "stats details";
-  gap: 2rem;
-  padding: 10px 30px;
-}
-
-.model-stats {
-  grid-area: stats;
-  display: flex;
-}
-.model-scores {
-  grid-area: scores;
-  display: grid;
-}
-.model-details {
-  grid-area: details;
-  display: flex;
-}
-
-.model-card {
-}
-
-.model-stats {
-}
 
 /*----------------------------------------------------------------------------------------
 GRIDS, COLUMNS AND ROWS
@@ -510,9 +477,6 @@ GRIDS, COLUMNS AND ROWS
   justify-content: flex-end;
 }
 
-.push-end {
-  margin-top: auto;
-}
 
 .grid-2 {
   display: grid;
@@ -545,17 +509,6 @@ GRIDS, COLUMNS AND ROWS
   gap: var(--gap-md);
 }
 
-.grid-8 {
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: var(--gap-md);
-}
-
-.grid-row-4 {
-  display: grid;
-  grid-template-rows: repeat(4, minmax(0, 1fr));
-  gap: var(--gap-lg);
-}
 
 .stats-grid {
   display: grid;
@@ -590,6 +543,11 @@ GRIDS, COLUMNS AND ROWS
 .section-row.ratio-4 {
   grid-auto-flow: row;
   grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+}
+
+.section-row.ratio-6 {
+  grid-auto-flow: row;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 5fr);
 }
 
 /* The chain that carries the row's height down to the card, so two sections sharing a row
@@ -640,18 +598,6 @@ CREATE CARD
   color: var(--primary-dark);
 }
 
-/* Table view: a strip the width of the table rather than a card — shorter than the grid
-   variant, and rounded on all four corners.
-
-   It used to be square-topped and pulled up a pixel, to meet the table's bottom edge. That
-   was wrong about the layout: createFilterableTable renders the row count *below* its grid,
-   and the strip is a sibling of that whole block, so the edge it was butting against was
-   the count paragraph rather than the table. Rounded and spaced off it instead. */
-.create-card.as-row {
-  min-height: 0;
-  padding: 10px 16px;
-  margin-top: var(--gap-md);
-}
 
 /* The filter bar over a list page's two views — templates/list-page.js. It has a container
    of its own above the list, rather than the one inside the table root that used to hold it
@@ -773,19 +719,6 @@ CARDS
   border-color: transparent;
 }
 
-/* A card standing for one series on a chart: the colour is set inline, since it is the one
-   the palette handed that selection, and the card is only the place it is shown. */
-.series-card {
-  border-left: 4px solid var(--border-color);
-}
-
-.series-dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex: none;
-}
 
 /* A responsive canvas measures its parent, so the parent needs a height of its own —
    without one they measure each other and the chart collapses to nothing. */
@@ -794,56 +727,17 @@ CARDS
   width: 100%;
 }
 
-/* One panel of a faceted chart. The gap is small on purpose: the panels share an axis and
-   are read as one figure, and a wide gap would make them look like separate charts. */
-.chart-facet + .chart-facet {
-  margin-top: 8px;
-}
+/*!* One panel of a faceted chart. The gap is small on purpose: the panels share an axis and*/
+/*   are read as one figure, and a wide gap would make them look like separate charts. *!*/
+/*.chart-facet + .chart-facet {*/
+/*  margin-top: 8px;*/
+/*}*/
 
-/* Small multiples: one panel per score, three across. Fixed rather than `auto-fit` so the
-   six a comparison holds are always two even rows — a wrapping count leaves a row of one
-   at some widths, which reads as a panel that didn't belong with the others.
-
-   `minmax(0, 1fr)` and not `1fr`: a canvas measures its column, and an `auto` minimum lets
-   it measure itself instead and grow on every redraw. */
-.chart-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--gap-md);
-}
-
-/* Inside the grid the panels are separate figures, so the stacking margin would only
-   double the gap. */
-.chart-grid .chart-facet + .chart-facet {
-  margin-top: 0;
-}
-
-/* Each plot as wide as the categories it holds, in a grid of category-wide tracks — see
-   plots/modelPlots.js, where a plot is one task and so one track.
-
-   A grid rather than a flex row, and tracks rather than percentages: the gaps come out of the
-   grid's own accounting, so a line's spans add up to exactly the line. `--plot-tracks` is what
-   a full line holds, set by arrangePlots, so the busiest plots fill one line and the lighter
-   ones wrap under them at the same width per category rather than stretching to fill.
-
-   `minmax(0, 1fr)` and not `1fr`: a canvas measures its column, and an `auto` minimum lets it
-   measure itself instead and grow on every redraw.
-
-   Left-aligned, and the space arrangePlots' cap leaves over stays on the right: a plot is a
-   track wide wherever it is, so two of them start where a full line's worth would and the
-   figure grows rightwards as tasks are added rather than shuffling under the heading.
-   `width: 100%` is what the max-width is a cap on, where arrangePlots sets one; a caller
-   laying out its own tracks sets none and takes the whole line. */
-.chart-weighted {
-  display: grid;
-  grid-template-columns: repeat(var(--plot-tracks, 1), minmax(0, 1fr));
-  gap: var(--gap-md);
-  width: 100%;
-  margin-inline-end: auto;
-}
-
-.chart-weighted .chart-facet + .chart-facet {
-  margin-top: 0;
+/* A plot in a card sits at the foot of it. The cards across a row already stretch to the
+   tallest of them, so without this one whose header wraps to a second line draws its plot
+   lower than its neighbours', and the axes no longer line up across the row. */
+.card > .chart-facet {
+  margin-top: auto;
 }
 
 /* While the plots are a way into one task, each is a control rather than a picture — see the
@@ -858,35 +752,17 @@ CARDS
   background: var(--surface-secondary);
 }
 
-/* The plot the panel below is about: a wash like a picked card's, and the edge along the
-   bottom rather than the side, since what it is joined to is underneath it. No
-   `--pick-ink` — a plot here is a task, where that colour belongs to a model. */
-.chart-pickable .chart-facet.selected {
-  background: var(--primary-light);
-  box-shadow: inset 0 -2px 0 var(--primary);
+/* The plot the panel below is about. The plot is a card, so the mark is that card's own
+   border drawn heavier — not the wash and coloured edge a picked card takes, which stand for
+   a record's colour, where this is a task.
+
+   An inset ring rather than a wider border: `border-width` would take 1px off the inside of
+   the card, and the canvas measures that. */
+.chart-pickable .card.selected {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--text-muted);
 }
 
-/* Two across, for plots that are read closely: the overlaid comparison, where one plot
-   holds every selected score. Fixed at two rather than `auto-fit`, because the point is the
-   width each plot gets, not how many fit — and below the floor they wrap to one. */
-.chart-pair {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(320px, 1fr));
-  gap: var(--gap-md);
-}
-
-.chart-pair .chart-facet + .chart-facet {
-  margin-top: 0;
-}
-
-/* The row whose breakdown is open below the board. Outside compare mode nothing is
-   selected, so there is no highlight of Tabulator's own to borrow.
-
-   On the cells, because a Tabulator row is painted by them — see `.tabulator-selected`
-   further down, where the same rule applies for the same reason. */
-.tabulator .tabulator-row.row-open .tabulator-cell {
-  background: var(--surface-secondary);
-}
 
 /* A comparison's own rows, marked in the colour the thing is drawn in elsewhere: the same 3px
    edge the picked row carries in the table it came from. Transparent by default, so a grid
@@ -953,22 +829,21 @@ CARDS
   margin-top: var(--gap-lg);
 }
 
-/* A comparison of attributes. An attribute every thing answers the same way recedes, so what
-   is left standing is the difference — the only thing that makes six near-identical sets of
-   metadata readable. Which axis the things go on is the caller's; the muting reads the same
-   either way, because the classes go on the attribute's own label and cells. */
-.comparison-grid th[scope="row"] {
-  text-align: left;
+/* A comparison of attributes, read as metadata throughout: the grid states what each thing
+   is, beside the plots that state how it did. Which axis the things go on is the caller's.
+
+   Both classes, because the wrapper is a `.table` too and `.table th`/`.table td` set a size
+   and a weight of their own — at the same specificity as `.comparison-grid th` and later in
+   this file, so they win a tie. */
+.table.comparison-grid th,
+.table.comparison-grid td {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
   font-weight: normal;
 }
 
-.comparison-grid td.agrees,
-.comparison-grid th.agrees {
-  color: var(--text-muted);
-}
-
-.comparison-grid th.differs {
-  font-weight: var(--bold);
+.comparison-grid th[scope="row"] {
+  text-align: left;
 }
 
 /* Turned: the things across the top, one attribute per row. Their headers hold a chip rather
@@ -1027,46 +902,19 @@ CARDS
   justify-content: center;
 }
 
-/*.card.ts1 {*/
-/*  border-color: transparent;*/
-/*  background: var(--ts1-light);*/
-/*}*/
-
-/*.card.ts2 {*/
-/*  border-color: transparent;*/
-/*  background: var(--ts2-light);*/
-/*}*/
-
-/*.card.ts3 {*/
-/*  border-color: transparent;*/
-/*  background: var(--ts3-light);*/
-/*}*/
-
-/*----------------------------------------------------------------------------------------
-TEXT UTILS
---------------------------------------------------------------------------------------*/
-
-.details-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border-color);
+.card.ts1 {
+  border-color: transparent;
+  background: var(--ts1-light);
 }
 
-.details-row:last-child {
-  border-bottom: none;
+.card.ts2 {
+  border-color: transparent;
+  background: var(--ts2-light);
 }
 
-.details-label {
-  /*color: var(--text-muted);*/
-  font-size: var(--font-sm);
-  font-weight: var(--bold);
-}
-
-.details-value {
-  font-size: var(--font-sm);
-  text-align: right;
+.card.ts3 {
+  border-color: transparent;
+  background: var(--ts3-light);
 }
 
 /*----------------------------------------------------------------------------------------
@@ -1086,14 +934,6 @@ HEADERS
   margin-top: 10px;
 }
 
-.section-header {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--gap-sm);
-  margin-bottom: 20px;
-}
 
 /*----------------------------------------------------------------------------------------
 GENERIC TEXT
@@ -1114,14 +954,32 @@ GENERIC TEXT
   line-height: 1.2;
 }
 
-.page-description {
-  font-size: var(--font-lg);
-  color: var(--text-muted);
-}
 
 .section-title {
   font-size: var(--font-xl);
   font-weight: var(--xbold);
+}
+
+/* A title that turns its own section off and on. A button of its own making: no chrome, so
+   the row reads as the heading it is, with the arrow the only sign it can be pressed. */
+.section-toggle {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Turned to point along the closed section rather than down into it. On the svg lucide leaves
+   behind, which keeps the class it replaced. */
+.page-section.collapsed .section-toggle .field-icon {
+  transform: rotate(-90deg);
+}
+
+.page-section.collapsed > .section-body {
+  display: none;
 }
 
 .section-description {
@@ -1343,22 +1201,6 @@ GENERIC TEXT
   font-weight: var(--bold);
 }
 
-/*.ts1-bg { background: var(--ts1-light); border-color: transparent;}*/
-/*.ts2-bg { background: var(--ts2-light);  border-color: transparent; }*/
-/*.ts3-bg { background: var(--ts3-light);  border-color: transparent; }*/
-
-.ts1-bg {
-  border-color: var(--ts1-light);
-  border-width: 6px;
-}
-.ts2-bg {
-  border-color: var(--ts2-light);
-  border-width: 6px;
-}
-.ts3-bg {
-  border-color: var(--ts3-light);
-  border-width: 6px;
-}
 
 .info-msg {
   color: var(--text-muted);
@@ -1375,8 +1217,8 @@ GENERIC TEXT
 
 /* Message cards: one skeleton, four meanings. Each fills the slot the content it stands in
    for would have taken, so none carries an outer margin — the section around it spaces it.
-   .info-msg and .error-msg below stay text-only, for a line inside a page rather than a
-   block standing in its place. */
+   .info-msg below stays text-only, for a line inside a page rather than a block standing in
+   its place. */
 .empty-msg,
 .success-msg,
 .warn-msg,
@@ -1391,7 +1233,6 @@ GENERIC TEXT
 }
 
 .info-msg p,
-.error-msg p,
 .empty-msg p,
 .success-msg p,
 .warn-msg p,
@@ -1440,12 +1281,6 @@ GENERIC TEXT
   overflow-wrap: anywhere;
 }
 
-.error-msg {
-  color: #b42318;
-  font-size: var(--font-md);
-  font-weight: var(--bold);
-  margin: 0;
-}
 
 /* A page that failed before it could render anything: this is the whole content area, not a
    line inside a page, so it is sized and spaced to stand alone. The tint is the danger
@@ -1531,10 +1366,13 @@ BADGES
   font-size: var(--font-xs);
 }
 
-.badge.xs {
-  padding: 1px 4px;
-  font-size: var(--font-xxs);
+.badge.md {
+  padding: 2px 6px;
+  font-size: var(--font-sm);
 }
+
+
+
 
 /* Task badges */
 .badge.ts1 {
@@ -1585,6 +1423,80 @@ BADGES
   color: var(--text-muted);
   border-color: var(--border-color);
   font-size: var(--font-xs);
+}
+
+/* A badge that is a control — the metric a mean plot is read in. A button inherits neither
+   the page font nor a pointer, so both are set here. */
+button.badge {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* The one being read, marked the way a tab is. */
+.badge.metric.on {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* The filters and the button that folds them, three to a row with the button last: unfolded it
+   ends the last row of controls, folded it ends the only one. */
+.filter-flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--gap-md);
+}
+
+/* A column of its own for the button, so the three lead controls keep the full width beside
+   it. */
+.filter-flow.compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+}
+
+/* Folded controls keep their place in the DOM: a pinned value is read back off them. */
+.filter-flow > .folded {
+  display: none;
+}
+
+/* Its own width in either layout, rather than the third of a row its cell holds. */
+.filter-flow > .btn {
+  justify-self: start;
+}
+
+/* A pinned select shows its placeholder at rest — a pin resets it — so what it displays is
+   only ever the field's name, standing in for the label a filter would otherwise carry above
+   it. Muted in the list too, where it is the one entry that picks nothing; the values
+   themselves keep the text colour. */
+.input-select.pinned {
+  color: var(--text-muted);
+}
+
+.input-select.pinned option:not([value=""]) {
+  color: var(--text-color);
+}
+
+/* The select that adds one task, under the suite badges it sits with: rounded and grey, so it
+   reads as one of them rather than as a field to fill in. */
+.task-select .input-select {
+  border-radius: var(--radius-xl);
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+}
+
+/* A badge standing for a set of things, pressed to take the whole set on or off — see
+   buildBadges. Faded while none of the set is chosen, solid once some of it is, and closed
+   with a border of its own colour once all of it is. */
+.badge.toggle {
+  opacity: 0.5;
+}
+
+.badge.toggle.on,
+.badge.toggle.partial {
+  opacity: 1;
+}
+
+.badge.toggle.on {
+  border-color: currentColor;
 }
 
 .badge.visible {
@@ -1778,9 +1690,6 @@ table {
 .table th.rank {
   width: 50px;
 }
-.table th.num {
-  width: 80px;
-}
 
 /* Table rows */
 .table tr:hover,
@@ -1919,14 +1828,6 @@ table {
   cursor: pointer;
 }
 
-/*----------------------------------------------------------------------------------------
-TABS
---------------------------------------------------------------------------------------*/
-.tab-row {
-  display: flex;
-  border-bottom: 1px solid var(--border-color);
-  margin-bottom: 20px;
-}
 
 .tab {
   padding: 8px 20px;
@@ -1964,12 +1865,6 @@ BARS
   height: 6px;
 }
 
-/* The comparison overview, where the bars are the section rather than a detail beside a
-   suite badge. After .bar-track and .bar deliberately: same specificity, so source order
-   is what lets it win the height. */
-.thick-bar {
-  height: 12px;
-}
 
 .bar.ts1 {
   background: var(--ts1);
@@ -2159,17 +2054,6 @@ WIZARD
   align-items: start;
 }
 
-.wizard-panel {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: #fff;
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: var(--gap-lg);
-}
 
 /* A panel on the single-page create form (js/models/modelCreate.js), which shows every
    panel at once and locks the ones below the point the user has reached.
@@ -2194,73 +2078,12 @@ WIZARD
   opacity: 50%;
 }
 
-.wizard-step {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 0;
-  font-size: var(--font-md);
-  color: var(--text-muted);
-}
-
-.wizard-step-icon {
-  position: relative;
-
-  width: 26px;
-  height: 26px;
-  flex-shrink: 0;
-
-  display: grid;
-  place-items: center;
-
-  border: 1.5px solid var(--border-color);
-  border-radius: 50%;
-
-  background: #fff;
-  color: var(--text-muted);
-
-  font-size: var(--font-md);
-  font-weight: 600;
-}
-
-.wizard-step:not(:last-child) .wizard-step-icon::after {
-  content: "";
-  position: absolute;
-
-  top: calc(100% + 2px);
-  left: 50%;
-  transform: translateX(-50%);
-
-  width: 2px;
-  height: 22px;
-
-  background: var(--border-color);
-}
 
 /* ─── Current step ───────────────────────────────────────────── */
 
-.wizard-step.current {
-  color: var(--text-color);
-  font-weight: var(--bold);
-}
-
-.wizard-step.current .wizard-step-icon {
-  border-color: var(--primary);
-  color: var(--primary-dark);
-}
 
 /* ─── Completed step ─────────────────────────────────────────── */
 
-.wizard-step.done {
-  cursor: pointer;
-  color: var(--text-color);
-}
-
-.wizard-step.done .wizard-step-icon {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-}
 
 /* This is the round icon which can be reused */
 .task-status {
@@ -2339,43 +2162,11 @@ WIZARD
   white-space: nowrap;
 }
 
-/* The modal backdrop (`.task-popup`/`.popup`), its `.popup-card`, and the `.match-list`
-   pair went with the submit wizard's add-task dialog — team creation is its own page
-   (html/teams/team_create.html), so nothing renders a modal any more.
-   `.modal-close` stays: teamCreate.js borrows it for the remove-member buttons on its
-   member chips, which is the only thing left using it. */
-.modal-close {
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 22px;
-  line-height: 1;
-  color: var(--text-muted);
-}
 
 /*----------------------------------------------------------------------------------------
 COMPARISON
 --------------------------------------------------------------------------------------*/
 
-/* A fixed width, not a flex share: it is what makes the bars beside it start at the same
-   x and so be readable as a chart rather than as five unrelated rows. The score gets the
-   same treatment at the other end, so they all finish level too. */
-.model-bar-label {
-  width: 220px;
-  flex: none;
-}
-
-.model-bar-score {
-  width: 80px;
-  flex: none;
-  text-align: right;
-}
-
-/* The rows share one card now, so a model with nothing scored dims by itself rather than
-   through .card.disabled. */
-.model-bar.disabled {
-  opacity: 60%;
-}
 
 /* .input-select is width:100%, which in a flex row beside its label would swallow the rest
    of the line. The wrapper is what gives it a size to be 100% of. */
@@ -2392,13 +2183,13 @@ COMPARISON
   display: inline-flex;
   align-items: center;
   gap: var(--gap-sm);
-
   flex: none;
-  padding: 4px 6px 4px 12px;
+  padding: 1px 2px 1px 4px;
   border: 1px solid var(--border-color);
   border-radius: 999px;
   background: var(--surface);
   font-size: var(--font-xs);
+  font-weight: var(--bold);
   white-space: nowrap;
 }
 
@@ -2444,6 +2235,23 @@ COMPARISON
   display: none;
 }
 
+/* The tasks a board is ranked over, beside the suites that tick them. It takes what the
+   suites leave and wraps within itself; without a floor of its own a flex item will not
+   shrink below its content, so a long row of chips would drop the whole column below the
+   suites instead. */
+.task-choice {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The chips and the select that adds one are one wrapping row. The slot the chips are written
+   into, and the row they are written as, have no box of their own here — otherwise the select
+   follows the whole block of chips onto a line of its own rather than the last of them. */
+.task-choice [data-role="task-pins"],
+.task-choice .pins {
+  display: contents;
+}
+
 /* A chip with nothing after its label — a grid heading, where taking the thing out belongs to
    the row above rather than to every reading of it. Even padding, since there is no ✕ on the
    right bringing its own. */
@@ -2474,16 +2282,6 @@ COMPARISON
   opacity: 60%;
 }
 
-/* A rank sits beside scores in the same row, and both are numbers to two or three places.
-   The weight is what stops the reader having to check the column heading to know which
-   kind of number they are looking at. */
-.rank-value {
-  font-weight: var(--bold);
-}
-
-.tabulator .tabulator-cell.rank-cell {
-  background: var(--surface-secondary);
-}
 
 /* Which way a difference went. Green is the primary green rather than a fresh one, so the
    page has one "better" colour; the red is the same as .task-item.invalid. */
