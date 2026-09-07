@@ -70,7 +70,7 @@ function showGate(signedIn) {
 function showSignInPrompt(container, message) {
   container.innerHTML = `
     <div class="card sign-in-card">
-      <div class="column gap-md">
+      <div class="column gap-lg">
         <p>${escapeHtml(message)}</p>
         <button class="btn primary" data-role="login">Sign in</button>
       </div>

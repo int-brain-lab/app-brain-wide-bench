@@ -1,9 +1,9 @@
 // Chart.js, as table.js is Tabulator.
 //
-// The Chart.js instance, the house defaults and the custom plugins. The plot kinds above it
-// — bar.js, scatter.js — supply the datasets and the marks. Nothing here knows what a
-// recording or a task is, and colours always come from the caller, so a plot and the UI
-// naming its series cannot disagree.
+// The Chart.js instance, the house defaults and the custom plugins. The plot kind above it —
+// bar.js — supplies the datasets and the marks. Nothing here knows what a recording or a task
+// is, and colours always come from the caller, so a plot and the UI naming its series cannot
+// disagree.
 
 import { resolveContainer } from "../core/dom.js";
 import { score } from "../core/utils.js";
@@ -12,7 +12,6 @@ import { score } from "../core/utils.js";
 
 const AXIS = "#666";
 const GRID_INK = "#ededed";
-const SURFACE = "#fff";
 const SEM_INK = "#1a1a1a";
 
 const ERROR_BAR_CAP = 3;
@@ -296,22 +295,20 @@ function createCategoryChart({
       scales: {
         x: {
           type: "category",
-          title: { display: Boolean(xAxisLabel), text: xAxisLabel, color: AXIS },
-          // Chart.js draws the tick marks from the grid config, so `drawOnChartArea` is what
-          // keeps the vertical gridlines away — `grid.display: false` takes the marks too.
-          grid: {
-            display: true,
-            drawOnChartArea: false,
-            drawTicks: true,
-            tickLength: 4,
-            tickColor: AXIS,
-            // Chart.js puts a bar chart's marks between the categories, which reads as a
-            // boundary rather than as the bar's own. The scale keeps its own `offset`, so
-            // the end bars are still drawn whole.
-            offset: false,
+
+          // Tight to the axis: the label is the only thing under it.
+          title: {
+            display: Boolean(xAxisLabel),
+            text: xAxisLabel,
+            color: AXIS,
+            padding: 0,
           },
+
+          // Nothing under the axis but the label: no gridlines, and no marks either.
+          grid: { display: false },
           ticks: {
             color: AXIS,
+            padding: 0,
             minRotation: xTickRotation,
             maxRotation: xTickRotation,
             // autoSkip drops labels by width, which moves them as the panel resizes.
@@ -333,4 +330,4 @@ function createCategoryChart({
   return { element, chart };
 }
 
-export { AXIS, GRID_INK, SEM_INK, SURFACE, createCategoryChart };
+export { AXIS, GRID_INK, SEM_INK, createCategoryChart };

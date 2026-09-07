@@ -1,8 +1,8 @@
 // What recordComparison.js draws: one plot per task, a bar per compared record.
 
 import { createBarPlot } from "./bar.js";
-import {buildMetricBadge, buildSuiteBadgeList, buildTaskBadge} from "../components/badges.js";
-import {suiteFromTask, taskLabel} from "../core/suites.js";
+import { buildMetricBadge, buildTaskBadge } from "../components/badges.js";
+import { suiteFromTask, taskLabel } from "../core/suites.js";
 
 /**
  * One task as a plot: a bar per record.
@@ -11,6 +11,7 @@ import {suiteFromTask, taskLabel} from "../core/suites.js";
  * @param categories    the records' keys, in the order the axis holds them.
  * @param categoryLabel (key) => what a tooltip calls that record.
  * @param yRange        { min, max } the plot spans, shared with the tasks it is comparable to.
+ * @param task          the task id, which names the card over the plot.
  * @param height        in px.
  * @returns { element, chart }.
  */
@@ -38,21 +39,17 @@ function createTaskPlot({
 
   const element = document.createElement("div");
 
-  element.className = "card column gap-md";
+  element.className = "card column gap-lg";
   element.innerHTML = `
     <div class="row gap-sm">
       <span>${buildMetricBadge(series.metric)}</span>
+      <span>${buildTaskBadge(taskLabel(task), suiteFromTask(task), "sm")}</span>
     </div>
   `;
 
   // The node, not its markup: the chart is bound to the canvas inside it, and a copy of the
   // markup is a blank canvas.
   element.appendChild(plot.element);
-
-  const la = document.createElement("div");
-  la.className = "row";
-  la.innerHTML = buildTaskBadge(`${suiteFromTask(task).toUpperCase()} ${taskLabel(task)}`, suiteFromTask(task), "sm")
-  element.appendChild(la);
 
   return { element, chart: plot.chart };
 }

@@ -424,7 +424,7 @@ function buildPanelCard(panelGroup, values, fields, buildRun) {
   const { title, keys, inline, columns } = panelGroup;
 
   return `
-    <div class="card column gap-md">
+    <div class="card column gap-lg">
       ${title ? `<p class="title muted">${escapeHtml(title)}</p>` : ""}
       ${wrapColumns(buildRun(keys, values, fields, inline), columns)}
     </div>
@@ -434,7 +434,7 @@ function buildPanelCard(panelGroup, values, fields, buildRun) {
 // One card per panel, which is how a read-only view and its edit form share one layout.
 function buildPanelCards(panelGroups, values, fields, buildRun) {
   return `
-    <div class="column gap-lg">
+    <div class="column gap-xl">
       ${panelGroups
         .map((panelGroup) =>
           buildPanelCard(panelGroup, values, fields, buildRun),

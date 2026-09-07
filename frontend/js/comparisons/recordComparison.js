@@ -8,16 +8,13 @@
 //
 // Everything else is shared between record types.
 //
-// The comparison has three views:
+// The comparison is two panels beside each other:
 //
-//   Details     one column per record
-//   Breakdown   scores for every task
-//   Difference  scores relative to a selected baseline
+//   Breakdown   scores for every task, or their distance from a baseline once one is chosen
+//   Details     one column per record, ending in the methodology of the selected task
 //
-// Breakdown and Difference can be shown as plots or a table. The Details panel can also be
-// docked below the score panels.
-//
-// A task selected from either score plot is shown in a task comparison below the panels.
+// Breakdown can be shown as plots or a table, and the task last picked out of it is read
+// closely beside them once the scores breakdown is open.
 //
 // Three rules the scores obey throughout:
 //
@@ -30,23 +27,33 @@
 //      own. A comparator scoring something it never attempted shows as "—" in its column.
 
 import { disposeAll } from "../core/disposable.js";
-import { escapeHtml } from "../core/html.js";
+import { resolveContainer } from "../core/dom.js";
 import { getElement, refreshIcons, renderHtml } from "../core/render.js";
-import { SUITES, suiteFromTask, suiteLabel } from "../core/suites.js";
+import { metricLabel, suiteFromTask, taskLabel } from "../core/suites.js";
+import { TASK_FIELDS } from "../schemas/taskSubmissionSchema.js";
 import { withRanges } from "../plots/series.js";
 import { createTaskPlot } from "../plots/recordPlots.js";
+import { buildMetricBadge, buildTaskBadge } from "../components/badges.js";
+import { SCORE_RANGE } from "../plots/taskScorePlots.js";
 import { SERIES_COLOURS } from "../plots/palette.js";
-import { createCompareTable } from "../tables/compareTable.js";
+import { buildDiff, buildMeanSem } from "../tables/formatters.js";
 import {
   TABLE_VIEW,
   PLOT_VIEW,
+  buildButton,
   buildPlotTableToggle,
+  setButtonLabel,
 } from "../components/buttons.js";
+import { getIcon } from "../components/icons.js";
 import {
   buildComparisonGrid,
   buildPicks,
   dropFromClick,
 } from "../components/comparisonGrid.js";
+import {
+  methodologyCells,
+  methodologyColumns,
+} from "../components/methodologyGrid.js";
 import { buildOptions, buildSelect } from "../components/filters.js";
 import { buildEmptyMessage, buildInfoMessage } from "../components/messages.js";
 import {
@@ -54,46 +61,82 @@ import {
   getSection,
   getSectionBody,
 } from "../components/sections.js";
-import {
-  createSectionStack,
-  createTabDock,
-} from "../components/tabDock.js";
 import { createComparison } from "./comparison.js";
-import { createTaskComparison } from "./taskScoreComparison.js";
+import {
+  buildRecordingsToggle,
+  createTaskComparison,
+} from "./taskScoreComparison.js";
 
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
 const DETAILS = "summary";
 const BREAKDOWN = "breakdown";
-const DIFFERENCE = "differences";
 
-
-// Every metric here runs 0 to 1, so every task in the breakdown is drawn against the same
-// span and any two can be read against each other.
-const SCORE_RANGE = { min: 0, max: 1 };
 
 const PICKS_ID = "compare-picks";
-const TASK_ID = "compare-task";
 
-// The breakdown leads, which makes it the dock's anchor — it cannot be sent below the others.
-const TABS = [
-  { value: BREAKDOWN, label: "Breakdown" },
-  { value: DIFFERENCE, label: "Difference" },
-  { value: DETAILS, label: "Details" },
-];
+// The grid the details are drawn into, which is the picks' sibling rather than the section
+// body: both are written by different renders and neither may replace the other.
+const DETAILS_GRID_ID = "compare-details-grid";
+
+// The grid is on a wrapper rather than on the section body, whose own `display` is set by
+// the row it sits in — see `.section-row > .page-section > .section-body`.
+const LAYOUT_ID = "compare-plot-layout";
+
+const PLOTS_ID = "compare-plots";
+
+// The cell the task being read fills: its name, the mean of it in the chosen metric, and the
+// metrics it can be read in — the last two drawn by the task panel, which holds the scores.
+const PLOT_CELL_ID = "compare-plot-cell";
+const MEANS_ID = "compare-means";
+const METRICS_ID = "compare-metrics";
+const TASK_DETAIL_ID = "compare-task-detail";
+
+const SCORES_ID = "compare-scores-toggle";
+
+// The two view controls, one per state: every task drawn as plots or a table, or the one being
+// read drawn as bars or a heatmap.
+const TASK_VIEW_ID = "compare-task-view";
+const SCORE_VIEW_ID = "compare-score-view";
+
+const SHOW_SCORES = "See scores breakdown";
+const HIDE_SCORES = "See every task";
 
 
 // ─── DETAILS ─────────────────────────────────────────────────────────────────
 
-function buildDetails(picks, details, colourFor) {
+/**
+ * What each record is, and how it produced the score on one task.
+ *
+ * @param scoreFor (key) => that record's score on the task the methodology is read from, or
+ *                 null. Omit for a grid of the preset's own attributes alone.
+ */
+function buildDetails(picks, details, colourFor, scoreFor = null) {
+  const methodology = scoreFor ? methodologyColumns(TASK_FIELDS) : [];
+
   return buildComparisonGrid({
     layout: "columns",
-    attributes: details.attributes(),
+
+    // `trailing` reads under the methodology — a preset's own attributes that belong below
+    // the task's rather than above them.
+    attributes: [
+      ...details.attributes(),
+      ...methodology,
+      ...(details.trailing?.() ?? []),
+    ],
     entities: picks.map((pick) => ({
       label: pick.name,
       ink: colourFor(pick.key),
-      cells: details.cells(pick),
+      cells: {
+        ...details.cells(pick),
+        ...(scoreFor
+          ? methodologyCells({
+              record: scoreFor(pick.key),
+              fields: TASK_FIELDS,
+            })
+          : {}),
+      },
     })),
   });
 }
@@ -103,27 +146,17 @@ function buildDetails(picks, details, colourFor) {
 
 // One record — a model, a submission — reduced to its scores.
 //
-// The key and the name come off the picked row, so neither waits on a request; the team off
-// the fetched detail, which every response backing a comparison carries.
+// The key and the name come off the picked row, so neither waits on a request.
 //
 // `scores` is `{ task_id: { mean, sem, metric } }`, whichever endpoint answered it — a
 // leaderboard row's `scores` and a breakdown's `tasks` both. Anything else it carries rides
 // along unread.
-//
-// `suite` narrows them to one; omit it for every task the record has scored.
-function toRecord(pick, scores, suite = "") {
-  const tasks = Object.fromEntries(
-    Object.entries(scores ?? {}).filter(
-      ([taskId]) => !suite || suiteFromTask(taskId) === suite,
-    ),
-  );
-
+function toRecord(pick, scores) {
   return {
     key: pick.key,
     name: pick.name,
-    teamName: pick.detail?.team_name ?? null,
     // { "ts1-choice": { mean, sem, metric }, … }
-    tasks,
+    tasks: scores ?? {},
   };
 }
 
@@ -152,9 +185,9 @@ function scoredTasksIn(records) {
 
 // ─── MODES ───────────────────────────────────────────────────────────────────
 //
-// What a cell means, which is all that separates the breakdown from the differences: one
-// reads a record's score on a task, the other how far it is from the baseline's. The grid and
-// the plot of one comparison share a mode.
+// What a cell means: one reads a record's score on a task, the other how far it is from the
+// baseline's. Which is in force is the baseline select's answer. The grid and the plot of one
+// comparison share a mode.
 //
 // A mode is `{ valueOf, yAxisLabelOf, skip, yRange | yRangeKeyOf }`:
 //
@@ -168,7 +201,7 @@ function scoredTasksIn(records) {
 function scoreMode() {
   return {
     valueOf: (record, taskId) => record.tasks[taskId] ?? null,
-    yAxisLabelOf: (metric) => metric,
+    yAxisLabelOf: metricLabel,
     skip: null,
     yRange: SCORE_RANGE,
   };
@@ -196,32 +229,11 @@ function diffMode(records, baselineId) {
         ? { mean: other.mean - against.mean, sem: null }
         : null;
     },
-    yAxisLabelOf: (metric) => `Δ ${metric}`,
+    yAxisLabelOf: (metric) => `Δ ${metricLabel(metric)}`,
     skip: baselineId,
     // Differences are distances from one baseline, so every plot shares one range.
     yRangeKeyOf: () => "all",
   };
-}
-
-// ─── ROWS ────────────────────────────────────────────────────────────────────
-
-// One row per record, in the order given — pick order, never ranked.
-//
-// Tabulator binds a column to a field name, so each task id becomes a field, holding the whole
-// { mean, sem } for the cell to render and the sorter to read `.mean` off.
-function toCompareRows(records, scoredTasks, { valueOf, skip = null }) {
-  return records
-    .filter((record) => record.key !== skip)
-    .map((record) => ({
-      key: record.key,
-      name: record.name,
-      teamName: record.teamName,
-      isReference: record.isReference,
-      colour: record.colour,
-      ...Object.fromEntries(
-        scoredTasks.map(({ taskId }) => [taskId, valueOf(record, taskId)]),
-      ),
-    }));
 }
 
 // ─── SCORES ──────────────────────────────────────────────────────────────────
@@ -258,39 +270,13 @@ function toTaskSuiteGroups(tasks) {
   return [...groups.values()];
 }
 
-// The suites the picks have a score on, in SUITES order.
-function availableSuitesIn(scored) {
-  const suites = new Set(
-    scored
-      .flatMap(({ scores }) => Object.keys(scores))
-      .map(suiteFromTask)
-      .filter(Boolean),
-  );
-
-  return SUITES.filter((suite) => suites.has(suite));
-}
-
-function buildBar(label, name, options, selected) {
+// No label: the placeholder says what choosing one does, and says nothing once one is
+// chosen — see renderBaselineOptions.
+function buildBaselineSelect() {
   return `
-    <span id="${name}" class="row left gap-md">
-      <span class="metadata">${escapeHtml(label)}</span>
-      <span class="inline-select">
-        ${buildSelect({
-          name,
-          hook: "role",
-          options,
-          selected,
-        })}
-      </span>
+    <span id="baseline" class="inline-select baseline-select">
+      ${buildSelect({ name: "baseline", hook: "role", options: [] })}
     </span>`;
-}
-
-function buildSuiteSelect() {
-  return buildBar("Task suite", "suite", [], "");
-}
-
-function buildBaselineSelect(noun) {
-  return buildBar(`Select baseline ${noun}`, "baseline", [], "");
 }
 
 
@@ -307,13 +293,10 @@ function buildBaselineSelect(noun) {
  * @param readScores  (pick) => `{ [taskId]: { mean, sem, metric, … } }`. Null while the
  *                    pick's scores have not arrived, which skips it; `{}` where it scored
  *                    none, which keeps it and draws dashes. Called once per pick per render.
- * @param showSuites  whether the breakdown offers a suite select. Omit where the host has
- *                    already scoped the page to one.
- * @param referenceId the record the others are read against, badged "This model". Omit where
- *                    the host has no such record — a leaderboard's picks are six models with
- *                    no one of them the reader's own.
- * @param tabView     the panels behind a tab strip, one at a time. False stacks all three down
- *                    the page instead, for a host with room for them.
+ * @param fixedKeys   picks that cannot be taken out — the record a host opened on. Their
+ *                    chips are drawn without a ✕.
+ * @param picksContainer where the chips naming what is compared are drawn, for a host with a
+ *                    row of its own to put them in. Omit for the details panel's own.
  * @param options     as createComparison.
  * @returns the comparison — see createComparison.
  */
@@ -323,10 +306,8 @@ function createRecordComparison({
   max,
   details,
   readScores,
-  showSuites = true,
-  referenceId = "",
   fixedKeys = [],
-  tabView = true,
+  picksContainer = null,
   ...options
 }) {
   // Picks that cannot be taken out: their chips are drawn without a ✕.
@@ -340,40 +321,30 @@ function createRecordComparison({
   let comparison = null;
 
   let selectedView = PLOT_VIEW;
-  let selectedSuite = "";
   let selectedBaseline = "";
 
 
   let selectedRecords = [];
   let taskSuiteGroups = [];
-  let availableSuites = [];
 
   let breakdownCharts = [];
-  let differenceCharts = [];
 
   let selectedTask = "";
   let taskDetail = null;
 
-  const hasContent = () => heldCount() > 0;
-
-  const dock = tabView
-    ? createTabDock({
-        noun,
-        tabs: TABS,
-        container,
-        hasContent,
-        onChange: renderPanel,
-      })
-    : createSectionStack({ tabs: TABS, hasContent });
+  // One task read closely — its own plot, and the recordings behind it — rather than every
+  // task at a glance.
+  let showScores = false;
 
 
   // ─── STATE HELPERS ─────────────────────────────────────────────────────────
 
 
+  // Empty for the scores themselves. A baseline that has since been dropped is empty too.
   function getBaseline() {
     return selectedRecords.some((record) => record.key === selectedBaseline)
       ? selectedBaseline
-      : selectedRecords[0]?.key ?? "";
+      : "";
   }
 
 
@@ -383,23 +354,34 @@ function createRecordComparison({
       .map((pick) => ({ pick, scores: readScores(pick) }))
       .filter(({ scores }) => scores != null);
 
-    availableSuites = availableSuitesIn(scored);
-    const suite =
-      showSuites && availableSuites.includes(selectedSuite) ? selectedSuite : "";
-
     selectedRecords = scored.map(({ pick, scores }) => ({
-      ...toRecord(pick, scores, suite),
-      isReference: Boolean(referenceId) && pick.key === referenceId,
+      ...toRecord(pick, scores),
       colour: comparison.colourFor(pick.key),
     }));
 
 
     taskSuiteGroups = toTaskSuiteGroups(scoredTasksIn(selectedRecords));
+
+    // The first, so the details grid opens on a task rather than on five dashes. Only where
+    // the reader has not chosen one, and only where it is still scored.
+    if (!allTasks().some((task) => task.taskId === selectedTask)) {
+      selectedTask = allTasks()[0]?.taskId ?? "";
+    }
   }
 
   // The tasks flat, in the order the groups hold them — what the grids bind their columns to.
   function allTasks() {
     return taskSuiteGroups.flatMap((group) => group.tasks);
+  }
+
+
+  // Both of them at once, each hidden while there is nothing to compare.
+  function updateSections() {
+    for (const id of [BREAKDOWN, DETAILS]) {
+      const section = getSection(id);
+
+      if (section) section.hidden = !heldCount();
+    }
   }
 
 
@@ -409,6 +391,12 @@ function createRecordComparison({
     return comparison?.picks().length ?? 0;
   }
 
+
+  function getPicksRoot() {
+    return picksContainer
+      ? resolveContainer(picksContainer)
+      : getElement(PICKS_ID);
+  }
 
   function renderPicks() {
     const held = comparison
@@ -420,7 +408,7 @@ function createRecordComparison({
         }))
       : [];
 
-    renderHtml(getElement(PICKS_ID), buildPicks(held), { refresh: true });
+    renderHtml(getPicksRoot(), buildPicks(held), { refresh: true });
   }
 
 
@@ -448,48 +436,57 @@ function createRecordComparison({
     if (taskDetail) return taskDetail;
 
     taskDetail = createTaskComparison({
-      container: getSectionBody(TASK_ID),
+      container: getElement(TASK_DETAIL_ID),
       showPicks: false,
       nested: true,
+
+      // The task being read is drawn here rather than in the panel: its mean in the chosen
+      // metric, and the metrics it can be read in, under the name of the task itself.
+      meansContainer: MEANS_ID,
+      metricsContainer: METRICS_ID,
     });
 
     return taskDetail;
   }
 
   function markOpenPlot() {
-    for (const panel of [BREAKDOWN, DIFFERENCE]) {
-      const body = getSectionBody(panel);
+    const body = getSectionBody(BREAKDOWN);
 
-      for (const plot of body?.querySelectorAll("[data-plot]") ?? []) {
-        plot.classList.toggle(
-          "selected",
-          plot.dataset.plot === selectedTask,
-        );
-      }
+    for (const plot of body?.querySelectorAll("[data-plot]") ?? []) {
+      plot.classList.toggle("selected", plot.dataset.plot === selectedTask);
     }
   }
 
   function renderTaskDetail() {
-    const section = getSection(TASK_ID);
+    const panel = getElement(TASK_DETAIL_ID);
 
-    if (!section) return;
+    if (!panel) return;
 
     const picks = selectedTask ? toTaskPicks(selectedTask) : [];
 
     if (!picks.length) {
       selectedTask = "";
-      section.hidden = true;
+      panel.hidden = true;
       taskDetail?.clear();
       markOpenPlot();
 
       return;
     }
 
-    section.hidden = false;
+    panel.hidden = !showScores;
 
-    ensureTaskDetail().setPicks(picks);
+    if (showScores) ensureTaskDetail().setPicks(picks);
 
     markOpenPlot();
+  }
+
+  function renderScoresToggle() {
+    setButtonLabel(getElement(SCORES_ID), {
+      label: showScores ? HIDE_SCORES : SHOW_SCORES,
+      icon: getIcon(showScores ? "collapse" : "expand"),
+    });
+
+    refreshIcons();
   }
 
   function closeTaskDetail() {
@@ -502,10 +499,70 @@ function createRecordComparison({
 
   function clearCharts() {
     disposeAll(breakdownCharts);
-    disposeAll(differenceCharts);
 
     breakdownCharts = [];
-    differenceCharts = [];
+  }
+
+  // What the rows are read for, over the column of names.
+  function buildTaskCorner(task) {
+    return buildTaskBadge(
+      taskLabel(task.taskId),
+      suiteFromTask(task.taskId) ?? "",
+      "sm",
+    );
+  }
+
+  // A table per task, laid out where the plots are: the task heads the names, the metric heads
+  // the numbers, and the table is the whole of it.
+  function buildTaskTables(mode, baseline) {
+    const shown = selectedRecords.filter((record) => record.key !== mode.skip);
+
+    const element = document.createElement("div");
+
+    element.className = "grid-3 gap-lg";
+
+    for (const task of allTasks()) {
+      const cell = document.createElement("div");
+
+      cell.dataset.plot = task.taskId;
+
+      renderHtml(
+        cell,
+        buildComparisonGrid({
+          layout: "rows",
+          className: "task-scores",
+          corner: buildMetricBadge(
+                mode.yAxisLabelOf(task.metric || "score"),
+                "sm",
+              ),
+          attributes: [
+            {
+              key: task.taskId,
+              html: buildTaskCorner(task),
+            },
+          ],
+          entities: shown.map((record) => {
+            const value = mode.valueOf(record, task.taskId);
+
+            return {
+              label: record.name,
+              ink: record.colour,
+              cells: {
+                [task.taskId]: {
+                  html: baseline
+                    ? buildDiff(value?.mean ?? null)
+                    : buildMeanSem(value?.mean ?? null, value?.sem ?? null),
+                },
+              },
+            };
+          }),
+        }),
+      );
+
+      element.appendChild(cell);
+    }
+
+    return element;
   }
 
   // A plot per task, grouped by suite. The breakdown draws them all against the mode's own
@@ -529,7 +586,7 @@ function createRecordComparison({
     const element = document.createElement("div");
     const charts = [];
 
-    element.className = "grid-6";
+    element.className = "grid-3 gap-lg";
 
     for (const plot of plots) {
       const built = createTaskPlot({
@@ -538,7 +595,7 @@ function createRecordComparison({
         categoryLabel: (key) => names.get(key),
         yRange: plot.yRange,
         task: plot.id,
-        height: 100,
+        height: 120,
       });
 
       built.element.dataset.plot = plot.id;
@@ -550,8 +607,28 @@ function createRecordComparison({
     return { element, charts };
   }
 
+  // The scores, or how far each is from the baseline where one is chosen.
   function renderBreakdown() {
-    const section = getSectionBody(BREAKDOWN);
+    const section = getElement(PLOTS_ID);
+    const baseline = getBaseline();
+
+    // Reading one task: a column for its plot and the rest for the recordings beside it —
+    // see `.scores-rest`.
+    getElement(LAYOUT_ID).className = showScores ? "grid-3 gap-lg" : "";
+    getElement(TASK_DETAIL_ID).className = showScores ? "scores-rest" : "";
+
+    // Reading one task, the mean of it stands in for its card in the grid.
+    getElement(PLOTS_ID).hidden = showScores;
+
+    for (const id of [MEANS_ID, METRICS_ID]) {
+      getElement(id).hidden = !showScores;
+    }
+
+    // One task is read as it stands: against the others is the set's question, and the table
+    // is the set's other half.
+    getElement("baseline").hidden = showScores;
+    getElement(TASK_VIEW_ID).hidden = showScores;
+    getElement(SCORE_VIEW_ID).hidden = !showScores;
 
     disposeAll(breakdownCharts);
     breakdownCharts = [];
@@ -561,7 +638,22 @@ function createRecordComparison({
       return;
     }
 
-    const mode = scoreMode();
+    if (baseline && selectedRecords.length < 2) {
+      renderHtml(
+        section,
+        buildInfoMessage(`Select a second ${noun} to see the difference.`),
+      );
+      return;
+    }
+
+    // Reading one task, the cell holds its mean rather than a card from the grid.
+    if (showScores) {
+      section.replaceChildren();
+
+      return;
+    }
+
+    const mode = baseline ? diffMode(selectedRecords, baseline) : scoreMode();
 
     if (selectedView === PLOT_VIEW) {
       const { element, charts } = buildTaskPlots(mode);
@@ -572,79 +664,7 @@ function createRecordComparison({
       return;
     }
 
-    const { element, table } = createCompareTable({
-      rows: toCompareRows(selectedRecords, allTasks(), mode),
-      scoredTasks: allTasks(),
-      mode: "score",
-    });
-
-    section.replaceChildren(element);
-    breakdownCharts = [table];
-  }
-
-  function renderDifferences() {
-    const section = getSectionBody(DIFFERENCE);
-
-    disposeAll(differenceCharts);
-    differenceCharts = [];
-
-    if (!taskSuiteGroups.length) {
-      renderHtml(section, buildEmptyMessage(nothingScored));
-      return;
-    }
-
-    if (selectedRecords.length < 2) {
-      renderHtml(
-        section,
-        buildInfoMessage(`Select a second ${noun} to see the difference.`),
-      );
-      return;
-    }
-
-    const mode = diffMode(selectedRecords, getBaseline());
-
-    if (selectedView === PLOT_VIEW) {
-      const { element, charts } = buildTaskPlots(mode);
-
-      differenceCharts = charts;
-      section.replaceChildren(element);
-
-      return;
-    }
-
-    const { element, table } = createCompareTable({
-      rows: toCompareRows(selectedRecords, allTasks(), mode),
-      scoredTasks: allTasks(),
-      mode: "diff",
-    });
-
-    section.replaceChildren(element);
-    differenceCharts = [table];
-  }
-
-
-  // ─── SELECTS ───────────────────────────────────────────────────────────────
-
-  function renderSuiteOptions() {
-    const select = getElement("suite")?.querySelector(
-      "[data-role='suite']",
-    );
-
-    if (!select) return;
-
-    renderHtml(
-      select,
-      buildOptions(
-        availableSuites.map((suite) => ({
-          value: suite,
-          label: suiteLabel(suite),
-        })),
-        {
-          selected: selectedSuite,
-          placeholder: "All suites",
-        },
-      ),
-    );
+    section.replaceChildren(buildTaskTables(mode, baseline));
   }
 
   function renderBaselineOptions() {
@@ -661,7 +681,10 @@ function createRecordComparison({
           value: record.key,
           label: record.name,
         })),
-        { selected: getBaseline() },
+        {
+          selected: getBaseline(),
+          placeholder: `Select a baseline ${noun} to see differences`,
+        },
       ),
     );
   }
@@ -669,18 +692,13 @@ function createRecordComparison({
 
   // ─── VIEW ──────────────────────────────────────────────────────────────────
 
-  function viewButton(panel, mode) {
-    return getElement(`${mode}-${panel}`);
+  function viewButton(mode) {
+    return getElement(`${mode}-${BREAKDOWN}`);
   }
 
   function setActiveView() {
-    for (const panel of [BREAKDOWN, DIFFERENCE]) {
-      for (const mode of [PLOT_VIEW, TABLE_VIEW]) {
-        viewButton(panel, mode)?.classList.toggle(
-          "primary-inv",
-          mode === selectedView,
-        );
-      }
+    for (const mode of [PLOT_VIEW, TABLE_VIEW]) {
+      viewButton(mode)?.classList.toggle("primary-inv", mode === selectedView);
     }
   }
 
@@ -696,45 +714,34 @@ function createRecordComparison({
   // ─── RENDERING ─────────────────────────────────────────────────────────────
 
   function renderPanel() {
-    if (selectedView !== PLOT_VIEW) {
-      selectedTask = "";
-    }
-
-    const visibleTabs = dock.getVisibleTabs();
-
-    if (visibleTabs.has(DETAILS)) {
-      renderDetails();
-    }
-
-    if (visibleTabs.has(BREAKDOWN)) {
-      renderBreakdown();
-    }
-
-    if (visibleTabs.has(DIFFERENCE)) {
-      renderDifferences();
-    }
-
+    renderDetails();
+    renderBreakdown();
     renderTaskDetail();
   }
 
   function renderDetails() {
+    const scores = new Map(
+      selectedRecords.map((record) => [record.key, record.tasks[selectedTask]]),
+    );
+
     renderHtml(
-      getSectionBody(DETAILS),
+      getElement(DETAILS_GRID_ID),
       buildDetails(
         comparison.picks(),
         details,
         comparison.colourFor,
+        selectedTask ? (key) => scores.get(key) ?? null : null,
       ),
     );
   }
 
   function renderSections(held) {
     if (!held.length) {
-      // Shown against the dock, which hides a section with nothing in it: the prompt is what
+      // Shown against the stack, which hides a section with nothing in it: the prompt is what
       // this section has to say while there is nothing to compare.
       getSection(DETAILS).hidden = false;
 
-      renderHtml(getSectionBody(DETAILS), buildEmptyMessage(emptyPrompt));
+      renderHtml(getElement(DETAILS_GRID_ID), buildEmptyMessage(emptyPrompt));
       refreshIcons();
 
       return;
@@ -745,14 +752,9 @@ function createRecordComparison({
 
     renderPicks();
     setActiveView();
-
-    if (showSuites) {
-      renderSuiteOptions();
-    }
-
     renderBaselineOptions();
 
-    dock.render();
+    updateSections();
     renderPanel();
 
     refreshIcons();
@@ -763,14 +765,13 @@ function createRecordComparison({
 
     selectedRecords = [];
     taskSuiteGroups = [];
-    availableSuites = [];
 
     if (!heldCount()) {
       closeTaskDetail();
       renderPicks();
     }
 
-    dock.render();
+    updateSections();
   }
 
 
@@ -778,24 +779,32 @@ function createRecordComparison({
 
   function attachEvents() {
     attachViewEvents();
-    dock.attachTabEvents();
     attachPickEvents();
+    attachScoresEvents();
     attachPlotEvents();
     attachSelectEvents();
   }
 
   function attachViewEvents() {
-    for (const panel of [BREAKDOWN, DIFFERENCE]) {
-      for (const mode of [PLOT_VIEW, TABLE_VIEW]) {
-        viewButton(panel, mode)?.addEventListener("click", () => {
-          renderView(mode);
-        });
-      }
+    for (const mode of [PLOT_VIEW, TABLE_VIEW]) {
+      viewButton(mode)?.addEventListener("click", () => {
+        renderView(mode);
+      });
     }
   }
 
+  function attachScoresEvents() {
+    getElement(SCORES_ID)?.addEventListener("click", () => {
+      showScores = !showScores;
+
+      renderScoresToggle();
+      renderBreakdown();
+      renderTaskDetail();
+    });
+  }
+
   function attachPickEvents() {
-    getElement(PICKS_ID)?.addEventListener("click", (event) => {
+    getPicksRoot()?.addEventListener("click", (event) => {
       const key = dropFromClick(event);
 
       if (key) {
@@ -810,34 +819,23 @@ function createRecordComparison({
 
       if (!plot) return;
 
-      selectedTask =
-        plot.dataset.plot === selectedTask ? "" : plot.dataset.plot;
+      // Set rather than toggled: the details grid reads its methodology off this task, and
+      // a second click on the lit plot would leave those rows with nothing to show.
+      selectedTask = plot.dataset.plot;
 
+      // The details grid reads its methodology off the same task.
+      renderDetails();
       renderTaskDetail();
     }
 
-    for (const panel of [BREAKDOWN, DIFFERENCE]) {
-      getSectionBody(panel)?.addEventListener(
-        "click",
-        handlePlotClick,
-      );
-    }
+    getSectionBody(BREAKDOWN)?.addEventListener("click", handlePlotClick);
   }
 
   function attachSelectEvents() {
-    if (showSuites) {
-      getElement("suite").addEventListener("change", (event) => {
-        selectedSuite = event.target.value;
-
-        updateScores();
-        renderBaselineOptions();
-        renderPanel();
-      });
-    }
-
     getElement("baseline").addEventListener("change", (event) => {
       selectedBaseline = event.target.value;
-      renderDifferences();
+
+      renderBreakdown();
     });
   }
 
@@ -846,50 +844,74 @@ function createRecordComparison({
 
   function setup() {
     const pageHtml = `
-      <span class="row left gap-sm compare-picks" id="${PICKS_ID}"></span>
+      <div class="section-row">
+        ${buildSections([
+          {
+            id: BREAKDOWN,
 
-      ${dock.buildTabs()}
+            // No heading: what the plots are drawn against sits where one would be.
+            controls: buildBaselineSelect(),
+            actions: [
+              `<span id="${TASK_VIEW_ID}">${buildPlotTableToggle(BREAKDOWN)}</span>`,
+              `<span id="${SCORE_VIEW_ID}" hidden>${buildRecordingsToggle()}</span>`,
+            ],
+            className: "chart-pickable",
+            collapsible: true,
+            hidden: true,
+          },
+        ])}
 
-      ${buildSections([
-        {
-          id: DETAILS,
-          title: tabView ? "" : "Details",
-          collapsible: !tabView,
-          hidden: true,
-        },
-        {
-          id: BREAKDOWN,
-          title: "Task breakdown",
-          actions: [
-            showSuites ? buildSuiteSelect() : null,
-            buildPlotTableToggle(BREAKDOWN),
-          ],
-          className: "chart-pickable",
-          collapsible: !tabView,
-          hidden: true,
-        },
-        {
-          id: DIFFERENCE,
-          title: "Differences",
-          actions: [
-            buildBaselineSelect(noun),
-            buildPlotTableToggle(DIFFERENCE),
-          ],
-          className: "chart-pickable",
-          collapsible: !tabView,
-          hidden: true,
-        },
-      {
-        id: TASK_ID,
-        title: "Individual scores",
-        collapsible: !tabView,
-        hidden: true,
-      }
-      ])}
+        <div class="column gap-lg">
+          ${buildSections([
+            {
+              id: DETAILS,
+              collapsible: true,
+              hidden: true,
+            },
+          ])}
+        </div>
+      </div>
 
     `;
 
     renderHtml(container, pageHtml);
+
+    // The plots, and beside them the recordings behind whichever task is being read. Written
+    // once: the panel is rebuilt on every change and neither may take the other with it.
+    renderHtml(
+      getSectionBody(BREAKDOWN),
+      `
+        <div id="${LAYOUT_ID}">
+          <div id="${PLOT_CELL_ID}" class="column gap-lg">
+            <div id="${PLOTS_ID}"></div>
+            <div id="${MEANS_ID}"></div>
+            <div id="${METRICS_ID}"></div>
+          </div>
+          <div id="${TASK_DETAIL_ID}" hidden></div>
+        </div>
+      `,
+    );
+
+    // The grid, and under it the chips naming what is in it.
+    renderHtml(
+      getSectionBody(DETAILS),
+      `
+        <div id="${DETAILS_GRID_ID}"></div>
+
+        <span class="row left gap-sm push-down">
+          ${buildButton({
+            id: SCORES_ID,
+            label: SHOW_SCORES,
+            icon: getIcon("expand"),
+          })}
+        </span>
+        ${
+          picksContainer
+            ? ""
+            : `<span class="row left gap-sm compare-picks" id="${PICKS_ID}"></span>`
+        }
+      `,
+    );
 
     attachEvents();
 

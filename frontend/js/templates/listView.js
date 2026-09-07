@@ -69,7 +69,7 @@ function createListView({
 }) {
   const element = document.createElement("div");
 
-  element.className = "column gap-md";
+  element.className = "column gap-lg";
 
   let currentView = getInitialView();
   let activeMode = modes.base ? "base" : null;

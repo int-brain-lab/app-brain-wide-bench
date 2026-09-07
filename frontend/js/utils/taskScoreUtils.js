@@ -11,7 +11,6 @@ import {
 import {
   matchEquals,
   matchInArray,
-  matchIncludes,
   optionsFromRows,
   SUITE_OPTIONS,
 } from "../components/filters.js";

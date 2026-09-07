@@ -196,7 +196,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
 
   function buildTaskPicker() {
     return `
-      <div class="task-picker column gap-md">
+      <div class="task-picker column gap-lg">
         ${buildTaskGroups()}
       </div>
     `;
@@ -256,13 +256,13 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     const taskId = escapeHtml(task.taskId);
 
     return `
-      <div class="column gap-md">
-        <div class="card column gap-md">
+      <div class="column gap-lg">
+        <div class="card column gap-lg">
           <p class="title muted">${taskId}</p>
 
           ${buildClearedNotice(task)}
 
-          <div class="column gap-md">
+          <div class="column gap-lg">
             ${buildFields(trainingFieldKeys(), task.state, TASK_FIELDS)}
           </div>
 

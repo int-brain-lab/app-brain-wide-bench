@@ -127,7 +127,7 @@ function renderSidebar() {
     </div>
 
     <div class="sidebar-bottom">
-      <div class="row left gap-md">
+      <div class="row left gap-lg">
         <div class="user-logo" id="user-initials">—</div>
         <button type="button" class="btn primary" id="sidebar-logout">Sign out</button>
       </div>

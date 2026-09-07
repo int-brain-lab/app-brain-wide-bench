@@ -1,5 +1,5 @@
 import { escapeHtml } from "../core/html.js";
-import { suiteLabel, SUITES } from "../core/suites.js";
+import { metricLabel, suiteLabel, SUITES } from "../core/suites.js";
 import { buildIcon } from "./icons.js";
 
 function statusBadgeClass(status) {
@@ -45,7 +45,7 @@ function buildSuiteBadgeList(suites, size = "") {
 // a block: a caller putting a single badge *beside* something on one line needs the badge
 // without the row around it.
 function buildMetricBadge(metric, size = "") {
-  return `<span class="badge ${size} metric">${escapeHtml(metric)}</span>`;
+  return `<span class="badge ${size} metric">${escapeHtml(metricLabel(metric))}</span>`;
 }
 
 function buildMetricBadgeList(metrics, size = "") {
@@ -126,7 +126,6 @@ function buildPretrainedBadge(isPretrained, size = "") {
 }
 
 export {
-  buildSuiteBadge,
   buildSuiteBadgeList,
   buildMetricBadge,
   buildMetricBadgeList,

@@ -7,7 +7,7 @@
 // with what that column needs, and returns one.
 
 import { escapeHtml } from "../core/html.js";
-import {suiteFromTask, SUITES, taskLabel} from "../core/suites.js";
+import { suiteFromTask, taskLabel } from "../core/suites.js";
 import { formatDate, score } from "../core/utils.js";
 import {
   buildMetricBadge,
@@ -57,8 +57,10 @@ function buildMeanSem(mean, sem, { stacked = false } = {}) {
 
   const spread = `<span class="metadata">± ${escapeHtml(score(sem))}</span>`;
 
+  // No alignment of its own: the two lines stretch, so the column they are in decides where
+  // they sit — a mean with no spread is a bare value and follows it either way.
   return stacked
-    ? `<span class="column gap-xs right">${value}${spread}</span>`
+    ? `<span class="column gap-xs">${value}${spread}</span>`
     : `${value} ${spread}`;
 }
 
@@ -122,10 +124,6 @@ function dateSorter(a, b) {
   if (!b) return 1;
 
   return a < b ? -1 : a > b ? 1 : 0;
-}
-
-function sortSuites(suites = []) {
-  return SUITES.filter((suite) => suites.includes(suite));
 }
 
 // ─── BUILDERS ────────────────────────────────────────────────────────────────
@@ -215,7 +213,7 @@ function buildTaskSuiteFormatter(inner) {
     const suite = cell.getData().suite;
 
     return `
-      <span class="row left gap-md">
+      <span class="row left gap-lg">
         ${suite ? buildSuiteBadgeList([suite], "sm") : ""}
         ${inner(cell)}
       </span>
@@ -352,42 +350,29 @@ function rankUsageFormatter(cell) {
   `;
 }
 
-// The compare grid's cells, where a task holds an eighth of the page: the spread goes under
-// the value rather than beside it.
-function meanSemFormatter(cell) {
-  const value = cell.getValue();
-
-  return buildMeanSem(value?.mean ?? null, value?.sem ?? null, {
-    stacked: true,
-  });
-}
-
-function diffFormatter(cell) {
-  const diff = cell.getValue()?.mean;
-
+// Signed and coloured by which way it went — see .diff-up in style.css.
+function buildDiff(diff) {
   if (diff == null) return emptyMetadata();
 
   const direction = diff > 0 ? "diff-up" : diff < 0 ? "diff-down" : "diff-flat";
 
   const sign = diff > 0 ? "+" : "";
 
-  return `
-    <span class="${direction}">
-      ${sign}${escapeHtml(score(diff))}
-    </span>
-  `;
+  return `<span class="${direction}">${sign}${escapeHtml(score(diff))}</span>`;
 }
 
 /**
  * One task's column heading: what it is, in its suite's colour, and what it is measured in.
  *
- * @param stacked the metric under the task rather than beside it. For a column sized to what
+ * @param stacked the metric under the task rather than beside it, for a column sized to what
  *                it holds, where a heading laid out across would set the width instead — a
  *                task name and a metric side by side are wider than "0.641 ± 0.025". Side by
  *                side where the layout stretches the columns anyway, since two badges on one
  *                line keep the header row shallow. See getColumns in leaderboardTable.js.
+ * @param align   how the badges sit in it — `left`, `centre` or `right`. Badges are boxes, so
+ *                this is theirs to set: text alignment does not place them.
  */
-function taskHeader(taskId, metric, { stacked = true } = {}) {
+function taskHeader(taskId, metric, { stacked = true, align = "left" } = {}) {
   const suite = suiteFromTask(taskId);
 
   const badges = [
@@ -396,7 +381,7 @@ function taskHeader(taskId, metric, { stacked = true } = {}) {
   ].join("");
 
   return `
-    <span class="${stacked ? "column" : "row"} left gap-xs">
+    <span class="${stacked ? "column" : "row"} ${escapeHtml(align)} gap-xs">
       ${badges}
     </span>`;
 }
@@ -405,6 +390,7 @@ function taskHeader(taskId, metric, { stacked = true } = {}) {
 
 
 export {
+  buildDiff,
   buildLinkFormatter,
   buildMeanSem,
   buildModelNameFormatter,
@@ -412,9 +398,7 @@ export {
   buildTaskSuiteFormatter,
   dateFormatter,
   dateSorter,
-  diffFormatter,
   editFormatter,
-  meanSemFormatter,
   meanSorter,
   metadataFormatter,
   metricsBadgeFormatter,
@@ -426,7 +410,6 @@ export {
   rankSorter,
   rankUsageFormatter,
   roleBadgeFormatter,
-  sortSuites,
   statusFormatter,
   valueSorter,
   suiteBadgesFormatter,

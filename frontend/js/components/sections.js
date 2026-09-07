@@ -61,7 +61,7 @@ function buildSubtitle(subtitles = []) {
     .join("<span>·</span>");
 
   return items
-    ? `<span class="row left gap-md">${items}</span>`
+    ? `<span class="row left gap-lg">${items}</span>`
     : "";
 }
 
@@ -69,7 +69,7 @@ function buildTitleBadges(badges = []) {
   const items = badges.filter(Boolean);
 
   return items.length
-    ? `<span class="row left gap-md">${items.join("")}</span>`
+    ? `<span class="row left gap-lg">${items.join("")}</span>`
     : "";
 }
 
@@ -85,7 +85,7 @@ function buildActions(actions = []) {
   }
 
   return `
-    <span class="column gap-md">
+    <span class="column gap-lg">
       ${actions
         .map((action) =>
           buildActionRow(Array.isArray(action) ? action : [action]),
@@ -136,6 +136,9 @@ const COLLAPSE = "collapse";
  *                    `actions` is still the far end of the same row.
  * @param collapsible the title turns the body off and on. Needs attachCollapse on an
  *                    ancestor, once — the arrow is markup and the listener is not.
+ * @param compact     the smaller heading a panel inside a page takes, rather than a page
+ *                    section's own.
+ * @param collapsed   folded to start with, for a section a reader asks for rather than reads.
  */
 function buildSection({
   id,
@@ -146,29 +149,44 @@ function buildSection({
   className = "",
   hidden = false,
   collapsible = false,
+  collapsed = false,
+  compact = false,
 }) {
-  const heading = collapsible
-    ? `
+  // A panel's heading is a span at card size; a page section's is its own h2.
+  const titleHtml = compact
+    ? `<span class="card-title">${escapeHtml(title)}</span>`
+    : `<h2 class="section-title">${escapeHtml(title)}</h2>`;
+  const heading = !title
+    ? ""
+    : collapsible
+      ? `
       <button
         type="button"
         class="section-toggle row left gap-sm"
         data-${COLLAPSE}="${escapeHtml(id)}"
-        aria-expanded="true"
+        aria-expanded="${!collapsed}"
       >
-        <h2 class="section-title">${escapeHtml(title)}</h2>
+        ${titleHtml}
         <i class="field-icon" data-lucide="${escapeHtml(getIcon("down"))}"></i>
       </button>
     `
-    : `<h2 class="section-title">${escapeHtml(title)}</h2>`;
+      : titleHtml;
 
-  const header = title
+  // Controls or actions alone for a section headed by something else, or by nothing but the
+  // buttons that work it. `right` where there is nothing on the left, since a row of one
+  // otherwise puts its only child at the near end.
+  const header = title || controls || actions.length
     ? `
     <div class="column gap-xs">
-      <div class="row">
-        ${controls ? `<div class="row left gap-lg">${heading}${controls}</div>` : heading}
+      <div class="row${heading || controls ? "" : " right"}">
+        ${controls ? `<div class="row left gap-xl">${heading}${controls}</div>` : heading}
         ${actions.length ? buildActions(actions) : ""}
       </div>
-      ${description ? `<p class="section-description">${escapeHtml(description)}</p>` : ""}
+      ${
+        description
+          ? `<div class="${compact ? "metadata bold" : "section-description"}">${escapeHtml(description)}</div>`
+          : ""
+      }
      </div>  
     `
     : "";
@@ -179,7 +197,7 @@ function buildSection({
 
   return `
     <section
-      class="page-section"
+      class="page-section${collapsed ? " collapsed" : ""}"
       id="section-${escapeHtml(id)}"
       ${hidden ? "hidden" : ""}
     >

@@ -120,7 +120,7 @@ function buildStaticTable({
  *                       later selects or deselects one by value. Defaults to "id".
  * @param onRowClick     (rowData, {event, element}) => void, on every row click. The
  *                       element is the row's own. Omit for no click handling.
- * @param selection      {max, onChange, claimLinks, rolling} — makes rows pickable by
+ * @param selection      {max, onChange, claimLinks, rolling, enabled} — makes rows pickable by
  *                       clicking them, at most `max` at a time, and calls
  *                       `onChange(rows, {selected, deselected})` with the selected row data
  *                       and the row components that changed. A pick shows as an edge down
@@ -132,7 +132,11 @@ function buildStaticTable({
  *                       them and link somewhere else.
  *                       `rolling: true` lets a pick past the cap push the oldest out, which
  *                       is what a panel showing one row at a time wants — clicking another
- *                       row plainly means "that one". Omit for a table nothing selects.
+ *                       row plainly means "that one".
+ *                       `enabled` is () => whether a click may pick at all, read live: a
+ *                       board that only becomes pickable on demand cannot rebuild its rows
+ *                       to say so — see canPick. Omit for rows that are always pickable.
+ *                       Omit `selection` itself for a table nothing selects.
  * @param header         markup above the grid, inside the same root — see
  *                       createFilterableTable, which puts the filter bar there.
  *
@@ -162,7 +166,7 @@ function createTable({
     ? resolveContainer(container)
     : document.createElement("div");
 
-  root.className = "column gap-md";
+  root.className = "column gap-lg";
 
   renderHtml(
     root,
@@ -221,8 +225,13 @@ function createTable({
       : {}),
   });
 
-  // The row cursor keys off this — see `[data-rows-selectable]` in style.css.
-  root.dataset.rowsSelectable = selection ? "true" : "false";
+  // Whether a click may pick, read live so a caller can turn picking on and off without
+  // rebuilding the rows — see selectableRows, which is fixed at row-init.
+  const canPick = selection?.enabled ?? (() => true);
+
+  // The row cursor keys off this — see `[data-rows-selectable]` in style.css. Written again by
+  // a caller that turns picking on or off.
+  root.dataset.rowsSelectable = String(Boolean(selection) && canPick());
 
   // Tabulator 6 dropped callbacks-as-options: a `renderComplete:` key in the constructor is
   // discarded in silence. The event fires after the display rows have settled, which
@@ -237,24 +246,28 @@ function createTable({
       selection.onChange(data, { selected, deselected }),
     );
 
-    // Tabulator's own row-click selection runs either way, so both branches are about a
-    // click that lands on a link: one cancels the navigation, the other cancels the pick.
+    // A click on a link, where the row is the control: the pick wins and the navigation is
+    // cancelled.
     if (selection.claimLinks) {
       table.on("rowClick", (event) => {
         if (event.target.closest("a")) event.preventDefault();
       });
-    } else {
-      // Captured on the root, so it runs before the listener Tabulator put on the row and
-      // stops the event reaching it — which is what keeps the row from being picked.
-      // `stopPropagation` leaves the default action alone, so the link still navigates.
-      root.addEventListener(
-        "click",
-        (event) => {
-          if (event.target.closest("a")) event.stopPropagation();
-        },
-        true,
-      );
     }
+
+    // Captured on the root, so it runs before the listener Tabulator put on the row and stops
+    // the event reaching it — which is what keeps the row from being picked. `stopPropagation`
+    // leaves the default action alone, so a link still navigates.
+    root.addEventListener(
+      "click",
+      (event) => {
+        const link = Boolean(event.target.closest("a"));
+
+        if (!canPick() || (link && !selection.claimLinks)) {
+          event.stopPropagation();
+        }
+      },
+      true,
+    );
   }
 
   if (onRowClick) {

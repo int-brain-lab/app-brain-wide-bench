@@ -164,7 +164,7 @@ function createCardGrid({
 }) {
   const element = document.createElement("div");
 
-  element.className = "column gap-md";
+  element.className = "column gap-lg";
 
   let allRows = [];
   let activeFilter = null;

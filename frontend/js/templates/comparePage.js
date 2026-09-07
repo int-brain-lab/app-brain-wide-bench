@@ -10,7 +10,7 @@
 // can send to someone else, not as a stack of history entries left behind by working the
 // controls.
 
-import { renderHtml } from "../core/render.js";
+import { getElement, renderHtml } from "../core/render.js";
 import { pluralise } from "../core/utils.js";
 import { buildSelect } from "../components/filters.js";
 import { buildEmptyMessage } from "../components/messages.js";
@@ -34,12 +34,12 @@ const WITH_PARAM = "with";
 const ADD_ROLE = "add";
 
 const INTRO_SECTION = "intro";
-const ADD_SECTION = "add";
 const COMPARISON_SECTION = "comparison";
 
-// The add select and the comparison under it, so they can be hidden together while there is
-// nothing to put in them.
-const RESULT_SECTIONS = [ADD_SECTION, COMPARISON_SECTION];
+// Beside the page's own title, and beside the chips naming what is in the comparison: both
+// are written into once the rows are in hand.
+const ADD_ID = "compare-add";
+const PICKS_ID = "compare-page-picks";
 
 // ─── URL STATE ───────────────────────────────────────────────────────────────
 
@@ -113,7 +113,7 @@ function buildAddSelect(rows, { noun, full, toKey, toLabel }) {
  * @param load             as loadPage. The page has no id of its own, so a module opening on
  *                         one reads it from the URL itself — see pages/modelCompare.js.
  * @param toRows           (context) => every record that may be compared, as rows.
- * @param createComparison ({ container, fixedKeys, tabView }) => the comparison — a preset,
+ * @param createComparison ({ container, fixedKeys }) => the comparison — a preset,
  *                         see comparisons/modelComparison.js.
  * @param back             (context) => { text, href }.
  * @param header           (context) => { title, subtitle, badges }.
@@ -147,15 +147,19 @@ function loadComparePage({
     renderPage(
       buildPage({
         back: back(context),
-        header: buildHeader(),
+        header: buildHeader([`<span id="${ADD_ID}"></span>`]),
 
         body:
           // Untitled: it holds whatever is standing in for the page — a URL whose records
           // have all gone — and a heading over that would be a heading over an apology.
           buildSection({ id: INTRO_SECTION }) +
           buildSections([
-            { id: ADD_SECTION, title: `Add a ${noun}`},
-            { id: COMPARISON_SECTION},
+            {
+              id: COMPARISON_SECTION,
+
+              // What is being compared, over the plots and tables reading it.
+              controls: `<span class="row left gap-sm compare-picks" id="${PICKS_ID}"></span>`,
+            },
           ]),
       }),
     );
@@ -164,13 +168,13 @@ function loadComparePage({
     // they all sit in, so the widget's sections are covered though they are not built yet.
     attachCollapse(CONTAINER_ID);
 
-    // The whole of the reading, stacked down the page rather than behind tabs: the details
-    // grid, then the task breakdown, then the differences.
+    // The whole of the reading, stacked down the page.
     const comparison = createComparison({
       container: getSectionBody(COMPARISON_SECTION),
-
       fixedKeys: seeded,
-      tabView: false,
+
+      // The chips read above the panels rather than inside them.
+      picksContainer: PICKS_ID,
     });
 
     const rowByKey = new Map(rows.map((row) => [comparison.toKey(row), row]));
@@ -186,12 +190,10 @@ function loadComparePage({
       renderAdd();
     });
 
-    function updateSections(ids, shown) {
-      for (const id of ids) {
-        const section = getSection(id);
+    function showSection(id, shown) {
+      const section = getSection(id);
 
-        if (section) section.hidden = !shown;
-      }
+      if (section) section.hidden = !shown;
     }
 
     // Narrows the ids in the URL to the records that still exist, in the order they were
@@ -216,7 +218,7 @@ function loadComparePage({
 
     // Delegated: the select is rebuilt whenever what is held changes.
     function attachAddEvents() {
-      getSectionBody(ADD_SECTION).addEventListener("change", (event) => {
+      getElement(ADD_ID).addEventListener("change", (event) => {
         const select = event.target.closest(`[data-role="${ADD_ROLE}"]`);
 
         if (!select?.value) return;
@@ -236,7 +238,7 @@ function loadComparePage({
         .sort((a, b) => optionLabel(a).localeCompare(optionLabel(b)));
 
       renderHtml(
-        getSectionBody(ADD_SECTION),
+        getElement(ADD_ID),
         buildAddSelect(offered, {
           noun,
           full: comparison.size >= comparison.max,
@@ -254,8 +256,8 @@ function loadComparePage({
     function renderIntro() {
       comparison.clear();
 
-      updateSections(RESULT_SECTIONS, false);
-      updateSections([INTRO_SECTION], true);
+      showSection(COMPARISON_SECTION, false);
+      showSection(INTRO_SECTION, true);
 
       renderHtml(
         getSectionBody(INTRO_SECTION),
@@ -279,8 +281,8 @@ function loadComparePage({
         return;
       }
 
-      updateSections([INTRO_SECTION], false);
-      updateSections(RESULT_SECTIONS, true);
+      showSection(INTRO_SECTION, false);
+      showSection(COMPARISON_SECTION, true);
 
       attachAddEvents();
       renderAdd();

@@ -83,7 +83,7 @@ function loadListPage({
   function buildBody() {
     if (!rows.length) {
       return `
-        <div class="column gap-md">
+        <div class="column gap-lg">
           ${buildEmptyState()}
         </div>
       `;

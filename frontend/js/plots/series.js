@@ -25,7 +25,7 @@ function positionsOf(series, categories) {
  *
  * @param allSeries
  * @param categories the axis, as category keys.
- * @param mark       (series) => the styling for its marks — see bar.js and scatter.js.
+ * @param mark       (series) => the styling for its marks — see bar.js.
  * @returns one dataset per series.
  */
 function toDatasets(allSeries, categories, mark) {

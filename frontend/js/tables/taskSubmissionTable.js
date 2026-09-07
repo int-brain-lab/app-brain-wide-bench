@@ -20,8 +20,7 @@ import {
   numericSorter,
   parameterFormatter,
   buildScoreSemFormatter,
-  suiteBadgesFormatter,
-  taskLinkFormatter, taskNameFormatter,
+  taskNameFormatter,
 } from "./formatters.js";
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────

@@ -5,10 +5,6 @@
 // and the attribute columns stay put; or across the columns, for a set of attributes long
 // enough that reading them as a column is easier than reading them as a header.
 //
-// Either way an attribute every thing answers the same way is muted, label included.
-// Agreement is the background against which the differences are the finding, and with six
-// near-identical sets of metadata it is the only thing that makes the differences visible.
-//
 // Plain markup, not Tabulator: a handful of cells that never sort or filter, with the odd
 // control living in one of them.
 //
@@ -115,15 +111,18 @@ function cellHtml(cell) {
 
 /**
  * @param entities   [{ label, ink, cells: { [attributeKey]: { value, html } } }] — the things
- *                   being compared, in order. `label` heads the column or the row, as a chip
- *                   in `ink` — the colour that thing is drawn in everywhere else, and the same
- *                   chip the row above the grid names it with. Omit `label` for a grid whose
- *                   caller names its entities somewhere else, which leaves the colour to.
- * @param attributes [{ key, label }] — what they are compared on, fixed and in order.
+ *                   being compared, in order. `label` heads the row; `ink` is the colour that
+ *                   thing is drawn in everywhere else, carried as an edge rather than as a
+ *                   word. Turned, neither is drawn — the caller names its columns above.
+ * @param attributes [{ key, label, html }] — what they are compared on, fixed and in order.
+ *                   `html` heads the column with markup instead of the label — badges, where
+ *                   the heading names a task rather than a field.
  * @param layout     "rows" puts an entity per row and an attribute per column — for a few
  *                   attributes read across. "columns" turns it: an entity per column and an
  *                   attribute per row, for a long set of attributes, where a header of nine
  *                   of them is unreadable and a column of nine is a list.
+ * @param corner     markup for the cell over the row heads, which is otherwise empty — what
+ *                   the rows are, where the columns say what is measured of them.
  * @param className  extra classes on the wrapper, for a caller with its own widths.
  * @returns the markup.
  */
@@ -131,27 +130,27 @@ function buildComparisonGrid({
   entities,
   attributes,
   layout = "rows",
+  corner = "",
   className = "metadata",
 }) {
   const label = (attribute, scope) =>
-    `<th scope="${scope}">${escapeHtml(attribute.label)}</th>`;
+    `<th scope="${scope}">${attribute.html ?? escapeHtml(attribute.label)}</th>`;
 
-  // The ink goes on whichever element heads the entity, since that is what it identifies —
-  // the row in one layout, the column header in the other.
-  // A chip per entity, or an empty cell holding only the ink where the caller named them
-  // elsewhere.
-  const name = (entity) =>
-    entity.label ? buildChip(entity.label, entity.ink) : "";
-
+  // Turned, the columns are headed by the things themselves, as plain names: the colour is
+  // the edge over each name, which is what ties a column to its chip above the grid.
   const head =
     layout === "columns"
-      ? entities
+      ? `<thead><tr><th>${corner}</th>${entities
           .map(
             (entity) =>
-              `<th scope="col"${inkStyle(entity.ink)}>${name(entity)}</th>`,
+              `<th scope="col"${inkStyle(entity.ink)}>${escapeHtml(
+                entity.label ?? "",
+              )}</th>`,
           )
-          .join("")
-      : attributes.map((attribute) => label(attribute, "col")).join("");
+          .join("")}</tr></thead>`
+      : `<thead><tr><th>${corner}</th>${attributes
+          .map((attribute) => label(attribute, "col"))
+          .join("")}</tr></thead>`;
 
   const body =
     layout === "columns"
@@ -172,7 +171,9 @@ function buildComparisonGrid({
           .map(
             (entity) => `
       <tr${inkStyle(entity.ink)}>
-        <th scope="row">${name(entity)}</th>
+        <th scope="row" title="${escapeHtml(entity.label ?? "")}">${escapeHtml(
+          entity.label ?? "",
+        )}</th>
         ${attributes
           .map((attribute) => CELL(cellHtml(entity.cells[attribute.key])))
           .join("")}
@@ -187,7 +188,7 @@ function buildComparisonGrid({
   return `
     <div class="${escapeHtml(classes)}">
       <table>
-        <thead><tr><th></th>${head}</tr></thead>
+        ${head}
         <tbody>${body}</tbody>
       </table>
     </div>`;

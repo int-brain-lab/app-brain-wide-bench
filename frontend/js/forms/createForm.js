@@ -163,7 +163,7 @@ function createForm({
 
         return `
           <fieldset
-            class="form-panel column gap-md"
+            class="form-panel column gap-lg"
             data-panel="${name}"
           >
             ${title ? `<p class="title muted">${escapeHtml(title)}</p>` : ""}

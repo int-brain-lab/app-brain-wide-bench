@@ -11,7 +11,7 @@ import { createCardGrid } from "./cardGrid.js";
 function buildSubmissionCard(submission) {
   return `
     <a
-      class="card column left gap-md"
+      class="card column left gap-lg"
       href="/html/submissions/submissions.html?id=${encodeURIComponent(submission.id)}"
     >
       <div class="column left">
@@ -22,7 +22,7 @@ function buildSubmissionCard(submission) {
         </p>
       </div>
 
-      <div class="row left gap-md">
+      <div class="row left gap-lg">
         ${buildSuiteBadgeList(submission.suites ?? [], "sm")}
         ${buildStatusBadge(submission.status, "sm")}
       </div>

@@ -28,7 +28,6 @@ const FLOW_ID = "filter-flow";
 const MORE_LABEL = "More filters";
 const FEWER_LABEL = "Less";
 
-//Apply filters to restrict the tasks
 // ─── FILTERS ─────────────────────────────────────────────────────────────────
 
 // Only the two answers: the endpoint reads an unanswered flag as neither.
@@ -98,18 +97,7 @@ function filterControls() {
 // ─── MARKUP ──────────────────────────────────────────────────────────────────
 
 function buildShell() {
-  return `
-    <div class="column gap-md">
-        <span class="column gap-xs">
-          <div class="row">
-           <span class="card-title">Filters</span>
-           <span class="row gap-sm right">${buildFilterActions().join("")}</span>
-          </div>
-          <span class="metadata bold">Apply filters to restrict models or tasks included in the ranking. Click more filters to show all</span>
-        </span>
-      <div class="filter-flow" id="${FLOW_ID}"></div>
-    </div>
-  `;
+  return `<div class="filter-flow" id="${FLOW_ID}"></div>`;
 }
 
 // One cell. Folded controls stay in the DOM, hidden: a pinned value is read back off them.
@@ -124,7 +112,7 @@ function buildMore(showingMore) {
     id: MORE_ID,
     label: showingMore ? FEWER_LABEL : MORE_LABEL,
     icon: getIcon(showingMore ? "collapse" : "expand"),
-    className: "metadata primary-inv",
+    className: "metadata",
   });
 }
 
@@ -140,12 +128,14 @@ function buildFilterActions() {
       id: CLEAR_ID,
       label: "Clear",
       icon: getIcon("cancel"),
+      className: "sm",
       disabled: true,
     }),
     buildButton({
       id: APPLY_ID,
       label: "Apply",
       icon: getIcon("filter"),
+      className: "sm",
       disabled: true,
     }),
   ];
@@ -224,6 +214,11 @@ function createLeaderboardFilters({ container, hasBoard, onApply }) {
 
     if (apply) {
       apply.disabled = hasBoard() && filters.same(pending, applied);
+      if (apply.disabled) {
+        apply.classList.remove('primary')
+      } else {
+        apply.classList.add('primary')
+      }
     }
 
     if (clear) {
@@ -294,4 +289,4 @@ function createLeaderboardFilters({ container, hasBoard, onApply }) {
   return { applied: () => applied, setBusy };
 }
 
-export { createLeaderboardFilters };
+export { buildFilterActions, createLeaderboardFilters };

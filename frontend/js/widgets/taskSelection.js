@@ -187,16 +187,9 @@ function buildSuites(bySuite) {
 }
 
 /**
- * The select that puts one more task in, for a caller placing it beside a section's heading
- * rather than among the chips.
+ * The select that puts one more task in, under the suite badges.
  *
- * Built here rather than by that caller: which tasks there are, in what order, and which are
- * already chosen are this module's to say, and a second reading of the URL could disagree
- * with the chips. A chosen task is out of the select, which is what pinIn reads to leave an
- * already-chosen one alone.
- *
- * Whatever holds it has to sit inside the `root` given to createTaskSelection: the select and
- * the chips are two halves of one control — see pinFromEvent.
+ * A chosen task is out of it, which is what pinIn reads to leave an already-chosen one alone.
  *
  * @param available every task id, in board order.
  * @returns the markup.
@@ -216,37 +209,24 @@ function buildTaskSelect(available) {
 /**
  * The control over which tasks a board is ranked.
  *
- * @param container the element the boxes and the chips are drawn into, as two columns.
- * @param root      an ancestor of both the chips and the select buildTaskSelect made — the
- *                  section, which holds the one beside its heading and the other in its
- *                  body. Listeners are delegated to it, and a pin is looked up inside it.
- *                  Omit where the select sits in `container` itself.
+ * @param container the element the boxes and the chips are drawn into, as two columns. The
+ *                  select and the chips are two halves of one control, so both listeners are
+ *                  delegated to it and a pin is looked up inside it — see pinFromEvent.
  * @param available every task id, in board order.
  * @param onChange  (taskIds) => void, after the choice moved and the URL was rewritten.
  *
  * @returns { taskIds } — what is chosen, in board order.
  */
-function createTaskSelection({
-  container,
-  root = container,
-  available,
-  onChange,
-}) {
+function createTaskSelection({ container, available, onChange }) {
   const bySuite = toSuites(available);
 
   // What it is for, and the select that adds one, over two columns: the boxes in the narrow
   // one and the chips in the wide one. The chips' span is written empty and filled by
   // renderChips, which is also where every later change is made.
   const html = `
-   <div class="column gap-md">
-       <div class="column gap-xs">
-          <div class="row">
-             <span class="card-title">Suites</span>
-           </div>
-           <div class="metadata bold">Select the suites or a combination of tasks to include in the ranking</div>
-       </div>
+   <div class="column gap-lg">
       <div class="section-row ratio-4">
-        <span class="column left gap-ff">
+        <span class="column left gap-md">
           ${buildSuites(bySuite)}
           ${buildTaskSelect(available)}
         </span>
@@ -293,8 +273,8 @@ function createTaskSelection({
 
     for (const taskId of bySuite.get(value) ?? []) {
       const moved = on
-        ? pinIn(root, TASK_LIST, taskId)
-        : unpinIn(root, TASK_LIST, taskId);
+        ? pinIn(container, TASK_LIST, taskId)
+        : unpinIn(container, TASK_LIST, taskId);
 
       changed = moved || changed;
     }
@@ -309,13 +289,13 @@ function createTaskSelection({
 
     const changed = badge
       ? badge.name === SUITE_BADGES && applySuite(badge)
-      : pinFromEvent(event, root) === TASK_LIST;
+      : pinFromEvent(event, container) === TASK_LIST;
 
     if (!changed) return;
 
     // In the order the board reads, not the order they were pinned.
     chosen = available.filter((taskId) =>
-      pinnedIn(root, TASK_LIST).includes(taskId),
+      pinnedIn(container, TASK_LIST).includes(taskId),
     );
 
     refreshIcons();
@@ -331,11 +311,10 @@ function createTaskSelection({
   renderChips();
   updateSuites();
 
-  // The root rather than the container, for a caller whose select sits outside it.
-  root.addEventListener("change", handleChoice);
-  root.addEventListener("click", handleChoice);
+  container.addEventListener("change", handleChoice);
+  container.addEventListener("click", handleChoice);
 
   return {taskIds: () => [...chosen]};
 }
 
-export {buildTaskSelect, createTaskSelection};
+export { createTaskSelection };

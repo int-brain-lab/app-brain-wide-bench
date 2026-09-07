@@ -78,8 +78,8 @@ async function loadCreatePage({
 
   function buildBody() {
     return `
-      <div class="column gap-lg">
-        <div class="column gap-lg" id="${PANELS_ID}"></div>
+      <div class="column gap-xl">
+        <div class="column gap-xl" id="${PANELS_ID}"></div>
 
         ${buildFormFooter({
           cancelHref: back.href ?? "",

@@ -3,10 +3,9 @@
 // `score.metrics.recordings` is written by the scorers in app/scoring: one entry per
 // (label, task, recording), each carrying `{metric: {mean, sem, n}}`.
 
+import { REGION_SEPARATOR } from "../core/suites.js";
 import { mean, sem } from "../core/utils.js";
 
-// ts3 names its metrics `<brain region>/<metric>` — "TH/f1-score", "macro/precision".
-const REGION_SEPARATOR = "/";
 const REGION_TASK_TYPE = "brain_region";
 
 function splitMetric(name) {

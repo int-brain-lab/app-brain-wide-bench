@@ -14,12 +14,18 @@ import { highlightSelectedCards } from "../cards/cardGrid.js";
  *                   there to build the selection; a panel whose rows also link somewhere
  *                   passes false.
  * @param rolling    as createTable.
+ * @param enabled    as createTable. Omit where the rows are always pickable.
  * @returns { attach, quietly, selectionOptions, sync }. `selectionOptions()` is what
  *          createTable takes; `attach(table)` takes the instance, or null to detach.
  */
 function createTableBinding(
   comparison,
-  { rowIndex = (pick) => pick.key, claimLinks = true, rolling = false } = {},
+  {
+    rowIndex = (pick) => pick.key,
+    claimLinks = true,
+    rolling = false,
+    enabled,
+  } = {},
 ) {
   let table = null;
 
@@ -96,6 +102,7 @@ function createTableBinding(
       max: comparison.max,
       claimLinks,
       rolling,
+      enabled,
       // The deltas, not the whole set: a row hidden by a filter is still picked.
       onChange: (_data, { selected = [], deselected = [] } = {}) => {
         if (syncing) return;

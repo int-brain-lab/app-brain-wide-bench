@@ -8,7 +8,7 @@ import { escapeHtml } from "../core/html.js";
 function buildStatCard([label, value, icon]) {
   return `
     <div class="stat-card gap-sm">
-      <div class="row gap-md">
+      <div class="row gap-lg">
         <i class="stat-icon" data-lucide="${escapeHtml(icon)}"></i>
         <p class="statistic">${escapeHtml(value)}</p>
       </div>

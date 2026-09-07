@@ -18,28 +18,34 @@ const MAX_MODELS = 6;
 
 // ─── DETAILS ─────────────────────────────────────────────────────────────────
 
-// Ahead of the specification, and off the breakdown rather than the schema: whose model this
-// is and what it has been scored on are what tell two rows apart before any number is read.
-const TEAM = "team_name";
+// Off the breakdown rather than the schema, and last in the grid: whose model it is and what
+// it has been scored on are the widest of its facts, so they read under the ones a task is
+// compared by.
 const TASK_SUITES = "task_suites";
+const TEAM = "team_name";
 
-const OWN_ATTRIBUTES = [
-  { key: TEAM, label: "Team" },
+const TRAILING_ATTRIBUTES = [
   { key: TASK_SUITES, label: "Task suites" },
+  { key: TEAM, label: "Team" },
 ];
+
+// Prose rather than a fact two models can be told apart by.
+const OFF_TABLE = ["pretraining_data"];
 
 // Every specification field, editable or not.
 function detailKeys() {
-  return fieldsForPanel(MODEL_FIELDS, "specification", false);
+  return fieldsForPanel(MODEL_FIELDS, "specification", false).filter(
+    (key) => !OFF_TABLE.includes(key),
+  );
 }
 
 function ownCells(detail) {
   const suites = detail ? suitesFromModel(detail) : [];
 
   return {
-    [TEAM]: { value: detail?.team_name ?? null },
     // Empty markup for a model with no suites, which the grid draws as a dash.
     [TASK_SUITES]: { html: buildSuiteBadgeList(suites, "sm") },
+    [TEAM]: { value: detail?.team_name ?? null },
   };
 }
 
@@ -54,13 +60,13 @@ function valueOf(detail, key) {
 
 const DETAILS = {
   // loadModelMeta fills MODEL_FIELDS in place, so this cannot be built at module load.
-  attributes: () => [
-    ...OWN_ATTRIBUTES,
-    ...detailKeys().map((key) => ({
+  attributes: () =>
+    detailKeys().map((key) => ({
       key,
       label: MODEL_FIELDS[key]?.label ?? key,
     })),
-  ],
+
+  trailing: () => TRAILING_ATTRIBUTES,
 
   cells: (pick) => ({
     ...ownCells(pick.detail),

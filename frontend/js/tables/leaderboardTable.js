@@ -30,12 +30,15 @@ import {
 // below this the board fills the width; above it the columns are sized to what they hold and
 // the board scrolls sideways instead.
 //
+// Twelve rather than eight since the header stopped reserving 28px for its sort arrow — see
+// .tabulator-col-content in style.css.
+//
 // The two layouts are each bad at the case the other is for. Stretched, a board of eleven
 // tasks squeezes every column below the width of the number in it — hiding what the board
 // exists to show; sized to fit, a board of three is a huddle of columns against a page of
 // whitespace. So the count decides, and it is a count rather than a measurement deliberately:
 // a layout that changed as the window moved would re-flow the header under the reader's hand.
-const COLUMNS_THAT_FIT = 8;
+const COLUMNS_THAT_FIT = 12;
 
 // And how few it takes for a stretched column to be wide enough to head with two badges on one
 // line. A lower number than the one above, because "fits" and "has room to spare" are
@@ -45,7 +48,7 @@ const COLUMNS_WITH_ROOM = 4;
 
 // The narrowest a task column may be drawn, stretched or sized to fit: a mean over its spread,
 // plus the room the header reserves for its sort arrow.
-const TASK_WIDTH = 96;
+const TASK_WIDTH = 66;
 
 // Whether the board can be stretched to fill the page, and whether its columns are then wide
 // enough to head across rather than down. Both off the one count, so the layout and the
@@ -83,7 +86,7 @@ function getColumns(taskIds, metrics) {
       sorter: rankSorter,
       // A number, not a layout name: a column's `width` is a width, and Tabulator reads
       // anything else as none at all.
-      width: 70,
+      width: 60,
       frozen: true,
     },
     {
@@ -91,16 +94,16 @@ function getColumns(taskIds, metrics) {
       field: "model_name",
       formatter: modelFormatter,
       // Held while the tasks scroll: which model a row belongs to is what makes a number
-      // readable, and eight tasks are wider than the page.
+      // readable, and a dozen tasks are wider than the page.
       frozen: true,
-      minWidth: 200,
-      // What is left over on a stretched board comes here rather than to the numbers: a name
-      // is as long as it is, where a score has a width of its own and reads no better for
-      // having more. Inert under fitData, where the name sizes its own column.
-      widthGrow: 3,
+      minWidth: 150,
+      // More of what is left over on a stretched board comes here than to any one task — a
+      // name is as long as it is — but not three times as much: a board of a dozen has better
+      // uses for the width. Inert under fitData, where the name sizes its own column.
+      widthGrow: 2,
     },
     ...taskIds.map((taskId) => ({
-      title: taskHeader(taskId, metrics[taskId], { stacked }),
+      title: taskHeader(taskId, metrics[taskId], { stacked, align: "centre" }),
       // The header is markup, so Tabulator has to be told not to escape it.
       titleFormatter: "html",
       field: taskId,
@@ -111,10 +114,10 @@ function getColumns(taskIds, metrics) {
       // stretched one too, which is what makes a board of eleven scroll rather than squeeze.
       widthGrow: 1,
       minWidth: TASK_WIDTH,
-      hozAlign: "right",
-      headerHozAlign: "right",
-      // Matches the room the header reserves for its sort arrow — see .num-cell.
-      cssClass: "num-cell",
+      // Centred, heading and number alike: a column is barely wider than what it holds, so
+      // there is no long run of space for either to sit at one end of.
+      hozAlign: "center",
+      headerHozAlign: "center",
     })),
   ];
 }

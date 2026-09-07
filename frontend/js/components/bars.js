@@ -19,13 +19,13 @@ function buildSuiteScoreBar(suite, score, rank) {
   const rankText = hasScore ? (rank == null ? "-" : `Rank #${rank}`) : "";
 
   return `
-    <div class="card column gap-md ${hasScore ? "" : "disabled"}">
-      <div class="row gap-md">
+    <div class="card column gap-lg ${hasScore ? "" : "disabled"}">
+      <div class="row gap-lg">
         <span class="badge ${escapeHtml(suite)}">${escapeHtml(suiteLabel(suite))}</span>
         <div class="bar-track wide-bar">
           <div class="bar wide-bar ${escapeHtml(suite)}" style="width:${widthPct}%"></div>
         </div>
-        <div class="row gap-md">
+        <div class="row gap-lg">
           <span class="metadata">${escapeHtml(scoreText)}</span>
           ${rankText ? `<span class="metadata">${escapeHtml(rankText)}</span>` : ""}
         </div>
@@ -35,7 +35,7 @@ function buildSuiteScoreBar(suite, score, rank) {
 
 function buildSuiteScoreBars(meanScores, ranks) {
   return `
-  <div class="column gap-md">
+  <div class="column gap-lg">
     ${SUITES.map((suite) =>
       buildSuiteScoreBar(
         suite,

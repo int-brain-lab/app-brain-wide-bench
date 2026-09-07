@@ -519,11 +519,11 @@ function buildFilterBar(controls, values = {}) {
   // Not on the stacked fallback, where `align-items: start` would take a lone control down
   // to its content width.
   const grid = GRID_CLASS[perRow];
-  const layout = grid ?? "column gap-md";
+  const layout = grid ?? "column gap-lg";
   const align = pinned && grid ? " align-start" : "";
 
   return `
-    <div class="column gap-md">
+    <div class="column gap-lg">
       ${rows
         .map(
           (row) => `

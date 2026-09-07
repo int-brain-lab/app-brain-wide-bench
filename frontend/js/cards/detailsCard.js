@@ -34,7 +34,7 @@ function buildDetailsCard({
   const stacks = toColumns(shown, columns)
     .map(
       (columnKeys) => `
-        <span class="column gap-md">
+        <span class="column gap-lg">
           ${buildDisplayFields(columnKeys, record, fields)}
         </span>
       `,

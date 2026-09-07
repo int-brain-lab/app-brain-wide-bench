@@ -185,7 +185,7 @@ export function buildToggle(buttons) {
     <div class="row right gap-sm">
       ${buttons
         .map(({ id, label, icon }) =>
-          buildButton({ id, label, icon: getIcon(icon) }),
+          buildButton({ id, label, icon: getIcon(icon), className: "sm" }),
         )
         .join("")}
     </div>
@@ -230,7 +230,7 @@ export function buildPlotTableToggle(scope = "") {
 // starts disabled — the form enables it once every panel is complete.
 export function buildFormFooter({ cancelHref, submitLabel }) {
   return `
-    <div class="row right gap-md">
+    <div class="row right gap-lg">
       ${buildCancelButton({ id: null, href: cancelHref })}
       ${buildButton({
         id: SUBMIT_BUTTON_ID,

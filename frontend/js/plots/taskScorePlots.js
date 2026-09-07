@@ -1,7 +1,8 @@
 // What taskScoreComparison.js draws: one plot per score over its categories — a recording for
 // TS1 and TS2, a brain region for TS3 — one plot of means per task type, and the same numbers
-// as heatmap blocks. This says what a category is; the marks are bar.js and scatter.js.
+// as heatmap blocks. This says what a category is; the marks are bar.js.
 
+import { metricLabel } from "../core/suites.js";
 import { REGION_TASK_TYPE } from "../utils/recordingScoreUtils.js";
 import { createBarPlot } from "./bar.js";
 import { buildHeatmaps } from "./heatmap.js";
@@ -58,20 +59,17 @@ function categoryLabelOf(taskType) {
  *
  * @param series     from toScoreSeries.
  * @param categories the axis, shared by every plot measured the same way.
- * @param createPlot createBarPlot or createScatterPlot.
  * @param height     in px.
  * @returns { element, chart }.
  */
-function createCategoryPlot({ series, categories, createPlot, height }) {
-  return createPlot({
+function createCategoryPlot({ series, categories, height }) {
+  return createBarPlot({
     series: [series],
     categories,
     xAxisLabel: categoryLabelOf(series.taskType),
 
     // The axis says what its categories are; naming each one says nothing a reader can use.
-    // Blank rather than null, which would take the tick mark with the label — the marks are
-    // what show how many categories the axis holds and where they fall.
-    xTickLabel: () => "",
+    xTickLabel: () => null,
     xTickRotation: 0,
 
     yRange: SCORE_RANGE,
@@ -125,7 +123,7 @@ function buildScoreHeatmaps({ allSeries, categoriesFor }) {
   const plots = [...blocks].map(([key, members]) => ({
     id: key,
     taskType: members[0].taskType,
-    name: members[0].metric,
+    name: metricLabel(members[0].metric),
     categories: categoriesFor(members[0].taskType),
     yRange: SCORE_RANGE,
     series: members,
@@ -139,4 +137,4 @@ function buildScoreHeatmaps({ allSeries, categoriesFor }) {
   });
 }
 
-export { buildScoreHeatmaps, createCategoryPlot, createMeanPlot };
+export { SCORE_RANGE, buildScoreHeatmaps, createCategoryPlot, createMeanPlot };

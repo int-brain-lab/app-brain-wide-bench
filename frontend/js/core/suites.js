@@ -14,8 +14,8 @@ const TASK_NAMES = {
   "ts1-stimulus_contrast": "Stimulus",
   "ts1-wheel_speed": "Wheel",
   "ts1-whisker_motion_energy": "Whisker",
-  "ts2-co_smoothing": "Co-smoothing",
-  "ts2-forecasting": "Forecasting",
+  "ts2-co_smoothing": "Co-smooth",
+  "ts2-forecasting": "Forecast",
   "ts3-cosmos": "Cosmos",
 };
 
@@ -78,6 +78,56 @@ const TASK_TYPES = {
   "ts3-cosmos": "brain_region",
 };
 
+// TS3 reports one set of metrics per brain region, and a macro average over them, so a
+// metric name may arrive with a region on the front of it — "TH/f1-score", "macro/precision".
+const REGION_SEPARATOR = "/";
+
+const MACRO_REGION = "macro";
+
+// How a metric is written wherever one is shown. Keyed by the names the scorers write — see
+// app/scoring — which are what the benchmark calls them rather than what a reader reads.
+const METRIC_NAMES = {
+  ap: "AP",
+  bacc: "BAcc",
+  bps: "BPS",
+  d2: "D²",
+  f1: "F1",
+  "f1-score": "F1",
+  mae: "MAE",
+  pearson: "Pearson r",
+  poisson_d2: "Poisson D²",
+  precision: "Precision",
+  r2: "R²",
+  recall: "Recall",
+};
+
+/**
+ * How a metric is written wherever one is shown — a badge, a button, a heatmap block.
+ *
+ * A metric this does not name reads as it arrived, as an unnamed task does: one the benchmark
+ * has added shows up before it is named here.
+ *
+ * @param metric the scorers' own name, region-prefixed or not.
+ * @returns the label.
+ */
+function metricLabel(metric) {
+  const name = String(metric ?? "");
+
+  if (!name) return "";
+
+  const at = name.indexOf(REGION_SEPARATOR);
+
+  if (at < 0) return METRIC_NAMES[name] ?? name;
+
+  const region = name.slice(0, at);
+
+  // A region is already written as it reads — "TH", "Isocortex" — where the average over
+  // them is the one prefix that is a word.
+  return `${region === MACRO_REGION ? "Macro" : region} ${metricLabel(
+    name.slice(at + 1),
+  )}`;
+}
+
 function suiteFromTask(taskId) {
   const prefix = String(taskId ?? "").split("-")[0];
 
@@ -99,7 +149,9 @@ function taskTypeOf(taskId) {
 }
 
 export {
+  REGION_SEPARATOR,
   SUITES,
+  metricLabel,
   suiteFromTask,
   suiteLabel,
   taskLabel,

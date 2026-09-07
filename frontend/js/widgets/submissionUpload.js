@@ -18,7 +18,7 @@ import { inferTasks, listZipEntries } from "../core/zip.js";
 
 function buildUploadPanel() {
   return `
-    <div class="card column gap-md">
+    <div class="card column gap-lg">
       <p class="title muted">Predictions</p>
 
       <!-- Not a schema field, so it has no label of its own — but it is required, and the
@@ -74,7 +74,7 @@ function buildDetectedTasks(taskIds, isKnownTask) {
   const label = count === 1 ? "task" : "tasks";
 
   return `
-    <div class="column gap-md">
+    <div class="column gap-lg">
       <div class="info-msg">
         Detected ${count} ${label} in this file
       </div>

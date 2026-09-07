@@ -84,7 +84,7 @@ function buildRankRow(row, showPrivate, submitHref) {
         }</span>`;
 
   return `
-    <div class="row gap-md rank-row">
+    <div class="row gap-lg rank-row">
       <span class="rank-badge">
         <span class="badge ${escapeHtml(variantOf(row.figure))}">${escapeHtml(row.label)}</span>
       </span>

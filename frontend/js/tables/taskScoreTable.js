@@ -16,7 +16,7 @@ import {
   numericSorter,
   rankUsageFormatter,
   buildScoreSemFormatter,
-  buildTaskSuiteFormatter, parameterFormatter,
+  parameterFormatter,
 } from "./formatters.js";
 import {TASK_FIELDS, trainingFieldKeys} from "../schemas/taskSubmissionSchema.js";
 

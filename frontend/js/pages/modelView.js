@@ -321,8 +321,8 @@ function renderSubmissionsView({ model }) {
     // leaving the page to read it would lose the model they came for.
     //
     // `base` and no `active`, which is what puts it there from the start with no button to
-    // press first — the same as the leaderboard's. A row is a pick from the moment the view
-    // opens, and the panel's own prompt is what says so.
+    // press first. A row is a pick from the moment the view opens, and the panel's own prompt
+    // is what says so.
     modes: {
       base: {
         title: "Compare submissions",

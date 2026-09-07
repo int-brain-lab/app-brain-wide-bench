@@ -15,14 +15,14 @@ function buildTeamCard(team) {
 
   return `
     <a
-      class="card column left gap-md"
+      class="card column left gap-lg"
       href="/html/teams/teams.html?id=${encodeURIComponent(team.id)}"
     >
       <div class="column left">
         <p class="title">${escapeHtml(team.name)}</p>
       </div>
 
-      ${role ? `<div class="row left gap-md">${role}</div>` : ""}
+      ${role ? `<div class="row left gap-lg">${role}</div>` : ""}
 
       <p class="metadata">
         ${buildCount(team.n_members, "member")}

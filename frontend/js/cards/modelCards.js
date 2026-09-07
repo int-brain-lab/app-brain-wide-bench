@@ -20,7 +20,7 @@ function buildModelCard(model, { showMine = false } = {}) {
 
   return `
     <a
-      class="card column left gap-md"
+      class="card column left gap-lg"
       href="/html/models/models.html?id=${encodeURIComponent(model.id)}"
     >
       <div class="column left">
@@ -28,7 +28,7 @@ function buildModelCard(model, { showMine = false } = {}) {
         <p class="metadata">${escapeHtml(model.team_name || "—")}</p>
       </div>
 
-      <div class="row left gap-md">
+      <div class="row left gap-lg">
         ${buildSuiteBadgeList(model.suites ?? [], "sm")}
         ${buildPretrainedBadge(model.is_pretrained, "sm")}
         ${showMine ? buildMineBadge(model.is_mine, "sm") : ""}

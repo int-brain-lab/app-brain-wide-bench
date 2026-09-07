@@ -104,7 +104,7 @@ const DASHBOARD_SECTIONS = [
         id: "narrative",
         title: "Narrative",
         // One card per narrative, stacked — the section body is a plain block otherwise.
-        className: "column gap-md",
+        className: "column gap-lg",
       },
       {
         id: "details",
