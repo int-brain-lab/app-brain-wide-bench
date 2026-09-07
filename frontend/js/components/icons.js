@@ -35,6 +35,9 @@ const ICONS = {
   public: "eye",
   private: "eye-off",
 
+  // Answers
+  tick: "check",
+
   // Actions
   add: "plus",
   edit: "pencil",

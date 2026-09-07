@@ -262,11 +262,9 @@ function buildRecordingsToggle() {
  *                    record on the task this panel is open on.
  * @param showPicks   whether this owns the row of picked scores. Omit for a host that draws
  *                    its own.
- * @param metricsContainer where the metric each task type is read in is chosen, for a host
- *                    placing that control beside the plots rather than over them. Omit where
- *                    the mean cards carry it.
  * @param meansContainer where the mean of each score is drawn, for a host with a place of its
- *                    own for it. Omit for the panel's own section.
+ *                    own for it. The metric it is read in is chosen inside that card either
+ *                    way. Omit for the panel's own section.
  * @param options     as createComparison. `toPick` makes a pick of
  *                    `{ key, taskId, submissionId, submissionLabel, modelName, colour? }`;
  *                    a host handing picks to `setPicks` makes them itself.
@@ -276,7 +274,6 @@ function createTaskComparison({
   container,
   nested = false,
   showPicks = true,
-  metricsContainer = null,
   meansContainer = null,
   ...options
 }) {
@@ -423,15 +420,24 @@ function createTaskComparison({
     );
   }
 
+  // The row of badges that says what the plot above it is read in.
+  function buildMetricChoice(taskType, metric) {
+    const choice = document.createElement("div");
+
+    renderHtml(choice, buildMetricBadges(taskType, metric));
+
+    return choice;
+  }
+
   function getGroupSlot(key, slot) {
     return getSectionBody(SCORES_SECTION)?.querySelector(
       `[data-${GROUP_ROW}="${key}"] ${slot}`,
     );
   }
 
-  // One task type's mean, a bar per pick. Standalone it is a card with that type's metric
-  // badges in it, those being what the plot is drawn in; nested the host draws the card and
-  // places the badges itself — see metricsContainer.
+  // One task type's mean, a bar per pick, and under it the choice of what to read it in.
+  // Nested the card is the one the breakdown draws — the task and the metric named inside it
+  // — where standalone it is this panel's own, headed by buildMeanBadges.
   function buildMeanCell(group) {
     const metric = metricFor(group.key);
 
@@ -443,7 +449,7 @@ function createTaskComparison({
     const categories = group.scores.map((score) => score.key);
     const categoryLabel = (key) => labels.get(key);
 
-    if (metricsContainer) {
+    if (nested) {
       const plot = createTaskPlot({
         series,
         categories,
@@ -452,6 +458,9 @@ function createTaskComparison({
         yRange: SCORE_RANGE,
         height: 150,
       });
+
+      plot.element.dataset[METRIC_GROUP] = group.key;
+      plot.element.appendChild(buildMetricChoice(group.key, metric));
 
       meanCharts.push(plot.chart);
 
@@ -475,10 +484,7 @@ function createTaskComparison({
     renderHtml(cell, buildMeanBadges(group, metric));
     cell.appendChild(plot.element);
 
-    const choice = document.createElement("div");
-
-    renderHtml(choice, buildMetricBadges(group.key, metric));
-    cell.appendChild(choice);
+    cell.appendChild(buildMetricChoice(group.key, metric));
 
     meanCharts.push(plot.chart);
 
@@ -513,24 +519,6 @@ function createTaskComparison({
 
   // By group, so comparable plots sit together. A score whose type has not loaded is in no
   // group and is left out.
-  // One row of badges per task type, for a host that placed the control itself. Nothing to
-  // draw where the mean cards carry it.
-  function renderMetrics() {
-    if (!metricsContainer) return;
-
-    renderHtml(
-      resolveContainer(metricsContainer),
-      taskTypeGroups
-        .map(
-          (group) => `
-        <span class="row left gap-sm" data-${METRIC_GROUP}="${group.key}">
-          ${buildMetricBadges(group.key, metricFor(group.key))}
-        </span>`,
-        )
-        .join(""),
-    );
-  }
-
   // One task type's recordings, a plot per score over the categories that type is measured
   // on. Three across standalone, one per row nested, where the column sits beside the task.
   function buildPlotCells(group) {
@@ -621,7 +609,6 @@ function createTaskComparison({
     renderHint();
     renderGroupRows();
     renderMeans();
-    renderMetrics();
     renderRecordings();
 
     refreshIcons();
@@ -686,7 +673,7 @@ function createTaskComparison({
 
     for (const root of [
       getSectionBody(SCORES_SECTION),
-      metricsContainer ? resolveContainer(metricsContainer) : null,
+      meansContainer ? resolveContainer(meansContainer) : null,
     ]) {
       root?.addEventListener("click", (event) => {
         const badge = event.target.closest(`[data-role="${METRIC}"]`);
@@ -703,7 +690,6 @@ function createTaskComparison({
         selectedMetrics.set(key, badge.value);
 
         renderMeans();
-        renderMetrics();
         renderRecordings();
       });
     }

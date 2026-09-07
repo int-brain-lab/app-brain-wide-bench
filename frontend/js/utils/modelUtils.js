@@ -61,18 +61,18 @@ function getModelFilters(rows, { showSuiteFilter = true } = {}) {
       match: matchIncludes("name"),
     },
     {
-      type: "select",
+      type: "pinned",
       name: "team_name",
-      placeholder: "All teams",
+      label: "Team",
       options: optionsFromRows(rows, "team_name"),
       match: matchEquals("team_name"),
     },
     ...(showSuiteFilter
       ? [
           {
-            type: "select",
+            type: "pinned",
             name: "suite",
-            placeholder: "All suites",
+            label: "Suite",
             options: SUITE_OPTIONS,
             match: matchInArray("suites"),
           },
@@ -168,32 +168,39 @@ function toRankRows(ranking) {
 }
 
 /**
- * Stamp each score row with the rankings its entry is currently carrying.
+ * Stamp each score row with what its entry is currently carrying.
  *
  * The endpoint names the entry each side used for every task, and a score row is that same
  * entry — see `toScoreRow`, whose `id` is the task submission's. So the join is by id, and
  * a row that isn't the newest score for its task matches neither side and is carrying
  * nothing, which is the interesting half of the answer.
  *
+ * `latest` is the private side where the reader was given one: that ranking is computed over
+ * every submission, so its entry for a task is the newest score of it — see latest_entries in
+ * app/ranking/rank.py. Without that side it falls back to the public entry, which for a reader
+ * who can only see public submissions is the newest score there is to see.
+ *
  * @param rows    from toScoreRows / toScoreResultRows.
  * @param ranking the GET /api/models/{id}/ranking payload, or nothing.
- * @returns copies, each with `ranked: { public, private }` — both false where the row is
- *          superseded, and `private` always false for a reader who wasn't given that side.
+ * @returns copies, each with `ranked: { public, latest }` — both false where the row has been
+ *          superseded.
  */
 function markRankedRows(rows, ranking) {
-  const used = {};
+  const ranked = new Set();
+  const latest = new Set();
+
+  // The side that says which score is the newest, which is the private one wherever the
+  // reader has it.
+  const newest = ranking?.private ? "private" : "public";
 
   for (const sides of Object.values(ranking?.tasks ?? {})) {
-    for (const side of ["public", "private"]) {
-      const id = sides[side]?.id;
-
-      if (id) (used[id] ??= { public: false, private: false })[side] = true;
-    }
+    if (sides.public?.id) ranked.add(sides.public.id);
+    if (sides[newest]?.id) latest.add(sides[newest].id);
   }
 
   return rows.map((row) => ({
     ...row,
-    ranked: used[row.id] ?? { public: false, private: false },
+    ranked: { public: ranked.has(row.id), latest: latest.has(row.id) },
   }));
 }
 

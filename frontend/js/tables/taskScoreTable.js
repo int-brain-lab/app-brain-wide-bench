@@ -14,7 +14,7 @@ import {
   buildLinkFormatter,
   taskNameFormatter,
   numericSorter,
-  rankUsageFormatter,
+  buildFlagFormatter,
   buildScoreSemFormatter,
   parameterFormatter,
 } from "./formatters.js";
@@ -26,6 +26,8 @@ import {TASK_FIELDS, trainingFieldKeys} from "../schemas/taskSubmissionSchema.js
 // shares out what is spare, so these are floors rather than sizes: below them the grid scrolls
 // sideways instead of squeezing a name to nothing.
 //
+// A flagged column is a heading over a tick, so the heading is the whole of its width — and
+// "Used in public ranking" is a long one, where a Tabulator header clips rather than wraps.
 // A parameter is one word from an enum; a score is a mean over its spread with the metric
 // badged beside it; a name is a model or a submission label, both of which run long but are
 // read as metadata here. What is spare above the floors is shared equally — every column
@@ -34,6 +36,7 @@ const TASK_WIDTH = 120;
 const SCORE_WIDTH = 130;
 const FIELD_WIDTH = 120;
 const NAME_WIDTH = 110;
+const FLAG_WIDTH = 150;
 
 // `showSubmission` off drops the Submission column, for a caller already scoped to one
 // submission — there it would repeat the page's own heading down every row.
@@ -80,18 +83,37 @@ function getScoreColumns({
       ]
     : [];
 
-  // After the methodology and before the two provenance columns: it qualifies the score
-  // rather than saying where the row came from. Unsorted, because the order it would impose
-  // — carrying both, one, neither — is the one the reader is already scanning for.
-  const rankingColumn = showRanking
+  // Beside the score rather than at the end of the row: both say something about *this*
+  // number — whether it is the one being ranked on, and whether it is the model's newest go
+  // at that task. Unsorted, because the order they would impose — carrying both, one, neither
+  // — is the one the reader is already scanning for.
+  const rankingColumns = showRanking
     ? [
         {
-          title: "Used in ranking",
+          title: "Used in public ranking",
           field: "ranked",
-          formatter: rankUsageFormatter,
+          formatter: buildFlagFormatter(
+            (row) => row.ranked?.public,
+            "Counted in the public ranking",
+          ),
           headerSort: false,
+          hozAlign: "center",
+          headerHozAlign: "center",
           widthGrow: 1,
-          minWidth: FIELD_WIDTH,
+          minWidth: FLAG_WIDTH,
+        },
+        {
+          title: "Latest score",
+          field: "ranked",
+          formatter: buildFlagFormatter(
+            (row) => row.ranked?.latest,
+            "The model's newest score for this task",
+          ),
+          headerSort: false,
+          hozAlign: "center",
+          headerHozAlign: "center",
+          widthGrow: 1,
+          minWidth: FLAG_WIDTH,
         },
       ]
     : [];
@@ -123,6 +145,7 @@ function getScoreColumns({
       widthGrow: 1,
       minWidth: SCORE_WIDTH,
     },
+    ...rankingColumns,
     ...trainingFieldKeys().map((key) => ({
       title: TASK_FIELDS[key].label,
       field: key,
@@ -133,7 +156,6 @@ function getScoreColumns({
       widthGrow: 1,
       minWidth: FIELD_WIDTH,
     })),
-    ...rankingColumn,
     ...submissionColumn,
     ...modelColumn,
   ];

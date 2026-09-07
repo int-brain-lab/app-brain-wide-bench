@@ -922,19 +922,13 @@ CARDS
   box-shadow: inset 0 3px 0 var(--row-ink, transparent);
 }
 
-/* The score table's "used in ranking" cell: the same two sides as the chips above, in the
-   same two colours, at the size of the text they sit beside. */
-.rank-icon {
+/* A cell that answers yes: the score table's "used in public ranking" and "latest score" —
+   see buildFlagFormatter. At the size of the text it sits among, and in the app's own colour,
+   a tick being an answer rather than a warning. */
+.tick-icon {
   width: 16px;
   height: 16px;
-}
-
-.rank-icon.public {
-  color: var(--text-muted);
-}
-
-.rank-icon.private {
-  color: var(--ts2);
+  color: var(--primary);
 }
 
 /* How far publishing would move the model, in places. Red for a fall, and the arrow is
@@ -1648,6 +1642,23 @@ table {
    Wide fitColumns grids hid it; it is obvious the moment a column is narrow. */
 .tabulator .tabulator-header .tabulator-col .tabulator-col-content {
   padding: 10px 8px;
+}
+
+/* Headings wrap rather than being cut. Tabulator's own rule is nowrap with an ellipsis,
+   which on a narrow column shows a heading's first word and a "…" that says nothing: "Used
+   in public ranking" over a tick, or a task's metric over its scores. The header strip grows
+   to the tallest of them, so every column gets the same depth.
+
+   `.tabulator-col-content` is in the chain to match the specificity of the rule this is
+   overriding, which names it — four classes deep loses to five, whichever loads last. And
+   `text-overflow: clip` because the ellipsis is set separately and outlives the nowrap. */
+.tabulator
+  .tabulator-header
+  .tabulator-col
+  .tabulator-col-content
+  .tabulator-col-title {
+  white-space: normal;
+  text-overflow: clip;
 }
 
 /* Tabulator parks the sort arrow absolutely at the right edge of .tabulator-col-content,

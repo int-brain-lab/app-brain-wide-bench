@@ -259,7 +259,7 @@ function renderDashboardView({ user, models, teams, submissions, scoreRows }) {
 // ─── SCORES VIEW ─────────────────────────────────────────────────────────────
 
 function renderScoresView({ models, scoreRows }) {
-  const display = { showModel: true, showSubmission: true, showMethodology: true };
+  const display = { showModel: true, showSubmission: true };
 
   return renderRecordListView({
     noun: "score",

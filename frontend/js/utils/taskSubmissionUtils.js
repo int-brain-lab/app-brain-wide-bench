@@ -1,14 +1,9 @@
 // A task submission as the pages read it: its rows, the filters over them, and the suite
 // a task belongs to.
 
-import { metricLabel, suiteFromTask } from "../core/suites.js";
+import { suiteFromTask } from "../core/suites.js";
 import { trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
-import {
-  matchEquals,
-  matchIncludes,
-  optionsFromRows,
-  SUITE_OPTIONS,
-} from "../components/filters.js";
+import { getTaskScoreFilters } from "./taskScoreUtils.js";
 
 // ─── ROWS ────────────────────────────────────────────────────────────────────
 
@@ -51,31 +46,14 @@ function toTaskSubmissionRows(
 
 // ─── FILTERS ─────────────────────────────────────────────────────────────────
 
+// The score tables' own set: one submission's tasks are its scores read another way, so a
+// reader asks the same questions of both and the two bars look alike. The rows carry the
+// fields it matches on — `task_id`, `suite`, `metric` and the methodology — which is what
+// lets one builder serve either.
+//
+// No model control: every row here belongs to the submission the page is about.
 function getTaskSubmissionFilters(rows) {
-  return [
-    {
-      type: "search",
-      name: "task_id",
-      placeholder: "Search tasks...",
-      match: matchIncludes("task_id"),
-    },
-    {
-      type: "select",
-      name: "suite",
-      placeholder: "All suites",
-      options: SUITE_OPTIONS,
-      match: matchEquals("suite"),
-    },
-    {
-      // optionsFromRows drops nulls, and an unscored row carries no metric — so choosing
-      // one narrows to scored rows.
-      type: "select",
-      name: "metric",
-      placeholder: "All metrics",
-      options: optionsFromRows(rows, "metric", metricLabel),
-      match: matchEquals("metric"),
-    },
-  ];
+  return getTaskScoreFilters(rows);
 }
 
 // ─── SUITES ──────────────────────────────────────────────────────────────────

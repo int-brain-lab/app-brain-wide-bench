@@ -40,9 +40,9 @@ function getTeamFilters(rows) {
       match: matchIncludes("name"),
     },
     {
-      type: "select",
+      type: "pinned",
       name: "role",
-      placeholder: "Any role",
+      label: "Role",
       options: optionsFromRows(rows, "role"),
       match: matchEquals("role"),
     },

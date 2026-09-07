@@ -336,30 +336,21 @@ function rankFormatter(cell) {
   return rankBadge(cell.getValue());
 }
 
-function rankUsageFormatter(cell) {
-  const used = cell.getValue();
-
-  const icons = [
-    used?.public &&
-      buildIcon("public", {
-        className: "rank-icon public",
-        title: "Counted in the public ranking",
-      }),
-
-    used?.private &&
-      buildIcon("private", {
-        className: "rank-icon private",
-        title: "Counted in the private ranking",
-      }),
-  ].filter(Boolean);
-
-  if (!icons.length) return emptyMetadata();
-
-  return `
-    <span class="row left gap-sm">
-      ${icons.join(`<span class="metadata">and</span>`)}
-    </span>
-  `;
+/**
+ * A formatter for a column that answers yes or no: a tick where it holds, a dash where it
+ * does not.
+ *
+ * @param read  (row) => whether this row is one of them.
+ * @param title hover text on the tick, for a column whose heading is read once and then
+ *              scrolled away from.
+ *
+ * @returns a Tabulator formatter.
+ */
+function buildFlagFormatter(read, title) {
+  return (cell) =>
+    read(cell.getData())
+      ? buildIcon("tick", { className: "tick-icon", title })
+      : emptyMetadata();
 }
 
 // Signed and coloured by which way it went — see .diff-up in style.css.
@@ -406,6 +397,7 @@ export {
   buildLinkFormatter,
   buildMeanSem,
   buildModelNameFormatter,
+  buildFlagFormatter,
   buildScoreSemFormatter,
   buildTaskSuiteFormatter,
   dateFormatter,
@@ -420,7 +412,6 @@ export {
   rankBadge,
   rankFormatter,
   rankSorter,
-  rankUsageFormatter,
   roleBadgeFormatter,
   statusFormatter,
   valueSorter,

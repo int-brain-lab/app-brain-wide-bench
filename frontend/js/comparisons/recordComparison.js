@@ -91,11 +91,10 @@ const LAYOUT_ID = "compare-plot-layout";
 
 const PLOTS_ID = "compare-plots";
 
-// The cell the task being read fills: its name, the mean of it in the chosen metric, and the
-// metrics it can be read in — the last two drawn by the task panel, which holds the scores.
+// The cell the task being read fills: its name, and the mean of it in the chosen metric —
+// drawn by the task panel, which holds the scores and the choice of metric with them.
 const PLOT_CELL_ID = "compare-plot-cell";
 const MEANS_ID = "compare-means";
-const METRICS_ID = "compare-metrics";
 const TASK_DETAIL_ID = "compare-task-detail";
 
 const SCORES_ID = "compare-scores-toggle";
@@ -454,9 +453,8 @@ function createRecordComparison({
       nested: true,
 
       // The task being read is drawn here rather than in the panel: its mean in the chosen
-      // metric, and the metrics it can be read in, under the name of the task itself.
+      // metric, under the name of the task itself, and the choice of metric inside that card.
       meansContainer: MEANS_ID,
-      metricsContainer: METRICS_ID,
     });
 
     return taskDetail;
@@ -652,9 +650,7 @@ function createRecordComparison({
     // Reading one task, the mean of it stands in for its card in the grid.
     getElement(PLOTS_ID).hidden = showScores;
 
-    for (const id of [MEANS_ID, METRICS_ID]) {
-      getElement(id).hidden = !showScores;
-    }
+    getElement(MEANS_ID).hidden = !showScores;
 
     // One task is read as it stands: against the others is the set's question, and the table
     // is the set's other half.
@@ -919,7 +915,6 @@ function createRecordComparison({
           <div id="${PLOT_CELL_ID}" class="column gap-lg">
             <div id="${PLOTS_ID}"></div>
             <div id="${MEANS_ID}"></div>
-            <div id="${METRICS_ID}"></div>
           </div>
           <div id="${TASK_DETAIL_ID}" hidden></div>
         </div>
