@@ -44,7 +44,7 @@ function buildDetailsCard({
   const layout = columns > 1 ? ` class="grid-${columns}"` : "";
 
   return `
-    <div class="card corner-link">
+    <div class="card secondary corner-link">
       <div${layout}>
         ${stacks}
       </div>

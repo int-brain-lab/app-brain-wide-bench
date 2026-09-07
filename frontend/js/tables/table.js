@@ -92,7 +92,7 @@ function buildStaticTable({
         noun
           ? `
         <div class="table-footer">
-          <span>${buildTableCount(rows.length, total, noun)}</span>
+          <span class="metadata">${buildTableCount(rows.length, total, noun)}</span>
           ${buildViewAllLink(noun, viewAll)}
         </div>
       `
@@ -120,16 +120,16 @@ function buildStaticTable({
  *                       later selects or deselects one by value. Defaults to "id".
  * @param onRowClick     (rowData, {event, element}) => void, on every row click. The
  *                       element is the row's own. Omit for no click handling.
- * @param selection      {max, onChange, claimLinks, rolling, enabled} — makes rows pickable by
+ * @param selection      {max, onChange, rolling, enabled} — makes rows pickable by
  *                       clicking them, at most `max` at a time, and calls
  *                       `onChange(rows, {selected, deselected})` with the selected row data
  *                       and the row components that changed. A pick shows as an edge down
  *                       the row's left — see `.tabulator-selected` in style.css.
- *                       `claimLinks` says what a click on a link inside a row does: `true`
- *                       picks the row instead of following it, which is what a table
- *                       building a selection wants; `false` follows the link and leaves the
- *                       selection alone, for a table whose rows both open something beside
- *                       them and link somewhere else.
+ *                       `claimLinks` is () => whether a link inside a row is part of the row
+ *                       rather than a way out of it: where it holds, a click on one picks the
+ *                       row and the navigation is cancelled. Defaults to "whenever the row
+ *                       may be picked"; a list that is only ever picking passes its own, since
+ *                       there the links are the one way out.
  *                       `rolling: true` lets a pick past the cap push the oldest out, which
  *                       is what a panel showing one row at a time wants — clicking another
  *                       row plainly means "that one".
@@ -203,7 +203,7 @@ function createTable({
     // Tabulator lays its footer out as a flex row and gives the paginator
     // `flex: 1; text-align: right`, so this sits left of the page buttons. Setting
     // footerElement also keeps the footer when pagination is off.
-    footerElement: `<span data-role="count"></span>`,
+    footerElement: `<span class="metadata" data-role="count"></span>`,
 
     placeholder: `No ${noun}s match these filters.`,
 
@@ -229,6 +229,9 @@ function createTable({
   // rebuilding the rows — see selectableRows, which is fixed at row-init.
   const canPick = selection?.enabled ?? (() => true);
 
+  // And whether a link inside a row is the row's rather than a way out of it.
+  const claimsLinks = selection?.claimLinks ?? canPick;
+
   // The row cursor keys off this — see `[data-rows-selectable]` in style.css. Written again by
   // a caller that turns picking on or off.
   root.dataset.rowsSelectable = String(Boolean(selection) && canPick());
@@ -246,23 +249,22 @@ function createTable({
       selection.onChange(data, { selected, deselected }),
     );
 
-    // A click on a link, where the row is the control: the pick wins and the navigation is
-    // cancelled.
-    if (selection.claimLinks) {
-      table.on("rowClick", (event) => {
-        if (event.target.closest("a")) event.preventDefault();
-      });
-    }
+    // Where the row is the control, a link inside it goes nowhere: the pick wins and the
+    // navigation is cancelled.
+    table.on("rowClick", (event) => {
+      if (claimsLinks() && event.target.closest("a")) event.preventDefault();
+    });
 
     // Captured on the root, so it runs before the listener Tabulator put on the row and stops
-    // the event reaching it — which is what keeps the row from being picked. `stopPropagation`
-    // leaves the default action alone, so a link still navigates.
+    // the event reaching it — which is what keeps a row from being picked while picking is
+    // off. `stopPropagation` leaves the default action alone, so the links still navigate.
+    //
+    // Rows only. The header sorts and the footer pages through the same root, and stopping
+    // every click here left both of them dead whenever picking was off.
     root.addEventListener(
       "click",
       (event) => {
-        const link = Boolean(event.target.closest("a"));
-
-        if (!canPick() || (link && !selection.claimLinks)) {
+        if (!canPick() && event.target.closest(".tabulator-row")) {
           event.stopPropagation();
         }
       },

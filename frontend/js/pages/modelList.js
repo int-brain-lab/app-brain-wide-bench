@@ -52,8 +52,6 @@ loadListPage({
     // order, so the two agree without either page knowing the other's colours.
     palette: SERIES_COLOURS,
 
-    label: "Compare",
-
     toPick: (row) => ({ key: row.id }),
 
     onCompare: (ids) => {

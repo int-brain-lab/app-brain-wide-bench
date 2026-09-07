@@ -144,6 +144,28 @@ function taskLabel(taskId) {
   return suiteFromTask(taskId) ? taskId.slice(taskId.indexOf("-") + 1) : taskId;
 }
 
+// How a task type is written wherever one is named — over a plot of everything measured that
+// way. Keyed by TASK_TYPES' own values.
+const TASK_TYPE_NAMES = {
+  categorical: "Categorical",
+  continuous: "Continuous",
+  point_process: "Point process",
+  firing_rate: "Firing rate",
+  brain_region: "Brain region",
+};
+
+function taskTypeLabel(taskType) {
+  return TASK_TYPE_NAMES[taskType] ?? taskType ?? "";
+}
+
+// The suite in front of the short name — "TS1 Choice". What a task is called wherever it is
+// named away from its suite: a chip on a comparison, a badge on a list spanning all three.
+function taskFullLabel(taskId) {
+  return [suiteLabel(suiteFromTask(taskId)), taskLabel(taskId)]
+    .filter(Boolean)
+    .join(" ");
+}
+
 function taskTypeOf(taskId) {
   return TASK_TYPES[taskId] ?? suiteFromTask(taskId) ?? "";
 }
@@ -154,7 +176,9 @@ export {
   metricLabel,
   suiteFromTask,
   suiteLabel,
+  taskFullLabel,
   taskLabel,
+  taskTypeLabel,
   taskTypeOf,
   suitesFromModel,
   suitesFromSubmission,

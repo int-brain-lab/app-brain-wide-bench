@@ -22,6 +22,19 @@ import {TASK_FIELDS, trainingFieldKeys} from "../schemas/taskSubmissionSchema.js
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
+// The narrowest each kind of column may be drawn. The table fills the width it is given and
+// shares out what is spare, so these are floors rather than sizes: below them the grid scrolls
+// sideways instead of squeezing a name to nothing.
+//
+// A parameter is one word from an enum; a score is a mean over its spread with the metric
+// badged beside it; a name is a model or a submission label, both of which run long but are
+// read as metadata here. What is spare above the floors is shared equally — every column
+// carries `widthGrow: 1` — so the floors are the whole of the balance between them.
+const TASK_WIDTH = 120;
+const SCORE_WIDTH = 130;
+const FIELD_WIDTH = 120;
+const NAME_WIDTH = 110;
+
 // `showSubmission` off drops the Submission column, for a caller already scoped to one
 // submission — there it would repeat the page's own heading down every row.
 //
@@ -42,8 +55,10 @@ function getScoreColumns({
             "/html/models/models.html",
             "model_name",
             "model_id",
+            "metadata",
           ),
-          // widthGrow: 2,
+          widthGrow: 1,
+          minWidth: NAME_WIDTH,
         },
       ]
     : [];
@@ -57,15 +72,17 @@ function getScoreColumns({
             "/html/submissions/submissions.html",
             "submission_label",
             "submission_id",
+            "metadata",
           ),
-          // widthGrow: 2,
+          widthGrow: 1,
+          minWidth: NAME_WIDTH,
         },
       ]
     : [];
 
-  // Last: it is provenance for the score to its left rather than a fact about the task.
-  // Unsorted, because the order it would impose — carrying both, one, neither — is the one
-  // the reader is already scanning for.
+  // After the methodology and before the two provenance columns: it qualifies the score
+  // rather than saying where the row came from. Unsorted, because the order it would impose
+  // — carrying both, one, neither — is the one the reader is already scanning for.
   const rankingColumn = showRanking
     ? [
         {
@@ -73,24 +90,24 @@ function getScoreColumns({
           field: "ranked",
           formatter: rankUsageFormatter,
           headerSort: false,
-          // width: 170,
+          widthGrow: 1,
+          minWidth: FIELD_WIDTH,
         },
       ]
     : [];
 
   return [
     {
-      // The suite rides under the name rather than in a column of its own: it is a fact
-      // about the task, derived from its id (see toScoreRow), so a column would have
-      // repeated a prefix already on screen down a hundred-pixel band of its own. `suite`
-      // stays a field on the row either way, which is what the select above filters on.
+      // The suite reads in front of the short name — "TS1 Choice" — rather than in a column
+      // of its own: it is a fact about the task, derived from its id (see toScoreRow), and a
+      // column of it would repeat one word down a band of its own. `suite` stays a field on
+      // the row either way, which is what the select above filters on.
       title: "Task",
       field: "task_name",
       formatter: taskNameFormatter,
-      // widthGrow: 2,
+      widthGrow: 1,
+      minWidth: TASK_WIDTH,
     },
-    ...modelColumn,
-    ...submissionColumn,
     {
       // Mean, sem and the metric all three in one cell — see buildScoreSemFormatter. The field
       // stays `mean_score` so the sort is on the number, not on the spread or the badge
@@ -103,7 +120,8 @@ function getScoreColumns({
       field: "mean_score",
       formatter: buildScoreSemFormatter("sem", { metricField: "metric" }),
       sorter: numericSorter,
-      // minWidth: 220,
+      widthGrow: 1,
+      minWidth: SCORE_WIDTH,
     },
     ...trainingFieldKeys().map((key) => ({
       title: TASK_FIELDS[key].label,
@@ -112,9 +130,12 @@ function getScoreColumns({
       // The multi-value fields hold arrays, which don't sort meaningfully, and the
       // rest are unordered enums — so no column here earns a sort.
       headerSort: false,
-      // minWidth: 150,
+      widthGrow: 1,
+      minWidth: FIELD_WIDTH,
     })),
     ...rankingColumn,
+    ...submissionColumn,
+    ...modelColumn,
   ];
 }
 
@@ -154,7 +175,10 @@ function createTaskScoresTable({
     noun: "task",
     initialSort: [{ column: "mean_score", dir: "desc" }],
     index: "id",
-    layout: "fitData",
+
+    // Fills the page rather than sizing to its contents: a score table is a row of short
+    // values, which left to themselves huddle at one end of the width they are given.
+    layout: "fitColumns",
     selection,
     paginationSize: 8,
   });

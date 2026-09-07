@@ -1,6 +1,6 @@
 // A record-page view containing a list.
 //
-// createListView owns the list itself — filtering, cards/table modes and the list controls.
+// createListView owns the list itself — filtering, the cards and table views, and the picks.
 // This module only provides the record-page shell and mounts the list into its section.
 
 import { buildEmptyMessage } from "../components/messages.js";
@@ -24,7 +24,7 @@ import { renderPage } from "./pageChrome.js";
  * @param empty       what the section says when there are no rows.
  * @param rows        every row, already mapped into the shape createListView takes.
  * @param ...list     everything else — `createCards`, `createTable`, `filterControls`,
- *                    `modes`, `picking`, `maxCards` — is createListView's, and is spread
+ *                    `panel`, `picking`, `maxCards` — is createListView's, and is spread
  *                    through rather than named, so an option added there needs no edit here.
  *
  * @returns the list view, or null when there are no rows.
@@ -57,6 +57,7 @@ function renderRecordListView({
   const listView = createListView({
     container: sectionBody,
     rows,
+    noun,
     ...list,
   });
 

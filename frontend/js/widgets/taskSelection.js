@@ -14,7 +14,7 @@ import {
   SUITES,
   suiteFromTask,
   suiteLabel,
-  taskLabel,
+  taskFullLabel,
 } from "../core/suites.js";
 import {
   buildPinnedControl,
@@ -155,7 +155,7 @@ function toTaskOptions(taskIds) {
 
     return {
       value: taskId,
-      label: [suiteLabel(suite), taskLabel(taskId)].filter(Boolean).join(" "),
+      label: taskFullLabel(taskId),
       className: suite,
     };
   });
@@ -197,7 +197,6 @@ function buildSuites(bySuite) {
 function buildTaskSelect(available) {
   return buildPinnedControl({
     name: TASK_LIST,
-    className: "task-select",
     options: toTaskOptions(available),
     selected: readTasks(available),
     placeholder: "Add task",

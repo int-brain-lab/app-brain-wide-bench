@@ -19,7 +19,7 @@ function buildSuiteScoreBar(suite, score, rank) {
   const rankText = hasScore ? (rank == null ? "-" : `Rank #${rank}`) : "";
 
   return `
-    <div class="card column gap-lg ${hasScore ? "" : "disabled"}">
+    <div class="card secondary column gap-lg ${hasScore ? "" : "disabled"}">
       <div class="row gap-lg">
         <span class="badge ${escapeHtml(suite)}">${escapeHtml(suiteLabel(suite))}</span>
         <div class="bar-track wide-bar">
@@ -58,7 +58,7 @@ function buildTaskScoreBar(row) {
   const hasScore = row.mean_score != null;
 
   return `
-    <div class="card column gap-sm ${hasScore ? "" : "disabled"}">
+    <div class="card secondary column gap-sm ${hasScore ? "" : "disabled"}">
       <span class="row gap-sm">
         <span class="label">${escapeHtml(taskLabel(row.task_id))}</span>
         ${row.metric ? buildMetricBadge(row.metric, "sm") : ""}

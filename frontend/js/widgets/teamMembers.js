@@ -35,7 +35,7 @@ const ROLES = ["owner", "collaborator"];
 // page in JS — which meant two copies of a contract only this module enforces.
 function buildMembersPanel() {
   return `
-    <div class="card column gap-lg">
+    <div class="card secondary column gap-lg">
       <!-- Hidden outside edit mode by renderMembers: there is nothing to look someone up
            *for* until the surrounding form is editable. -->
       <div class="column gap-xs" id="member-add" hidden>
@@ -84,7 +84,9 @@ function buildMemberTable(members) {
         <tbody>${rows}</tbody>
       </table>
       <div class="table-footer">
-        ${buildTableCount(members.length, members.length, "member")}
+        <span class="metadata">
+          ${buildTableCount(members.length, members.length, "member")}
+        </span>
       </div>
     </div>
   `;
@@ -239,7 +241,11 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
             ${members.map(buildMemberRow).join("")}
           </tbody>
         </table>
-        <div class="table-footer">${buildTableCount(members.length, members.length, "member")}</div>
+        <div class="table-footer">
+          <span class="metadata">
+            ${buildTableCount(members.length, members.length, "member")}
+          </span>
+        </div>
       </div>
     `;
   }

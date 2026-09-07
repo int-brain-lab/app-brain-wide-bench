@@ -19,7 +19,7 @@ import { loadComparePage } from "../templates/comparePage.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
-const SUBMISSION_LIST_PAGE = "/html/submissions/submission_list_public.html";
+const SUBMISSION_LIST_PAGE = "/html/submissions/submission_list.html";
 
 const BACK_TEXT = "← Back to submissions";
 

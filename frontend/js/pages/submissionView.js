@@ -30,7 +30,7 @@ import {
   buildStaticTaskSubmissionsTable,
   createTaskSubmissionsTable,
 } from "../tables/taskSubmissionTable.js";
-import { SCORE_MODES } from "../comparisons/taskScoreComparison.js";
+import { SCORE_PANEL } from "../comparisons/taskScoreComparison.js";
 import { buildDetailsCard } from "../cards/detailsCard.js";
 import { buildStatCards } from "../cards/statCards.js";
 import {
@@ -126,7 +126,7 @@ function renderStatsSection(statistics) {
 
 function buildNarrativeCard(label, narrative) {
   return `
-    <div class="card column left gap-sm">
+    <div class="card secondary column left gap-sm">
       <p class="field-value">${escapeHtml(label)}</p>
       <p class="field-label scroll-y">${narrative ? escapeHtml(narrative) : "—"}</p>
     </div>
@@ -245,7 +245,7 @@ function renderTasksView({ submission, canEdit }) {
 
     filterControls: getTaskSubmissionFilters,
 
-    modes: SCORE_MODES,
+    panel: SCORE_PANEL,
   });
 }
 

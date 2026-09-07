@@ -4,6 +4,7 @@ import {escapeHtml} from "../core/html.js";
 
 
 export const COMPARE_BUTTON_ID = "compare-button";
+export const GO_BUTTON_ID = "go-to-comparison";
 export const CREATE_BUTTON_ID = "create-button";
 export const EDIT_BUTTON_ID = "edit-button";
 export const CANCEL_BUTTON_ID = "cancel-button";
@@ -16,6 +17,13 @@ export const CARD_TOGGLE_ID = "card-toggle";
 
 export const TABLE_VIEW = "table-view"
 export const PLOT_VIEW = "plot-view"
+
+// Read out by the hint beside them as well as worn by the buttons: a renamed button would
+// otherwise leave the sentence naming one that is not there. The leaderboard and the lists
+// both have this pair — see updateComparing in pages/leaderboard.js and updateCompare in
+// templates/listView.js.
+export const DONE_LABEL = "Done";
+export const GO_COMPARE_LABEL = "Go to comparison";
 
 
 function buttonBody({ label, icon }) {

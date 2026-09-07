@@ -30,7 +30,13 @@ import {
   toTaskMetrics,
 } from "../utils/leaderboardUtils.js";
 import { createLeaderboardTable } from "../tables/leaderboardTable.js";
-import { buildButton, setButtonLabel } from "../components/buttons.js";
+import {
+  buildButton,
+  setButtonLabel,
+  DONE_LABEL,
+  GO_BUTTON_ID,
+  GO_COMPARE_LABEL,
+} from "../components/buttons.js";
 import { getIcon } from "../components/icons.js";
 import {
   buildEmptyMessage,
@@ -70,16 +76,13 @@ const DESCRIPTION =
 const PICKS_ID = "board-picks";
 
 const COMPARE_ID = "compare-models";
-const GO_ID = "go-to-comparison";
 
 // The line beside the buttons saying what they are for — see getHint.
 const HINT_ID = "compare-hint";
 
-// Read out by the hint as well as worn by the buttons: a renamed button would otherwise
-// leave the sentence naming one that is not there.
+// This page's own two, beside the pair every comparison shares — see DONE_LABEL and
+// GO_COMPARE_LABEL in components/buttons.js.
 const COMPARE_LABEL = "Compare models";
-const DONE_LABEL = "Done";
-const GO_COMPARE_LABEL = "Go to comparison";
 const GO_BOARD_LABEL = "Go to leaderboard";
 
 // Switched by the button in the section's own header, so the header stays put whichever is on.
@@ -158,7 +161,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
           actions: [
             `<span class="metadata bold action-hint" id="${HINT_ID}"></span>`,
             buildButton({
-              id: GO_ID,
+              id: GO_BUTTON_ID,
               label: GO_COMPARE_LABEL,
               icon: getIcon("compare"),
               hidden: true,
@@ -257,7 +260,6 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     picksContainer: PICKS_ID,
   });
 
-  // `claimLinks: false`: the model name still navigates; the rest of the row picks.
   // Whether the board's rows can be picked, and the only state the comparison is reachable
   // in. Open from the start where a shared URL names picks.
   let comparing = readPicked().length > 0;
@@ -266,7 +268,6 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   let wanted = readPicked();
 
   const picking = createTableBinding(comparison, {
-    claimLinks: false,
     enabled: () => comparing,
   });
 
@@ -418,7 +419,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
       icon: getIcon(comparing ? "cancel" : "compare"),
     });
 
-    const go = getElement(GO_ID);
+    const go = getElement(GO_BUTTON_ID);
 
     go.hidden = !comparing;
 
@@ -458,7 +459,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     });
 
     // The one control that switches them, so it says where it goes rather than what it is.
-    getElement(GO_ID).addEventListener("click", () => {
+    getElement(GO_BUTTON_ID).addEventListener("click", () => {
       panels.select(
         panels.active() === COMPARE_PANEL ? BOARD_PANEL : COMPARE_PANEL,
       );

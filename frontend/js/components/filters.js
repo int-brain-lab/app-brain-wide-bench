@@ -43,10 +43,16 @@ function matchInArray(field) {
   return (row, value) => (row[field] ?? []).includes(value);
 }
 
-// For a select whose options are whatever the data happens to contain (team names). A
-// fixed server-side enum should stay hardcoded instead, so an option doesn't vanish
-// exactly when a user has no rows carrying that value.
-function optionsFromRows(rows, field) {
+/**
+ * For a select whose options are whatever the data happens to contain (team names). A fixed
+ * server-side enum should stay hardcoded instead, so an option doesn't vanish exactly when a
+ * user has no rows carrying that value.
+ *
+ * @param toLabel (value) => how the option reads, for a field whose stored value is not what
+ *                a reader should see — a metric's `poisson_d2`, say. Omit for the value
+ *                itself. The value is what a match compares against either way.
+ */
+function optionsFromRows(rows, field, toLabel = (value) => value) {
   return [
     ...new Set(
       rows
@@ -55,7 +61,7 @@ function optionsFromRows(rows, field) {
     ),
   ]
     .sort((a, b) => String(a).localeCompare(String(b)))
-    .map((value) => ({ value, label: value }));
+    .map((value) => ({ value, label: toLabel(value) }));
 }
 
 // ─── CONTROLS ────────────────────────────────────────────────────────────────

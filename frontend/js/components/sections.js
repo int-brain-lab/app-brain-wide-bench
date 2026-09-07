@@ -179,7 +179,7 @@ function buildSection({
     ? `
     <div class="column gap-xs">
       <div class="row${heading || controls ? "" : " right"}">
-        ${controls ? `<div class="row left gap-xl">${heading}${controls}</div>` : heading}
+        ${controls ? `<div class="row left gap-xl section-lead">${heading}${controls}</div>` : heading}
         ${actions.length ? buildActions(actions) : ""}
       </div>
       ${

@@ -424,7 +424,7 @@ function buildPanelCard(panelGroup, values, fields, buildRun) {
   const { title, keys, inline, columns } = panelGroup;
 
   return `
-    <div class="card column gap-lg">
+    <div class="card secondary column gap-lg">
       ${title ? `<p class="title muted">${escapeHtml(title)}</p>` : ""}
       ${wrapColumns(buildRun(keys, values, fields, inline), columns)}
     </div>

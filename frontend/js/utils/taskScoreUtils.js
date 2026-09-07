@@ -1,8 +1,8 @@
 // A task score as the pages read it: its rows and the filters over them.
 //
-// The panel a score row opens is SCORE_MODES in comparisons/taskScoreComparison.js.
+// The panel a score row opens is SCORE_PANEL in comparisons/taskScoreComparison.js.
 
-import { suiteFromTask, taskLabel } from "../core/suites.js";
+import { metricLabel, suiteFromTask, taskLabel } from "../core/suites.js";
 import {
   TASK_FIELDS,
   toMethodologyValues,
@@ -160,7 +160,9 @@ function getTaskScoreFilters(
       type: "pinned",
       name: "metric",
       label: "Metric",
-      options: optionsFromRows(rows, "metric"),
+      // The scorers' own names as the values, since that is what the rows carry, written the
+      // way they read everywhere else.
+      options: optionsFromRows(rows, "metric", metricLabel),
       match: matchEquals("metric"),
     },
     ...methodologyControl,

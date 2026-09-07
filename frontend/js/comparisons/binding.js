@@ -10,9 +10,7 @@ import { highlightSelectedCards } from "../cards/cardGrid.js";
  *
  * @param comparison what to bind to.
  * @param rowIndex   (pick) => the value the table identifies its row by.
- * @param claimLinks as createTable. Left on, since a table bound to a comparison is usually
- *                   there to build the selection; a panel whose rows also link somewhere
- *                   passes false.
+ * @param claimLinks as createTable. Omit to claim them whenever the rows may be picked.
  * @param rolling    as createTable.
  * @param enabled    as createTable. Omit where the rows are always pickable.
  * @returns { attach, quietly, selectionOptions, sync }. `selectionOptions()` is what
@@ -22,9 +20,9 @@ function createTableBinding(
   comparison,
   {
     rowIndex = (pick) => pick.key,
-    claimLinks = true,
     rolling = false,
     enabled,
+    claimLinks,
   } = {},
 ) {
   let table = null;
@@ -100,9 +98,9 @@ function createTableBinding(
   function selectionOptions() {
     return {
       max: comparison.max,
-      claimLinks,
       rolling,
       enabled,
+      claimLinks,
       // The deltas, not the whole set: a row hidden by a filter is still picked.
       onChange: (_data, { selected = [], deselected = [] } = {}) => {
         if (syncing) return;

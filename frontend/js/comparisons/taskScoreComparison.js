@@ -17,8 +17,16 @@ import {
   getElement,
   refreshIcons,
   renderHtml,
+  setText,
 } from "../core/render.js";
-import { metricLabel, taskTypeOf } from "../core/suites.js";
+import {
+  metricLabel,
+  suiteFromTask,
+  suiteLabel,
+  taskFullLabel,
+  taskTypeLabel,
+  taskTypeOf,
+} from "../core/suites.js";
 import { loadTaskSubmission } from "../api/taskSubmissionApi.js";
 import {
   REGION_TASK_TYPE,
@@ -32,7 +40,7 @@ import {
   createMeanPlot,
 } from "../plots/taskScorePlots.js";
 import { createTaskPlot } from "../plots/recordPlots.js";
-import { buildMetricBadge } from "../components/badges.js";
+import { buildMetricBadge, buildTaskBadge } from "../components/badges.js";
 import { buildToggle } from "../components/buttons.js";
 import { buildPicks, dropFromClick } from "../components/comparisonGrid.js";
 import { buildEmptyMessage } from "../components/messages.js";
@@ -41,7 +49,6 @@ import {
   getSection,
   getSectionBody,
 } from "../components/sections.js";
-import { createTableBinding } from "./binding.js";
 import { createComparison } from "./comparison.js";
 
 
@@ -49,11 +56,19 @@ import { createComparison } from "./comparison.js";
 
 const MAX_COMPARED = 6;
 
-const MEANS_SECTION = "means";
-const RECORDINGS_SECTION = "recordings";
+// One section holds the whole reading: a row per task type, its mean beside its recordings.
+const SCORES_SECTION = "scores";
+
+// A row is one task type, and the two cells in it are found under it — see renderGroupRows.
+const GROUP_ROW = "group";
+const MEANS_SLOT = "[data-role='means']";
+const PLOTS_SLOT = "[data-role='plots']";
 
 const PICKS_ID = "score-picks";
 const PROMPT_ID = "score-prompt";
+
+// The line beside the view toggle saying what the rows under it are — see renderHint.
+const HINT_ID = "score-hint";
 
 const EMPTY_PROMPT = `Select up to ${MAX_COMPARED} task scores to compare them.`;
 
@@ -97,14 +112,13 @@ function colourFor(pick, comparison) {
   return pick.colour ?? comparison.colourFor(pick.key);
 }
 
-// With several tasks in play the name alone does not tell the picks apart — see updateGroups.
-function labelOf(pick, multipleTasks) {
+// The task always, not only where several are in play: a pick is one model's score on one
+// task, and a chip that named only the model would stand for something narrower than it is.
+function labelOf(pick) {
+  const task = taskFullLabel(pick.taskId);
   const name = pick.modelName ?? pick.submissionLabel;
 
-  if (!name) return pick.taskId;
-  if (!multipleTasks) return name;
-
-  return `${name} · ${pick.taskId}`;
+  return name ? `${name} · ${task}` : task;
 }
 
 
@@ -182,7 +196,27 @@ function toTaskTypeGroups(scores) {
 
 // ─── MEANS ───────────────────────────────────────────────────────────────────
 
-// One badge per metric the task type reports, the one the plot below is read in lit. A row
+// What a mean card is of: the metric it is drawn in, then the suite and task type it belongs
+// to — "BAcc  TS1 Categorical". The suite comes off the scores rather than from the type,
+// which is a fact about the numbers and not about which suite asked for them.
+function buildMeanBadges(group, metric) {
+  const suite = suiteFromTask(group.scores[0]?.taskId ?? "");
+
+  const name = [suiteLabel(suite), taskTypeLabel(group.key)]
+    .filter(Boolean)
+    .join(" ");
+
+  // Not `left`: the two say different things — what is drawn, and what it is of — so they
+  // read as the card's two ends rather than as a pair.
+  return `
+    <span class="row gap-sm">
+      ${buildMetricBadge(metric, "sm")}
+      ${buildTaskBadge(name, suite ?? "", "sm")}
+    </span>
+  `;
+}
+
+// One badge per metric the task type reports, the one the plot above is read in lit. A row
 // of them rather than a select: there are two or three, and which is being read is then on
 // screen rather than behind a placeholder.
 function buildMetricBadges(taskType, metric) {
@@ -253,7 +287,6 @@ function createTaskComparison({
   const selectedMetrics = new Map();
 
   let taskTypeGroups = [];
-  let multipleTasks = false;
 
   let uniqueRecordings = [];
   let uniqueRegions = [];
@@ -276,7 +309,7 @@ function createTaskComparison({
       taskType: taskTypeOf(pick.taskId),
       detail: pick.detail,
       colour: colourFor(pick, comparison),
-      label: labelOf(pick, multipleTasks),
+      label: labelOf(pick),
     };
   }
 
@@ -287,11 +320,7 @@ function createTaskComparison({
   // What both panels walk every score for. Only on a pick or a fetch: a view or metric change
   // moves neither the picks nor their details.
   function updateGroups() {
-    const held = picks();
-
-    multipleTasks = new Set(held.map(({ taskId }) => taskId)).size > 1;
-
-    const scores = held.map(toScore);
+    const scores = picks().map(toScore);
 
     taskTypeGroups = toTaskTypeGroups(scores);
 
@@ -331,16 +360,12 @@ function createTaskComparison({
     clearPlots();
 
     taskTypeGroups = [];
-    multipleTasks = false;
     uniqueRecordings = [];
     uniqueRegions = [];
 
     renderPicks();
 
-    const means = getSection(MEANS_SECTION);
-
-    if (means) means.hidden = true;
-    getSection(RECORDINGS_SECTION).hidden = true;
+    getSection(SCORES_SECTION).hidden = true;
 
     clearContent(getElement(PROMPT_ID));
   }
@@ -366,73 +391,124 @@ function createTaskComparison({
     );
   }
 
-  function renderMeans() {
-    const target = meansContainer
-      ? resolveContainer(meansContainer)
-      : getSectionBody(MEANS_SECTION);
+  // A row per task type, its mean on the left and its own recordings to the right of it —
+  // a fifth of the row against four, see `.section-row.ratio-5`. Split by type rather than
+  // pooled: a behavioural readout and a
+  // neural reconstruction share neither a metric nor a scale, so the plots of one are not
+  // read against the plots of the other.
+  //
+  // Written whenever the groups move, since a row *is* a group. Nested there are no rows: the
+  // host draws the mean itself and the recordings stack in the one column it gave us.
+  function renderGroupRows() {
+    if (nested) return;
 
+    renderHtml(
+      getSectionBody(SCORES_SECTION),
+      `
+        <div class="column gap-lg">
+          ${taskTypeGroups
+            .map(
+              (group) => `
+            <div
+              class="section-row ratio-5"
+              data-${GROUP_ROW}="${escapeHtml(group.key)}"
+            >
+              <div data-role="means"></div>
+              <div data-role="plots"></div>
+            </div>`,
+            )
+            .join("")}
+        </div>
+      `,
+    );
+  }
+
+  function getGroupSlot(key, slot) {
+    return getSectionBody(SCORES_SECTION)?.querySelector(
+      `[data-${GROUP_ROW}="${key}"] ${slot}`,
+    );
+  }
+
+  // One task type's mean, a bar per pick. Standalone it is a card with that type's metric
+  // badges in it, those being what the plot is drawn in; nested the host draws the card and
+  // places the badges itself — see metricsContainer.
+  function buildMeanCell(group) {
+    const metric = metricFor(group.key);
+
+    const labels = new Map(
+      group.scores.map((score) => [score.key, score.label]),
+    );
+
+    const series = toMeanSeries(group.scores, metric);
+    const categories = group.scores.map((score) => score.key);
+    const categoryLabel = (key) => labels.get(key);
+
+    if (metricsContainer) {
+      const plot = createTaskPlot({
+        series,
+        categories,
+        categoryLabel,
+        task: group.scores[0]?.taskId ?? "",
+        yRange: SCORE_RANGE,
+        height: 150,
+      });
+
+      meanCharts.push(plot.chart);
+
+      return plot.element;
+    }
+
+    const plot = createMeanPlot({
+      series,
+      categories,
+      categoryLabel,
+      height: 150,
+    });
+
+    // What is drawn, the plot of it, and the choice of what to draw — one card, in that
+    // order. `METRIC_GROUP` on it is what the badge listener reads the task type off.
+    const cell = document.createElement("div");
+
+    cell.className = "card column gap-lg";
+    cell.dataset[METRIC_GROUP] = group.key;
+
+    renderHtml(cell, buildMeanBadges(group, metric));
+    cell.appendChild(plot.element);
+
+    const choice = document.createElement("div");
+
+    renderHtml(choice, buildMetricBadges(group.key, metric));
+    cell.appendChild(choice);
+
+    meanCharts.push(plot.chart);
+
+    return cell;
+  }
+
+  function renderMeans() {
     clearMeans();
 
-    if (!target) return;
+    if (!taskTypeGroups.length) return;
 
-    const section = getSection(MEANS_SECTION);
+    // Nested, every mean goes in the one container the host gave us — and there is only ever
+    // the one task there, so it is one card in practice.
+    if (meansContainer) {
+      const grid = document.createElement("div");
 
-    if (section) section.hidden = taskTypeGroups.length === 0;
+      grid.className = "column gap-lg";
 
-    if (!taskTypeGroups.length) {
-      renderHtml(target, "");
+      for (const group of taskTypeGroups) {
+        grid.appendChild(buildMeanCell(group));
+      }
+
+      resolveContainer(meansContainer).replaceChildren(grid);
+
       return;
     }
 
-    // Elements rather than markup: each cell is in hand when its chart is made. Assembled
-    // detached, then swapped in once.
-    const grid = document.createElement("div");
-
-    // Nested, the cells stack: the panel is too narrow for a row of them. They are cards, so
-    // stacked they need the gap the grid would otherwise give them.
-    grid.className = nested ? "column gap-lg" : "grid-6";
-
     for (const group of taskTypeGroups) {
-      const metric = metricFor(group.key);
-
-      const labels = new Map(
-        group.scores.map((score) => [score.key, score.label]),
-      );
-
-      const series = toMeanSeries(group.scores, metric);
-      const categories = group.scores.map((score) => score.key);
-      const categoryLabel = (key) => labels.get(key);
-
-      // Where a host placed the metric control, the card is the one the breakdown draws —
-      // the task and the metric named inside it. Otherwise the badges are the control.
-      const plot = metricsContainer
-        ? createTaskPlot({
-            series,
-            categories,
-            categoryLabel,
-            task: group.scores[0]?.taskId ?? "",
-            yRange: SCORE_RANGE,
-            height: 150,
-          })
-        : createMeanPlot({ series, categories, categoryLabel, height: 150 });
-
-      if (metricsContainer) {
-        grid.appendChild(plot.element);
-      } else {
-        const cell = document.createElement("div");
-
-        cell.className = "card column gap-lg";
-        cell.dataset[METRIC_GROUP] = group.key;
-
-        renderHtml(cell, buildMetricBadges(group.key, metric));
-        cell.appendChild(plot.element);
-        grid.appendChild(cell);
-      }
-
-      meanCharts.push(plot.chart);
+      getGroupSlot(group.key, MEANS_SLOT)?.replaceChildren(buildMeanCell(group));
     }
-
-    target.replaceChildren(grid);
   }
 
   // By group, so comparable plots sit together. A score whose type has not loaded is in no
@@ -455,54 +531,74 @@ function createTaskComparison({
     );
   }
 
-  function renderRecordings() {
-    const section = getSectionBody(RECORDINGS_SECTION);
+  // One task type's recordings, a plot per score over the categories that type is measured
+  // on. Three across standalone, one per row nested, where the column sits beside the task.
+  function buildPlotCells(group) {
+    const element = document.createElement("div");
 
+    element.className = nested ? "column gap-lg" : "grid-3 gap-xs";
+
+    const categories = categoriesFor(group.key);
+
+    for (const series of toScoreSeries(group.scores, metricFor(group.key))) {
+      const plot = createCategoryPlot({ series, categories, height: 100 });
+
+      // A card each, as the mean plots and the task plots are, and nothing in it but the
+      // plot: every one of these is the metric named on the mean beside them, so a badge per
+      // card would say the same thing a dozen times.
+      const cell = document.createElement("div");
+
+      cell.className = "card column gap-xs";
+
+      cell.appendChild(plot.element);
+
+      plotCharts.push(plot.chart);
+      element.appendChild(cell);
+    }
+
+    return element;
+  }
+
+  function renderRecordings() {
     clearPlots();
 
-    if (view === HEATMAP_VIEW) {
-      const allSeries = taskTypeGroups.flatMap((group) =>
-        toScoreSeries(group.scores, metricFor(group.key)),
-      );
+    // Nested, the whole section is the recordings: no rows to fill and no heatmap, the host
+    // having given this panel one narrow column beside the task it is of.
+    if (nested) {
+      const wrapper = document.createElement("div");
 
-      renderHtml(section, buildScoreHeatmaps({ allSeries, categoriesFor }));
+      wrapper.className = "column gap-lg";
+
+      for (const group of taskTypeGroups) {
+        wrapper.appendChild(buildPlotCells(group));
+      }
+
+      getSectionBody(SCORES_SECTION).replaceChildren(wrapper);
+
       return;
     }
 
-    const element = document.createElement("div");
-
-    // Nested, one per row: the column they sit in is beside the task they are of.
-    element.className = nested ? "column gap-lg" : "grid-3 gap-xs";
-
     for (const group of taskTypeGroups) {
-      const categories = categoriesFor(group.key);
+      const slot = getGroupSlot(group.key, PLOTS_SLOT);
 
-      for (const series of toScoreSeries(group.scores, metricFor(group.key))) {
-        const plot = createCategoryPlot({
-          series,
-          categories,
-          height: 100,
-        });
+      if (!slot) continue;
 
-        // A card each, as the mean plots and the task plots are. The badge names what the
-        // plot is measured in; the one that chooses it is over the means.
-        const cell = document.createElement("div");
-
-        cell.className = "card column gap-xs";
-
+      // A block per way of measuring, and a row is one of those — so a task type's heatmap
+      // sits where its plots would.
+      if (view === HEATMAP_VIEW) {
         renderHtml(
-          cell,
-          `<span class="row left gap-sm">${buildMetricBadge(series.metric)}</span>`,
+          slot,
+          buildScoreHeatmaps({
+            allSeries: toScoreSeries(group.scores, metricFor(group.key)),
+            categoriesFor,
+          }),
         );
 
-        cell.appendChild(plot.element);
-
-        plotCharts.push(plot.chart);
-        element.appendChild(cell);
+        continue;
       }
-    }
 
-    section.replaceChildren(element);
+      slot.replaceChildren(buildPlotCells(group));
+    }
   }
 
   function render(held) {
@@ -520,8 +616,10 @@ function createTaskComparison({
 
     clearContent(getElement(PROMPT_ID));
 
-    getSection(RECORDINGS_SECTION).hidden = false;
+    getSection(SCORES_SECTION).hidden = false;
 
+    renderHint();
+    renderGroupRows();
     renderMeans();
     renderMetrics();
     renderRecordings();
@@ -531,6 +629,24 @@ function createTaskComparison({
 
 
   // ─── VIEW CONTROLS ─────────────────────────────────────────────────────────
+
+  // What the rows below are showing. Written beside the toggle that changes it, and rewritten
+  // when it does. Nothing to write nested: there the toggle is the host's, and so is the
+  // heading over it.
+  function renderHint() {
+    const hint = getElement(HINT_ID);
+
+    if (!hint) return;
+
+    const rows = "One row per task type: its mean score per pick on the left,";
+
+    setText(
+      hint,
+      view === HEATMAP_VIEW
+        ? `${rows} and a cell per recording on the right.`
+        : `${rows} and a plot per recording on the right.`,
+    );
+  }
 
   function setActiveView(selected) {
     for (const { id } of VIEWS) {
@@ -546,6 +662,7 @@ function createTaskComparison({
 
     view = selected;
     setActiveView(view);
+    renderHint();
     renderRecordings();
   }
 
@@ -568,7 +685,7 @@ function createTaskComparison({
     }
 
     for (const root of [
-      getSectionBody(MEANS_SECTION),
+      getSectionBody(SCORES_SECTION),
       metricsContainer ? resolveContainer(metricsContainer) : null,
     ]) {
       root?.addEventListener("click", (event) => {
@@ -596,19 +713,16 @@ function createTaskComparison({
   // ─── SETUP ─────────────────────────────────────────────────────────────────
 
   function setup() {
-    // Nested, there is no mean to draw: the plots beside this panel are that mean.
-    const means = nested
-      ? null
-      : {
-          id: MEANS_SECTION,
-          title: "Mean scores",
-        };
+    // Untitled — a plot of scores says what it is, and the panel is opened by the rows above
+    // it rather than found by its heading. Nested, the toggle is the host's too — see
+    // buildRecordingsToggle.
+    const scores = {
+      id: SCORES_SECTION,
 
-    // Nested, neither a heading nor a control of its own: the panel it sits in is named, and
-    // its host places the toggle — see buildRecordingsToggle.
-    const recordings = {
-      id: RECORDINGS_SECTION,
-      title: nested ? "" : "Recordings",
+      // What is being shown, opposite the choice of how to show it.
+      controls: nested
+        ? ""
+        : `<span class="metadata bold action-hint" id="${HINT_ID}"></span>`,
       actions: nested ? [] : [buildToggle(VIEWS)],
     };
 
@@ -617,13 +731,13 @@ function createTaskComparison({
       `
         ${showPicks
           ? `<span
-               class="row left gap-sm compare-picks"
+               class="row left gap-sm compare-picks push-down"
                id="${PICKS_ID}"
              ></span>`
           : ""
         }
 
-        ${buildSections(nested ? [recordings] : [means, recordings])}
+        ${buildSections([scores])}
 
         <div id="${PROMPT_ID}"></div>
       `,
@@ -679,23 +793,17 @@ function toScorePick(row) {
   };
 }
 
-// `base` and no `active`: the panel is there from the list's first render, with its own
-// prompt rather than a button to press first.
-const SCORE_MODES = {
-  base: {
-    title: "Compare task scores",
-    create: (container) =>
-      createTaskComparison({ container, toPick: toScorePick }),
+// `always`: a scores list is read by picking rows off it, so there is no button to press
+// first and none to press to stop. The panel appears under the list as soon as one row is
+// ticked, and it is untitled — the plots say what they are.
+const SCORE_PANEL = {
+  always: true,
 
-    // `claimLinks: false`: the model and submission a score belongs to still link to their
-    // own pages, and a click anywhere else on the row is a pick.
-    bindTable: (controller) =>
-      createTableBinding(controller, { claimLinks: false }),
-  },
+  create: (container) => createTaskComparison({ container, toPick: toScorePick }),
 };
 
 export {
-  SCORE_MODES,
+  SCORE_PANEL,
   buildRecordingsToggle,
   createTaskComparison,
 };

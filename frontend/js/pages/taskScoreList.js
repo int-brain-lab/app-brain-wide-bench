@@ -11,7 +11,7 @@ import {
   toScoreResultRows,
 } from "../utils/taskScoreUtils.js";
 import { createTaskScoresTable } from "../tables/taskScoreTable.js";
-import { SCORE_MODES } from "../comparisons/taskScoreComparison.js";
+import { SCORE_PANEL } from "../comparisons/taskScoreComparison.js";
 import { loadListPage } from "../templates/listPage.js";
 
 // The rows span every model and submission, so both columns are named rather than assumed.
@@ -52,5 +52,5 @@ loadListPage({
 
   filterControls: (rows) => getTaskScoreFilters(rows, DISPLAY),
 
-  modes: SCORE_MODES,
+  panel: SCORE_PANEL,
 });

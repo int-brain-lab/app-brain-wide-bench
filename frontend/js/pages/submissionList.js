@@ -1,9 +1,9 @@
-// The submissions list, in the two scopes the pages ask for:
+// The submissions list: submission_list.html, the viewer's own teams', signed in.
 //
-//   data-scope="mine"  submission_list.html         —  the viewer's own teams', signed in
-//   data-scope="all"   submission_list_public.html  —  every one they may see, signed out
+// No public counterpart, unlike the models and teams lists — every submission a reader may
+// see is reachable through the model it was made for, and through the task scores list.
 
-import { getMySubmissions, getSubmissions } from "../api/submissionApi.js";
+import { getMySubmissions } from "../api/submissionApi.js";
 import {
   getSubmissionFilters,
   toSubmissionRows,
@@ -14,8 +14,6 @@ import { MAX_SUBMISSIONS } from "../comparisons/submissionComparison.js";
 import { SERIES_COLOURS } from "../plots/palette.js";
 import { loadListPage } from "../templates/listPage.js";
 
-const MINE = document.body.dataset.scope === "mine";
-
 // Where Compare goes, and under what name. `with` is the compare page's own parameter for the
 // submissions a comparison holds — see pages/submissionCompare.js.
 const COMPARE_PAGE = "/html/submissions/compare.html";
@@ -23,10 +21,9 @@ const WITH_PARAM = "with";
 
 loadListPage({
   noun: "submission",
-  title: MINE ? "My submissions" : "Submissions",
-  requiresAuth: MINE,
+  title: "My submissions",
 
-  getRecords: MINE ? getMySubmissions : getSubmissions,
+  getRecords: getMySubmissions,
   recordsToRows: toSubmissionRows,
 
   createCards: () => createSubmissionCardGrid(),
@@ -49,8 +46,6 @@ loadListPage({
   picking: {
     max: MAX_SUBMISSIONS,
     palette: SERIES_COLOURS,
-    label: "Compare",
-
     toPick: (row) => ({ key: row.id }),
 
     onCompare: (ids) => {

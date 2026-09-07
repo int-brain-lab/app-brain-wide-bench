@@ -224,7 +224,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     const suite = escapeHtml(suiteLabel(getSuite(task.taskId)));
 
     return `
-      <div class="card row left gap-sm">
+      <div class="card secondary row left gap-sm">
         <label class="label" for="task-apply-suite">
           Apply to all ${suite} tasks (${siblings.length})
         </label>
@@ -245,7 +245,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
 
     if (!task) {
       return `
-        <div class="card">
+        <div class="card secondary">
           <p class="info-msg">
             Select a task to describe how it was run.
           </p>
@@ -257,7 +257,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
 
     return `
       <div class="column gap-lg">
-        <div class="card column gap-lg">
+        <div class="card secondary column gap-lg">
           <p class="title muted">${taskId}</p>
 
           ${buildClearedNotice(task)}

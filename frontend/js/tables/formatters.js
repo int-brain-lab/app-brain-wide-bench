@@ -7,7 +7,7 @@
 // with what that column needs, and returns one.
 
 import { escapeHtml } from "../core/html.js";
-import { suiteFromTask, taskLabel } from "../core/suites.js";
+import { suiteFromTask, taskFullLabel, taskLabel } from "../core/suites.js";
 import { formatDate, score } from "../core/utils.js";
 import {
   buildMetricBadge,
@@ -134,15 +134,20 @@ function dateSorter(a, b) {
  * @param page       the page the link goes to; the row id becomes its `?id=`.
  * @param labelField the row field the link text comes from.
  * @param idField    the row field holding the id. Defaults to "id".
+ * @param className  classes on the link — "metadata" for a column that says where a row came
+ *                   from rather than what it is. Omit for the text colour and size.
  *
  * @returns a Tabulator formatter.
  */
-function buildLinkFormatter(page, labelField, idField = "id") {
+function buildLinkFormatter(page, labelField, idField = "id", className = "") {
   return (cell) => {
     const row = cell.getData();
 
     return `
-      <a href="${page}?id=${encodeURIComponent(row[idField])}">
+      <a
+        href="${page}?id=${encodeURIComponent(row[idField])}"
+        class="${escapeHtml(className)}"
+      >
         ${escapeHtml(row[labelField] ?? EMPTY_VALUE)}
       </a>
     `;
@@ -269,12 +274,19 @@ function metricsBadgeFormatter(cell) {
   return metrics.length ? buildMetricBadgeList(metrics) : EMPTY_VALUE;
 }
 
+// The suite in front of the short name — "TS1 Choice". On a list spanning every suite the
+// short names alone are ambiguous, and the badge's colour says the suite to a reader who
+// already knows the palette rather than to one meeting it.
 function taskNameFormatter(cell) {
   const value = cell.getValue();
-  const suite = suiteFromTask(value);
-  return value
-    ? `<span>${buildTaskBadge(taskLabel(value), suite, "sm")}</span>`
-    : EMPTY_VALUE;
+
+  if (!value) return EMPTY_VALUE;
+
+  return `<span>${buildTaskBadge(
+    taskFullLabel(value),
+    suiteFromTask(value),
+    "sm",
+  )}</span>`;
 }
 
 

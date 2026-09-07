@@ -1,7 +1,7 @@
 // A task submission as the pages read it: its rows, the filters over them, and the suite
 // a task belongs to.
 
-import { suiteFromTask } from "../core/suites.js";
+import { metricLabel, suiteFromTask } from "../core/suites.js";
 import { trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
 import {
   matchEquals,
@@ -72,7 +72,7 @@ function getTaskSubmissionFilters(rows) {
       type: "select",
       name: "metric",
       placeholder: "All metrics",
-      options: optionsFromRows(rows, "metric"),
+      options: optionsFromRows(rows, "metric", metricLabel),
       match: matchEquals("metric"),
     },
   ];

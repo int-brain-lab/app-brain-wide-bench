@@ -18,7 +18,7 @@ import { inferTasks, listZipEntries } from "../core/zip.js";
 
 function buildUploadPanel() {
   return `
-    <div class="card column gap-lg">
+    <div class="card secondary column gap-lg">
       <p class="title muted">Predictions</p>
 
       <!-- Not a schema field, so it has no label of its own — but it is required, and the
@@ -38,7 +38,7 @@ function buildUploadPanel() {
         </p>
       </div>
 
-      <div class="card row" id="file-info" hidden>
+      <div class="card secondary row" id="file-info" hidden>
         <div class="column gap-xs">
           <span class="text-lg bold" id="file-name"></span>
           <span class="text-sm muted" id="file-size"></span>

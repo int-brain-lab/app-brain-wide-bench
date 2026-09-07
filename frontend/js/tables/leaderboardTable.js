@@ -46,9 +46,12 @@ const COLUMNS_THAT_FIT = 12;
 // no room for a task name and a metric side by side.
 const COLUMNS_WITH_ROOM = 4;
 
-// The narrowest a task column may be drawn, stretched or sized to fit: a mean over its spread,
-// plus the room the header reserves for its sort arrow.
-const TASK_WIDTH = 66;
+// The narrowest a task column may be drawn, stretched or sized to fit. Set by the *header*
+// rather than by the numbers under it: a stacked heading is a task badge over a metric badge,
+// and the metric is the wider of the two — "Poisson D²" at badge padding runs to about 76px,
+// on top of the 22px the header spends on its own padding and the room it reserves for the
+// sort arrow. Below this the badges are cut off, a badge being unable to wrap.
+const TASK_WIDTH = 96;
 
 // Whether the board can be stretched to fill the page, and whether its columns are then wide
 // enough to head across rather than down. Both off the one count, so the layout and the
@@ -101,6 +104,11 @@ function getColumns(taskIds, metrics) {
       // name is as long as it is — but not three times as much: a board of a dozen has better
       // uses for the width. Inert under fitData, where the name sizes its own column.
       widthGrow: 2,
+      // The name over its team, both allowed to run onto another line rather than being cut
+      // — see `.wrap-cell` in style.css. `variableHeight` is what lets the row grow to what
+      // wrapping needs; without it the second line is drawn outside the row.
+      cssClass: "wrap-cell",
+      variableHeight: true,
     },
     ...taskIds.map((taskId) => ({
       title: taskHeader(taskId, metrics[taskId], { stacked, align: "centre" }),

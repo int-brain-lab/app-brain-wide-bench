@@ -6,9 +6,9 @@ import { renderHtml } from "../core/render.js";
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 // The public surface, in the order a reader meets it — the scores, then what produced
-// them — with the way into the signed-in half last. Models and Submissions are the
-// unscoped lists; the sidebar's "My models" and "My submissions" are the same pages at
-// data-scope="mine".
+// them — with the way into the signed-in half last. Models is the unscoped list, the same
+// page the sidebar's "My models" is at data-scope="mine"; Tasks is every scored task, which
+// is the sidebar's "All tasks".
 // Where signing in lands, and the nav item that names it — one constant, so the button and
 // the link can't drift apart.
 const DASHBOARD_HREF = "/html/dashboard/dashboard.html";
@@ -18,10 +18,7 @@ const HOME_HREF = "/index.html";
 const NAV_ITEMS = [
   { label: "Leaderboard", href: "/html/leaderboard/leaderboard.html" },
   { label: "Models", href: "/html/models/model_list_public.html" },
-  {
-    label: "Submissions",
-    href: "/html/submissions/submission_list_public.html",
-  },
+  { label: "Tasks", href: "/html/tasks/task_list_public.html" },
   { label: "Teams", href: "/html/teams/team_list_public.html" },
   { label: "My dashboard", href: DASHBOARD_HREF },
 ];

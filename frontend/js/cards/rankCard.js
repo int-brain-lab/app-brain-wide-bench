@@ -112,7 +112,7 @@ function buildRankCard(ranking, { submitHref = null } = {}) {
     .map((row) => buildRankRow(row, showPrivate, submitHref))
     .join("");
 
-  return `<div class="card rank-list column">${rows}</div>`;
+  return `<div class="card secondary rank-list column">${rows}</div>`;
 }
 
 export { buildRankCard };

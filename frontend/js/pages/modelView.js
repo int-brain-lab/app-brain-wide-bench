@@ -32,14 +32,13 @@ import {
   buildStaticTaskScoresTable,
   createTaskScoresTable,
 } from "../tables/taskScoreTable.js";
-import { SCORE_MODES } from "../comparisons/taskScoreComparison.js";
+import { SCORE_PANEL } from "../comparisons/taskScoreComparison.js";
 import { buildCreateCard } from "../cards/createCard.js";
 import { buildDetailsCard } from "../cards/detailsCard.js";
 import { buildRankCard } from "../cards/rankCard.js";
 import { buildStatCards } from "../cards/statCards.js";
 import { createSubmissionCardGrid } from "../cards/submissionCards.js";
 import { createSubmissionComparison } from "../comparisons/submissionComparison.js";
-import { createTableBinding } from "../comparisons/binding.js";
 import { buildTaskScoreBars } from "../components/bars.js";
 import {
   buildCompareButton,
@@ -319,21 +318,9 @@ function renderSubmissionsView({ model }) {
     // sends its picks to. These are one model's attempts and there are a handful of them: the
     // comparison a reader wants here is between two of the rows already in front of them, and
     // leaving the page to read it would lose the model they came for.
-    //
-    // `base` and no `active`, which is what puts it there from the start with no button to
-    // press first. A row is a pick from the moment the view opens, and the panel's own prompt
-    // is what says so.
-    modes: {
-      base: {
-        title: "Compare submissions",
-        create: (container) => createSubmissionComparison({ container }),
-
-        // `claimLinks: false`: the submission's label still goes to its own page, and a click
-        // anywhere else on the row is a pick. The rows are always picking now, so they cannot
-        // also be the thing that swallows the one link each carries.
-        bindTable: (controller) =>
-          createTableBinding(controller, { claimLinks: false }),
-      },
+    panel: {
+      title: "Compare submissions",
+      create: (container) => createSubmissionComparison({ container }),
     },
   });
 }
@@ -365,7 +352,7 @@ function renderScoresView({ model, ranking }) {
 
     filterControls: (rows) => getTaskScoreFilters(rows, display),
 
-    modes: SCORE_MODES,
+    panel: SCORE_PANEL,
   });
 }
 

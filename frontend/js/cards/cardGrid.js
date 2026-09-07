@@ -134,7 +134,7 @@ function buildGridHtml({
     </div>
 
     <div class="table-footer cards-footer">
-      <span>
+      <span class="metadata">
         ${buildTableCount(visibleRows.length, total, noun)}
       </span>
 
