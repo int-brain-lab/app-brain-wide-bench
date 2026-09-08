@@ -2,8 +2,8 @@
 
 The shape assertions are here because the frontend resolves its field options and help text
 by these exact keys, and a rename would show up as a form with empty dropdowns rather than
-as an error. The caching assertions are here because the ETag is the whole reason the
-frontend can refetch on every page navigation and not care.
+as an error. The caching assertions are here because the ETag is what keeps a refetch
+cheap once the freshness window has lapsed.
 """
 
 from app.models import (
@@ -92,11 +92,11 @@ async def test_tasks_and_suites(client):
 # ── caching ───────────────────────────────────────────────────────────────────
 
 
-async def test_sends_an_etag_and_revalidates(client):
+async def test_sends_an_etag_and_a_freshness_window(client):
     response = await client.get(META_URL)
 
     assert response.headers["etag"]
-    assert response.headers["cache-control"] == "public, no-cache"
+    assert response.headers["cache-control"] == "public, max-age=300"
 
 
 async def test_matching_etag_gets_304_with_no_body(client):

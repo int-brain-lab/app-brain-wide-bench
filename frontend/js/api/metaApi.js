@@ -6,7 +6,8 @@ import { apiFetch } from "./client.js";
 // table, what each suite predicts. Public — a create page draws its dropdowns signed out.
 
 // Memoised per page load only: every link is a full navigation, which discards this module.
-// Across navigations the repeat is answered 304 off the endpoint's ETag.
+// Across navigations the repeat is served from the browser's cache for five minutes, then
+// revalidated against the endpoint's ETag.
 //
 // `inflight` as well as `cached`: two concurrent callers would both miss an unresolved
 // `cached` and fetch twice.

@@ -119,16 +119,18 @@ async def meta(request: Request, session: AsyncSession = Depends(get_session)) -
 
     ``public`` because the document is byte-identical for every caller, signed in or not —
     which is also why there is no ``Vary: Authorization``, even though ``apiFetch`` sends a
-    bearer token when there is one. ``no-cache`` means "stored, but revalidate before use":
-    a 304 is already cheap, and the alternative — ``max-age`` — buys a few saved round trips
-    at the cost of a reworded tooltip taking minutes to appear, which is a confusing thing
-    to debug.
+    bearer token when there is one.
+
+    ``max-age=300`` because the revalidation was a round trip on the critical path of every
+    page: the frontend reads this document on all of them, and a 304 saves the body but not
+    the wait. Five minutes is how long an edited description can still read as the old one.
+    See docs/backend_caching_plan_todo.md.
 
     Returned as a raw ``Response`` rather than through ``response_model`` because the body
     has to be the exact bytes the ETag was computed over.
     """
     body, etag = await meta_document(session)
-    headers = {"ETag": etag, "Cache-Control": "public, no-cache"}
+    headers = {"ETag": etag, "Cache-Control": "public, max-age=300"}
 
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers=headers)
