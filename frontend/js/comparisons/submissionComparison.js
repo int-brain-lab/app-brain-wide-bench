@@ -9,12 +9,8 @@
 import { loadSubmission } from "../api/submissionApi.js";
 import { trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
 import { buildVisibleBadge } from "../components/badges.js";
+import { MAX_SUBMISSIONS } from "./limits.js";
 import { createRecordComparison } from "./recordComparison.js";
-
-// ─── CONFIGURATION ───────────────────────────────────────────────────────────
-
-// Also the submissions list's cap, and the compare page's. The palette is sized for six.
-const MAX_SUBMISSIONS = 6;
 
 // ─── DETAILS ─────────────────────────────────────────────────────────────────
 
@@ -111,4 +107,4 @@ function createSubmissionComparison(options) {
   });
 }
 
-export { MAX_SUBMISSIONS, createSubmissionComparison };
+export { createSubmissionComparison };

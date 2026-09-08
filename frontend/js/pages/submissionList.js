@@ -10,7 +10,7 @@ import {
 } from "../utils/submissionUtils.js";
 import { createSubmissionsTable } from "../tables/submissionTable.js";
 import { createSubmissionCardGrid } from "../cards/submissionCards.js";
-import { MAX_SUBMISSIONS } from "../comparisons/submissionComparison.js";
+import { MAX_SUBMISSIONS } from "../comparisons/limits.js";
 import { SERIES_COLOURS } from "../plots/palette.js";
 import { loadListPage } from "../templates/listPage.js";
 

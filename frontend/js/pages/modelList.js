@@ -7,7 +7,7 @@ import { getModels, getMyModels } from "../api/modelApi.js";
 import { getModelFilters, toModelRows } from "../utils/modelUtils.js";
 import { createModelsTable } from "../tables/modelTable.js";
 import { createModelCardGrid } from "../cards/modelCards.js";
-import { MAX_MODELS } from "../comparisons/modelComparison.js";
+import { MAX_MODELS } from "../comparisons/limits.js";
 import { SERIES_COLOURS } from "../plots/palette.js";
 import { loadListPage } from "../templates/listPage.js";
 

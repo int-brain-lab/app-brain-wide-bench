@@ -50,11 +50,9 @@ import {
   getSectionBody,
 } from "../components/sections.js";
 import { createComparison } from "./comparison.js";
-
+import { MAX_COMPARED } from "./limits.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
-
-const MAX_COMPARED = 6;
 
 // One section holds the whole reading: a row per task type, its mean beside its recordings.
 const SCORES_SECTION = "scores";
@@ -86,10 +84,6 @@ const VIEWS = [
   { id: HEATMAP_VIEW, label: "Heatmap", icon: "suite" },
 ];
 
-
-
-
-
 // ─── SCORE DATA ──────────────────────────────────────────────────────────────
 
 // The metrics a task type reports, learned from the first score of that type to land, and
@@ -120,7 +114,6 @@ function labelOf(pick) {
 
   return name ? `${name} · ${task}` : task;
 }
-
 
 // ─── SERIES ──────────────────────────────────────────────────────────────────
 
@@ -240,7 +233,6 @@ function buildMetricBadges(taskType, metric) {
   `;
 }
 
-
 /**
  * How the recordings are drawn, for a host placing it away from them — the buttons are found
  * by id, so it may sit anywhere on the page.
@@ -291,7 +283,6 @@ function createTaskComparison({
   let meanCharts = [];
   let plotCharts = [];
 
-
   // ─── STATE ─────────────────────────────────────────────────────────────────
 
   function picks() {
@@ -321,7 +312,6 @@ function createTaskComparison({
 
     taskTypeGroups = toTaskTypeGroups(scores);
 
-
     ({ recordings: uniqueRecordings, regions: uniqueRegions } =
       toCategories(scores));
   }
@@ -338,7 +328,6 @@ function createTaskComparison({
 
     return selected && metrics.includes(selected) ? selected : (metrics[0] ?? "");
   }
-
 
   // ─── CLEANUP ───────────────────────────────────────────────────────────────
 
@@ -366,7 +355,6 @@ function createTaskComparison({
 
     clearContent(getElement(PROMPT_ID));
   }
-
 
   // ─── RENDERING ─────────────────────────────────────────────────────────────
 
@@ -614,7 +602,6 @@ function createTaskComparison({
     refreshIcons();
   }
 
-
   // ─── VIEW CONTROLS ─────────────────────────────────────────────────────────
 
   // What the rows below are showing. Written beside the toggle that changes it, and rewritten
@@ -652,7 +639,6 @@ function createTaskComparison({
     renderHint();
     renderRecordings();
   }
-
 
   // ─── EVENTS ────────────────────────────────────────────────────────────────
 
@@ -694,7 +680,6 @@ function createTaskComparison({
       });
     }
   }
-
 
   // ─── SETUP ─────────────────────────────────────────────────────────────────
 

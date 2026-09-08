@@ -9,12 +9,8 @@ import { MODEL_FIELDS } from "../schemas/modelSchema.js";
 import { fieldsForPanel } from "../schemas/schemaPanels.js";
 import { buildSuiteBadgeList } from "../components/badges.js";
 import { displayValue } from "../forms/fields.js";
+import { MAX_MODELS } from "./limits.js";
 import { createRecordComparison } from "./recordComparison.js";
-
-// ─── CONFIGURATION ───────────────────────────────────────────────────────────
-
-// Also the compare page's cap, and the models list's.
-const MAX_MODELS = 6;
 
 // ─── DETAILS ─────────────────────────────────────────────────────────────────
 
@@ -120,4 +116,4 @@ function createModelComparison(options) {
   });
 }
 
-export { MAX_MODELS, createModelComparison };
+export { createModelComparison };

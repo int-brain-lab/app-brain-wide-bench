@@ -55,8 +55,6 @@ import { renderHeader, renderPage } from "../templates/pageChrome.js";
 // reads as one of them having run out.
 const MAX_CARDS = 2;
 
-const DESCRIPTION = "Your models, submissions and results.";
-
 // The render functions are declarations, so they are defined by the time this is read.
 const VIEWS = {
   dashboard: renderDashboardView,
@@ -227,7 +225,7 @@ function renderGettingStarted(user) {
     }),
   );
 
-  renderHeader(getWelcome(user), DESCRIPTION);
+  renderHeader(getWelcome(user));
 
   getSectionBody("getting-started").replaceChildren(
     document.getElementById("dashboard-empty").content.cloneNode(true),
