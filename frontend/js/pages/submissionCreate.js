@@ -150,15 +150,17 @@ async function submitSubmission(state, taskSection) {
 // `unknownTaskIds` and `taskPanel` start empty and are filled in by `setup` and the upload
 // panel's `onFile`. The panels read them through the context, so they see current values.
 async function loadSubmissionContext() {
-  const fields = await loadSubmissionFields();
+  // All three read /api/meta, which is memoised: one document between them.
+  const [fields, knownTasks] = await Promise.all([
+    loadSubmissionFields(),
+    loadKnownTasks(),
+    loadTaskFields(),
+  ]);
 
   if (!fields.model_id.options.length) {
     renderPageError("You have no models yet — a model is required to submit.");
     return null;
   }
-
-  const knownTasks = await loadKnownTasks();
-  await loadTaskFields();
 
   return {
     fields,

@@ -145,11 +145,14 @@ async function loadModelMeta() {
 //
 // Both fill MODEL_FIELDS in place, once; see applyFieldMeta on why in place.
 async function loadModelFields() {
-  await loadModelMeta();
+  const needsTeams = MODEL_FIELDS.team_id.options === null;
 
-  if (MODEL_FIELDS.team_id.options === null) {
-    const teams = await getMyTeams();
+  const [, teams] = await Promise.all([
+    loadModelMeta(),
+    needsTeams ? getMyTeams() : null,
+  ]);
 
+  if (teams) {
     MODEL_FIELDS.team_id.options = teams.map((team) => ({
       value: team.id,
       label: team.name,

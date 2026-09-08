@@ -1,4 +1,4 @@
-import { apiFetch, apiFetchOptional } from "./client.js";
+import { apiFetch, apiFetchOptional, isAuthenticated } from "./client.js";
 import { normalizeObject, trimmed } from "../core/validation.js";
 
 // ─── PAYLOADS ────────────────────────────────────────────────────────────────
@@ -9,15 +9,48 @@ function buildUserPayload(state) {
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 
+// Memoised per page load; a full navigation discards it.
+let cached = null;
+let inflight = null;
+
 async function loadMe() {
-  return await apiFetch("/api/users/me");
+  if (cached) return cached;
+
+  // Held locally: `inflight` is cleared below, and a second caller awaiting it by then
+  // would resolve to null.
+  const request = (inflight ??= apiFetch("/api/users/me"));
+
+  try {
+    cached = await request;
+  } finally {
+    // A rejected promise left here would be re-awaited by every later call.
+    inflight = null;
+  }
+
+  return cached;
+}
+
+// The viewer, or null with no session and on failure.
+async function getCurrentUser() {
+  try {
+    if (!(await isAuthenticated())) return null;
+
+    return await loadMe();
+  } catch (error) {
+    console.error(error);
+
+    return null;
+  }
 }
 
 async function updateMe(patch) {
-  return await apiFetch("/api/users/me", {
+  // Written through: fillSidebarUser() re-reads straight after a save.
+  cached = await apiFetch("/api/users/me", {
     method: "PATCH",
     body: JSON.stringify(buildUserPayload(patch)),
   });
+
+  return cached;
 }
 
 // Find a user by their exact email, for the member picker. Exact and email-only by
@@ -34,4 +67,4 @@ async function searchUsers(query, limit = 10) {
   return await apiFetchOptional(`/api/users?${params}`, { fallback: [] });
 }
 
-export { loadMe, updateMe, searchUsers };
+export { getCurrentUser, loadMe, searchUsers, updateMe };

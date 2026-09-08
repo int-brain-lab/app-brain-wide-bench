@@ -16,7 +16,7 @@
 // No suite select above it: which suite the scores are read on is the widget's own control,
 // inside the panel the scores are in.
 
-import { getModels, loadModel } from "../api/modelApi.js";
+import { getModels } from "../api/modelApi.js";
 import { toModelRows } from "../utils/modelUtils.js";
 import { getIcon } from "../components/icons.js";
 import { createModelComparison } from "../comparisons/modelComparison.js";
@@ -49,24 +49,22 @@ function readModelId() {
 loadComparePage({
   noun: "model",
 
-  // A model with a public submission is readable by anyone — see GET /api/models/{id} — and
-  // so is the model list this page picks the rest from.
+  // A model with a public submission is readable by anyone — see GET /api/models, which is
+  // also what says which models this reader may compare.
   requiresAuth: false,
 
   load: async () => {
     const modelId = readModelId();
+    const models = (await getModels()) ?? [];
 
-    // The record only for the header. What a model scores is the comparison's own fetch, and
-    // the list is what says which models this reader may compare it against.
-    const [model, models] = await Promise.all([
-      modelId ? loadModel(modelId) : null,
-      getModels(),
-    ]);
+    const model = modelId
+      ? (models.find((one) => String(one.id) === modelId) ?? null)
+      : null;
 
-    // A named model that could not be loaded is a failure; no model at all is not.
+    // A model named in the URL but absent from the list is a failure; no model at all is not.
     if (modelId && !model) return null;
 
-    return { model, models: models ?? [] };
+    return { model, models };
   },
 
   toRows: ({ models }) => toModelRows(models),

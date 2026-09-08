@@ -117,11 +117,14 @@ async function loadSubmissionMeta() {
 // The above plus the Model select, whose options are the caller's own models — per-user
 // data, so a separate fetch rather than part of the meta document.
 async function loadSubmissionFields() {
-  await loadSubmissionMeta();
+  const needsModels = SUBMISSION_FIELDS.model_id.options === null;
 
-  if (SUBMISSION_FIELDS.model_id.options === null) {
-    const models = await getMyModels();
+  const [, models] = await Promise.all([
+    loadSubmissionMeta(),
+    needsModels ? getMyModels() : null,
+  ]);
 
+  if (models) {
     SUBMISSION_FIELDS.model_id.options = models.map((model) => ({
       value: model.id,
       label: model.name,

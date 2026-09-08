@@ -1,7 +1,8 @@
-import { initials } from "../core/utils.js";
 import { escapeHtml } from "../core/html.js";
-import { apiFetch, isAuthenticated, login, logout } from "../api/client.js";
 import { renderHtml } from "../core/render.js";
+import { initials } from "../core/utils.js";
+import { login, logout } from "../api/client.js";
+import { getCurrentUser } from "../api/userApi.js";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
@@ -22,21 +23,6 @@ const NAV_ITEMS = [
   { label: "Teams", href: "/html/teams/team_list_public.html" },
   { label: "My dashboard", href: DASHBOARD_HREF },
 ];
-
-// ─── API ─────────────────────────────────────────────────────────────────────
-
-async function loadCurrentUser() {
-  try {
-    if (!(await isAuthenticated())) {
-      return null;
-    }
-
-    return await apiFetch("/api/users/me");
-  } catch (err) {
-    console.error(err);
-    return null;
-  }
-}
 
 // ─── DOM ─────────────────────────────────────────────────────────────────────
 
@@ -127,7 +113,7 @@ function renderUserMenu(user) {
 }
 
 async function renderAuthSection() {
-  const user = await loadCurrentUser();
+  const user = await getCurrentUser();
 
   return `
     <div class="nav-auth">
