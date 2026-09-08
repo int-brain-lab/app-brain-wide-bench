@@ -115,7 +115,6 @@ function buildAddSelect(rows, { noun, full, toKey, toLabel }) {
  * @param toRows           (context) => every record that may be compared, as rows.
  * @param createComparison ({ container, fixedKeys }) => the comparison — a preset,
  *                         see comparisons/modelComparison.js.
- * @param back             (context) => { text, href }.
  * @param header           (context) => { title, subtitle, badges }.
  * @param optionLabel      (row) => what the add select calls it. Omit for `row.name`.
  * @param seedIds          (context) => the ids the page opens on, held for its life and kept
@@ -131,7 +130,6 @@ function loadComparePage({
   toRows,
   createComparison,
 
-  back,
   header,
 
   optionLabel = (row) => row.name,
@@ -146,7 +144,6 @@ function loadComparePage({
 
     renderPage(
       buildPage({
-        back: back(context),
         header: buildHeader([`<span id="${ADD_ID}"></span>`]),
 
         body:

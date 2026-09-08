@@ -44,6 +44,32 @@ function toTaskSubmissionRows(
   );
 }
 
+// ─── STANDING ────────────────────────────────────────────────────────────────
+
+/**
+ * Stamp each row with whether the model is still standing on it.
+ *
+ * The breakdown names the entry the model currently stands on for each task — the newest
+ * scored one this reader may see, which counts private runs for a member and only public
+ * ones for anybody else. An entry that is not the named one has been overtaken.
+ *
+ * Not a ranking: no other model's scores are involved, and no position is reported.
+ *
+ * @param rows      from toTaskSubmissionRows.
+ * @param breakdown the GET /api/models/{id}/breakdown payload, or nothing.
+ *
+ * @returns copies, each with `latest` — true where the model stands on this entry, and null
+ *          where the breakdown is missing and there is nothing to say either way.
+ */
+function markStandingRows(rows, breakdown) {
+  const entries = breakdown?.tasks;
+
+  return rows.map((row) => ({
+    ...row,
+    latest: entries ? entries[row.task_id]?.task_submission_id === row.id : null,
+  }));
+}
+
 // ─── FILTERS ─────────────────────────────────────────────────────────────────
 
 // The score tables' own set: one submission's tasks are its scores read another way, so a
@@ -81,6 +107,7 @@ function mergeUpdated(submission, updated) {
 
 export {
   getTaskSubmissionFilters,
+  markStandingRows,
   mergeUpdated,
   suiteSiblings,
   toTaskSubmissionRows,

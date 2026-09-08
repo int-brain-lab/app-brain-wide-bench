@@ -1,4 +1,5 @@
-// The summary card a record dashboard shows: a few fields, and the link to the rest.
+// The summary card a record dashboard shows: a few of a record's fields. The way to the rest
+// is the section's own footer button — see buildSectionFooter in components/sections.js.
 
 import { buildDisplayFields } from "../forms/fields.js";
 
@@ -18,17 +19,10 @@ function toColumns(keys, columns) {
  *                don't describe are dropped.
  * @param keys    which fields to show, in order.
  * @param columns how many columns to lay them out in.
- * @param view    the router view the footer link goes to.
  *
  * @returns the markup.
  */
-function buildDetailsCard({
-  record,
-  fields,
-  keys,
-  columns = 1,
-  view = "details",
-}) {
+function buildDetailsCard({ record, fields, keys, columns = 1 }) {
   const shown = keys.filter((key) => key in fields);
 
   const stacks = toColumns(shown, columns)
@@ -44,12 +38,10 @@ function buildDetailsCard({
   const layout = columns > 1 ? ` class="grid-${columns}"` : "";
 
   return `
-    <div class="card secondary corner-link">
+    <div class="card secondary">
       <div${layout}>
         ${stacks}
       </div>
-
-      <a class="link" href="#" data-view="${view}">View all details →</a>
     </div>
   `;
 }

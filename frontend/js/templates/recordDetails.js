@@ -223,8 +223,6 @@ function renderCreateSection(section, createCard) {
  * @param fields      field definitions for the record.
  * @param panels      panel definitions setting out the field layout.
  * @param actions     header actions, shown only when editing is allowed.
- * @param back        the back link — `{ text, view }`, or `{ text, href }` to leave the
- *                    page. Omit for no back link.
  * @param canEdit     whether the viewer may edit this record.
  * @param edit        open in edit mode straight away.
  * @param created     whether this record was just created.
@@ -243,7 +241,6 @@ function renderRecordDetailsView({
   panels,
 
   actions = EDIT_BUTTONS,
-  back,
 
   canEdit,
   edit = false,
@@ -256,7 +253,6 @@ function renderRecordDetailsView({
 }) {
   renderPage(
     buildPage({
-      back,
       header: buildHeader(canEdit ? actions : []),
       body: buildSection({ id: noun }) + buildSections(sections),
     }),

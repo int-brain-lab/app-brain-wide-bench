@@ -13,6 +13,7 @@ import {
   toMethodologyValues,
   trainingFieldKeys,
 } from "../schemas/taskSubmissionSchema.js";
+import { buildSuiteCoverageBadges } from "../components/badges.js";
 import {
   matchEquals,
   matchInArray,
@@ -33,6 +34,9 @@ function flattenSubmissions(submissions) {
       ...taskSubmission,
       submission_id: submission.id,
       submission_name: submission.label,
+      // Whether the run behind the score is published, which is a different question from
+      // whether the public ranking is standing on it.
+      is_public: submission.is_public ?? null,
       // Absent on a model *detail* response's submissions, so a caller flattening several
       // models attaches them itself before calling in.
       model_id: submission.model_id,
@@ -49,6 +53,7 @@ function toScoreRow(result) {
     suite: suiteFromTask(result.task_id),
     submission_id: result.submission_id ?? null,
     submission_label: result.submission_name ?? null,
+    is_public: result.is_public ?? null,
     model_id: result.model_id ?? null,
     model_name: result.model_name ?? null,
     // All three null on a task that isn't scored yet. `sem` is nullable even on a scored
@@ -72,6 +77,39 @@ function toScoreRows(submissions) {
 // For GET /api/users/me/task-submissions, which is already one task per row.
 function toScoreResultRows(results) {
   return (results ?? []).map(toScoreRow);
+}
+
+// ─── BESTS ───────────────────────────────────────────────────────────────────
+
+/**
+ * The best score reached on each task, out of a run of score rows.
+ *
+ * Best is highest: every task's primary metric — bacc, poisson_d2, r2, d2, macro/f1-score,
+ * see alembic/versions/0001_initial.py — reads better the larger it is. A lower-is-better
+ * primary metric would invert this silently; `mae` is one, and is never a primary metric.
+ *
+ * Rows with no score are dropped rather than kept at nothing: a task being scored has no
+ * best yet.
+ *
+ * @param rows from toScoreRows / toScoreResultRows.
+ *
+ * @returns one row per task, the winning row itself — so it still names the model and
+ *          submission the score came from.
+ */
+function toBestScoreRows(rows) {
+  const best = new Map();
+
+  for (const row of rows) {
+    if (row.mean_score == null) continue;
+
+    const standing = best.get(row.task_id);
+
+    if (!standing || row.mean_score > standing.mean_score) {
+      best.set(row.task_id, row);
+    }
+  }
+
+  return [...best.values()];
 }
 
 // ─── FILTERS ─────────────────────────────────────────────────────────────────
@@ -184,4 +222,28 @@ function getTaskScoreFilters(rows, { showModel = false } = {}) {
   ];
 }
 
-export { getTaskScoreFilters, toScoreResultRows, toScoreRows };
+// ─── DISPLAY ─────────────────────────────────────────────────────────────────
+
+/**
+ * Which suites a run of score rows covers, for the header of whoever the rows belong to.
+ *
+ * All three either way — the ones that are missing are the point, and grey is what says so.
+ * See buildSuiteCoverageBadges, which the model listings badge coverage with too.
+ *
+ * @param scoreRows from toScoreRows / toScoreResultRows.
+ *
+ * @returns the badges, as renderHeader takes them.
+ */
+function getCoverageBadges(scoreRows) {
+  const covered = new Set(scoreRows.map((row) => row.suite).filter(Boolean));
+
+  return [buildSuiteCoverageBadges([...covered])];
+}
+
+export {
+  getCoverageBadges,
+  getTaskScoreFilters,
+  toBestScoreRows,
+  toScoreResultRows,
+  toScoreRows,
+};

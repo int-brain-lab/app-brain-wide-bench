@@ -4,6 +4,7 @@
 import { formatDate } from "../core/utils.js";
 import {
   SUITES,
+  suiteLabel,
   suitesFromModel,
   suitesFromSubmission,
 } from "../core/suites.js";
@@ -116,10 +117,6 @@ function getModelCoverage(model) {
 // leaderboard today, `private` where it would stand if everything it has submitted were
 // published — absent for a reader who isn't on its team. Every figure may be unplaced.
 
-// Overall first, then the suites — the summary above what it summarises, as on the
-// leaderboard.
-const FIGURES = ["overall", ...SUITES];
-
 function placingOf(side, figure) {
   return figure === "overall" ? side?.overall : side?.suites?.[figure];
 }
@@ -141,27 +138,34 @@ function readPlacing(side, figure) {
 }
 
 /**
- * @param ranking the payload, or nothing if it failed to load.
- * @returns [{ figure, label, publicSide, privateSide, coverage }] in FIGURES order.
+ * Every figure the benchmark has, in reading order.
  *
- * `coverage` is on the overall row only, and is why that row may be unplaced while the
- * suite rows beneath it are not — see the endpoint's `suites_scored`. Read off whichever
- * side the caller can see the most of, since it describes what the model has entered
- * rather than what it has published.
+ * All of them whether or not the model has placed: a suite it has never entered is a row of
+ * dashes, which is what says there is nothing there — and the card is read against the
+ * others beside it, so the rows have to be the same rows every time.
+ *
+ * `coverage` is on the overall row only — see the endpoint's `suites_scored`, which is what
+ * withholds that position until every suite is entered. Read off whichever side the caller
+ * can see the most of, since it describes what the model has entered rather than what it
+ * has published.
+ *
+ * @param ranking the payload, or nothing if it failed to load.
+ * @returns [{ figure, label, publicSide, privateSide, coverage }] — the summary above what
+ *          it summarises, then the suites in SUITES order.
  */
 function toRankRows(ranking) {
-  const coverage = placingOf(ranking?.private ?? ranking?.public, "overall");
+  const overall = placingOf(ranking?.private ?? ranking?.public, "overall");
 
-  return FIGURES.map((figure) => ({
+  return ["overall", ...SUITES].map((figure) => ({
     figure,
-    label: figure === "overall" ? "Overall" : figure.toUpperCase(),
+    label: figure === "overall" ? "Overall" : suiteLabel(figure),
     publicSide: readPlacing(ranking?.public, figure),
     privateSide: readPlacing(ranking?.private, figure),
     coverage:
       figure === "overall"
         ? {
-            scored: coverage?.suites_scored ?? 0,
-            total: coverage?.suites_total ?? 0,
+            scored: overall?.suites_scored ?? 0,
+            total: overall?.suites_total ?? 0,
           }
         : null,
   }));
@@ -182,26 +186,53 @@ function toRankRows(ranking) {
  *
  * @param rows    from toScoreRows / toScoreResultRows.
  * @param ranking the GET /api/models/{id}/ranking payload, or nothing.
+ * The entry also carries where it placed on its own task, a narrower field than the suite
+ * figures above it — see TaskEntryRef in app/schemas/models.py.
+ *
  * @returns copies, each with `ranked: { public, latest }` — both false where the row has been
- *          superseded.
+ *          superseded — and `rank` / `nRanked`, null and 0 for a row carrying nothing.
  */
 function markRankedRows(rows, ranking) {
-  const ranked = new Set();
-  const latest = new Set();
+  const ranked = new Map();
+  const latest = new Map();
 
   // The side that says which score is the newest, which is the private one wherever the
   // reader has it.
   const newest = ranking?.private ? "private" : "public";
 
   for (const sides of Object.values(ranking?.tasks ?? {})) {
-    if (sides.public?.id) ranked.add(sides.public.id);
-    if (sides[newest]?.id) latest.add(sides[newest].id);
+    if (sides.public?.id) ranked.set(sides.public.id, sides.public);
+    if (sides[newest]?.id) latest.set(sides[newest].id, sides[newest]);
   }
 
-  return rows.map((row) => ({
-    ...row,
-    ranked: { public: ranked.has(row.id), latest: latest.has(row.id) },
-  }));
+  return rows.map((row) => {
+    // The newest side's placing wherever the row is that side's entry, since that is the
+    // standing being shown; a row that is only the public entry is read off the public side
+    // instead. Where both name it the ranks agree — same score, same competitors.
+    const placed = latest.get(row.id) ?? ranked.get(row.id);
+
+    return {
+      ...row,
+      ranked: { public: ranked.has(row.id), latest: latest.has(row.id) },
+      rank: placed?.rank ?? null,
+      nRanked: placed?.n_ranked ?? 0,
+    };
+  });
+}
+
+/**
+ * Whether the model is holding back work the leaderboard has not seen.
+ *
+ * Which is the question the private ranking answers, and the one that decides whether it is
+ * worth showing: a team whose every current score is already public would be shown the same
+ * figure twice.
+ *
+ * @param rows from markRankedRows.
+ *
+ * @returns true where any current score is not the one the public ranking stands on.
+ */
+function hasPrivateOnlyScores(rows) {
+  return rows.some((row) => row.ranked.latest && !row.ranked.public);
 }
 
 // ─── DISPLAY ─────────────────────────────────────────────────────────────────
@@ -224,21 +255,11 @@ function getModelBadges(model) {
   ];
 }
 
-function getModelStatistics(model) {
-  const { submissionCount, suites, taskCount } = getModelCoverage(model);
-
-  return [
-    ["submissions", submissionCount, getIcon("submission")],
-    ["task suites", suites.length, getIcon("suite")],
-    ["tasks", taskCount, getIcon("task")],
-  ];
-}
-
 export {
   getModelBadges,
+  hasPrivateOnlyScores,
   getModelCoverage,
   getModelFilters,
-  getModelStatistics,
   getModelSubtitle,
   markRankedRows,
   toModelRows,

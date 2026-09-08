@@ -109,7 +109,7 @@ loadCreatePage({
   noun: "team",
   title: "Create a new team",
   description: "Name it and add the people who will work in it.",
-  back: { text: "← Back to teams", href: "/html/teams/team_list.html" },
+  cancelHref: "/html/teams/team_list.html",
 
   fields: TEAM_FIELDS,
   panels: TEAM_PANELS,

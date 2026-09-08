@@ -18,8 +18,6 @@ import { renderPage } from "./pageChrome.js";
  * A record-page view holding one list, in its own section.
  *
  * @param noun        *singular* — "submission". Names the section.
- * @param back        the back link — `{ text, view }`, or `{ text, href }` to leave the
- *                    page. Omit for no back link.
  * @param renderTitle (record?) => void. Writes the page header.
  * @param empty       what the section says when there are no rows.
  * @param rows        every row, already mapped into the shape createListView takes.
@@ -31,7 +29,6 @@ import { renderPage } from "./pageChrome.js";
  */
 function renderRecordListView({
   noun,
-  back,
   renderTitle,
   empty,
   rows,
@@ -39,7 +36,6 @@ function renderRecordListView({
 }) {
   renderPage(
     buildPage({
-      back,
       header: buildHeader(),
       body: buildSection({ id: noun }),
     }),

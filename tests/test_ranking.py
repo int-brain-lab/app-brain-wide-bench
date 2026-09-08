@@ -343,3 +343,40 @@ def test_placings_place_every_suite_but_withhold_a_partial_overall():
     # The overall field is only who qualified for it; the suite's is everyone in that suite.
     assert covered.overall.n_ranked == 1
     assert covered.suites["ts1"].n_ranked == 2
+
+
+def test_placings_place_each_task_against_whoever_entered_it():
+    """A task's field is who entered that task, which is narrower than its suite's.
+
+    The two models meet on ts1-choice; nothing else entered ts3-cosmos, so the model that
+    did is placed first there against a field of one rather than against the suite's two.
+    """
+    both = submission(
+        uuid.uuid4(),
+        {
+            "ts1-choice": score("bacc", [("a", 0.9)]),
+            "ts3-cosmos": score("macro/f1-score", [(None, 0.9)]),
+        },
+    )
+    ts1_only = submission(uuid.uuid4(), {"ts1-choice": score("bacc", [("a", 0.1)])})
+
+    placings = place_standings(standings([both, ts1_only]), TASKS)
+
+    covered = placings[str(both.model_id)]
+    partial = placings[str(ts1_only.model_id)]
+
+    assert {task: placing.rank for task, placing in covered.tasks.items()} == {
+        "ts1-choice": 1,
+        "ts3-cosmos": 1,
+    }
+
+    assert covered.tasks["ts1-choice"].n_ranked == 2
+    assert covered.tasks["ts3-cosmos"].n_ranked == 1
+
+    # A task never entered is absent rather than placed last, as a suite is.
+    assert set(partial.tasks) == {"ts1-choice"}
+    assert partial.tasks["ts1-choice"].rank == 2
+
+    # The mean behind the position is the task's own average over its recordings — with one
+    # task entered, the suite above it is a mean of exactly that.
+    assert partial.tasks["ts1-choice"].mean_rank == partial.suites["ts1"].mean_rank

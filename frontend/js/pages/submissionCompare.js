@@ -19,10 +19,6 @@ import { loadComparePage } from "../templates/comparePage.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
-const SUBMISSION_LIST_PAGE = "/html/submissions/submission_list.html";
-
-const BACK_TEXT = "← Back to submissions";
-
 // What the page is called: a set of submissions has no one of them to be titled after.
 const TITLE = "Compare submissions";
 
@@ -54,7 +50,6 @@ loadComparePage({
   toRows: ({ submissions }) => toSubmissionRows(submissions),
   createComparison: createSubmissionComparison,
 
-  back: () => ({ text: BACK_TEXT, href: SUBMISSION_LIST_PAGE }),
   header: () => ({ title: TITLE }),
 
   optionLabel: labelOf,

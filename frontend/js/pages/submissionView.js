@@ -3,6 +3,7 @@
 import { renderHtml } from "../core/render.js";
 import { suiteFromTask, suiteLabel } from "../core/suites.js";
 import { escapeHtml } from "../core/html.js";
+import { loadModelBreakdown } from "../api/modelApi.js";
 import { loadSubmission, updateSubmission } from "../api/submissionApi.js";
 import { updateTaskSubmissions } from "../api/taskSubmissionApi.js";
 import {
@@ -17,26 +18,27 @@ import {
 } from "../schemas/taskSubmissionSchema.js";
 import {
   getSubmissionBadges,
-  getSubmissionStatistics,
   getSubmissionSubtitle,
 } from "../utils/submissionUtils.js";
 import {
   getTaskSubmissionFilters,
+  markStandingRows,
   mergeUpdated,
   suiteSiblings,
   toTaskSubmissionRows,
 } from "../utils/taskSubmissionUtils.js";
 import {
   buildStaticTaskSubmissionsTable,
+  buildSubmissionScoresTable,
   createTaskSubmissionsTable,
 } from "../tables/taskSubmissionTable.js";
 import { SCORE_PANEL } from "../comparisons/taskScoreComparison.js";
-import { buildDetailsCard } from "../cards/detailsCard.js";
-import { buildStatCards } from "../cards/statCards.js";
 import {
   buildCancelButton,
+  buildDetailsButton,
   buildEditButton,
   buildSaveButton,
+  buildViewAllButton,
 } from "../components/buttons.js";
 import { buildCount } from "../components/count.js";
 import {
@@ -48,7 +50,9 @@ import {
   buildHeader,
   buildPage,
   buildSection,
+  buildSectionFooter,
   buildSections,
+  getSection,
   getSectionBody,
 } from "../components/sections.js";
 import {
@@ -65,118 +69,131 @@ import {
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
-const MAX_TASKS = 5;
-
-const SUMMARY_KEYS = [
-  "label",
-  "status",
-  "is_public",
-  "created_at",
-  "updated_at",
-];
-
-const BACK = {
-  text: "← Back to dashboard",
-  view: "dashboard",
-};
-
-const TASKS_BACK = {
-  text: "← Back to tasks",
-  view: "tasks",
-};
+// Three rows. The rest are behind the section's "view all".
+const MAX_TASKS = 3;
 
 // The render functions are declarations, so they are defined by the time this is read.
 const VIEWS = {
   dashboard: renderDashboardView,
   details: renderDetailsView,
   tasks: renderTasksView,
+  scores: renderScoresView,
   task: renderTaskView,
 };
 
+// Where each section's "view all" goes, by the id of the section it closes. The button
+// itself is built at render — see buildFooter — because the number it names is data.
+const VIEW_ALL = {
+  methodology: { noun: "task", view: "tasks" },
+  scores: { noun: "score", view: "scores" },
+};
+
+// The record's own fields have no count to name: the button opens one page, not a list.
+const DETAILS_FOOTER = buildSectionFooter(
+  buildDetailsButton({ view: "details" }),
+);
+
 const DASHBOARD_SECTIONS = [
   {
-    id: "stats",
-    className: "stats-grid",
-  },
-  {
+    ratio: 3,
     sections: [
-      {
-        id: "narrative",
-        title: "Narrative",
-        // One card per narrative, stacked — the section body is a plain block otherwise.
-        className: "column gap-lg",
-      },
-      {
-        id: "details",
-        title: "Submission Details",
-      },
+      { id: "narrative", title: "Narrative" },
+      { id: "methodology", title: "Methodology" },
     ],
   },
   {
-    id: "tasks",
-    title: "Task Submissions",
+    id: "scores",
+    title: "Scores",
+    description:
+      "What this submission scored on each task, and whether the model still stands on it.",
   },
 ];
 
-// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+// The way from a section's preview to the whole of it, under the content — see
+// buildSectionFooter.
+function buildFooter(id, count) {
+  const { noun, ...target } = VIEW_ALL[id];
 
-function renderStatsSection(statistics) {
-  renderHtml(getSectionBody("stats"), buildStatCards(statistics));
+  return buildSectionFooter(buildViewAllButton(noun, target, { count }));
 }
 
-function buildNarrativeCard(label, narrative) {
+// What the section shows, with the way to the rest of it underneath.
+function renderSection(id, content, footer) {
+  renderHtml(getSectionBody(id), content + footer, { refresh: true });
+}
+
+// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+
+// One narrative, set as a display field is: the label above, the text below, in the same
+// two classes a details card reads in — see buildDisplayField in forms/fields.js.
+function buildNarrative(label, narrative) {
   return `
-    <div class="card secondary column left gap-sm">
-      <p class="field-value">${escapeHtml(label)}</p>
-      <p class="field-label scroll-y">${narrative ? escapeHtml(narrative) : "—"}</p>
+    <div class="column left gap-xs">
+      <label class="field-label">${escapeHtml(label)}</label>
+      <p class="field-value">${narrative ? escapeHtml(narrative) : "—"}</p>
     </div>
   `;
 }
 
-// The private narrative only for a member: the API blanks it for everyone else — see
-// withhold_private in app/schemas/submissions.py.
+// One card either way. A member sees both narratives in it, a row each under its own
+// heading; everyone else sees the public one, which is the only one there is — the API
+// blanks the other, see withhold_private in app/schemas/submissions.py.
 function renderNarrativeSection(submission, canEdit) {
-  renderHtml(
-    getSectionBody("narrative"),
-    buildNarrativeCard("Public narrative", submission.narrative_public) +
-      (canEdit
-        ? buildNarrativeCard("Private narrative", submission.narrative_private)
-        : ""),
+  const rows = canEdit
+    ? buildNarrative("Public", submission.narrative_public) +
+      buildNarrative("Private", submission.narrative_private)
+    : buildNarrative("Narrative", submission.narrative_public);
+
+  renderSection(
+    "narrative",
+    // The scroll is the card's and not the text's inside it: one scrollbar for the pair,
+    // and the headings scroll with what they head.
+    `<div class="card secondary column gap-lg narrative-card">${rows}</div>`,
+    DETAILS_FOOTER,
   );
 }
 
-function renderDetailsSection(submission, fields) {
-  renderHtml(
-    getSectionBody("details"),
-    buildDetailsCard({
-      record: submission,
-      fields,
-      keys: SUMMARY_KEYS,
-      columns: 2,
-    }),
-  );
-}
+// A table rather than cards: every task carries the same five fields, so the labels belong
+// in a header read once instead of on every row. The rest are behind the section's "view
+// all", where the same table holds all of them.
+function renderMethodologySection(submission, canEdit) {
+  const container = getSectionBody("methodology");
+  const rows = toTaskSubmissionRows(submission);
 
-function renderTasksSection(submission) {
-  const container = getSectionBody("tasks");
-
-  if (!submission.task_submissions?.length) {
+  if (!rows.length) {
     renderHtml(container, buildEmptyMessage("No tasks yet."));
     return;
   }
 
-  renderHtml(
-    container,
+  renderSection(
+    "methodology",
     buildStaticTaskSubmissionsTable({
-      rows: toTaskSubmissionRows(submission),
+      rows,
+      showEdit: canEdit,
+      showScore: false,
       limit: MAX_TASKS,
-      viewAll: { view: "tasks" },
     }),
+    buildFooter("methodology", rows.length),
+  );
+}
+
+// Hidden rather than emptied for a submission with nothing scored: the tasks table below
+// already says what it holds.
+function renderScoresSection(rows) {
+  if (!rows.some((row) => row.mean_score != null)) {
+    getSection("scores").hidden = true;
+    return;
+  }
+
+  renderSection(
+    "scores",
+    buildSubmissionScoresTable({ rows }),
+    buildFooter("scores", rows.length),
   );
 }
 
 function renderDashboardView(context, router) {
-  const { submission, fields, canEdit } = context;
+  const { submission, breakdown, canEdit } = context;
 
   renderPage(
     buildPage({
@@ -191,10 +208,9 @@ function renderDashboardView(context, router) {
     getSubmissionBadges(submission),
   );
 
-  renderStatsSection(getSubmissionStatistics(submission));
   renderNarrativeSection(submission, canEdit);
-  renderDetailsSection(submission, fields);
-  renderTasksSection(submission);
+  renderMethodologySection(submission, canEdit);
+  renderScoresSection(markStandingRows(toTaskSubmissionRows(submission), breakdown));
 
   if (canEdit) attachEditLink(router);
 }
@@ -207,7 +223,6 @@ function renderDetailsView({ submission, fields, canEdit, edit, created }) {
     record: submission,
     fields,
     panels: SUBMISSION_PANELS,
-    back: BACK,
     canEdit,
     edit,
     created,
@@ -225,10 +240,15 @@ function renderDetailsView({ submission, fields, canEdit, edit, created }) {
 
 // ─── TASKS VIEW ──────────────────────────────────────────────────────────────
 
+// What the dashboard's methodology cards show, for every task rather than the first few:
+// the task, how it was produced, and the way in to change it.
+//
+// Neither `panel` nor `picking`, which is what leaves the rows unpickable — see
+// templates/listView.js, where the two together are what make a list comparable. This one
+// is only ever read and edited.
 function renderTasksView({ submission, canEdit }) {
   return renderRecordListView({
     noun: "task",
-    back: BACK,
     renderTitle: () =>
       renderHeader(submission.label, getSubmissionSubtitle(submission)),
     empty: "No tasks yet.",
@@ -240,6 +260,33 @@ function renderTasksView({ submission, canEdit }) {
         rows,
         selection,
         showEdit: canEdit,
+        showScore: false,
+        showFilters: false,
+      }),
+  });
+}
+
+// ─── SCORES VIEW ─────────────────────────────────────────────────────────────
+
+// The same tasks read as scores: the numbers and the methodology behind them, narrowed by
+// the filter bar and compared in the panel underneath.
+//
+// No Edit column. A reader here is picking rows apart, and changing one is the tasks view's
+// own job.
+function renderScoresView({ submission }) {
+  return renderRecordListView({
+    noun: "task",
+    renderTitle: () =>
+      renderHeader(submission.label, getSubmissionSubtitle(submission)),
+    empty: "No tasks yet.",
+
+    rows: toTaskSubmissionRows(submission),
+
+    createTable: ({ rows, selection }) =>
+      createTaskSubmissionsTable({
+        rows,
+        selection,
+        showEdit: false,
         showFilters: false,
       }),
 
@@ -286,7 +333,6 @@ function renderTaskView({
   if (!taskSubmission) {
     renderPage(
       buildPage({
-        back: TASKS_BACK,
         header: buildHeader(),
         body: buildSection({ id: "task" }),
       }),
@@ -317,7 +363,6 @@ function renderTaskView({
       buildSaveButton({ hidden: true }),
     ],
 
-    back: TASKS_BACK,
     canEdit,
     edit,
 
@@ -420,8 +465,16 @@ loadRecordPage({
       return null;
     }
 
+    // After the three above rather than beside them: the model is named by the submission,
+    // so there is nothing to ask for until it has arrived. Undefined on failure, which
+    // leaves the scores table without a standing rather than the page without scores.
+    const breakdown = await loadModelBreakdown(submission.model_id).catch(
+      () => undefined,
+    );
+
     return {
       submission,
+      breakdown,
       fields,
       taskFields,
       // `signedIn` as well as `is_mine`: a dev-mode API answers every request as its stub user.

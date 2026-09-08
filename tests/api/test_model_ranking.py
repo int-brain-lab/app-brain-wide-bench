@@ -210,6 +210,35 @@ async def test_tasks_name_the_entry_behind_each_side(seeded_client, scenario):
     assert tasks["ts2-forecasting"]["private"]["id"] == str(private["ts2-forecasting"].id)
 
 
+async def test_tasks_carry_where_each_side_placed(seeded_client, scenario):
+    """The position on one task, which is what a score card reports beside the score.
+
+    A task's field is whoever entered that task, so it is narrower than the suite's: the
+    one task nothing else has is won against a field of one.
+    """
+    body = (await seeded_client.get(ranking_url(scenario["model"]))).json()
+
+    tasks = body["tasks"]
+
+    # Beaten publicly, winning privately, against the same two-model field either way.
+    choice = tasks["ts1-choice"]
+
+    assert (choice["public"]["rank"], choice["public"]["n_ranked"]) == (2, 2)
+    assert (choice["private"]["rank"], choice["private"]["n_ranked"]) == (1, 2)
+
+    # Entered only privately: unopposed, and the field is the model alone.
+    forecasting = tasks["ts2-forecasting"]["private"]
+
+    assert (forecasting["rank"], forecasting["n_ranked"]) == (1, 1)
+
+    # Not re-entered privately, so the same entry stands in both rankings — and places the
+    # same way in each, the rival being the same competitor on both sides.
+    cosmos = tasks["ts3-cosmos"]
+
+    assert cosmos["public"] == cosmos["private"]
+    assert cosmos["public"]["rank"] == 2
+
+
 async def test_overall_rank_waits_for_every_suite(seeded_client, add, me):
     """A model in one suite is placed in it, but not against models that entered three.
 

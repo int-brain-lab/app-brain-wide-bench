@@ -15,7 +15,9 @@ import { createCardGrid } from "./cardGrid.js";
 
 // `showMine` marks the cards on the viewer's own teams, for a listing that mixes them
 // with everyone else's. Off by default: on a listing that is all theirs it says nothing.
-function buildModelCard(model, { showMine = false } = {}) {
+// `showTeam` off for a listing that is all one team's, where naming it on every card would
+// only repeat the page's own heading.
+function buildModelCard(model, { showMine = false, showTeam = true } = {}) {
   const submissionCount = model.n_submissions ?? 0;
 
   return `
@@ -25,7 +27,7 @@ function buildModelCard(model, { showMine = false } = {}) {
     >
       <div class="column left">
         <p class="title">${escapeHtml(model.name)}</p>
-        <p class="metadata">${escapeHtml(model.team_name || "—")}</p>
+        ${showTeam ? `<p class="metadata">${escapeHtml(model.team_name || "—")}</p>` : ""}
       </div>
 
       <div class="row left gap-lg">
@@ -50,17 +52,18 @@ function buildModelCards(models, options) {
  * The model card grid, built once and kept.
  *
  * @param showMine as buildModelCard.
+ * @param showTeam as buildModelCard.
  * @param options  the rest, as createCardGrid.
  *
  * @returns as createCardGrid.
  */
-function createModelCardGrid({ showMine = false, ...options } = {}) {
+function createModelCardGrid({ showMine = false, showTeam = true, ...options } = {}) {
   return createCardGrid({
-    buildCards: (rows) => buildModelCards(rows, { showMine }),
+    buildCards: (rows) => buildModelCards(rows, { showMine, showTeam }),
     noun: "model",
 
     ...options,
   });
 }
 
-export { createModelCardGrid };
+export { buildModelCards, createModelCardGrid };

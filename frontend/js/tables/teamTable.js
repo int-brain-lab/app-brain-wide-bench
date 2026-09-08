@@ -76,11 +76,10 @@ function createTeamsTable({ rows, showFilters = true }) {
  *
  * @param rows    as createTeamsTable.
  * @param limit   how many rows to show. Omit for all of them.
- * @param viewAll as buildStaticTable — where the footer's "View all" link goes.
  *
  * @returns the markup.
  */
-function buildStaticTeamsTable({ rows, limit, viewAll }) {
+function buildStaticTeamsTable({ rows, limit }) {
   const shown = previewRows(
     rows,
     (a, b) => String(a.name).localeCompare(b.name),
@@ -92,7 +91,6 @@ function buildStaticTeamsTable({ rows, limit, viewAll }) {
     rows: shown,
     noun: "team",
     total: rows.length,
-    viewAll,
   });
 }
 

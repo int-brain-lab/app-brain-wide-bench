@@ -208,10 +208,7 @@ loadCreatePage({
   noun: "submission",
   title: "Create a new submission",
   description: "Upload your results and configure the tasks they cover.",
-  back: {
-    text: "← Back to submissions",
-    href: "/html/submissions/submission_list.html",
-  },
+  cancelHref: "/html/submissions/submission_list.html",
 
   fields: (context) => context.fields,
   panels: buildPanels,

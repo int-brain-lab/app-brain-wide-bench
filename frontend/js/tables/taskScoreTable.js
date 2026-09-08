@@ -11,12 +11,17 @@ import {
   previewRows,
 } from "./table.js";
 import {
-  buildLinkFormatter,
-  taskNameFormatter,
-  numericSorter,
   buildFlagFormatter,
+  buildLinkFormatter,
   buildScoreSemFormatter,
+  metricBadgeFormatter,
+  numericSorter,
   parameterFormatter,
+  rankingFlagFormatter,
+  rankSorter,
+  scoreBarFormatter,
+  taskNameFormatter,
+  taskRankFormatter,
 } from "./formatters.js";
 import {TASK_FIELDS, trainingFieldKeys} from "../schemas/taskSubmissionSchema.js";
 
@@ -37,6 +42,10 @@ const SCORE_WIDTH = 130;
 const FIELD_WIDTH = 120;
 const NAME_WIDTH = 110;
 const FLAG_WIDTH = 150;
+
+// A bar is the one column with nothing to read in it, so it gives way first — but below
+// this it is too short to compare one row against another.
+const BAR_WIDTH = 120;
 
 // `showSubmission` off drops the Submission column, for a caller already scoped to one
 // submission — there it would repeat the page's own heading down every row.
@@ -161,6 +170,169 @@ function getScoreColumns({
   ];
 }
 
+// ─── LATEST SCORES ───────────────────────────────────────────────────────────
+
+// What a model currently stands on, one task at a time: the number, the same number as a
+// mark, what it is measured in, where it places, and what it is doing.
+//
+// What every table of standing scores leads with: the task, the number, the number as a
+// mark, and what it is measured in. What follows differs by what the page is asking — see
+// the two column sets over it.
+function standingColumns() {
+  return [
+    {
+      title: "Task",
+      field: "task_name",
+      formatter: taskNameFormatter,
+      widthGrow: 1,
+      minWidth: TASK_WIDTH,
+    },
+    {
+      // The mean over its spread. The metric has a column of its own here, so it is not
+      // badged beside the number as it is on the fuller table.
+      title: "Score",
+      field: "mean_score",
+      formatter: buildScoreSemFormatter("sem"),
+      sorter: numericSorter,
+      widthGrow: 1,
+      minWidth: SCORE_WIDTH,
+    },
+    {
+      // Read on 0 to 1 like every primary metric, so one row's bar is comparable with the
+      // next even where the metrics are not.
+      title: "",
+      field: "mean_score",
+      formatter: scoreBarFormatter,
+      headerSort: false,
+      widthGrow: 2,
+      minWidth: BAR_WIDTH,
+    },
+    {
+      title: "Metric",
+      field: "metric",
+      formatter: metricBadgeFormatter,
+      headerSort: false,
+      widthGrow: 1,
+      minWidth: FIELD_WIDTH,
+    },
+  ];
+}
+
+// Its own column set rather than more flags on getScoreColumns above: that one describes a
+// score among many for a task, and this one describes the only score a task has left.
+function getLatestScoreColumns() {
+  return [
+    ...standingColumns(),
+    {
+      title: "Rank",
+      field: "rank",
+      formatter: taskRankFormatter,
+      sorter: rankSorter,
+      widthGrow: 1,
+      minWidth: FIELD_WIDTH,
+    },
+    {
+      // A tick where the board is standing on this score, an eye where it is not because
+      // the run behind it is unpublished — see rankingFlagFormatter.
+      title: "Used in public ranking",
+      field: "ranked",
+      formatter: rankingFlagFormatter,
+      headerSort: false,
+      hozAlign: "center",
+      headerHozAlign: "center",
+      widthGrow: 1,
+      minWidth: FLAG_WIDTH,
+    },
+    {
+      title: "Submission",
+      field: "submission_label",
+      formatter: buildLinkFormatter(
+        "/html/submissions/submissions.html",
+        "submission_label",
+        "submission_id",
+        "metadata",
+      ),
+      widthGrow: 1,
+      minWidth: NAME_WIDTH,
+    },
+  ];
+}
+
+// The best of an account's own scores: the same four, then whose model and which run made
+// each of them.
+function getBestScoreColumns() {
+  return [
+    ...standingColumns(),
+    {
+      title: "Model",
+      field: "model_name",
+      formatter: buildLinkFormatter(
+        "/html/models/models.html",
+        "model_name",
+        "model_id",
+        "metadata",
+      ),
+      widthGrow: 1,
+      minWidth: NAME_WIDTH,
+    },
+    {
+      title: "Submission",
+      field: "submission_label",
+      formatter: buildLinkFormatter(
+        "/html/submissions/submissions.html",
+        "submission_label",
+        "submission_id",
+        "metadata",
+      ),
+      widthGrow: 1,
+      minWidth: NAME_WIDTH,
+    },
+  ];
+}
+
+/**
+ * The best score reached on each task, as plain markup.
+ *
+ * @param rows  from toBestScoreRows — one per task there is a best for.
+ * @param total the scores those bests were picked out of, so the footer says how much was
+ *              weighed: eleven bests out of eighty-one task scores. Omit for "11 out of 11",
+ *              which is only ever true when every task has been scored once.
+ *
+ * @returns the markup.
+ */
+function buildBestScoresTable({ rows, total }) {
+  return buildStaticTable({
+    columns: getBestScoreColumns(),
+    rows: [...rows].sort((a, b) => numericSorter(b.mean_score, a.mean_score)),
+    noun: "task",
+    total: total || rows.length,
+  });
+}
+
+/**
+ * The scores a model currently stands on, as plain markup.
+ *
+ * @param rows    score rows stamped by markRankedRows, already narrowed to the latest of
+ *                each task — see renderScoresSection in pages/modelView.js.
+ * @param limit   how many rows to show. Omit for all of them.
+ *
+ * @returns the markup.
+ */
+function buildLatestScoresTable({ rows, limit }) {
+  const shown = previewRows(
+    rows,
+    (a, b) => numericSorter(b.mean_score, a.mean_score),
+    limit,
+  );
+
+  return buildStaticTable({
+    columns: getLatestScoreColumns(),
+    rows: shown,
+    noun: "task",
+    total: rows.length,
+  });
+}
+
 // ─── TABLE ───────────────────────────────────────────────────────────────────
 
 /**
@@ -206,42 +378,8 @@ function createTaskScoresTable({
   });
 }
 
-// ─── STATIC TABLE ────────────────────────────────────────────────────────────
-
-/**
- * Plain-markup counterpart to createTaskScoresTable, for a fixed preview — no filters,
- * no paging, and no Tabulator needed on the page.
- *
- * @param rows           as createTaskScoresTable.
- * @param showSubmission as createTaskScoresTable.
- * @param showModel      as createTaskScoresTable.
- * @param showRanking    as createTaskScoresTable.
- * @param limit          how many rows to show. Omit for all of them.
- * @param viewAll        as buildStaticTable — where the footer's "View all" link goes.
- *
- * @returns the markup. The caller writes it where it wants it.
- */
-function buildStaticTaskScoresTable({
-  rows,
-  showSubmission = true,
-  showModel = false,
-  showRanking = false,
-  limit,
-  viewAll,
-}) {
-  const shown = previewRows(
-    rows,
-    (a, b) => numericSorter(b.mean_score, a.mean_score),
-    limit,
-  );
-
-  return buildStaticTable({
-    columns: getScoreColumns({ showSubmission, showModel, showRanking }),
-    rows: shown,
-    noun: "task",
-    total: rows.length,
-    viewAll,
-  });
-}
-
-export { createTaskScoresTable, buildStaticTaskScoresTable };
+export {
+  buildBestScoresTable,
+  buildLatestScoresTable,
+  createTaskScoresTable,
+};

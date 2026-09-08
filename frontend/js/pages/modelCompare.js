@@ -24,12 +24,6 @@ import { loadComparePage } from "../templates/comparePage.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
-const MODEL_PAGE = "/html/models/models.html";
-const MODEL_LIST_PAGE = "/html/models/model_list_public.html";
-
-const BACK_TEXT = "← Back to model";
-const BACK_TO_LIST_TEXT = "← Back to models";
-
 // What the page is called with no model to name it after.
 const SET_TITLE = "Compare models";
 
@@ -41,12 +35,6 @@ function getSubtitle(model) {
   return [{ text: model.team_name, icon: getIcon("team") }].filter(
     (entry) => entry.text,
   );
-}
-
-// ─── LINKS ───────────────────────────────────────────────────────────────────
-
-function getModelHref(model) {
-  return `${MODEL_PAGE}?id=${encodeURIComponent(model.id)}`;
 }
 
 // ─── LOAD ────────────────────────────────────────────────────────────────────
@@ -83,11 +71,6 @@ loadComparePage({
 
   toRows: ({ models }) => toModelRows(models),
   createComparison: createModelComparison,
-
-  back: ({ model }) =>
-    model
-      ? { text: BACK_TEXT, href: getModelHref(model) }
-      : { text: BACK_TO_LIST_TEXT, href: MODEL_LIST_PAGE },
 
   header: ({ model }) =>
     model

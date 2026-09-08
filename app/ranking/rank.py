@@ -16,7 +16,7 @@ import logging
 import uuid
 import warnings
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable, Iterable, Mapping
 
@@ -296,6 +296,10 @@ class Placing:
     ``mean_rank`` is the mean of the per-task ranks the figure covers, and ``rank`` is the
     position that mean earned. The position can be absent while the mean is not: an overall
     mean is reported for anyone, but only a model that entered every suite is placed on it.
+
+    A single task is a figure too, and the narrowest one: there ``mean_rank`` is that task's
+    own average over its recordings, with nothing to average across, and ``rank`` is the
+    position it earned among the standings that entered the same task.
     """
 
     rank: int | None = None
@@ -314,10 +318,15 @@ class Placings:
     model is placed overall only once it has entered every suite. Averaging over "the
     suites you entered" would make entering fewer of them strictly easier — first in your
     only suite would beat second in all three.
+
+    ``tasks`` is the same figure one level down: where the standing placed on each task it
+    entered, against the standings that entered that task. Unlike the suites above it this
+    needs no coverage rule — a task is entered or it is not.
     """
 
     overall: Placing
     suites: dict[str, Placing]
+    tasks: dict[str, Placing] = field(default_factory=dict)
     suites_scored: int = 0
     suites_total: int = 0
 
@@ -347,6 +356,7 @@ def place_standings(
     # ranking each. Built for the whole field first because a position needs all of them.
     overall_means: dict[str, float] = {}
     suite_means: dict[str, dict[str, float]] = {suite: {} for suite in every_suite}
+    task_means: dict[str, dict[str, float]] = defaultdict(dict)
     coverage: dict[str, int] = {}
 
     for standing in standings:
@@ -356,6 +366,7 @@ def place_standings(
 
         for task_id, value in task_ranks.items():
             by_suite[suite_of[task_id]].append(value)
+            task_means[task_id][standing.label] = value
 
         for suite, values in by_suite.items():
             suite_means[suite][standing.label] = _mean(values)
@@ -374,6 +385,11 @@ def place_standings(
 
     overall_ranks = competition_ranks(overall_means)
     suite_ranks = {suite: competition_ranks(means) for suite, means in suite_means.items()}
+    # Named apart from the ``task_ranks`` below, which is one standing's rank on each task
+    # rather than each task's field placed.
+    task_positions = {
+        task_id: competition_ranks(means) for task_id, means in task_means.items()
+    }
 
     placings: dict[str, Placings] = {}
 
@@ -397,6 +413,17 @@ def place_standings(
                 )
                 for suite, means in suite_means.items()
                 if label in means
+            },
+            # The field a task is placed against is the standings that entered *that task*,
+            # which is smaller than the suite's own field: a model can be ranked on a task
+            # against three others and on the suite around it against nine.
+            tasks={
+                task_id: Placing(
+                    rank=task_positions[task_id][label],
+                    mean_rank=value,
+                    n_ranked=len(task_means[task_id]),
+                )
+                for task_id, value in task_ranks.items()
             },
             suites_scored=coverage[label],
             suites_total=len(every_suite),

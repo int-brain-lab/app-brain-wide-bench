@@ -7,6 +7,7 @@
 // with what that column needs, and returns one.
 
 import { escapeHtml } from "../core/html.js";
+import { buildScoreBar } from "../components/bars.js";
 import { suiteFromTask, taskFullLabel, taskLabel } from "../core/suites.js";
 import { formatDate, score } from "../core/utils.js";
 import {
@@ -267,6 +268,59 @@ function suiteBadgesFormatter(cell) {
     : EMPTY_VALUE;
 }
 
+// The score again, as a mark. Read on 0 to 1 like every primary metric, and in the colour
+// of the suite the task belongs to.
+function scoreBarFormatter(cell) {
+  const row = cell.getData();
+
+  return buildScoreBar(cell.getValue(), row.suite ?? "");
+}
+
+// One metric on its own, for a table that badges it in a column rather than beside the
+// number — see metricsBadgeFormatter for the list.
+function metricBadgeFormatter(cell) {
+  const value = cell.getValue();
+
+  return value ? buildMetricBadge(value, "sm") : EMPTY_VALUE;
+}
+
+// Whether the public ranking is standing on this score, and where it isn't, whether that is
+// because the run behind it has not been published. The two are one column: a reader
+// scanning it wants to know what counts, and an eye is the answer to why something doesn't.
+function rankingFlagFormatter(cell) {
+  const row = cell.getData();
+
+  if (row.ranked?.public) {
+    return buildIcon("tick", {
+      className: "tick-icon",
+      title: "Counted in the public ranking",
+    });
+  }
+
+  if (row.is_public === false) {
+    return buildIcon("private", {
+      title: "Not published, so not counted in the public ranking",
+    });
+  }
+
+  return emptyMetadata();
+}
+
+// Where the score places on its own task, against the models scored on that task — a
+// narrower field than the suite around it. Empty for an entry the ranking did not place.
+function taskRankFormatter(cell) {
+  const row = cell.getData();
+
+  if (row.rank == null) return emptyMetadata();
+
+  return `
+    <span class="row left gap-sm">
+      <span class="bold">#${escapeHtml(String(row.rank))}</span>
+      <span class="metadata">of ${escapeHtml(String(row.nRanked))}</span>
+    </span>
+  `;
+}
+
 function metricsBadgeFormatter(cell) {
   const value = cell.getValue();
   const metrics = Array.isArray(value) ? value : value == null ? [] : [value];
@@ -405,12 +459,16 @@ export {
   editFormatter,
   meanSorter,
   metadataFormatter,
+  metricBadgeFormatter,
   metricsBadgeFormatter,
   modelFormatter,
   numericSorter,
   parameterFormatter,
   rankBadge,
   rankFormatter,
+  rankingFlagFormatter,
+  scoreBarFormatter,
+  taskRankFormatter,
   rankSorter,
   roleBadgeFormatter,
   statusFormatter,

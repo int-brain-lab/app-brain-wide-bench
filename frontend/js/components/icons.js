@@ -46,6 +46,7 @@ const ICONS = {
   remove: "x",
   create: "plus",
   filter: "funnel",
+  viewAll: "arrow-right",
   expand: "plus",
   collapse: "minus",
   down: "chevron-down",

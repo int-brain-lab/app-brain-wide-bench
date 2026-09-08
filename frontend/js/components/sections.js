@@ -1,6 +1,5 @@
 // Shared page layout:
 //
-//   back link
 //   page header
 //   page message
 //   sections
@@ -95,29 +94,13 @@ function buildActions(actions = []) {
   `;
 }
 
-// ─── NAVIGATION ──────────────────────────────────────────────────────────────
-
-function buildBackLink({ text, view, href }) {
-  const target = view
-    ? `href="#" data-view="${escapeHtml(view)}"`
-    : `href="${escapeHtml(href)}"`;
-
-  return `
-    <a class="link un" id="back-link" ${target}>
-      ${escapeHtml(text)}
-    </a>
-  `;
-}
-
 // ─── PAGE ────────────────────────────────────────────────────────────────────
 
 function buildPage({
-  back = null,
   header = "",
   body = "",
 }) {
   return `
-    ${back ? buildBackLink(back) : ""}
     ${header}
     <div id="${MESSAGE_ID}" hidden></div>
     ${body}
@@ -138,6 +121,8 @@ const COLLAPSE = "collapse";
  *                    ancestor, once — the arrow is markup and the listener is not.
  * @param compact     the smaller heading a panel inside a page takes, rather than a page
  *                    section's own.
+ * @param hideTitle   keep the heading's space but not its text, for a section sharing a row
+ *                    with others whose headings are what start their bodies at one height.
  * @param collapsed   folded to start with, for a section a reader asks for rather than reads.
  */
 function buildSection({
@@ -151,11 +136,17 @@ function buildSection({
   collapsible = false,
   collapsed = false,
   compact = false,
+  hideTitle = false,
 }) {
+  // `visibility`, not `display`: the heading still takes the height it would have, which is
+  // the whole of what a hidden one is for. Named apart from the `hidden` above, which is the
+  // section's own.
+  const titleClass = hideTitle ? " invisible" : "";
+
   // A panel's heading is a span at card size; a page section's is its own h2.
   const titleHtml = compact
-    ? `<span class="card-title">${escapeHtml(title)}</span>`
-    : `<h2 class="section-title">${escapeHtml(title)}</h2>`;
+    ? `<span class="card-title${titleClass}">${escapeHtml(title)}</span>`
+    : `<h2 class="section-title${titleClass}">${escapeHtml(title)}</h2>`;
   const heading = !title
     ? ""
     : collapsible
@@ -208,6 +199,29 @@ function buildSection({
       ></div>
     </section>
   `;
+}
+
+/**
+ * A section's trailing control — the way to the rest of what the section is previewing,
+ * under the last card or the last row rather than up beside the heading, so a reader meets
+ * it having read what it offers more of.
+ *
+ * @param action the markup, from buildViewAllButton or the like. Falsy for no footer, which
+ *               is what a section with nothing to show yet wants.
+ * @param hidden the space the footer takes and nothing else — for a section sharing a row
+ *               with ones that have a button, whose card fills the height theirs give up to
+ *               their footers and so would end lower than theirs. `visibility`, so the row
+ *               is the button's own height rather than a guess at it, and `inert` besides:
+ *               it is spacing, and nothing in it is there to be pressed or read out.
+ *
+ * @returns the markup, to follow the section's own content in its body.
+ */
+function buildSectionFooter(action, { hidden = false } = {}) {
+  if (!action) return "";
+
+  return hidden
+    ? `<div class="section-footer row right invisible" inert aria-hidden="true">${action}</div>`
+    : `<div class="section-footer row right">${action}</div>`;
 }
 
 function buildRow({
@@ -295,10 +309,10 @@ export {
   buildHeader,
   buildSubtitle,
   buildTitleBadges,
-  buildBackLink,
   buildPage,
   buildActions,
   buildSection,
+  buildSectionFooter,
   buildRow,
   buildSections,
   getSection,

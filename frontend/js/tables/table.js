@@ -16,18 +16,6 @@ import { createFilterState } from "../components/filterState.js";
 
 // Plain `.table` markup from the column definitions the Tabulator grids use.
 
-// `href` leaves the page, `view` is a router view. A `view` keeps `href="#"` beside it: the
-// router falls through to the href on a page that doesn't own the view.
-function buildViewAllLink(noun, viewAll) {
-  if (!viewAll) return "";
-
-  const target = viewAll.view
-    ? `href="#" data-view="${escapeHtml(viewAll.view)}"`
-    : `href="${escapeHtml(viewAll.href)}"`;
-
-  return `<a class="link" data-role="view-all" ${target}>View all ${escapeHtml(noun)}s →</a>`;
-}
-
 // Formatters are handed a Tabulator cell object; this presents the same shape.
 function staticCell(row, field) {
   return {
@@ -61,7 +49,6 @@ function previewRows(rows, compare, limit) {
  * @param rows    already mapped, ordered and sliced — see previewRows.
  * @param noun    *singular* noun — the footer adds the "s". Omit for no footer.
  * @param total   rows before the slice, for "3 out of 12". Defaults to `rows.length`.
- * @param viewAll {href} or {view} for the footer's "View all" link. Omit for no link.
  *
  * @returns the markup.
  */
@@ -70,7 +57,6 @@ function buildStaticTable({
   rows,
   noun,
   total = rows.length,
-  viewAll,
 }) {
   return `
     <div class="table">
@@ -93,7 +79,6 @@ function buildStaticTable({
           ? `
         <div class="table-footer">
           <span class="metadata">${buildTableCount(rows.length, total, noun)}</span>
-          ${buildViewAllLink(noun, viewAll)}
         </div>
       `
           : ""
@@ -306,4 +291,9 @@ function createFilterableTable({ controls = [], ...rest }) {
   return { element, table };
 }
 
-export { previewRows, buildStaticTable, createTable, createFilterableTable };
+export {
+  buildStaticTable,
+  createFilterableTable,
+  createTable,
+  previewRows,
+};

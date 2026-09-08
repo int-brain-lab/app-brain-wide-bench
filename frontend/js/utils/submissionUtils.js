@@ -93,21 +93,6 @@ function getSubmissionFilters(rows) {
 
 // ─── DISPLAY ─────────────────────────────────────────────────────────────────
 
-function getSubmissionStatistics(submission) {
-  const taskSubmissions = submission.task_submissions ?? [];
-
-  return [
-    ["tasks", taskSubmissions.length, getIcon("task")],
-    ["task suites", suitesFromSubmission(submission).length, getIcon("suite")],
-    // TODO PLACEHOLDER FOR NOW
-    [
-      "scored suites",
-      suitesFromSubmission(submission).length,
-      getIcon("score"),
-    ],
-  ];
-}
-
 function getSubmissionBadges(submission) {
   return [
     buildSuiteBadgeList(suitesFromSubmission(submission)),
@@ -132,7 +117,6 @@ function getSubmissionSubtitle(submission) {
 export {
   getSubmissionBadges,
   getSubmissionFilters,
-  getSubmissionStatistics,
   getSubmissionSubtitle,
   toSubmissionRows,
 };

@@ -8,7 +8,9 @@ import { formatDate } from "../core/utils.js";
 import { buildStatusBadge, buildSuiteBadgeList } from "../components/badges.js";
 import { createCardGrid } from "./cardGrid.js";
 
-function buildSubmissionCard(submission) {
+// `showTeam` off for a listing that is all one team's, where naming it on every card says
+// nothing. The model stays either way: a team has several.
+function buildSubmissionCard(submission, { showTeam = true } = {}) {
   return `
     <a
       class="card column left gap-lg"
@@ -17,8 +19,8 @@ function buildSubmissionCard(submission) {
       <div class="column left">
         <p class="title">${escapeHtml(submission.label)}</p>
         <p class="metadata">
-          ${escapeHtml(submission.model_name || "—")} ·
-          ${escapeHtml(submission.team_name || "—")}
+          ${escapeHtml(submission.model_name || "—")}
+          ${showTeam ? `· ${escapeHtml(submission.team_name || "—")}` : ""}
         </p>
       </div>
 
@@ -34,24 +36,27 @@ function buildSubmissionCard(submission) {
   `;
 }
 
-function buildSubmissionCards(submissions) {
-  return submissions.map(buildSubmissionCard).join("");
+function buildSubmissionCards(submissions, options) {
+  return submissions
+    .map((submission) => buildSubmissionCard(submission, options))
+    .join("");
 }
 
 /**
  * The submission card grid, built once and kept.
  *
- * @param options as createCardGrid.
+ * @param showTeam as buildSubmissionCard.
+ * @param options  the rest, as createCardGrid.
  *
  * @returns as createCardGrid.
  */
-function createSubmissionCardGrid(options = {}) {
+function createSubmissionCardGrid({ showTeam = true, ...options } = {}) {
   return createCardGrid({
-    buildCards: buildSubmissionCards,
+    buildCards: (rows) => buildSubmissionCards(rows, { showTeam }),
     noun: "submission",
 
     ...options,
   });
 }
 
-export { createSubmissionCardGrid };
+export { buildSubmissionCards, createSubmissionCardGrid };

@@ -52,4 +52,4 @@ function createTeamCardGrid(options = {}) {
   });
 }
 
-export { createTeamCardGrid };
+export { buildTeamCards, createTeamCardGrid };

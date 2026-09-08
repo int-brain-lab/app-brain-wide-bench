@@ -356,6 +356,13 @@ async def test_my_task_submissions_as_member(seeded_client, add, me):
     assert reward["score"]["primary_metric_mean"] == 0.85
     assert reward["score"]["primary_metric"] == "bacc"
 
+    # How it was produced, off the row's own columns — so a client can say that without a
+    # request per score. The two the fixture fills in, and a null for one it doesn't: an
+    # unanswered field is its own answer here as everywhere else.
+    assert reward["training_paradigm"] == "TSS"
+    assert reward["calibration"] == "inductive"
+    assert reward["supervision_regime"] is None
+
 
 async def test_my_task_submissions_include_unscored_tasks(
     seeded_client,

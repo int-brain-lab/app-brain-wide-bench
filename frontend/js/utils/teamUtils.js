@@ -1,5 +1,5 @@
-// A team as the pages read it: its rows, the filters over them, and the figures its
-// header and dashboard show.
+// A team as the pages read it: its rows, the filters over them, and the figures its own
+// page heads with.
 
 import { buildCount } from "../components/count.js";
 import {
@@ -51,14 +51,6 @@ function getTeamFilters(rows) {
 
 // ─── DISPLAY ─────────────────────────────────────────────────────────────────
 
-function getTeamStatistics(team) {
-  return [
-    ["members", team.n_members ?? 0, getIcon("team")],
-    ["models", team.n_models ?? 0, getIcon("model")],
-    ["submissions", team.n_submissions ?? 0, getIcon("submission")],
-  ];
-}
-
 // A separate question from `canEdit`: renaming the team is any member's, but deciding who
 // is *in* it is the owner's, and the server refuses the rest with a 403. Offering the
 // controls to a collaborator would only produce that error on save.
@@ -66,17 +58,21 @@ function isTeamOwner(team) {
   return team.role === "owner";
 }
 
+/**
+ * What the team holds, under its own name — the same three its dashboard lists below, said
+ * once at the top rather than in cards saying it a second time.
+ *
+ * @returns the parts, in reading order — see buildSubtitle in components/sections.js.
+ */
 function getTeamSubtitle(team) {
   return [
     { text: buildCount(team.n_members, "member"), icon: getIcon("member") },
     { text: buildCount(team.n_models, "model"), icon: getIcon("model") },
+    {
+      text: buildCount(team.n_submissions, "submission"),
+      icon: getIcon("submission"),
+    },
   ].filter((entry) => entry.text);
 }
 
-export {
-  getTeamFilters,
-  getTeamStatistics,
-  getTeamSubtitle,
-  isTeamOwner,
-  toTeamRows,
-};
+export { getTeamFilters, getTeamSubtitle, isTeamOwner, toTeamRows };

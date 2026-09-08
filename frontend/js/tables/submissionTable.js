@@ -113,7 +113,6 @@ function createSubmissionsTable({
  * @param rows        as createSubmissionsTable.
  * @param showModel   as createSubmissionsTable.
  * @param limit       how many rows to show. Omit for all of them.
- * @param viewAll     as buildStaticTable — where the footer's "View all" link goes.
  *
  * @returns the markup. The caller writes it where it wants it.
  */
@@ -121,7 +120,6 @@ function buildStaticSubmissionsTable({
   rows,
   showModel = false,
   limit,
-  viewAll,
 }) {
   const shown = previewRows(
     rows,
@@ -134,7 +132,6 @@ function buildStaticSubmissionsTable({
     rows: shown,
     noun: "submission",
     total: rows.length,
-    viewAll,
   });
 }
 

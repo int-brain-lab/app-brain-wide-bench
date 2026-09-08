@@ -16,7 +16,7 @@ from app.auth import (
     require_team_member,
 )
 from app.database import get_session
-from app.ranking.rank import Standing, latest_entries, place_standings, standings
+from app.ranking.rank import Placings, Standing, latest_entries, place_standings, standings
 from app.routers.submissions import visible_submissions
 from app.models import (
     Model,
@@ -388,25 +388,52 @@ async def get_model_ranking(
     field = standings(others)
     tasks = (await session.execute(select(Task))).scalars().all()
 
-    def side(label: str, submissions: list[Submission]) -> tuple[RankingSide, dict[str, TaskSubmission]]:
+    def side(
+        label: str, submissions: list[Submission]
+    ) -> tuple[RankingSide, dict[str, TaskSubmission], Placings]:
         """Place ``submissions`` as one standing against the shared field.
 
         ``label`` is only how the standing's own result is found again in what
         ``place_standings`` returns. A word rather than the model id: the field labels its
         standings by model, and two entries sharing a label would silently merge their
         scores rather than raise.
+
+        The placings come back whole and not just the side built from them: the per-task
+        positions are read below, beside the entries they were earned by, and the two have
+        to be the same side's.
         """
         standing = Standing(label=label, entries=latest_entries(submissions))
         placings = place_standings([*field, standing], tasks)[label]
 
-        return RankingSide.from_placings(placings), standing.entries
+        return RankingSide.from_placings(placings), standing.entries, placings
 
-    public, public_entries = side("public", [s for s in mine if s.is_public])
-    private, private_entries = side("private", mine) if member else (None, {})
+    public, public_entries, public_placings = side("public", [s for s in mine if s.is_public])
+    private, private_entries, private_placings = (
+        side("private", mine) if member else (None, {}, None)
+    )
 
-    def entry(entries: dict[str, TaskSubmission], task_id: str) -> TaskEntryRef | None:
-        """The entry that side used for ``task_id``, or nothing where it has no score for it."""
-        return TaskEntryRef.model_validate(entries[task_id]) if task_id in entries else None
+    def entry(
+        entries: dict[str, TaskSubmission], placings: Placings | None, task_id: str
+    ) -> TaskEntryRef | None:
+        """The entry that side used for ``task_id``, and where it placed.
+
+        Nothing where the side has no score for the task — which is the whole of the
+        private side for a reader who was not given one.
+        """
+        if task_id not in entries:
+            return None
+
+        # A scored entry the ranking could not place — its stored metrics carry nothing
+        # under the task's primary metric, so no model was ranked on that task at all. The
+        # entry still stands as this side's current result for it.
+        placing = placings.tasks.get(task_id) if placings else None
+
+        return TaskEntryRef(
+            id=entries[task_id].id,
+            submission_id=entries[task_id].submission_id,
+            rank=placing.rank if placing else None,
+            n_ranked=placing.n_ranked if placing else 0,
+        )
 
     return ModelRanking(
         model_id=model.id,
@@ -414,8 +441,8 @@ async def get_model_ranking(
         private=private,
         tasks={
             task_id: TaskEntrySides(
-                public=entry(public_entries, task_id),
-                private=entry(private_entries, task_id),
+                public=entry(public_entries, public_placings, task_id),
+                private=entry(private_entries, private_placings, task_id),
             )
             for task_id in sorted({*public_entries, *private_entries})
         },

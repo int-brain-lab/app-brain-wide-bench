@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Brain-Wide Bench - Team</title>
+    <!-- Tabulator's stylesheet first so style.css's `.tabulator` overrides win, same order as
+       the other pages that mount a grid. -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css"
+    />
     <link rel="stylesheet" href="/css/style.css" />
   </head>
 
@@ -22,6 +28,11 @@
       </div>
     </div>
 
+    <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
+    <!-- Chart.js as a UMD global, matching how Tabulator and lucide are loaded: the
+       task-score explorer behind "View all scores" plots a comparison here, and
+       charts/chart.js says which script is missing if it isn't there. -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
     <script type="module" src="/js/nav/navTop.js"></script>

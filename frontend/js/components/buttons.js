@@ -1,5 +1,7 @@
 import {getIcon} from "./icons.js";
 import {escapeHtml} from "../core/html.js";
+import {buildCount} from "./count.js";
+import {pluralise} from "../core/utils.js";
 
 
 
@@ -106,15 +108,17 @@ export function buildCompareButton(
   });
 }
 
+// `className` is the caller's, for a create button beside others it should read with rather
+// than lead — an empty string leaves `.btn`'s own fill.
 export function buildCreateButton(
-  { id = CREATE_BUTTON_ID, href=null, label = "New" } = {}
+  { id = CREATE_BUTTON_ID, href=null, label = "New", className = "" } = {}
 ) {
   return buildButton({
     id,
     label,
     href,
     icon: getIcon("create"),
-    className: "primary-inv",
+    className,
   });
 }
 
@@ -155,6 +159,43 @@ export function buildSaveButton(
     hidden,
     icon: getIcon("save"),
     className: "primary",
+  });
+}
+
+
+/**
+ * The way from a section's preview to the whole of it, under the section's content.
+ *
+ * @param noun    *singular* — "model". Pluralised for the label.
+ * @param viewAll `{ view }` for a view of the same page, or `{ href }` to leave it. Omit
+ *                for no button — a section showing everything it has needs none.
+ * @param count   how many are behind it — "View all 12 submissions". Omit where the number
+ *                isn't known, which leaves the plain "View all submissions".
+ *
+ * @returns the markup.
+ */
+export function buildViewAllButton(noun, viewAll, { count = null } = {}) {
+  if (!viewAll) return "";
+
+  return buildButton({
+    label: `View all ${count == null ? pluralise(noun) : buildCount(count, noun)}`,
+    icon: getIcon("viewAll"),
+    href: viewAll.href ?? null,
+    view: viewAll.view ?? null,
+    className: "sm",
+  });
+}
+
+
+// The record's own fields, from a section showing something else about it — "all details"
+// would promise a longer version of what is on screen, which is not what it opens.
+export function buildDetailsButton({ href = null, view = null } = {}) {
+  return buildButton({
+    label: "View details",
+    icon: getIcon("details"),
+    href,
+    view,
+    className: "sm",
   });
 }
 

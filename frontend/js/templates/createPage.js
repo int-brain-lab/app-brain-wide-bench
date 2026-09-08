@@ -40,8 +40,7 @@ const PANELS_ID = "panels";
  *                    failure message.
  * @param title       page heading. Null falls back to "Create new <noun>".
  * @param description page subheading.
- * @param back        `{ text, href }` for the page's back link and Cancel button. An href
- *                    rather than a view: Cancel leaves the page.
+ * @param cancelHref  where Cancel goes — the listing the page was reached from.
  * @param fields      field definitions, or (context) => fields when they depend on loaded
  *                    data.
  * @param panels      panel definitions, or (context) => panels when they depend on loaded
@@ -62,7 +61,7 @@ async function loadCreatePage({
   noun,
   title,
   description = "",
-  back,
+  cancelHref = "",
 
   fields,
   panels,
@@ -82,7 +81,7 @@ async function loadCreatePage({
         <div class="column gap-xl" id="${PANELS_ID}"></div>
 
         ${buildFormFooter({
-          cancelHref: back.href ?? "",
+          cancelHref,
           submitLabel: `Create ${noun}`,
         })}
       </div>
@@ -106,7 +105,6 @@ async function loadCreatePage({
 
       renderPage(
         buildPage({
-          back,
           header: buildHeader(),
           body: buildBody(),
         }),

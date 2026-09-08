@@ -55,13 +55,15 @@ function buildMetricBadgeList(metrics, size = "") {
 function buildSuiteCoverageBadges(suites, size = "") {
   const covered = new Set(suites);
 
-  return SUITES.map((suite) => {
+  const badges = SUITES.map((suite) => {
     // `suite` is from our own SUITES, so the class is safe either way; escaped for
     // the same uniformity as everywhere else in this file.
     const variant = covered.has(suite) ? escapeHtml(suite) : "neutral";
 
     return `<span class="badge ${size} ${variant}">${escapeHtml(suiteLabel(suite))}</span>`;
   }).join("");
+
+  return `<span class="row left gap-sm">${badges}</span>`;
 }
 
 function buildStatusBadge(status, size = "") {

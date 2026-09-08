@@ -12,31 +12,35 @@ import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
 import { toModelRows } from "../utils/modelUtils.js";
 import { toSubmissionRows } from "../utils/submissionUtils.js";
 import {
+  getCoverageBadges,
   getTaskScoreFilters,
+  toBestScoreRows,
   toScoreResultRows,
 } from "../utils/taskScoreUtils.js";
 import { toTeamRows } from "../utils/teamUtils.js";
 import {
-  getUserStatistics,
+  getUserSubtitle,
   getWelcome,
   isNewAccount,
 } from "../utils/userUtils.js";
-import { buildStaticModelsTable } from "../tables/modelTable.js";
-import { buildStaticSubmissionsTable } from "../tables/submissionTable.js";
+import { dateSorter } from "../tables/formatters.js";
 import {
-  buildStaticTaskScoresTable,
+  buildBestScoresTable,
   createTaskScoresTable,
 } from "../tables/taskScoreTable.js";
-import { buildStaticTeamsTable } from "../tables/teamTable.js";
+import { previewRows } from "../tables/table.js";
 import { SCORE_PANEL } from "../comparisons/taskScoreComparison.js";
 import { buildCreateCard } from "../cards/createCard.js";
-import { buildStatCards } from "../cards/statCards.js";
-import { buildCreateButton } from "../components/buttons.js";
+import { buildModelCards } from "../cards/modelCards.js";
+import { buildSubmissionCards } from "../cards/submissionCards.js";
+import { buildTeamCards } from "../cards/teamCards.js";
 import { buildCount } from "../components/count.js";
+import { buildViewAllButton } from "../components/buttons.js";
 import {
   buildHeader,
   buildPage,
   buildSection,
+  buildSectionFooter,
   buildSections,
   getSection,
   getSectionBody,
@@ -47,17 +51,11 @@ import { renderHeader, renderPage } from "../templates/pageChrome.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
-const MAX_TEAMS = 2;
-const MAX_MODELS = 2;
-const MAX_SUBMISSIONS = 3;
-const MAX_SCORES = 3;
+// The same for all three: they sit side by side, and a row of lists of different lengths
+// reads as one of them having run out.
+const MAX_CARDS = 2;
 
 const DESCRIPTION = "Your models, submissions and results.";
-
-const BACK = {
-  text: "← Back to dashboard",
-  view: "dashboard",
-};
 
 // The render functions are declarations, so they are defined by the time this is read.
 const VIEWS = {
@@ -65,66 +63,58 @@ const VIEWS = {
   scores: renderScoresView,
 };
 
-// The three create affordances, in the page header. Each carries its own id because
-// buildCreateButton's default would give all three the same one.
-//
-// `card` is the same offer worded for the card a section with nothing in it shows in place
-// of its table.
+// ─── LINKS ───────────────────────────────────────────────────────────────────
+
+// Each list page is named once: the section heading's create button and its "View all" both
+// point at one, and a second copy of a path is how they stop agreeing.
+const TEAMS_LIST_HREF = "/html/teams/team_list.html";
+const MODELS_LIST_HREF = "/html/models/model_list.html";
+const SUBMISSIONS_LIST_HREF = "/html/submissions/submission_list.html";
+
+// What a section with nothing in it offers in place of its cards.
 const CREATE_TEAM = {
-  id: "create-team",
   href: "/html/teams/team_create.html",
-  label: "New team",
   card: "Create your first team",
 };
 
 const CREATE_MODEL = {
-  id: "create-model",
   href: "/html/models/model_create.html",
-  label: "New model",
   card: "Create your first model",
 };
 
 const CREATE_SUBMISSION = {
-  id: "create-submission",
   href: "/html/submissions/submission_create.html",
-  label: "New submission",
   card: "Create your first submission",
 };
 
+// The way from each section's preview to the whole of it, by the id of the section it
+// closes. Under the content rather than beside the heading — see buildSectionFooter.
+const VIEW_ALL = {
+  teams: { noun: "team", href: TEAMS_LIST_HREF },
+  models: { noun: "model", href: MODELS_LIST_HREF },
+  submissions: { noun: "submission", href: SUBMISSIONS_LIST_HREF },
+  scores: { noun: "score", view: "scores" },
+};
+
+// What the account has achieved first, the lists it navigates by second — and the figures
+// beside the results rather than over the whole page, as the record dashboards set them.
 const DASHBOARD_SECTIONS = [
   {
-    id: "stats",
-    className: "stats-grid",
-  },
-  {
+    // Equal columns: all three hold the same card, so none of them earns more room. What
+    // the account holds is said once in the page's own header, not in cards over these.
     sections: [
-      {
-        id: "teams",
-        title: "Teams",
-      },
-      {
-        id: "models",
-        title: "Models",
-      },
+      { id: "teams", title: "Teams" },
+      { id: "models", title: "Models" },
+      { id: "submissions", title: "Submissions" },
     ],
   },
   {
-    id: "submissions",
-    title: "Submissions",
-  },
-  {
     id: "scores",
-    title: "Task scores",
+    title: "Your best scores",
+    description:
+      "The best you have scored on each task, across every model and submission of yours.",
   },
 ];
-
-// ─── LINKS ───────────────────────────────────────────────────────────────────
-
-// Each list page is named once: the section heading's create button and the table footer's
-// "View all" both point at one, and a second copy of a path is how they stop agreeing.
-const TEAMS_LIST_HREF = "/html/teams/team_list.html";
-const MODELS_LIST_HREF = "/html/models/model_list.html";
-const SUBMISSIONS_LIST_HREF = "/html/submissions/submission_list.html";
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
 
@@ -138,79 +128,94 @@ function renderCreateCard(container, create) {
   );
 }
 
-function renderStatsSection(statistics) {
-  renderHtml(getSectionBody("stats"), buildStatCards(statistics));
+// The way from a section's preview to the whole of it, under the content — see
+// buildSectionFooter. Built at render rather than beside the sections above, because the
+// number it names is data.
+function buildFooter(id, count) {
+  const { noun, ...target } = VIEW_ALL[id];
+
+  return buildSectionFooter(buildViewAllButton(noun, target, { count }));
+}
+
+// What the section shows, with the way to the rest of it underneath. Only for a section
+// that has something: the create card an empty one shows is already the way on from there.
+function renderSection(id, content, count) {
+  renderHtml(getSectionBody(id), content + buildFooter(id, count), {
+    refresh: true,
+  });
+}
+
+// Stacked in what the section is given, every card the same size — see `.card-stack`.
+//
+// The footer goes inside the stack rather than after it, so it takes the row under the last
+// card: a stack of one puts its empty half below the button rather than above it.
+function renderCards(id, cards, count) {
+  renderHtml(
+    getSectionBody(id),
+    `<div class="card-stack">${cards}${buildFooter(id, count)}</div>`,
+    { refresh: true },
+  );
 }
 
 function renderTeamsSection(teams) {
-  const container = getSectionBody("teams");
-
   if (!teams.length) {
-    renderCreateCard(container, CREATE_TEAM);
+    renderCreateCard(getSectionBody("teams"), CREATE_TEAM);
     return;
   }
 
-  renderHtml(
-    container,
-    buildStaticTeamsTable({
-      rows: toTeamRows(teams),
-      limit: MAX_TEAMS,
-      viewAll: { href: TEAMS_LIST_HREF },
-    }),
+  renderCards(
+    "teams",
+    buildTeamCards(toTeamRows(teams).slice(0, MAX_CARDS)),
+    teams.length,
   );
 }
 
 function renderModelsSection(models) {
-  const container = getSectionBody("models");
-
   if (!models.length) {
-    renderCreateCard(container, CREATE_MODEL);
+    renderCreateCard(getSectionBody("models"), CREATE_MODEL);
     return;
   }
 
-  renderHtml(
-    container,
-    buildStaticModelsTable({
-      rows: toModelRows(models),
-      limit: MAX_MODELS,
-      viewAll: { href: MODELS_LIST_HREF },
-    }),
+  // Newest first, as the list behind the "view all" orders them.
+  const recent = previewRows(
+    toModelRows(models),
+    (a, b) => dateSorter(b.created_at, a.created_at),
+    MAX_CARDS,
   );
+
+  renderCards("models", buildModelCards(recent), models.length);
 }
 
 function renderSubmissionsSection(submissions) {
-  const container = getSectionBody("submissions");
-
   if (!submissions.length) {
-    renderCreateCard(container, CREATE_SUBMISSION);
+    renderCreateCard(getSectionBody("submissions"), CREATE_SUBMISSION);
     return;
   }
 
-  renderHtml(
-    container,
-    buildStaticSubmissionsTable({
-      rows: toSubmissionRows(submissions),
-      showModel: true,
-      limit: MAX_SUBMISSIONS,
-      viewAll: { href: SUBMISSIONS_LIST_HREF },
-    }),
+  const recent = previewRows(
+    toSubmissionRows(submissions),
+    (a, b) => dateSorter(b.updated_at, a.updated_at),
+    MAX_CARDS,
   );
+
+  renderCards("submissions", buildSubmissionCards(recent), submissions.length);
 }
 
 function renderScoresSection(scoreRows) {
-  if (!scoreRows.length) {
+  const best = toBestScoreRows(scoreRows);
+
+  if (!best.length) {
     getSection("scores").hidden = true;
     return;
   }
 
-  renderHtml(
-    getSectionBody("scores"),
-    buildStaticTaskScoresTable({
-      rows: scoreRows,
-      showModel: true,
-      limit: MAX_SCORES,
-      viewAll: { view: "scores" },
-    }),
+  // Every one of them, not a preview: there is one row per task the account has scored, so
+  // at most as many as the benchmark has tasks. The link is the way to the rest of the
+  // scores behind each best, and to the filters and the comparison over them.
+  renderSection(
+    "scores",
+    buildBestScoresTable({ rows: best, total: scoreRows.length }),
+    scoreRows.length,
   );
 }
 
@@ -237,22 +242,21 @@ function renderDashboardView({ user, models, teams, submissions, scoreRows }) {
 
   renderPage(
     buildPage({
-      header: buildHeader([
-        buildCreateButton(CREATE_TEAM),
-        buildCreateButton(CREATE_MODEL),
-        buildCreateButton(CREATE_SUBMISSION),
-      ]),
+      header: buildHeader(),
       body: buildSections(DASHBOARD_SECTIONS),
     }),
   );
 
-  renderHeader(getWelcome(user), DESCRIPTION);
-
-  renderStatsSection(getUserStatistics(models, teams));
+  renderHeader(
+    getWelcome(user),
+    getUserSubtitle(teams, models, submissions),
+    getCoverageBadges(scoreRows),
+  );
 
   renderTeamsSection(teams);
   renderModelsSection(models);
   renderSubmissionsSection(submissions);
+
   renderScoresSection(scoreRows);
 }
 
@@ -263,7 +267,6 @@ function renderScoresView({ models, scoreRows }) {
 
   return renderRecordListView({
     noun: "score",
-    back: BACK,
     renderTitle: () =>
       renderHeader(
         "Task scores",

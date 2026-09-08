@@ -13,43 +13,47 @@ import {
   loadModelMeta,
   MODEL_PANELS,
 } from "../schemas/modelSchema.js";
+import { fieldsForPanel } from "../schemas/schemaPanels.js";
 import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
 import {
   getModelBadges,
-  getModelStatistics,
   getModelSubtitle,
+  hasPrivateOnlyScores,
 } from "../utils/modelUtils.js";
 import {
   getSubmissionFilters,
   toSubmissionRows,
 } from "../utils/submissionUtils.js";
 import { getTaskScoreFilters, toScoreRows } from "../utils/taskScoreUtils.js";
+import { dateSorter } from "../tables/formatters.js";
+import { createSubmissionsTable } from "../tables/submissionTable.js";
+import { previewRows } from "../tables/table.js";
 import {
-  buildStaticSubmissionsTable,
-  createSubmissionsTable,
-} from "../tables/submissionTable.js";
-import {
-  buildStaticTaskScoresTable,
+  buildLatestScoresTable,
   createTaskScoresTable,
 } from "../tables/taskScoreTable.js";
 import { SCORE_PANEL } from "../comparisons/taskScoreComparison.js";
 import { buildCreateCard } from "../cards/createCard.js";
 import { buildDetailsCard } from "../cards/detailsCard.js";
 import { buildRankCard } from "../cards/rankCard.js";
-import { buildStatCards } from "../cards/statCards.js";
-import { createSubmissionCardGrid } from "../cards/submissionCards.js";
+import {
+  buildSubmissionCards,
+  createSubmissionCardGrid,
+} from "../cards/submissionCards.js";
 import { createSubmissionComparison } from "../comparisons/submissionComparison.js";
-import { buildTaskScoreBars } from "../components/bars.js";
 import {
   buildCompareButton,
   buildCreateButton,
+  buildDetailsButton,
   buildEditButton,
+  buildViewAllButton,
 } from "../components/buttons.js";
-import { buildEmptyMessage } from "../components/messages.js";
 import {
   buildHeader,
   buildPage,
+  buildSectionFooter,
   buildSections,
+  getSection,
   getSectionBody,
 } from "../components/sections.js";
 import {
@@ -62,17 +66,8 @@ import { renderHeader, renderPage } from "../templates/pageChrome.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
-const MAX_SUBMISSIONS = 3;
-const MAX_SCORES = 5;
-
-const SUMMARY_KEYS = ["team_name", "link_code", "is_pretrained", "created_at"];
-
-const TASK_BARS_SECTION = "task-bars";
-
-const BACK = {
-  text: "← Back to dashboard",
-  view: "dashboard",
-};
+// Two, because that is what `.card-stack` splits a column into.
+const MAX_SUBMISSIONS = 2;
 
 // The render functions are declarations, so they are defined by the time this is read.
 const VIEWS = {
@@ -82,44 +77,54 @@ const VIEWS = {
   scores: renderScoresView,
 };
 
-// The private bars only where the reader was given the private side at all — the same rule the
-// rank card's chips follow, since either says something about work a stranger cannot see.
-function dashboardSections(showPrivate) {
+// Where each section's "view all" goes, by the id of the section it closes. The button
+// itself is built at render — see buildFooter — because the number it names is data.
+const VIEW_ALL = {
+  submissions: { noun: "submission", view: "submissions" },
+  scores: { noun: "score", view: "scores" },
+};
+
+// The record's own fields have no count to name: the button opens one page, not a list.
+const DETAILS_BUTTON = buildDetailsButton({ view: "details" });
+
+const DETAILS_FOOTER = buildSectionFooter(DETAILS_BUTTON);
+
+// Ranking has nothing to open, but it shares a row with two sections that do, and its card
+// would run to the bottom of the row while theirs stop above their buttons. The same footer,
+// holding its space and nothing else — see buildSectionFooter's `hidden`.
+const RANKING_FOOTER = buildSectionFooter(DETAILS_BUTTON, { hidden: true });
+
+function dashboardSections() {
   return [
     {
-      id: "stats",
-      className: "stats-grid",
-    },
-    {
-      id: "ranking",
-      title: "Ranking",
-    },
-    ...(showPrivate
-      ? [
-          {
-            id: TASK_BARS_SECTION,
-            title: "Latest private scores",
-          },
-        ]
-      : []),
-    {
-      id: "scores",
-      title: "Task scores",
-    },
-    {
-      ratio: 3,
+      ratio: "1-2-2",
       sections: [
-        {
-          id: "details",
-          title: "Model details",
-        },
-        {
-          id: "submissions",
-          title: "Recent submissions",
-        },
+        { id: "ranking", title: "Ranking" },
+        { id: "details", title: "Details" },
+        { id: "submissions", title: "Recent submissions" },
       ],
     },
+    {
+      id: "scores",
+      title: "Latest scores",
+      description:
+        "The newest score for each task, and where it places against the models scored on that task.",
+    },
   ];
+}
+
+// The way from a section's preview to the whole of it, under the content — see
+// buildSectionFooter.
+function buildFooter(id, count) {
+  const { noun, ...target } = VIEW_ALL[id];
+
+  return buildSectionFooter(buildViewAllButton(noun, target, { count }));
+}
+
+// What the section shows, with the way to the rest of it underneath. Only for a section
+// that has something: the create card an empty one shows is already the way on from there.
+function renderSection(id, content, footer) {
+  renderHtml(getSectionBody(id), content + footer, { refresh: true });
 }
 
 // ─── LINKS ───────────────────────────────────────────────────────────────────
@@ -134,58 +139,47 @@ function getSubmitHref(model) {
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
 
-function renderStatsSection(statistics) {
-  renderHtml(getSectionBody("stats"), buildStatCards(statistics));
-}
-
-function renderRankingSection(model, ranking, canEdit) {
-  renderHtml(
-    getSectionBody("ranking"),
-    buildRankCard(ranking, {
-      submitHref: canEdit ? getSubmitHref(model) : null,
-    }),
+function renderRankingSection(ranking, showPrivate) {
+  renderSection(
+    "ranking",
+    buildRankCard(ranking, { showPrivate }),
+    RANKING_FOOTER,
   );
 }
 
-// The score each task currently stands on with the model's private work counted — the entries
-// the private ranking is built from, which is what `ranked.private` marks.
-function renderTaskBarsSection(rows) {
-  const container = getSectionBody(TASK_BARS_SECTION);
-  const latest = rows.filter((row) => row.ranked.private);
-
-  if (!latest.length) {
-    renderHtml(container, buildEmptyMessage("No private scores yet."));
-
-    return;
-  }
-
-  renderHtml(container, buildTaskScoreBars(latest));
-}
-
+// Where the model stands today: one entry per task, private runs counted for a reader given
+// them. The rest of the rows are superseded scores, behind the "view all".
 function renderScoresSection(rows) {
-  const container = getSectionBody("scores");
+  const latest = rows.filter((row) => row.ranked.latest);
 
-  if (!rows.length) {
-    renderHtml(container, buildEmptyMessage("No scores yet."));
+  // Hidden rather than emptied: the stats above already say nothing has been scored, and a
+  // heading over a message would say it twice.
+  if (!latest.length) {
+    getSection("scores").hidden = true;
     return;
   }
 
-  renderHtml(
-    container,
-    buildStaticTaskScoresTable({
-      rows,
-      showSubmission: false,
-      showRanking: true,
-      limit: MAX_SCORES,
-      viewAll: { view: "scores" },
-    }),
+  // Every one of them, not a preview: a model stands on one entry per task, so there are at
+  // most as many rows as the benchmark has tasks. The button is still the way to the scores
+  // these superseded, and to the filters and the comparison over them.
+  renderSection(
+    "scores",
+    buildLatestScoresTable({ rows: latest }),
+    buildFooter("scores", rows.length),
   );
 }
 
+// The keys come off the schema's own panel rather than a list here, so a link added to
+// MODEL_PANELS.links is a row on this card.
 function renderDetailsSection(model, fields) {
-  renderHtml(
-    getSectionBody("details"),
-    buildDetailsCard({ record: model, fields, keys: SUMMARY_KEYS }),
+  renderSection(
+    "details",
+    buildDetailsCard({
+      record: model,
+      fields,
+      keys: fieldsForPanel(fields, "links"),
+    }),
+    DETAILS_FOOTER,
   );
 }
 
@@ -205,20 +199,35 @@ function renderSubmissionsSection(model) {
     return;
   }
 
+  // Newest first, as the table behind the "view all" orders them. Stacked and sized by
+  // `.card-stack`, as the user dashboard's are.
+  const recent = previewRows(
+    toSubmissionRows(model.submissions, whoseSubmissions(model)),
+    (a, b) => dateSorter(b.updated_at, a.updated_at),
+    MAX_SUBMISSIONS,
+  );
+
+  // The footer goes inside the stack rather than after it, so it takes the row under the
+  // last card: a stack of one puts its empty half below the button rather than above it.
   renderHtml(
     container,
-    buildStaticSubmissionsTable({
-      rows: toSubmissionRows(model.submissions, whoseSubmissions(model)),
-      limit: MAX_SUBMISSIONS,
-      viewAll: { view: "submissions" },
-    }),
+    `<div class="card-stack">
+      ${buildSubmissionCards(recent)}
+      ${buildFooter("submissions", model.submissions.length)}
+    </div>`,
+    { refresh: true },
   );
 }
 
 function renderDashboardView(context, router) {
   const { model, fields, ranking, canEdit } = context;
 
-  const showPrivate = Boolean(ranking?.private);
+  // Before the page is built: the sections it holds depend on what the scores say.
+  const scoreRows = markRankedRows(toScoreRows(model.submissions), ranking);
+
+  // Nothing held back means the public ranking is the only one there is to report, and the
+  // private column would repeat the public one down the card.
+  const heldBack = hasPrivateOnlyScores(scoreRows);
 
   const compare = buildCompareButton({
     href: getCompareHref(model),
@@ -232,6 +241,9 @@ function renderDashboardView(context, router) {
           buildCreateButton({
             href: getSubmitHref(model),
             label: "New submission",
+            // Plain, as Edit beside it is: the two are one pair, and Compare below them is
+            // the button this header leads with.
+            className: "",
           }),
         ],
         [compare],
@@ -241,18 +253,13 @@ function renderDashboardView(context, router) {
   renderPage(
     buildPage({
       header: buildHeader(actions),
-      body: buildSections(dashboardSections(showPrivate)),
+      body: buildSections(dashboardSections()),
     }),
   );
 
   renderHeader(model.name, getModelSubtitle(model), getModelBadges(model));
 
-  // Once for the two sections drawn from them: the bars stand on the entries the table marks.
-  const scoreRows = markRankedRows(toScoreRows(model.submissions), ranking);
-
-  renderStatsSection(getModelStatistics(model));
-  renderRankingSection(model, ranking, canEdit);
-  if (showPrivate) renderTaskBarsSection(scoreRows);
+  renderRankingSection(ranking, heldBack);
 
   renderScoresSection(scoreRows);
   renderDetailsSection(model, fields);
@@ -269,7 +276,6 @@ function renderDetailsView({ model, fields, canEdit, edit, created }) {
     record: model,
     fields,
     panels: MODEL_PANELS,
-    back: BACK,
     canEdit,
     edit,
     created,
@@ -301,7 +307,6 @@ function whoseSubmissions(model) {
 function renderSubmissionsView({ model }) {
   return renderRecordListView({
     noun: "submission",
-    back: BACK,
     renderTitle: () => renderHeader(model.name, getModelSubtitle(model)),
     empty: "No submissions yet.",
 
@@ -336,7 +341,6 @@ function renderScoresView({ model, ranking }) {
 
   return renderRecordListView({
     noun: "score",
-    back: BACK,
     renderTitle: () => renderHeader(model.name, getModelSubtitle(model)),
     empty: "No scored tasks yet.",
 
