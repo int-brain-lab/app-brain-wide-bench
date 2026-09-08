@@ -22,8 +22,28 @@ class Settings(BaseSettings):
         Expected ``aud`` claim of incoming access tokens.
     aws_region, s3_bucket : str
         Target S3 bucket for submission uploads.
+    s3_endpoint_url : str
+        Non-AWS S3 endpoint (MinIO in development). Empty means real AWS.
+    s3_stub : bool
+        Return placeholders from the upload helpers instead of calling S3, for local work
+        with no bucket. Must be off to reach ``s3_endpoint_url``.
+    s3_part_expiry : int
+        Lifetime in seconds of a presigned part URL. Long, because a multi-hour upload
+        outlives a normal presign window.
+    upload_part_size : int
+        Multipart chunk size in bytes. S3 requires at least 5 MB per part except the last,
+        and at most 10,000 parts.
+    max_submission_bytes : int
+        Largest submission zip accepted. Checked at create against the size the client
+        declares, and again against the assembled object, which is the only size that is
+        actually true.
     s3_gt_prefix : str
-        Key prefix (or local path) where ground-truth oracle files live.
+        Key prefix (or local path) holding the ground truth, one directory per suite
+        beneath it. A local path is expected flat-task-rooted instead — see
+        ``download_ground_truth``.
+    min_dataset_version, max_dataset_version : str
+        Inclusive ``x.y.z`` bounds on a submission's ``dataset_version`` metadata. Empty
+        leaves that side unbounded.
     cors_origins : str
         Comma-separated list of allowed CORS origins.
     """
@@ -43,10 +63,18 @@ class Settings(BaseSettings):
     # AWS / S3
     aws_region: str = "us-east-1"
     s3_bucket: str = "brainwidebench-submissions"
-    s3_presign_expiry: int = 3600
+    s3_endpoint_url: str = ""
+    s3_stub: bool = False
+    s3_part_expiry: int = 43200
+    upload_part_size: int = 64 * 1024 * 1024
+    max_submission_bytes: int = 20 * 1024**3
 
-    # Ground-truth oracle: S3 prefix, or a local directory for dev/testing
-    s3_gt_prefix: str = "ground-truth/ts1"
+    # Ground-truth oracle: S3 prefix holding every suite, or a local directory for dev
+    s3_gt_prefix: str = "ground-truth"
+
+    # Accepted dataset_version range for a submission (empty = unbounded)
+    min_dataset_version: str = ""
+    max_dataset_version: str = ""
 
     # CORS
     cors_origins: str = "*"

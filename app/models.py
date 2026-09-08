@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from typing import Any, ClassVar, Optional
 
-from sqlalchemy import Column, DateTime, Enum as SAEnum, Index, JSON, func, select, text
+from sqlalchemy import BigInteger, Column, DateTime, Enum as SAEnum, Index, JSON, func, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import column_property
 from sqlmodel import Field, Relationship, SQLModel
@@ -50,6 +50,15 @@ class TeamRole(str, enum.Enum):
 
 
 class SubmissionStatus(str, enum.Enum):
+    """Lifecycle order.
+
+    ``pending`` means uploaded and validated, waiting on the submitter. ``invalid`` means
+    validation failed and the file has been deleted.
+    """
+
+    uploading = "uploading"
+    validating = "validating"
+    invalid = "invalid"
     pending = "pending"
     scoring = "scoring"
     done = "done"
@@ -389,7 +398,20 @@ class Submission(SQLModel, table=True):
     model_id: uuid.UUID = Field(foreign_key="models.id")
     label: str  # human-readable run name, e.g. "mlp-ts1-baseline"
     s3_key: str
+    # The default is load-bearing: fixtures and load_baselines create rows without a status.
     status: SubmissionStatus = Field(default=SubmissionStatus.pending)
+
+    # The S3 multipart upload the file arrives through. Null once it completes.
+    upload_id: str | None = None
+
+    # Size the client declared at create. Sets the part count, and tells a returning
+    # submitter's resume from a replacement. BigInteger: a 10 GB file overflows int4.
+    file_size: int | None = Field(default=None, sa_column=Column(BigInteger, nullable=True))
+
+    # Last validation run: capped codes, the task ids found, and the ``is_deterministic``
+    # it ran under. Never ``Finding.detail``, which can reveal ground-truth structure.
+    validation: dict | None = Field(default=None, sa_column=Column(JSON, nullable=True))
+
     narrative_public: str | None = None
     narrative_private: str | None = None
     is_public: bool = Field(default=False)

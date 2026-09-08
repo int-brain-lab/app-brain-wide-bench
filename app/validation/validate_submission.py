@@ -26,17 +26,17 @@ Usage:
 """
 
 import argparse
-import os
 import re
 import sys
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from rich.console import Console
 from safetensors import safe_open
 
-from ibl_bwb_eval.entity_ids import decode_entity_ids
+from ibl_bwb_eval._unit_ids import decode_unit_ids
 from ibl_bwb_eval.tasks import SUITE_TASKS, check_ts3_label_order, get_ts1_readout_spec, task_id
 
 ####################################################################################
@@ -105,7 +105,7 @@ def user_message(code: str) -> str:
 
 @dataclass
 class Finding:
-    path: Path
+    path: str  # entry, relative to the submission root; "." for the submission as a whole
     code: str
     detail: str  # full diagnostic, for OUR debugging only; never relay to the submitter
 
@@ -130,16 +130,13 @@ class SubmissionValidationError(Exception):
 # directory tree alone: folder names, filenames, and (for one check) a
 # ground-truth directory listing.
 #
-# This is the group to port to a client-side pre-flight check (e.g. on a
-# <input type="webkitdirectory"> file list) before uploading anything. To port it:
-#   - hardcode TS1_TASK_IDS / TS2_TASK_IDS / TS3_TASK_IDS below as string arrays
-#     (keep them in sync with ibl_bwb_eval.tasks.SUITE_TASKS, since they rarely change)
-#   - hardcode MIN_SEEDS, IGNORED_FILES, IGNORED_DIRS, and the seed_<N>.safetensors
-#     filename pattern
-#   - _check_session_coverage is the one exception: it needs the list of valid
-#     recording_ids per task, which lives in ground_truth/ on the backend. A JS
-#     port would need that list served from an endpoint/manifest; everything else
-#     in this group needs nothing beyond the uploaded file list itself.
+# The group runs on a list of relative paths alone, so a client can have it answered
+# before uploading anything: a browser reads the zip's central directory and posts the
+# entries to the pre-flight endpoint, which calls crawl_submission_entries below.
+#
+# _check_session_coverage is the one check needing more than the list: it reads the
+# ground-truth directory, which only the server has. It is skipped where that is
+# unavailable, and the authoritative run after the upload catches what it missed.
 ####################################################################################
 
 TS1_TASK_IDS = {task_id("ts1", t) for t in SUITE_TASKS["ts1"]}
@@ -149,20 +146,33 @@ TS3_TASK_IDS = {task_id("ts3", t) for t in SUITE_TASKS["ts3"]}
 SEED_FILENAME_RE = re.compile(r"^seed_(\d+)\.safetensors$")
 MIN_SEEDS = 3
 
+
+def _is_seed_filename(name: str) -> bool:
+    """Whether ``name`` was meant to be a prediction file, correctly named or not.
+
+    Deliberately looser than ``SEED_FILENAME_RE``: the gap between the two is E004's
+    population — a file meant to be a seed file whose name is wrong, which is a different
+    fault from an unexpected file (E014).
+    """
+    return name.startswith("seed_") and name.endswith(".safetensors")
+
+# Finding.path for a finding about the submission as a whole rather than one file.
+SUBMISSION_ROOT = "."
+
 IGNORED_FILES = {".DS_Store", "Thumbs.db", "desktop.ini"}
 IGNORED_DIRS = {"__MACOSX"}
 
 ParsedPath = tuple[str, str, str | None, int]  # (label, task, recording_id, seed)
 
 
-def _parse_submission_path(pred_path: Path, submission_dir: Path) -> ParsedPath:
-    """Derive (label, task, recording_id, seed) purely from the file's path.
+def _parse_entry(entry: str) -> ParsedPath:
+    """Derive (label, task, recording_id, seed) purely from a relative entry path.
 
-    Expected shape: <submission_dir>/<label>/<task>/[<recording_id>/]seed_<N>.safetensors.
-    The recording_id level exists for ts1-*/ts2-* tasks, and is absent for ts3-* tasks
-    (see PredictionsWriter's ``_output_path``). Raises on any deviation.
+    Expected shape: <label>/<task>/[<recording_id>/]seed_<N>.safetensors. The recording_id
+    level exists for ts1-*/ts2-* tasks, and is absent for ts3-* tasks (see
+    PredictionsWriter's ``_output_path``). Raises on any deviation.
     """
-    rel_parts = pred_path.relative_to(submission_dir).parts
+    rel_parts = PurePosixPath(entry).parts
 
     m = SEED_FILENAME_RE.match(rel_parts[-1])
     if not m:
@@ -176,34 +186,37 @@ def _parse_submission_path(pred_path: Path, submission_dir: Path) -> ParsedPath:
         label, task = dir_parts
         recording_id = None
     else:
-        raise SubmissionValidationError("E013", f"unexpected path depth: {'/'.join(rel_parts)}")
+        raise SubmissionValidationError("E013", f"unexpected path depth: {entry}")
 
     if task not in (TS1_TASK_IDS | TS2_TASK_IDS | TS3_TASK_IDS):
-        raise SubmissionValidationError("E005", f"unrecognized task id {task!r} in path {'/'.join(rel_parts)}")
+        raise SubmissionValidationError("E005", f"unrecognized task id {task!r} in path {entry}")
 
     needs_recording_id = task in (TS1_TASK_IDS | TS2_TASK_IDS)
     if needs_recording_id and recording_id is None:
         raise SubmissionValidationError(
-            "E013", f"task {task!r} is missing its recording_id path level: {'/'.join(rel_parts)}"
+            "E013", f"task {task!r} is missing its recording_id path level: {entry}"
         )
     if not needs_recording_id and recording_id is not None:
         raise SubmissionValidationError(
-            "E013", f"ts3 task {task!r} shouldn't have a recording_id path level: {'/'.join(rel_parts)}"
+            "E013", f"ts3 task {task!r} shouldn't have a recording_id path level: {entry}"
         )
 
     return label, task, recording_id, seed
 
 
-def _find_structure_errors(submission_dir: Path) -> list[tuple[str, str]]:
-    """Flag any file/dir in the tree that isn't part of the expected layout."""
+def _find_structure_errors(entries: Iterable[str]) -> list[tuple[str, str]]:
+    """Flag any entry that isn't part of the expected layout."""
     errors = []
-    for root, dirnames, filenames in os.walk(submission_dir):
-        dirnames[:] = [d for d in dirnames if d not in IGNORED_DIRS]
-        for fname in filenames:
-            if fname in IGNORED_FILES:
-                continue
-            if not SEED_FILENAME_RE.match(fname):
-                errors.append(("E014", f"unexpected file: {Path(root, fname)}"))
+    for entry in entries:
+        parts = PurePosixPath(entry).parts
+        if any(part in IGNORED_DIRS for part in parts):
+            continue
+        if parts[-1] in IGNORED_FILES:
+            continue
+        # A misnamed seed file is E004's, raised where the entry is parsed. Reporting it
+        # here as well would fault the same file twice.
+        if not _is_seed_filename(parts[-1]):
+            errors.append(("E014", f"unexpected file: {entry}"))
     return errors
 
 
@@ -273,55 +286,80 @@ def _check_session_coverage(coverage: dict[tuple[str, str | None], set[int]], gt
 
 @dataclass
 class PathCrawlResult:
-    parsed_by_path: dict[Path, ParsedPath]  # only entries with a well-formed path
+    parsed_by_entry: dict[str, ParsedPath]  # only entries with a well-formed path
+    seed_entries: list[str]  # every seed_*.safetensors entry, parsed or not
     findings: list[Finding]
     labels: set[str]
     coverage: dict[tuple[str, str | None], set[int]]
 
 
-def crawl_submission_paths(submission_dir: Path, gt_dir: Path, is_deterministic: bool) -> PathCrawlResult:
-    """Run every path-only check. Never opens a file. See the group docstring above."""
-    pred_paths = sorted(submission_dir.rglob("seed_*.safetensors"))
+def crawl_submission_entries(
+    entries: Iterable[str], gt_dir: Path, is_deterministic: bool
+) -> PathCrawlResult:
+    """Run every path-only check over relative POSIX entry paths. Never opens a file.
+
+    ``entries`` is the whole submission, not just its prediction files:
+    :func:`_find_structure_errors` judges what should not be there. Trailing-slash entries
+    are the directory records some zip writers emit, and are not files.
+
+    ``gt_dir`` need not exist; :func:`_check_session_coverage` skips a task whose
+    ground-truth directory is absent, which is how a caller without ground truth gets
+    every other check.
+    """
+    files = [entry for entry in entries if entry and not entry.endswith("/")]
+    seed_entries = sorted(
+        entry for entry in files if _is_seed_filename(PurePosixPath(entry).name)
+    )
 
     findings: list[Finding] = []
-    parsed_by_path: dict[Path, ParsedPath] = {}
-    seen: dict[ParsedPath, Path] = {}
+    parsed_by_entry: dict[str, ParsedPath] = {}
+    seen: dict[ParsedPath, str] = {}
     labels: set[str] = set()
     coverage: dict[tuple[str, str | None], set[int]] = defaultdict(set)
 
-    for pred_path in pred_paths:
+    for entry in seed_entries:
         try:
-            parsed = _parse_submission_path(pred_path, submission_dir)
+            parsed = _parse_entry(entry)
         except SubmissionValidationError as e:
-            findings.append(Finding(pred_path, e.code, e.detail))
+            findings.append(Finding(entry, e.code, e.detail))
             continue
 
         # Leading zeros make distinct filenames parse to the same tuple: seed_042.safetensors
         # and seed_42.safetensors both mean seed 42.
         if parsed in seen:
             findings.append(
-                Finding(pred_path, "E105", f"duplicate (label, task, recording_id, seed), also produced by {seen[parsed]}")
+                Finding(entry, "E105", f"duplicate (label, task, recording_id, seed), also produced by {seen[parsed]}")
             )
             continue
-        seen[parsed] = pred_path
+        seen[parsed] = entry
 
-        parsed_by_path[pred_path] = parsed
+        parsed_by_entry[entry] = parsed
         label, task, recording_id, seed = parsed
         labels.add(label)
         coverage[(task, recording_id)].add(seed)
 
     if len(labels) > 1:
-        findings.append(Finding(submission_dir, "E106", f"multiple labels found in one submission: {sorted(labels)}"))
+        findings.append(Finding(SUBMISSION_ROOT, "E106", f"multiple labels found in one submission: {sorted(labels)}"))
 
-    for code, detail in _find_structure_errors(submission_dir):
-        findings.append(Finding(submission_dir, code, detail))
+    for code, detail in _find_structure_errors(files):
+        findings.append(Finding(SUBMISSION_ROOT, code, detail))
     if not is_deterministic:
         for code, detail in _check_seed_consistency(coverage):
-            findings.append(Finding(submission_dir, code, detail))
+            findings.append(Finding(SUBMISSION_ROOT, code, detail))
     for code, detail in _check_session_coverage(coverage, gt_dir):
-        findings.append(Finding(submission_dir, code, detail))
+        findings.append(Finding(SUBMISSION_ROOT, code, detail))
 
-    return PathCrawlResult(parsed_by_path, findings, labels, dict(coverage))
+    return PathCrawlResult(parsed_by_entry, seed_entries, findings, labels, dict(coverage))
+
+
+def crawl_submission_paths(submission_dir: Path, gt_dir: Path, is_deterministic: bool) -> PathCrawlResult:
+    """Run :func:`crawl_submission_entries` over an extracted submission directory."""
+    entries = [
+        path.relative_to(submission_dir).as_posix()
+        for path in sorted(submission_dir.rglob("*"))
+        if path.is_file()
+    ]
+    return crawl_submission_entries(entries, gt_dir, is_deterministic)
 
 
 ####################################################################################
@@ -350,8 +388,8 @@ def _require_keys(present: set[str], required: set[str], what: str) -> None:
 
 
 def _decode_ids(tensor) -> set[str]:
-    """Decode an entity-id tensor (see ibl_bwb_eval.entity_ids: variable-width, NUL-padded)."""
-    return set(decode_entity_ids(tensor).tolist())
+    """Decode an entity-id tensor (see ibl_bwb_eval._unit_ids: variable-width, NUL-padded)."""
+    return set(decode_unit_ids(tensor).tolist())
 
 
 def _parse_version(s: str) -> tuple[int, int, int]:
@@ -504,13 +542,13 @@ def _check_ts3(f, meta: dict, gt_dir: Path) -> None:
             "E009", f"'pred_proba' class dim {proba_shape[1]} != len(label_names) ({len(label_names)})"
         )
     # entity_ids is variable-width (NUL-padded to the batch's longest id), so only the
-    # row count is checked here; see ibl_bwb_eval.entity_ids.
+    # row count is checked here; see ibl_bwb_eval._unit_ids.
     if len(uid_shape) != 2 or uid_shape[0] != proba_shape[0]:
         raise SubmissionValidationError(
             "E009", f"'entity_ids' shape {uid_shape} doesn't have {proba_shape[0]} rows to match 'pred_proba'"
         )
     try:
-        decode_entity_ids(f.get_tensor("entity_ids"))
+        decode_unit_ids(f.get_tensor("entity_ids"))
     except UnicodeDecodeError as e:
         raise SubmissionValidationError("E009", f"'entity_ids' isn't valid ascii: {e}") from e
 
@@ -559,18 +597,18 @@ def validate_file(
 
 @dataclass
 class ValidationResult:
-    pred_paths: list[Path]
+    pred_entries: list[str]
     errors: list[Finding]
     labels: set[str]
     coverage: dict[tuple[str, str | None], set[int]] = field(default_factory=dict)  # (task, recording_id) -> seeds
 
     @property
     def ok(self) -> bool:
-        return not self.pred_paths_missing and not self.errors
+        return not self.predictions_missing and not self.errors
 
     @property
-    def pred_paths_missing(self) -> bool:
-        return not self.pred_paths
+    def predictions_missing(self) -> bool:
+        return not self.pred_entries
 
 
 def validate_folder(
@@ -596,16 +634,17 @@ def validate_folder(
     crawl = crawl_submission_paths(submission_dir, gt_dir, is_deterministic)
     errors: list[Finding] = list(crawl.findings)
 
-    for pred_path, parsed in crawl.parsed_by_path.items():
+    for entry, parsed in crawl.parsed_by_entry.items():
         try:
-            validate_file(pred_path, parsed, gt_dir, min_dataset_version, max_dataset_version)
+            validate_file(
+                submission_dir.joinpath(entry), parsed, gt_dir, min_dataset_version, max_dataset_version
+            )
         except SubmissionValidationError as e:
-            errors.append(Finding(pred_path, e.code, e.detail))
+            errors.append(Finding(entry, e.code, e.detail))
         except Exception as e:  # unexpected, but still report; don't crash the whole run
-            errors.append(Finding(pred_path, "E999", f"unexpected error: {e!r}"))
+            errors.append(Finding(entry, "E999", f"unexpected error: {e!r}"))
 
-    pred_paths = sorted(submission_dir.rglob("seed_*.safetensors"))
-    return ValidationResult(pred_paths, errors, crawl.labels, crawl.coverage)
+    return ValidationResult(crawl.seed_entries, errors, crawl.labels, crawl.coverage)
 
 
 def print_report(result: ValidationResult, submission_dir: Path, console: Console) -> None:
@@ -614,11 +653,11 @@ def print_report(result: ValidationResult, submission_dir: Path, console: Consol
     A real integration should relay only ``.code``/``.message`` to the submitter and
     log ``.detail`` (or this whole report) internally; never show ``.detail`` to them.
     """
-    if result.pred_paths_missing:
+    if result.predictions_missing:
         console.print(f"[red]FAIL[/red] no seed_*.safetensors files found under {submission_dir}")
         return
 
-    console.print(f"Checked {len(result.pred_paths)} file(s) under {submission_dir}")
+    console.print(f"Checked {len(result.pred_entries)} file(s) under {submission_dir}")
 
     if result.errors:
         console.print(f"[red]FAIL[/red] {len(result.errors)} error(s):")
@@ -629,7 +668,7 @@ def print_report(result: ValidationResult, submission_dir: Path, console: Consol
 
     console.print(
         f"[green]PASS[/green] label={next(iter(result.labels))!r}, "
-        f"{len(result.coverage)} (task, recording_id) pair(s), {len(result.pred_paths)} file(s) total"
+        f"{len(result.coverage)} (task, recording_id) pair(s), {len(result.pred_entries)} file(s) total"
     )
 
 

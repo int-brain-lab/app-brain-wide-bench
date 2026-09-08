@@ -15,7 +15,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import async_session_factory
 from app.models import Submission, SubmissionStatus, TaskScore
-from app.scoring import get_scorer
+from app.scoring import BaseScorer, get_scorer
 from app.storage import download_ground_truth, download_submission
 from app.worker import celery_app
 
@@ -100,17 +100,27 @@ def score_submission(submission_id: str) -> str:
         asyncio.run(_finish_scoring(sid, SubmissionStatus.failed, ts_list))
         return "failed"
 
-    # Derive suite from first task id, e.g. "ts1-reward" → "ts1"
-    suite = ts_list[0][1].split("-")[0]
+    # A submission may span suites. Each scorer skips prediction files that are not its own,
+    # so every suite present has to be run for its tasks to be scored at all.
+    suites = sorted({task_id.split("-")[0] for _, task_id in ts_list})
 
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
         try:
             zip_path = download_submission(s3_key, tmpdir.joinpath("submission.zip"))
-            gt_dir = download_ground_truth(suite, tmpdir.joinpath("gt"))
-            scorer = get_scorer(suite)
-            pred_dir = scorer.extract(zip_path, tmpdir.joinpath("pred"))
-            results = scorer.score(pred_dir, gt_dir)
+
+            gt_dir = download_ground_truth(suites, tmpdir.joinpath("gt"))
+
+            pred_dir = BaseScorer.extract(zip_path, tmpdir.joinpath("pred"))
+
+            # summary is keyed by flat task id, which is unique across suites, so merging
+            # cannot collide; rows carry their own task.
+            results: dict = {"rows": [], "summary": {}}
+            for suite in suites:
+                scored = get_scorer(suite).score(pred_dir, gt_dir)
+                results["rows"].extend(scored["rows"])
+                results["summary"].update(scored["summary"])
+
             asyncio.run(_finish_scoring(sid, SubmissionStatus.done, ts_list, results))
             return "done"
         except Exception as exc:  # noqa: BLE001 — surface any failure in the DB for the user

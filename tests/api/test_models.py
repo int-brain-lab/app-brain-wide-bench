@@ -7,7 +7,7 @@ than on the model itself. The caller is a member of nothing until a test says ot
 
 import uuid
 
-from app.models import Model, UserTeam
+from app.models import Model, Submission, SubmissionStatus, UserTeam
 from tests.conftest import MODEL_ROWS, MODELS, SUBMISSIONS, TEAMS
 
 BASELINE = MODELS["mlp-baseline"]
@@ -35,6 +35,34 @@ async def get_model(client, model_id):
 
 
 # ── GET /api/models ───────────────────────────────────────────────────────────
+
+
+async def test_list_ignores_a_public_submission_still_in_flight(seeded_client, add):
+    """A model is listed because a submission of it is *published*, not merely marked public.
+
+    ``unsubmitted-net`` has no submissions, so a public one whose file is still arriving is
+    the whole of its claim to being listed.
+    """
+    submission_id = uuid.uuid4()
+    await add(
+        Submission(
+            id=submission_id,
+            model_id=UNSUBMITTED,
+            label="net-ts1-inflight",
+            s3_key=f"submissions/{submission_id}/net-ts1-inflight.zip",
+            status=SubmissionStatus.uploading,
+            is_public=True,
+        )
+    )
+
+    response = await seeded_client.get(models_url())
+
+    assert response.status_code == 200
+    assert "unsubmitted-net" not in by_name(response)
+
+    response = await get_model(seeded_client, UNSUBMITTED)
+
+    assert response.status_code == 404
 
 
 async def test_list_as_non_member(seeded_client):
@@ -141,7 +169,6 @@ async def test_list_filtered_by_an_unknown_team_is_empty(seeded_client, add, me)
     assert response.json() == []
 
 
-
 # ── GET /api/models/{id} ──────────────────────────────────────────────────────
 
 
@@ -162,9 +189,7 @@ async def test_detail_as_non_member(seeded_client):
 
     assert body["name"] == "mlp-baseline"
     assert body["team_name"] == "Brain Wide Bench"
-    assert [s["label"] for s in body["submissions"]] == [
-        "mlp-ts1-baseline"
-    ]
+    assert [s["label"] for s in body["submissions"]] == ["mlp-ts1-baseline"]
     assert body["is_mine"] is False
 
     # A model with no public submissions is not visible.
@@ -208,9 +233,7 @@ async def test_detail_embeds_submission_tasks_and_scores(seeded_client):
 
     assert len(tasks) == 8
 
-    reward = next(
-        task for task in tasks if task["task_id"] == "ts1-reward"
-    )
+    reward = next(task for task in tasks if task["task_id"] == "ts1-reward")
 
     assert reward["score"]["primary_metric_mean"] == 0.85
     assert reward["score"]["primary_metric"] == "bacc"
@@ -354,9 +377,7 @@ async def test_create_rejects_a_blank_name(seeded_client, add, me):
 async def test_update_rejects_a_name_the_team_already_uses(seeded_client, add, me):
     await add(UserTeam(user_id=me, team_id=MY_TEAM))
 
-    response = await seeded_client.patch(
-        models_url(BASELINE), json={"name": "ssl-transformer"}
-    )
+    response = await seeded_client.patch(models_url(BASELINE), json={"name": "ssl-transformer"})
 
     assert response.status_code == 409
 
@@ -378,9 +399,7 @@ async def test_update_refuses_a_move_that_collides(seeded_client, add, me):
         Model(id=uuid.uuid4(), team_id=OTHER_TEAM, name="mlp-baseline"),
     )
 
-    response = await seeded_client.patch(
-        models_url(BASELINE), json={"team_id": str(OTHER_TEAM)}
-    )
+    response = await seeded_client.patch(models_url(BASELINE), json={"team_id": str(OTHER_TEAM)})
 
     assert response.status_code == 409
 

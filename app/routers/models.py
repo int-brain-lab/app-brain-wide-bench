@@ -17,7 +17,7 @@ from app.auth import (
 )
 from app.database import get_session
 from app.ranking.rank import Placings, Standing, latest_entries, place_standings, standings
-from app.routers.submissions import visible_submissions
+from app.routers.submissions import arrived, has_arrived, visible_submissions
 from app.models import (
     Model,
     Submission,
@@ -53,7 +53,7 @@ async def visible_models(
 
     has_public_submission = (
         select(Submission.id)
-        .where(Submission.model_id == Model.id, Submission.is_public.is_(True))
+        .where(Submission.model_id == Model.id, Submission.is_public.is_(True), arrived())
         .exists()
     )
 
@@ -227,7 +227,7 @@ async def _load_model_detail(
     if member:
         submissions = model.submissions
     else:
-        submissions = [s for s in model.submissions if s.is_public]
+        submissions = [s for s in model.submissions if s.is_public and has_arrived(s)]
 
         if not submissions:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Model not found")
@@ -364,7 +364,9 @@ async def get_model_ranking(
 
     # The same rule as the model detail: a model with nothing public is not readable by a
     # non-member at all, rather than readable with an empty ranking.
-    if not member and not any(submission.is_public for submission in model.submissions):
+    if not member and not any(
+        submission.is_public and has_arrived(submission) for submission in model.submissions
+    ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Model not found")
 
     mine = [s for s in model.submissions if s.status == SubmissionStatus.done]
@@ -492,7 +494,7 @@ async def get_model_breakdown(
 
     member = user is not None and await is_team_member(user.id, model.team_id, session)
 
-    visible = [s for s in model.submissions if member or s.is_public]
+    visible = [s for s in model.submissions if member or (s.is_public and has_arrived(s))]
 
     # The same rule as the model detail: a model with nothing public is not readable by a
     # non-member at all, rather than readable with an empty breakdown.

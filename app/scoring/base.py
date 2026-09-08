@@ -11,8 +11,12 @@ class BaseScorer(ABC):
     Implementations are fully unit-testable against local files.
     """
 
-    def extract(self, zip_path: Path, dest_dir: Path) -> Path:
+    @staticmethod
+    def extract(zip_path: Path, dest_dir: Path) -> Path:
         """Extract a submission zip and return the prediction-root directory.
+
+        Static, and identical for every suite: validation runs before a submission has task
+        rows, so it reaches this as ``BaseScorer.extract`` with no suite to name.
 
         Parameters
         ----------

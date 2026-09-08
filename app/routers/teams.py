@@ -27,7 +27,7 @@ from app.schemas.teams import (
 )
 
 from app.routers.models import visible_models
-from app.routers.submissions import submissions_of_teams, visible_submissions
+from app.routers.submissions import has_arrived, submissions_of_teams, visible_submissions
 
 router = APIRouter(prefix="/api/teams", tags=["teams"])
 
@@ -186,14 +186,17 @@ async def _load_team_detail(
     )
     is_member = my_link is not None
 
-    # A member sees every model; anyone else sees only those with a public submission.
+    # A member sees every model; anyone else sees only those with a published submission.
     if is_member:
         models = team.models
     else:
         models = [
             model
             for model in team.models
-            if any(submission.is_public for submission in model.submissions)
+            if any(
+                submission.is_public and has_arrived(submission)
+                for submission in model.submissions
+            )
         ]
 
     detail = TeamDetail.from_team(

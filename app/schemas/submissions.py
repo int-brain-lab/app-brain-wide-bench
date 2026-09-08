@@ -2,19 +2,90 @@
 
 import uuid
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.models import Modality, SubmissionStatus, TaskSuite
 from app.schemas.tasksubmission import TaskSubmissionCreate, TaskSubmissionDetail
 
+# S3's ceiling on parts in one multipart upload. A guard against an absurd
+# ``upload_part_size``, not a size policy — that is ``settings.max_submission_bytes``.
+MAX_PARTS = 10_000
 
-class PresignResponse(BaseModel):
-    """Response from ``POST /api/submissions/presign``."""
+# Caps on a prevalidate body. A real submission is a few thousand entries.
+MAX_PREVALIDATE_ENTRIES = 50_000
+MAX_ENTRY_LENGTH = 1024
+
+Entry = Annotated[str, StringConstraints(max_length=MAX_ENTRY_LENGTH)]
+
+
+class ValidationCode(BaseModel):
+    """One finding, as a submitter may see it.
+
+    ``Finding.detail`` has no field here and must never gain one: it can reveal
+    ground-truth structure.
+    """
+
+    code: str
+    message: str
+    path: str
+
+
+class PrevalidateRequest(BaseModel):
+    """Request body for ``POST /api/submissions/prevalidate``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entries: list[Entry] = Field(max_length=MAX_PREVALIDATE_ENTRIES)
+    is_deterministic: bool = False
+
+
+class PrevalidateResponse(BaseModel):
+    """Verdict on an entry list. ``n_files`` tells an empty archive from a malformed one."""
+
+    ok: bool
+    n_files: int
+    tasks: list[str]
+    errors: list[ValidationCode]
+
+
+class PartUrl(BaseModel):
+    """A presigned ``PUT`` for one part. The part number is inside the signature."""
+
+    part_number: int
+    url: str
+
+
+class UploadedPart(BaseModel):
+    """A part S3 has stored, and the receipt that identifies it."""
+
+    part_number: int = Field(ge=1, le=MAX_PARTS)
+    etag: str
+
+
+class UploadResponse(BaseModel):
+    """An upload's state: what S3 holds, and a signature per part asked for.
+
+    Answers both ``POST /api/submissions`` and ``GET /{id}/upload`` — a resumed create owes
+    the client the same two halves a recovering one does.
+    """
 
     submission_id: uuid.UUID
-    upload_url: str
     s3_key: str
+    upload_id: str
+    part_size: int
+    part_count: int
+    part_urls: list[PartUrl] = []
+    uploaded: list[UploadedPart] = []
+
+
+class UploadCompleteRequest(BaseModel):
+    """Request body for ``POST /{id}/upload/complete``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    parts: list[UploadedPart] = Field(min_length=1)
 
 
 class SubmissionBase(BaseModel):
@@ -127,22 +198,31 @@ class SubmissionDetail(SubmissionBase):
 
 
 class SubmissionCreate(BaseModel):
-    """Request body for POST /api/submissions/presign."""
+    """Request body for POST /api/submissions.
+
+    No ``tasks``: panel 4 is filled in while the file uploads, so they arrive at ``submit``.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     # N.B team-id is inferred from model-id
     model_id: uuid.UUID
     label: str
+    file_size: int = Field(gt=0)
     is_public: bool = False
     is_deterministic: bool = False
     narrative_public: str | None = None
     narrative_private: str | None = None
-    tasks: list[TaskSubmissionCreate]
 
 
 class SubmissionUpdate(BaseModel):
-    """Request body for PATCH /api/submissions/{id}."""
+    """Request body for PATCH /api/submissions/{id}.
+
+    No ``is_deterministic``: it is set at create, and changed only by creating again under
+    the same label while the file is still uploading. Once validation has reached a verdict
+    under it, it is fixed — nothing verifies the claim, so moving it would silently change
+    the rules that verdict was reached under.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -150,6 +230,34 @@ class SubmissionUpdate(BaseModel):
     model_id: uuid.UUID | None = None
     label: str | None = None
     is_public: bool | None = None
-    is_deterministic: bool | None = None
     narrative_public: str | None = None
     narrative_private: str | None = None
+
+
+class SubmissionSubmit(SubmissionUpdate):
+    """Request body for POST /api/submissions/{id}/submit.
+
+    Panels 1-2 come along because they stayed editable while the file uploaded, so what the
+    submitter has on screen is what should be stored.
+    """
+
+    tasks: list[TaskSubmissionCreate]
+
+
+class ValidationResponse(BaseModel):
+    """A submission's validation state, as its team may see it.
+
+    ``state`` is the submission's own status rather than a second vocabulary: a client polls
+    until it stops being ``validating``, and ``pending`` is the passing verdict.
+
+    Messages are resolved from the stored codes on the way out, which is why they are not
+    persisted — the wording can change without a migration, and there is no field here for
+    ``Finding.detail`` to reach.
+    """
+
+    state: SubmissionStatus
+    n_files: int = 0
+    tasks: list[str] = []
+    errors: list[ValidationCode] = []
+    omitted: dict[str, int] = {}
+    finished_at: str | None = None
