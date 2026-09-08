@@ -9,6 +9,8 @@ The main rules are:
 - Updates require membership of the submission's team.
 - Updates are partial: omitted fields keep their existing values.
 - Bulk updates are atomic: if any task id is invalid, nothing is changed.
+- The flat listing follows the same visibility, and ``team_id`` narrows what it shows
+  without widening what it reveals.
 """
 
 import uuid
@@ -24,6 +26,15 @@ CHOICE = TASK_SUBMISSIONS["mlp-ts1-baseline"]["ts1-choice"]
 UNSCORED = TASK_SUBMISSIONS["mlp-ts1-queued"]["ts1-wheel_speed"]
 
 MY_TEAM = TEAMS["Brain Wide Bench"]
+OTHER_TEAM = TEAMS["Int Brain Lab"]
+
+
+LISTING_URL = "/api/task-submissions"
+
+
+def submission_labels(response):
+    """Return the owning submission of each listed task, deduplicated and sorted."""
+    return sorted({row["submission_name"] for row in response.json()})
 
 
 def tasks_url(submission_id, task_submission_id=None):
@@ -310,3 +321,56 @@ async def test_bulk_update_requires_at_least_one_task(
     )
 
     assert response.status_code == 422
+
+
+# ── GET /api/task-submissions ─────────────────────────────────────────────────
+
+
+async def test_listing_as_non_member(seeded_client):
+    """A non-member sees only the tasks of public submissions."""
+    response = await seeded_client.get(LISTING_URL)
+
+    assert response.status_code == 200
+    assert submission_labels(response) == ["mlp-ts1-baseline"]
+
+
+async def test_listing_as_member(seeded_client, add, me):
+    """A member also sees the tasks of their own team's private submissions."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.get(LISTING_URL)
+
+    assert response.status_code == 200
+    assert "mlp-ts1-rerun" in submission_labels(response)
+
+
+async def test_listing_filtered_by_team(seeded_client, add, me):
+    """``team_id`` narrows the listing to one team's tasks."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.get(LISTING_URL, params={"team_id": str(MY_TEAM)})
+
+    assert response.status_code == 200
+    assert response.json()
+    assert {row["team_id"] for row in response.json()} == {str(MY_TEAM)}
+
+    # Int Brain Lab's only model has never been submitted.
+    response = await seeded_client.get(LISTING_URL, params={"team_id": str(OTHER_TEAM)})
+
+    assert response.json() == []
+
+
+async def test_listing_filtered_by_team_still_hides_private(seeded_client):
+    """``team_id`` narrows what is shown, never what is visible."""
+    response = await seeded_client.get(LISTING_URL, params={"team_id": str(MY_TEAM)})
+
+    assert response.status_code == 200
+    assert submission_labels(response) == ["mlp-ts1-baseline"]
+
+
+async def test_listing_filtered_by_an_unknown_team_is_empty(seeded_client):
+    """A team id that matches nothing is an empty list, not an error."""
+    response = await seeded_client.get(LISTING_URL, params={"team_id": str(uuid.uuid4())})
+
+    assert response.status_code == 200
+    assert response.json() == []

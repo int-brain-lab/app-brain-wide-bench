@@ -286,6 +286,51 @@ async def test_list_marks_which_submissions_are_mine(seeded_client, add, me):
     assert all(row["is_mine"] for row in response.json())
 
 
+async def test_list_filtered_by_team(seeded_client, add, me):
+    """``team_id`` narrows the list to one team's submissions."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.get(
+        submissions_url(), params={"team_id": str(MY_TEAM)}
+    )
+
+    assert response.status_code == 200
+    assert labels(response) == [
+        "mlp-ts1-baseline",
+        "mlp-ts1-queued",
+        "mlp-ts1-rerun",
+        "mlp-ts3-internal",
+        "ssl-ts2-pilot",
+    ]
+
+    # Int Brain Lab's only model has never been submitted.
+    response = await seeded_client.get(
+        submissions_url(), params={"team_id": str(OTHER_TEAM)}
+    )
+
+    assert response.json() == []
+
+
+async def test_list_filtered_by_team_still_hides_private(seeded_client):
+    """``team_id`` narrows what is shown, never what is visible."""
+    response = await seeded_client.get(
+        submissions_url(), params={"team_id": str(MY_TEAM)}
+    )
+
+    assert response.status_code == 200
+    assert labels(response) == ["mlp-ts1-baseline"]
+
+
+async def test_list_filtered_by_an_unknown_team_is_empty(seeded_client):
+    """A team id that matches nothing is an empty list, not an error."""
+    response = await seeded_client.get(
+        submissions_url(), params={"team_id": str(uuid.uuid4())}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
 async def test_list_includes_submission_summary(seeded_client):
     """The list response includes the model, team and scored task-suite summary."""
     listed = {

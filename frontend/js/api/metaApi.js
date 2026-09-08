@@ -1,4 +1,4 @@
-import { apiFetch } from "./client.js";
+import { apiFetch, apiFetchOptional } from "./client.js";
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 
@@ -35,6 +35,15 @@ async function getTasks() {
 
     return undefined;
   }
+}
+
+// How much finished public work the benchmark holds, for the landing page's two figures.
+// Not on the meta document: those counts move with the data, the document does not.
+//
+// Undefined on failure rather than throwing — the figures start at "—", so a failed load
+// leaves them saying nothing rather than saying zero.
+async function getStats() {
+  return await apiFetchOptional("/api/meta/stats");
 }
 
 // ─── SCHEMAS ─────────────────────────────────────────────────────────────────
@@ -77,4 +86,4 @@ function applyFieldMeta(fields, meta, record) {
   return fields;
 }
 
-export { applyFieldMeta, getMeta, getTasks };
+export { applyFieldMeta, getMeta, getStats, getTasks };

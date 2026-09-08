@@ -385,6 +385,7 @@ async def submit(
 
 @router.get("", response_model=list[SubmissionResponse])
 async def list_submissions(
+    team_id: uuid.UUID | None = None,
     user: User | None = Depends(get_current_user_optional),
     session: AsyncSession = Depends(get_session),
 ) -> list[SubmissionResponse]:
@@ -396,21 +397,25 @@ async def list_submissions(
 
     An authenticated user additionally sees every submission on a team they belong
     to, whether or not it is public.
+
+    ``team_id`` narrows the list to one team, for a team page listing what it has
+    submitted. It narrows what is *shown*, never what is visible: a team the caller isn't
+    in still yields only its public submissions.
     """
 
     visible = await visible_submissions(user, session)
-    submissions = (
-        (
-            await session.execute(
-                select(Submission)
-                .options(selectinload(Submission.model).selectinload(Model.team))
-                .where(visible)
-                .order_by(Submission.created_at.desc())
-            )
-        )
-        .scalars()
-        .all()
+
+    query = (
+        select(Submission)
+        .options(selectinload(Submission.model).selectinload(Model.team))
+        .where(visible)
+        .order_by(Submission.created_at.desc())
     )
+
+    if team_id is not None:
+        query = query.where(submissions_of_teams([team_id]))
+
+    submissions = (await session.execute(query)).scalars().all()
 
     suites = await suites_per_submission([s.id for s in submissions], session)
 

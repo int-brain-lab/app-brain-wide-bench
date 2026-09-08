@@ -1,4 +1,5 @@
 import { apiFetch } from "./client.js";
+import { buildQuery } from "./params.js";
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 
@@ -27,8 +28,10 @@ async function getMyTaskSubmissions() {
 
 // Every one the viewer may see: the tasks of public submissions, plus their own teams' where
 // there is a session.
-async function getTaskSubmissions() {
-  return await apiFetch("/api/task-submissions");
+//
+// `teamId` narrows the list to one team, for its own page. Visibility is unchanged by it.
+async function getTaskSubmissions(teamId) {
+  return await apiFetch(`/api/task-submissions${buildQuery({ team_id: teamId })}`);
 }
 
 export {

@@ -3,25 +3,18 @@
 // #stat-submissions and #stat-models both start at "—", so a failed load leaves them
 // saying nothing rather than saying zero.
 
-import { getLeaderboard } from "../api/leaderboardApi.js";
+import { getStats } from "../api/metaApi.js";
 
-// One standing per model — the payload's own grain. The submission count is summed off
-// them, since a model submitted twice is still one standing.
-function renderStats(standings) {
-  const submissions = standings.reduce(
-    (total, standing) => total + (standing.n_submissions ?? 0),
-    0,
-  );
-
-  document.getElementById("stat-submissions").textContent = submissions;
-  document.getElementById("stat-models").textContent = standings.length;
+function renderStats({ n_models, n_submissions }) {
+  document.getElementById("stat-submissions").textContent = n_submissions;
+  document.getElementById("stat-models").textContent = n_models;
 }
 
 async function loadLandingPage() {
-  // Undefined when the fetch failed, which getLeaderboard has already logged.
-  const standings = await getLeaderboard();
+  // Undefined when the fetch failed, which getStats has already logged.
+  const stats = await getStats();
 
-  if (standings) renderStats(standings);
+  if (stats) renderStats(stats);
 }
 
 loadLandingPage();

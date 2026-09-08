@@ -437,41 +437,31 @@ loadRecordPage({
   // Score rows are built once here, not per view — both the dashboard and the scores view
   // render the same rows, and the scores view is reached without a reload.
   load: async (teamId, { signedIn }) => {
-    // Only the models are scoped server-side; there is no team-scoped listing of
-    // submissions or of task submissions, so those two come back as everything the caller
-    // may see and are narrowed here. Both responses already carry `team_id`, so no model
-    // ids have to be collected to do it.
+    // All three listings are scoped server-side: the endpoint decides what this caller may
+    // see, which is the whole point on a page a stranger can open.
     //
     // `loadTaskFields` fills the methodology fields' options in place from the server's own
     // enums, which is where the score filters read them from. Caught rather than allowed to
     // reject: a failing /api/meta then costs those filters their options rather than the
     // page its panels.
-    const [team, models, submissions, taskSubmissions] =
-      await Promise.all([
-        loadTeam(teamId),
-        // Scoped server-side rather than filtered here: the endpoint decides what this
-        // caller may see, which is the whole point on a page a stranger can open.
-        getModels(teamId),
-        getSubmissions(),
-        getTaskSubmissions(),
-        loadTaskFields().catch(() => undefined),
-      ]);
+    const [team, models, submissions, taskSubmissions] = await Promise.all([
+      loadTeam(teamId),
+      getModels(teamId),
+      getSubmissions(teamId),
+      getTaskSubmissions(teamId),
+      loadTaskFields().catch(() => undefined),
+    ]);
 
     if (!team) {
       return null;
     }
 
-    // Matched against the team the server returned rather than the id off the URL, so the
-    // comparison is between two spellings the server chose.
-    const mine = (rows) =>
-      (rows ?? []).filter((row) => row.team_id === team.id);
-
     // `signedIn` as well as `is_mine`: a dev-mode API answers every request as its stub user.
     return {
       team,
       models,
-      submissions: mine(submissions),
-      scoreRows: toScoreResultRows(mine(taskSubmissions)),
+      submissions: submissions ?? [],
+      scoreRows: toScoreResultRows(taskSubmissions ?? []),
       fields: TEAM_FIELDS,
       canEdit: signedIn && team.is_mine === true,
     };

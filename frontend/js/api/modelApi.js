@@ -13,9 +13,7 @@ function buildModelPayload(state) {
 // `teamId` narrows the list to one team, for its own page. Visibility is unchanged by it:
 // the endpoint still answers with what this caller may see.
 async function getModels(teamId) {
-  const query = teamId ? `?team_id=${encodeURIComponent(teamId)}` : "";
-
-  return await apiFetch(`/api/models${query}`);
+  return await apiFetch(`/api/models${buildQuery({ team_id: teamId })}`);
 }
 
 async function getMyModels() {

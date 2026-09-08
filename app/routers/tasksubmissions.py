@@ -20,6 +20,7 @@ from app.auth import get_current_user, get_current_user_optional
 from app.routers.submissions import (
     _get_submission_as_member,
     _get_submission_as_viewer,
+    submissions_of_teams,
     visible_submissions,
 )
 
@@ -177,6 +178,7 @@ listing = APIRouter(prefix="/api/task-submissions", tags=["task submissions"])
 
 @listing.get("", response_model=list[TaskSubmissionResponse])
 async def list_task_submissions(
+    team_id: uuid.UUID | None = None,
     user: User | None = Depends(get_current_user_optional),
     session: AsyncSession = Depends(get_session),
 ) -> list[TaskSubmissionResponse]:
@@ -187,26 +189,29 @@ async def list_task_submissions(
 
     Newest submission first, then by task, so tasks of one submission stay together — the same
     order as ``my_task_submissions``, which this is the unscoped counterpart of.
+
+    ``team_id`` narrows the list to one team, for a team page reading its own scores. It
+    narrows what is *shown*, never what is visible: a team the caller isn't in still yields
+    only the tasks of its public submissions.
     """
     visible = await visible_submissions(user, session)
 
-    task_submissions = (
-        (
-            await session.execute(
-                select(TaskSubmission)
-                .options(
-                    selectinload(TaskSubmission.score),
-                    selectinload(TaskSubmission.submission)
-                    .selectinload(Submission.model)
-                    .selectinload(Model.team),
-                )
-                .join(Submission, Submission.id == TaskSubmission.submission_id)
-                .where(visible)
-                .order_by(Submission.created_at.desc(), TaskSubmission.task_id)
-            )
+    query = (
+        select(TaskSubmission)
+        .options(
+            selectinload(TaskSubmission.score),
+            selectinload(TaskSubmission.submission)
+            .selectinload(Submission.model)
+            .selectinload(Model.team),
         )
-        .scalars()
-        .all()
+        .join(Submission, Submission.id == TaskSubmission.submission_id)
+        .where(visible)
+        .order_by(Submission.created_at.desc(), TaskSubmission.task_id)
     )
+
+    if team_id is not None:
+        query = query.where(submissions_of_teams([team_id]))
+
+    task_submissions = (await session.execute(query)).scalars().all()
 
     return [TaskSubmissionResponse.from_task_submission(ts) for ts in task_submissions]

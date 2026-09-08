@@ -1,4 +1,5 @@
 import { apiFetch } from "./client.js";
+import { buildQuery } from "./params.js";
 import { normalizeObject, trimmed } from "../core/validation.js";
 
 // ─── PAYLOADS ────────────────────────────────────────────────────────────────
@@ -16,8 +17,10 @@ function buildPresignPayload(state, taskSection) {
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 
-async function getSubmissions() {
-  return await apiFetch(`/api/submissions`);
+// `teamId` narrows the list to one team, for its own page. Visibility is unchanged by it:
+// the endpoint still answers with what this caller may see.
+async function getSubmissions(teamId) {
+  return await apiFetch(`/api/submissions${buildQuery({ team_id: teamId })}`);
 }
 
 async function getMySubmissions() {
