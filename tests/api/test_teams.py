@@ -103,7 +103,7 @@ async def test_list_marks_which_teams_are_mine(seeded_client, add, me):
 
 
 async def test_list_as_member(seeded_client, add, me):
-    """A member sees all counts for their team and their own role."""
+    """A member sees all counts for their team and their own role, but cannot manage it."""
     await add(
         UserTeam(
             user_id=me,
@@ -123,6 +123,7 @@ async def test_list_as_member(seeded_client, add, me):
     assert listed["Brain Wide Bench"]["n_submissions"] == 5
     assert listed["Brain Wide Bench"]["n_models"] == 2
     assert listed["Brain Wide Bench"]["role"] == "collaborator"
+    assert listed["Brain Wide Bench"]["can_manage_members"] is False
 
     # Other teams: only public information is visible.
     assert listed["Int Brain Lab"]["n_submissions"] == 0
@@ -162,9 +163,11 @@ async def test_detail_as_non_member(seeded_client):
     assert body["members"] is None
     assert body["role"] is None
     assert body["is_mine"] is False
+    assert body["can_manage_members"] is False
+
 
 async def test_detail_as_member(seeded_client, add, me, caller):
-    """A member sees all counts, their role, and the member list."""
+    """An owner sees all counts, their role, the member list, and may manage it."""
     await add(
         UserTeam(
             user_id=me,
@@ -186,6 +189,7 @@ async def test_detail_as_member(seeded_client, add, me, caller):
     assert body["n_models"] == 2
     assert body["role"] == "owner"
     assert body["is_mine"] is True
+    assert body["can_manage_members"] is True
 
     roles = {
         member["email"]: member["role"]
