@@ -1,69 +1,56 @@
+// Authenticated access to the API.
+//
+// Owns the Auth0 session and the bearer token, and is the only place a request to the API
+// is made from. Callers use `apiFetch`; the session initialises itself on first use, so no
+// page has to remember to boot it.
+//
+// `auth0` is a CDN global, from the auth0-spa-js script tag every page carries.
+
+// ─── CONFIGURATION ───────────────────────────────────────────────────────────
+
+// Stub sign-in: a localStorage flag instead of Auth0, matching an API that skips JWT
+// verification and answers as its stub user.
+//
+// The API has to agree. Stubbed here against a real tenant sends `Bearer dev` to an API
+// that verifies signatures and every request 401s; a real sign-in against
+// `AUTH0_DOMAIN=dev` gets a token the API ignores, so the browser is one person and the
+// API answers as another.
+//
+// Must be false to deploy, and nothing enforces that yet — see `next_steps.md`.
+const DEV_MODE = false;
+
 const CONFIG = {
   apiBase: "", // same origin; set to e.g. "http://localhost:8080" for split hosting
-  // auth0Domain: "dev-dmv00yvt1n0i036m.us.auth0.com",
-  auth0Domain: "YOUR_AUTH0_DOMAIN",
-  // The sentinel `devMode` reads, so a local run signs in against the API's stub user
-  // rather than the real tenant. Swap the two lines back to test a genuine sign-in.
-  // auth0ClientId: "jYERzEVe5MWl0r8SKGshQLRvxswseQlS",
-  auth0ClientId: "YOUR_AUTH0_CLIENT_ID",
+  auth0Domain: "dev-dmv00yvt1n0i036m.us.auth0.com",
+  auth0ClientId: "jYERzEVe5MWl0r8SKGshQLRvxswseQlS",
   auth0Audience: "https://brainwidebench.iblcore.org",
 };
 
-// const CONFIG = {
-//   apiBase: "", // same origin; set to e.g. "http://localhost:8080" for split hosting
-//   auth0Domain: "dev-dmv00yvt1n0i036m.us.auth0.com",
-//   auth0ClientId: "jYERzEVe5MWl0r8SKGshQLRvxswseQlS",
-//   auth0Audience: "https://brainwidebench.iblcore.org",
-// };
-
-// Every sign-in returns here, whichever page it started from, so Auth0 needs one entry
-// in Allowed Callback URLs rather than one per page. Where the user was is carried in
-// `appState` and restored below. index.html because it is public and cheap to render.
+// Auth0's Allowed Callback URLs must contain exactly `origin + this`. Ports and trailing
+// slashes count.
 const CALLBACK_PATH = "/index.html";
 
-// Stub sign-in: no Auth0 at all, just a localStorage flag, matching an API that skips JWT
-// verification and answers as its stub user.
-//
-// Two ways in. An unfilled config is the obvious one. The other is the API telling us it
-// runs with AUTH0_DOMAIN=dev (GET /api/meta/auth): the config above is committed and real,
-// so a local API in dev mode would otherwise send the user through a genuine Auth0 sign-in
-// whose token it then ignores — the browser signed in as a person, the API answering as
-// the stub user, and every "why am I seeing someone else's data" that follows.
-//
-// Resolved rather than declared, so nothing may read it before ensureAuth() has settled.
-let devMode = CONFIG.auth0ClientId === "YOUR_AUTH0_CLIENT_ID";
+const FAKE_SESSION_KEY = "signed_in";
 
-const FAKE_SESSION_KEY = "signed_in"; // localStorage flag used in fake mode
-
-// Sent as the bearer token once signed in locally. Its value is never read — dev mode skips
-// verification — but its *presence* is: the API takes a request with no header as anonymous
-// in either mode, so this is what makes signing out locally mean something.
+// Its presence is what the API reads as signed in; its value is never checked.
 const DEV_TOKEN = "dev";
 
 let auth0Client = null;
 
-// The in-flight (or settled) initAuth call.
-//
-// Memoised rather than called by each page: nine places ask `isAuthenticated()` — both
-// nav modules, the record and list page loaders, and five page scripts — and a page that
-// forgot to initialise first would silently send no token and get a 401 that reads like
-// "not signed in". The nav and the page script are also separate module graphs, so their
-// order isn't guaranteed; one shared promise removes the race and guarantees the redirect
-// callback is handled exactly once.
+// One shared promise, so the redirect callback is handled exactly once however many
+// modules ask for the session.
 let authReady = null;
 
-// ─── AUTH ────────────────────────────────────────────────────────────────────
+// ─── SESSION ─────────────────────────────────────────────────────────────────
 
 function ensureAuth() {
-  authReady ??= initAuth();
+  authReady ??= loadAuth();
 
   return authReady;
 }
 
-async function initAuth() {
-  devMode = devMode || false;
-
-  if (devMode) return null;
+async function loadAuth() {
+  if (DEV_MODE) return null;
 
   try {
     auth0Client = await auth0.createAuth0Client({
@@ -73,73 +60,80 @@ async function initAuth() {
         audience: CONFIG.auth0Audience,
         redirect_uri: window.location.origin + CALLBACK_PATH,
       },
-      // Needed because this is a multi-page app: every link is a full navigation, which
-      // discards the default in-memory token cache. Without this, each page load would
-      // need a silent re-auth through a hidden iframe — which browsers that block
-      // third-party cookies refuse, so sign-in would appear to work and then every page
-      // after the first would 401.
+      // A full navigation discards an in-memory cache, and re-authenticating silently
+      // needs third-party cookies, which some browsers refuse.
       cacheLocation: "localstorage",
     });
 
-    // Handle the redirect callback.
-    const q = window.location.search;
-    if (q.includes("code=") && q.includes("state=")) {
+    const query = window.location.search;
+
+    if (query.includes("code=") && query.includes("state=")) {
       const { appState } = await auth0Client.handleRedirectCallback();
+
       window.history.replaceState({}, document.title, window.location.pathname);
 
-      // Back to the page they were on when they clicked Sign in. Skipped when that is
-      // already here, which would otherwise be a reload loop.
+      // Back to wherever Sign in was clicked. Skipped when that is already here, which
+      // would be a reload loop.
       const returnTo = appState?.returnTo;
-      if (
-        returnTo &&
-        returnTo !== window.location.pathname + window.location.search
-      ) {
-        window.location.replace(returnTo);
-      }
+      const here = window.location.pathname + window.location.search;
+
+      if (returnTo && returnTo !== here) window.location.replace(returnTo);
     }
-  } catch (e) {
-    // Auth0 unavailable or misconfigured — degrade gracefully (public pages still load).
-    console.warn("Auth0 init failed:", e);
+  } catch (error) {
+    // Public pages still load without a session.
+    console.warn("Auth0 init failed:", error);
     auth0Client = null;
   }
+
   return auth0Client;
 }
 
 async function isAuthenticated() {
   await ensureAuth();
 
-  if (devMode) return localStorage.getItem(FAKE_SESSION_KEY) === "1";
+  if (DEV_MODE) return localStorage.getItem(FAKE_SESSION_KEY) === "1";
 
   return auth0Client ? auth0Client.isAuthenticated() : false;
 }
 
 /**
- * @param returnTo where to land once signed in. Defaults to the page the user is on, which
- *                 is what a gate wants; a Sign in button that isn't about this page — the
- *                 top nav's — passes somewhere better.
+ * Start a sign-in, leaving the page.
+ *
+ * @param returnTo where to land once signed in. Defaults to the current page, which is what
+ *                 a gate wants; a Sign in button that is not about this page passes its own.
+ *
+ * @throws when the session failed to initialise, so a caller can say so rather than leave a
+ *         button that appears to do nothing.
  */
 async function login(
   returnTo = window.location.pathname + window.location.search,
 ) {
   await ensureAuth();
 
-  if (devMode) {
+  if (DEV_MODE) {
     localStorage.setItem(FAKE_SESSION_KEY, "1");
     window.location.assign(returnTo);
+
     return;
   }
 
-  // `returnTo` rather than a per-page redirect_uri: the callback always lands on
-  // CALLBACK_PATH, and initAuth sends them on from there.
+  if (!auth0Client) {
+    throw new Error(
+      "Signing in is unavailable — authentication failed to initialise.",
+    );
+  }
+
+  // The callback always lands on CALLBACK_PATH; `returnTo` is what sends them on.
   await auth0Client.loginWithRedirect({ appState: { returnTo } });
 }
 
 async function logout() {
   await ensureAuth();
 
-  if (devMode) {
+  if (DEV_MODE || !auth0Client) {
     localStorage.removeItem(FAKE_SESSION_KEY);
     window.location.href = "/index.html";
+
     return;
   }
 
@@ -153,29 +147,21 @@ async function logout() {
 async function getToken() {
   await ensureAuth();
 
-  if (!auth0Client && !devMode) return null;
+  if (!auth0Client && !DEV_MODE) return null;
 
-  // A visitor with no session has no token to renew, and getTokenSilently would still open
-  // a hidden /authorize iframe (`prompt=none`) to establish that — a round trip on every
-  // public page, which now means the landing page, the leaderboard, and every model and
-  // submission page. Worse, an iframe that is blocked rather than refused never fires its
-  // load event, so the SDK waits out its full timeout and the page appears to hang.
-  //
-  // The cached session is what the rest of the app already means by signed in, so this
-  // agrees with the gate and the nav. The cost is that an SSO session Auth0 holds but this
-  // browser hasn't cached reads as signed out until Sign in is clicked — which then
-  // completes without a prompt.
+  // `getTokenSilently` opens a hidden /authorize iframe even for a visitor with no session,
+  // and an iframe that is blocked rather than refused never fires its load event — so the
+  // SDK waits out its full timeout and the page appears to hang.
   if (!(await isAuthenticated())) return null;
 
-  if (devMode) return DEV_TOKEN;
+  if (DEV_MODE) return DEV_TOKEN;
 
   try {
     return await auth0Client.getTokenSilently();
-  } catch (err) {
-    // Still null — the caller proceeds unauthenticated and the server answers 401 — but
-    // logged, because an expired session and a missing one produce the same 401 and only
-    // this line distinguishes them.
-    console.warn("Could not get an access token:", err);
+  } catch (error) {
+    // An expired session and a missing one both end in a 401; only this line tells them
+    // apart.
+    console.warn("Could not get an access token:", error);
 
     return null;
   }
@@ -183,7 +169,15 @@ async function getToken() {
 
 // ─── FETCH ───────────────────────────────────────────────────────────────────
 
-// Injects the bearer token when there is one.
+/**
+ * Call the API, carrying the bearer token when there is one.
+ *
+ * @param path    the path, from `/api`.
+ * @param options as `fetch` takes them. A body implies JSON unless a Content-Type is set.
+ *
+ * @returns the parsed body, or null for a 204.
+ * @throws an `Error` carrying `status`, so a caller can tell a 404 from an outage.
+ */
 async function apiFetch(path, options = {}) {
   const headers = new Headers(options.headers || {});
   const token = await getToken();
@@ -194,36 +188,39 @@ async function apiFetch(path, options = {}) {
     headers.set("Content-Type", "application/json");
   }
 
-  const res = await fetch(CONFIG.apiBase + path, { ...options, headers });
+  const response = await fetch(CONFIG.apiBase + path, { ...options, headers });
 
-  if (!res.ok) {
-    const text = await res.text();
-    const error = new Error(`${res.status} ${res.statusText}: ${text}`);
+  if (!response.ok) {
+    const body = await response.text();
+    const error = new Error(
+      `${response.status} ${response.statusText}: ${body}`,
+    );
 
-    // A caller that can act on the difference needs the code itself, not a string to
-    // re-parse: a record page tells "no such record" (404) from "the API is down" apart
-    // to decide whether to offer a sign-in.
-    error.status = res.status;
+    error.status = response.status;
 
     throw error;
   }
-  return res.status === 204 ? null : res.json();
+
+  return response.status === 204 ? null : response.json();
 }
 
-// Best-effort read wrapper for data that decorates a page rather than making it possible.
-// Logs the failure once here, then returns the caller's chosen fallback shape.
+/**
+ * Call the API for something that decorates a page rather than making it possible.
+ *
+ * @param path     the path, from `/api`.
+ * @param fallback what to return when the call fails. Omit for null.
+ * @param options  as `fetch` takes them. Omit for a plain read.
+ *
+ * @returns the parsed body, or `fallback`. Never throws; the failure is logged here.
+ */
 async function apiFetchOptional(path, { fallback = null, options } = {}) {
   try {
     return await apiFetch(path, options);
   } catch (error) {
     console.error(error);
+
     return fallback;
   }
 }
 
-// `CONFIG`, `getToken` and `initAuth` stay module-private — everything outside goes
-// through apiFetch, and initialisation happens on demand via ensureAuth() so no caller
-// can forget it. `auth0` is expected as a CDN global inside initAuth (see the
-// auth0-spa-js script tag in every page); that call is wrapped in try/catch and dev mode
-// short-circuits it.
-export { apiFetch, apiFetchOptional, isAuthenticated, login, logout, CONFIG };
+export { apiFetch, apiFetchOptional, isAuthenticated, login, logout };

@@ -46,7 +46,11 @@ function wireLoginButton(button) {
   if (!button || button.dataset.wired) return;
 
   button.dataset.wired = "true";
-  button.addEventListener("click", login);
+
+  // An arrow, not the bare function: a listener is called with the click event, and
+  // `login` reads its first argument as the page to return to. Its default — the page the
+  // gate is on — is what a gate wants.
+  button.addEventListener("click", () => login());
 }
 
 function showGate(signedIn) {
