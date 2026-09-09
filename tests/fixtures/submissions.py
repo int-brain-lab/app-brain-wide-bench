@@ -4,6 +4,11 @@ The validator only ever accepts a *pair*: predictions, and the ground truth thei
 ``trial_id`` is checked against. So this writes both, and a test states its case as a
 deviation from a valid submission rather than as a fixture of its own.
 
+The ground truth is also *scorable*, not merely valid. Validation reads only ``trial_id``
+from it, so a fixture that satisfies validation can still fail scoring on a missing
+``values`` — which is the whole difference between "the file is well formed" and "the file
+can be compared to an answer".
+
     pred_dir, gt_dir = write_submission(tmp_path)                       # passes
     pred_dir, gt_dir = write_submission(tmp_path, seeds=(1,))           # E101
     pred_dir, gt_dir = write_submission(tmp_path, metadata={"unit_filtering": None})  # E001
@@ -14,7 +19,9 @@ from pathlib import Path
 import torch
 from safetensors.torch import save_file
 
-# ts1-reward's readout is 2-dimensional; ``get_ts1_readout_spec`` is what enforces it.
+# ts1-reward's readout is 2-dimensional; ``get_ts1_readout_spec`` is what enforces it. It is
+# sequence-level and multinomial, so predictions are (N, 1, D) logits and ground-truth values
+# are (N, 1) class indices. A task declaring a ``mask_key`` would need a ``mask`` here too.
 TASK = "ts1-reward"
 DIMS = 2
 
@@ -102,6 +109,10 @@ def write_submission(
         target.parent.mkdir(parents=True, exist_ok=True)
 
         ids = torch.tensor(gt_trial_ids, dtype=torch.int64) if gt_trial_ids else trial_id
-        save_file({"trial_id": ids}, str(target))
+
+        # Both classes appear, so a balanced accuracy over them is defined.
+        values = (torch.arange(len(ids), dtype=torch.int64) % dims).reshape(-1, 1)
+
+        save_file({"trial_id": ids, "values": values}, str(target))
 
     return pred_dir, gt_dir

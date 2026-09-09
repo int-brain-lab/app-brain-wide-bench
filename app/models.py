@@ -448,6 +448,11 @@ class Submission(SQLModel, table=True):
             "administrators."
         ),
         "is_public": "Is this submission ready to be published on the leaderboard?",
+        "is_deterministic": (
+            "Select Yes if the model has no stochastic component (e.g., closed-form linear "
+            "regression). Deterministic models produce identical output for a given input "
+            "regardless of random seed."
+        ),
     }
 
 

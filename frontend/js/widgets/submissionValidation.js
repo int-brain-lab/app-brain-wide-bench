@@ -32,7 +32,16 @@ function buildValidationPanel() {
 
 // Shared with submissionUpload.js: a prevalidation refusal and a validation verdict carry
 // the same shape, and read the same way to a submitter.
-function buildValidationCodes(errors) {
+//
+// `nFiles` is 0 for an archive holding no predictions at all, which fails with nothing to
+// fault — a heading over an empty list otherwise.
+function buildValidationCodes(errors, nFiles = null) {
+  if (nFiles === 0) {
+    return buildFailureMessage(
+      "This file contains no prediction files in the expected layout.",
+    );
+  }
+
   const items = errors
     .map(
       (error) => `
@@ -92,10 +101,27 @@ function createValidationSection({ onVerdict } = {}) {
     );
   }
 
+  // Whose failure it was decides what to say. ``unchecked`` means the file was never read,
+  // so nothing about it can be reported — and its document carries no file count, which
+  // would otherwise read as an empty archive.
   function renderFailed(validation) {
-    renderHtml(element, buildValidationCodes(validation.errors), {
-      show: true,
-    });
+    if (validation.state === "unchecked") {
+      renderHtml(
+        element,
+        buildFailureMessage(
+          "We could not check this file. As far as we know nothing is wrong with it — please contact us.",
+        ),
+        { show: true },
+      );
+
+      return;
+    }
+
+    renderHtml(
+      element,
+      buildValidationCodes(validation.errors, validation.n_files),
+      { show: true },
+    );
   }
 
   function renderUnavailable(error) {

@@ -1,6 +1,6 @@
 """Unit tests for the pure scoring module.
 
-Three layers, deliberately separated:
+Four layers, deliberately separated:
 
 1. **extract / routing** — format-independent glue in ``BaseScorer`` / ``get_scorer``.
 2. **wrapper logic** — each ``*Scorer.score`` transforms the tuple-keyed ``core.scoring``
@@ -8,7 +8,10 @@ Three layers, deliberately separated:
    ``.safetensors`` files, so ``core.scoring.<suite>.score_dir`` is monkeypatched with a
    canned result. These run everywhere, including CI, and stay valid while the on-disk
    prediction format is in flux (they mock the *metric dict* boundary, not the format).
-3. **real-data integration** — the full stack against the local fixture dataset. Skipped
+3. **generated fixtures** — one test over the pair `tests/fixtures/submissions.py` writes,
+   asserting it satisfies validation *and* scoring. The two read different tensors from
+   ground truth, and neither side's own tests can see the gap.
+4. **real-data integration** — the full stack against the local fixture dataset. Skipped
    when the dataset is absent (e.g. CI), since it is multi-GB and not committed. Format
    correctness itself is covered by the synthetic round-trip in ``ibl-benchmark``.
 """
@@ -23,6 +26,8 @@ from app.scoring import get_scorer
 from app.scoring.ts1 import TS1Scorer
 from app.scoring.ts2 import TS2Scorer
 from app.scoring.ts3 import TS3Scorer
+from app.validation.validate_submission import validate_folder
+from tests.fixtures.submissions import write_submission
 
 FIXTURE_ZIP = Path(__file__).parent.joinpath("fixtures", "sample.zip")
 
@@ -147,6 +152,32 @@ def test_wrapper_empty_input(monkeypatch):
     for suite, mod in (("ts1", "ts1"), ("ts2", "ts2"), ("ts3", "ts3")):
         monkeypatch.setattr(f"ibl_bwb_eval.scoring.{mod}.score_dir", lambda p, g: {})
         assert get_scorer(suite).score(Path("pred"), Path("gt")) == {"rows": [], "summary": {}}
+
+
+# ── generated fixtures (the pair validation and scoring must share) ───────────────
+
+
+def test_a_valid_submission_is_also_scorable(tmp_path):
+    """The generated fixture has to satisfy both readers, which want different things.
+
+    Validation reads only ``trial_id`` from ground truth, so a fixture can pass it and still
+    fail scoring on a missing ``values`` — well formed, but with nothing to be compared to.
+    That gap is not visible from either side alone, which is why one test crosses it.
+
+    Asserting a number rather than merely "it ran": all-zero logits against alternating
+    labels are a balanced accuracy of 0.5, so a fixture that stops meaning that has changed
+    in a way worth noticing.
+    """
+    pred_dir, gt_dir = write_submission(tmp_path)
+
+    validation = validate_folder(pred_dir, gt_dir)
+
+    assert validation.ok, [(f.code, f.detail) for f in validation.errors]
+
+    results = get_scorer("ts1").score(pred_dir, gt_dir)
+
+    assert results["summary"] == {"ts1-reward": {"mean": 0.5, "sem": None, "n": 1}}
+    assert [row["task"] for row in results["rows"]] == ["ts1-reward"]
 
 
 # ── real-data integration (skipped without the local dataset) ─────────────────────

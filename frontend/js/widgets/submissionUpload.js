@@ -163,8 +163,8 @@ function createUploadSection({ state, onTasks, onUploaded, onVerdict }) {
     });
   }
 
-  function renderCodes(errors) {
-    renderHtml(elements.fileMessage, buildValidationCodes(errors), {
+  function renderCodes(errors, nFiles) {
+    renderHtml(elements.fileMessage, buildValidationCodes(errors, nFiles), {
       show: true,
     });
   }
@@ -260,7 +260,7 @@ function createUploadSection({ state, onTasks, onUploaded, onVerdict }) {
     }
 
     if (!checked.ok) {
-      renderCodes(checked.errors);
+      renderCodes(checked.errors, checked.n_files);
       onTasks([]);
 
       return;

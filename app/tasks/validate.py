@@ -150,19 +150,24 @@ def _materialise(s3_key: str, tmpdir: Path) -> Path:
     Raises
     ------
     FileNotFoundError
-        Stubbed with no ``stub_submission_dir`` configured, which leaves nothing to check.
+        Stubbed with no readable ``stub_submission_dir``, which leaves nothing to check.
+        Raised rather than returned so the submission lands ``unchecked``: a mode that
+        cannot look at anything must not report a file as invalid.
     """
     local = Path(s3_key)
     if local.is_dir():
         return local
 
     if is_stubbed():
-        if not settings.stub_submission_dir:
+        stub = Path(settings.stub_submission_dir) if settings.stub_submission_dir else None
+
+        if stub is None or not stub.is_dir():
             raise FileNotFoundError(
-                "No object store and no stub_submission_dir: nothing to validate."
+                f"No object store, and stub_submission_dir is not a directory: "
+                f"{settings.stub_submission_dir!r}"
             )
 
-        return Path(settings.stub_submission_dir)
+        return stub
 
     zip_path = download_submission(s3_key, tmpdir.joinpath("submission.zip"))
     return BaseScorer.extract(zip_path, tmpdir.joinpath("pred"))
