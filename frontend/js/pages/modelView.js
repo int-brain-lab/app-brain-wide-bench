@@ -8,38 +8,21 @@
 import { renderHtml } from "../core/render.js";
 import { markRankedRows } from "../utils/modelUtils.js";
 import { getModelRanking, loadModel, updateModel } from "../api/modelApi.js";
-import {
-  loadModelFields,
-  loadModelMeta,
-  MODEL_PANELS,
-} from "../schemas/modelSchema.js";
+import { loadModelFields, loadModelMeta, MODEL_PANELS } from "../schemas/modelSchema.js";
 import { fieldsForPanel } from "../schemas/schemaPanels.js";
 import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
-import {
-  getModelBadges,
-  getModelSubtitle,
-  hasPrivateOnlyScores,
-} from "../utils/modelUtils.js";
-import {
-  getSubmissionFilters,
-  toSubmissionRows,
-} from "../utils/submissionUtils.js";
+import { getModelBadges, getModelSubtitle, hasPrivateOnlyScores } from "../utils/modelUtils.js";
+import { getSubmissionFilters, toSubmissionRows } from "../utils/submissionUtils.js";
 import { getTaskScoreFilters, toScoreRows } from "../utils/taskScoreUtils.js";
 import { dateSorter } from "../tables/formatters.js";
 import { createSubmissionsTable } from "../tables/submissionTable.js";
 import { previewRows } from "../tables/table.js";
-import {
-  buildLatestScoresTable,
-  createTaskScoresTable,
-} from "../tables/taskScoreTable.js";
+import { buildLatestScoresTable, createTaskScoresTable } from "../tables/taskScoreTable.js";
 import { SCORE_PANEL } from "../comparisons/taskScoreComparison.js";
 import { buildCreateCard } from "../cards/createCard.js";
 import { buildDetailsCard } from "../cards/detailsCard.js";
 import { buildRankCard } from "../cards/rankCard.js";
-import {
-  buildSubmissionCards,
-  createSubmissionCardGrid,
-} from "../cards/submissionCards.js";
+import { buildSubmissionCards, createSubmissionCardGrid } from "../cards/submissionCards.js";
 import { createSubmissionComparison } from "../comparisons/submissionComparison.js";
 import {
   buildCompareButton,
@@ -56,10 +39,7 @@ import {
   getSection,
   getSectionBody,
 } from "../components/sections.js";
-import {
-  attachEditLink,
-  renderRecordDetailsView,
-} from "../templates/recordDetails.js";
+import { attachEditLink, renderRecordDetailsView } from "../templates/recordDetails.js";
 import { loadRecordPage } from "../templates/recordPage.js";
 import { renderRecordListView } from "../templates/recordList.js";
 import { renderHeader, renderPage } from "../templates/pageChrome.js";
@@ -140,11 +120,7 @@ function getSubmitHref(model) {
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
 
 function renderRankingSection(ranking, showPrivate) {
-  renderSection(
-    "ranking",
-    buildRankCard(ranking, { showPrivate }),
-    RANKING_FOOTER,
-  );
+  renderSection("ranking", buildRankCard(ranking, { showPrivate }), RANKING_FOOTER);
 }
 
 // Where the model stands today: one entry per task, private runs counted for a reader given

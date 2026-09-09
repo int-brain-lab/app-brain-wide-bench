@@ -22,10 +22,7 @@ import {
   prevalidateEntries,
 } from "../api/submissionApi.js";
 import { createUpload } from "../api/upload.js";
-import {
-  buildFailureMessage,
-  buildInfoMessage,
-} from "../components/messages.js";
+import { buildFailureMessage, buildInfoMessage } from "../components/messages.js";
 import { clearContent, renderHtml } from "../core/render.js";
 import { REQUIRED_MARKER } from "../forms/fields.js";
 import { listZipEntries } from "../core/zip.js";
@@ -244,16 +241,10 @@ function createUploadSection({ state, onTasks, onUploaded, onVerdict }) {
     let checked;
 
     try {
-      checked = await prevalidateEntries(
-        await listZipEntries(file),
-        state.is_deterministic,
-      );
+      checked = await prevalidateEntries(await listZipEntries(file), state.is_deterministic);
     } catch (error) {
       console.error(error);
-      renderFailure(
-        "That .zip could not be read. Check the file and upload it again.",
-        error,
-      );
+      renderFailure("That .zip could not be read. Check the file and upload it again.", error);
       onTasks([]);
 
       return;
@@ -273,10 +264,7 @@ function createUploadSection({ state, onTasks, onUploaded, onVerdict }) {
       await sendFile(file);
     } catch (error) {
       console.error(error);
-      renderFailure(
-        "Uploading the file failed. Select it again to retry.",
-        error,
-      );
+      renderFailure("Uploading the file failed. Select it again to retry.", error);
       onUploaded(false);
     }
   }
@@ -306,10 +294,7 @@ function createUploadSection({ state, onTasks, onUploaded, onVerdict }) {
       await deleteSubmission(abandoned);
     } catch (error) {
       console.error(error);
-      renderFailure(
-        "That file could not be discarded. Reload and try again.",
-        error,
-      );
+      renderFailure("That file could not be discarded. Reload and try again.", error);
     }
   }
 

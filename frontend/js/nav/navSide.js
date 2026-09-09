@@ -153,9 +153,7 @@ async function initialiseSidebar() {
   renderHtml(nav, renderSidebar());
 
   // Straight back to the public home, which logout() is already pointed at.
-  document
-    .getElementById("sidebar-logout")
-    ?.addEventListener("click", () => logout());
+  document.getElementById("sidebar-logout")?.addEventListener("click", () => logout());
 
   await fillSidebarUser();
 

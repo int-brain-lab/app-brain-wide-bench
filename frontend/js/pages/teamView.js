@@ -17,10 +17,7 @@ import {
 } from "../utils/taskScoreUtils.js";
 import { getTeamSubtitle, isTeamOwner } from "../utils/teamUtils.js";
 import { dateSorter } from "../tables/formatters.js";
-import {
-  buildBestScoresTable,
-  createTaskScoresTable,
-} from "../tables/taskScoreTable.js";
+import { buildBestScoresTable, createTaskScoresTable } from "../tables/taskScoreTable.js";
 import { previewRows } from "../tables/table.js";
 import { SCORE_PANEL } from "../comparisons/taskScoreComparison.js";
 import { buildCreateCard } from "../cards/createCard.js";
@@ -51,18 +48,10 @@ import {
   buildMembersPanel,
   createMembersSection,
 } from "../widgets/teamMembers.js";
-import {
-  attachEditLink,
-  renderRecordDetailsView,
-} from "../templates/recordDetails.js";
+import { attachEditLink, renderRecordDetailsView } from "../templates/recordDetails.js";
 import { loadRecordPage } from "../templates/recordPage.js";
 import { renderRecordListView } from "../templates/recordList.js";
-import {
-  clearMessage,
-  renderHeader,
-  renderMessage,
-  renderPage,
-} from "../templates/pageChrome.js";
+import { clearMessage, renderHeader, renderMessage, renderPage } from "../templates/pageChrome.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
@@ -153,9 +142,7 @@ function dashboardSections(canEdit) {
 function renderEmptySection(id, empty, create) {
   renderHtml(
     getSectionBody(id),
-    create
-      ? buildCreateCard({ href: create.href, label: create.card })
-      : buildEmptyMessage(empty),
+    create ? buildCreateCard({ href: create.href, label: create.card }) : buildEmptyMessage(empty),
     { refresh: true },
   );
 }
@@ -203,20 +190,12 @@ function renderModelsSection(models, canEdit) {
   );
 
   // No team on the cards: every one of them is this team's.
-  renderCards(
-    "models",
-    buildModelCards(recent, { showTeam: false }),
-    models.length,
-  );
+  renderCards("models", buildModelCards(recent, { showTeam: false }), models.length);
 }
 
 function renderSubmissionsSection(submissions, canEdit) {
   if (!submissions.length) {
-    renderEmptySection(
-      "submissions",
-      "No submissions yet.",
-      canEdit && CREATE_SUBMISSION,
-    );
+    renderEmptySection("submissions", "No submissions yet.", canEdit && CREATE_SUBMISSION);
     return;
   }
 
@@ -226,11 +205,7 @@ function renderSubmissionsSection(submissions, canEdit) {
     MAX_CARDS,
   );
 
-  renderCards(
-    "submissions",
-    buildSubmissionCards(recent, { showTeam: false }),
-    submissions.length,
-  );
+  renderCards("submissions", buildSubmissionCards(recent, { showTeam: false }), submissions.length);
 }
 
 function renderScoresSection(scoreRows) {
@@ -298,13 +273,11 @@ function renderDashboardView(context, router) {
   // Manage members means the same thing as Edit, so it opens the editor too. Without
   // stopPropagation the router's own delegated handler would also see this click and
   // navigate a second time, landing read-only.
-  document
-    .querySelector("[data-view='details']")
-    .addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      router.goTo("details", { edit: true });
-    });
+  document.querySelector("[data-view='details']").addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    router.goTo("details", { edit: true });
+  });
 }
 
 // ─── SCORES VIEW ─────────────────────────────────────────────────────────────

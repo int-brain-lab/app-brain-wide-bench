@@ -48,28 +48,20 @@ function buildSubtitle(subtitles = []) {
     .map(
       ({ text, icon }) => `
         <span class="row left gap-sm">
-          ${
-            icon
-              ? `<i class="field-icon" data-lucide="${escapeHtml(icon)}"></i>`
-              : ""
-          }
+          ${icon ? `<i class="field-icon" data-lucide="${escapeHtml(icon)}"></i>` : ""}
           <span>${escapeHtml(text)}</span>
         </span>
       `,
     )
     .join("<span>·</span>");
 
-  return items
-    ? `<span class="row left gap-lg">${items}</span>`
-    : "";
+  return items ? `<span class="row left gap-lg">${items}</span>` : "";
 }
 
 function buildTitleBadges(badges = []) {
   const items = badges.filter(Boolean);
 
-  return items.length
-    ? `<span class="row left gap-lg">${items.join("")}</span>`
-    : "";
+  return items.length ? `<span class="row left gap-lg">${items.join("")}</span>` : "";
 }
 
 // ─── ACTIONS ─────────────────────────────────────────────────────────────────
@@ -85,21 +77,14 @@ function buildActions(actions = []) {
 
   return `
     <span class="column gap-lg">
-      ${actions
-        .map((action) =>
-          buildActionRow(Array.isArray(action) ? action : [action]),
-        )
-        .join("")}
+      ${actions.map((action) => buildActionRow(Array.isArray(action) ? action : [action])).join("")}
     </span>
   `;
 }
 
 // ─── PAGE ────────────────────────────────────────────────────────────────────
 
-function buildPage({
-  header = "",
-  body = "",
-}) {
+function buildPage({ header = "", body = "" }) {
   return `
     ${header}
     <div id="${MESSAGE_ID}" hidden></div>
@@ -166,8 +151,9 @@ function buildSection({
   // Controls or actions alone for a section headed by something else, or by nothing but the
   // buttons that work it. `right` where there is nothing on the left, since a row of one
   // otherwise puts its only child at the near end.
-  const header = title || controls || actions.length
-    ? `
+  const header =
+    title || controls || actions.length
+      ? `
     <div class="column gap-xs">
       <div class="row${heading || controls ? "" : " right"}">
         ${controls ? `<div class="row left gap-xl section-lead">${heading}${controls}</div>` : heading}
@@ -180,11 +166,9 @@ function buildSection({
       }
      </div>  
     `
-    : "";
+      : "";
 
-  const classes = ["section-body", className]
-    .filter(Boolean)
-    .join(" ");
+  const classes = ["section-body", className].filter(Boolean).join(" ");
 
   return `
     <section
@@ -224,16 +208,8 @@ function buildSectionFooter(action, { hidden = false } = {}) {
     : `<div class="section-footer row right">${action}</div>`;
 }
 
-function buildRow({
-  sections,
-  ratio = "",
-  stretch = true,
-}) {
-  const classes = [
-    "section-row",
-    ratio && `ratio-${ratio}`,
-    !stretch && "align-start",
-  ]
+function buildRow({ sections, ratio = "", stretch = true }) {
+  const classes = ["section-row", ratio && `ratio-${ratio}`, !stretch && "align-start"]
     .filter(Boolean)
     .join(" ");
 
@@ -258,13 +234,7 @@ function buildRow({
  * Rows do not nest.
  */
 function buildSections(sections = []) {
-  return sections
-    .map((entry) =>
-      entry.sections
-        ? buildRow(entry)
-        : buildSection(entry),
-    )
-    .join("");
+  return sections.map((entry) => (entry.sections ? buildRow(entry) : buildSection(entry))).join("");
 }
 
 // ─── COLLAPSING ──────────────────────────────────────────────────────────────

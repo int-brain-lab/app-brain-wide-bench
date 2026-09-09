@@ -6,10 +6,7 @@
 
 import { getTaskSubmissions } from "../api/taskSubmissionApi.js";
 import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
-import {
-  getTaskScoreFilters,
-  toScoreResultRows,
-} from "../utils/taskScoreUtils.js";
+import { getTaskScoreFilters, toScoreResultRows } from "../utils/taskScoreUtils.js";
 import { createTaskScoresTable } from "../tables/taskScoreTable.js";
 import { SCORE_PANEL } from "../comparisons/taskScoreComparison.js";
 import { loadListPage } from "../templates/listPage.js";

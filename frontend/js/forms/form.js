@@ -25,15 +25,11 @@ function isDisabled(field, state) {
 
 // Disabled options remain visible but cannot be selected.
 function disabledOptionValues(field, state) {
-  return typeof field.disabledOptionsWhen === "function"
-    ? field.disabledOptionsWhen(state)
-    : [];
+  return typeof field.disabledOptionsWhen === "function" ? field.disabledOptionsWhen(state) : [];
 }
 
 function hasDependentFields(fields) {
-  return Object.values(fields).some(
-    (field) => field.disabledWhen || field.disabledOptionsWhen,
-  );
+  return Object.values(fields).some((field) => field.disabledWhen || field.disabledOptionsWhen);
 }
 
 // ─── HELP TEXT ───────────────────────────────────────────────────────────────
@@ -88,9 +84,9 @@ function parseFieldValue(field, value) {
 function getFieldValue(field, key, input, container) {
   switch (field.input) {
     case "checkbox-list":
-      return Array.from(
-        container.querySelectorAll(`[data-field="${key}"]:checked`),
-      ).map((box) => box.value);
+      return Array.from(container.querySelectorAll(`[data-field="${key}"]:checked`)).map(
+        (box) => box.value,
+      );
 
     case "checkbox":
       return input.checked;
@@ -123,9 +119,7 @@ function revalidateFields(state, fields) {
     const disabledOptions = field.disabledOptionsWhen(state);
 
     if (Array.isArray(value)) {
-      const validValues = value.filter(
-        (item) => !disabledOptions.includes(item),
-      );
+      const validValues = value.filter((item) => !disabledOptions.includes(item));
 
       if (validValues.length !== value.length) {
         cleared.push(key);
@@ -149,9 +143,7 @@ function revalidateFields(state, fields) {
 function setFieldValue(state, fields, key, value) {
   state[key] = value;
 
-  return revalidateFields(state, fields).filter(
-    (clearedKey) => clearedKey !== key,
-  );
+  return revalidateFields(state, fields).filter((clearedKey) => clearedKey !== key);
 }
 
 // ─── RENDERING ───────────────────────────────────────────────────────────────

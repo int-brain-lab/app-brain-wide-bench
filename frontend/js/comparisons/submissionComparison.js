@@ -59,9 +59,7 @@ function toSubmissionScores(pick) {
           task_submission_id: task.id,
           submission_id: pick.key,
 
-          ...Object.fromEntries(
-            trainingFieldKeys().map((key) => [key, task[key] ?? null]),
-          ),
+          ...Object.fromEntries(trainingFieldKeys().map((key) => [key, task[key] ?? null])),
         },
       ]),
   );

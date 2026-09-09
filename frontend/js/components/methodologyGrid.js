@@ -37,10 +37,7 @@ function fieldText(record, fields, key) {
  */
 function methodologyCells({ record, fields }) {
   return Object.fromEntries(
-    trainingFieldKeys().map((key) => [
-      key,
-      { value: fieldText(record, fields, key) },
-    ]),
+    trainingFieldKeys().map((key) => [key, { value: fieldText(record, fields, key) }]),
   );
 }
 

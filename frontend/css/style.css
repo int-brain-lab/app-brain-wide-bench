@@ -335,7 +335,6 @@ SIDE NAVIGATION BAR
   border-top: 1px solid var(--border-color);
 }
 
-
 /*----------------------------------------------------------------------------------------
 USER LOGO
 ----------------------------------------------------------------------------------------*/
@@ -447,7 +446,6 @@ SECTIONS
   margin-bottom: 50px;
 }
 
-
 /*----------------------------------------------------------------------------------------
 GRIDS, COLUMNS AND ROWS
 --------------------------------------------------------------------------------------*/
@@ -489,7 +487,6 @@ GRIDS, COLUMNS AND ROWS
   justify-content: flex-end;
 }
 
-
 .grid-2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -519,7 +516,6 @@ GRIDS, COLUMNS AND ROWS
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: var(--gap-lg);
 }
-
 
 .stats-grid {
   display: grid;
@@ -645,7 +641,6 @@ CREATE CARD
   color: var(--primary-dark);
 }
 
-
 /* The filter bar over a list page's two views — templates/list-page.js. It has a container
    of its own above the list, rather than the one inside the table root that used to hold it
    and space it, so the gap under it comes from here. Empty on a list with nothing to narrow,
@@ -681,11 +676,7 @@ CARDS
    edge, and a wash as well — a card carries no hover state of its own for one to compete
    with. The wash is the pick's own colour at the weight --primary-light sits at. */
 .card.selected {
-  background: color-mix(
-    in srgb,
-    var(--pick-ink, var(--primary)) 12%,
-    var(--surface)
-  );
+  background: color-mix(in srgb, var(--pick-ink, var(--primary)) 12%, var(--surface));
   box-shadow: inset 3px 0 0 var(--pick-ink, var(--primary));
 }
 
@@ -743,10 +734,6 @@ CARDS
   text-align: right;
 }
 
-
-
-
-
 /* A responsive canvas measures its parent, so the parent needs a height of its own —
    without one they measure each other and the chart collapses to nothing. */
 .chart-box {
@@ -802,7 +789,6 @@ CARDS
   background: transparent;
   box-shadow: inset 0 0 0 2px var(--text-muted);
 }
-
 
 /* A comparison's own rows, marked in the colour the thing is drawn in elsewhere: the same 3px
    edge the picked row carries in the table it came from. Transparent by default, so a grid
@@ -982,7 +968,6 @@ HEADERS
   margin-top: 10px;
 }
 
-
 /*----------------------------------------------------------------------------------------
 GENERIC TEXT
 --------------------------------------------------------------------------------------*/
@@ -1001,7 +986,6 @@ GENERIC TEXT
   font-weight: var(--xbold);
   line-height: 1.2;
 }
-
 
 .section-title {
   font-size: var(--font-xl);
@@ -1272,7 +1256,6 @@ GENERIC TEXT
   font-weight: var(--bold);
 }
 
-
 .info-msg {
   color: var(--text-muted);
   font-size: var(--font-md);
@@ -1351,7 +1334,6 @@ GENERIC TEXT
   font-weight: 400;
   overflow-wrap: anywhere;
 }
-
 
 /* A page that failed before it could render anything: this is the whole content area, not a
    line inside a page, so it is sized and spaced to stand alone. The tint is the danger
@@ -1441,9 +1423,6 @@ BADGES
   padding: 2px 6px;
   font-size: var(--font-sm);
 }
-
-
-
 
 /* Task badges */
 .badge.ts1 {
@@ -1670,11 +1649,7 @@ table {
    `.tabulator-col-content` is in the chain to match the specificity of the rule this is
    overriding, which names it — four classes deep loses to five, whichever loads last. And
    `text-overflow: clip` because the ellipsis is set separately and outlives the nowrap. */
-.tabulator
-  .tabulator-header
-  .tabulator-col
-  .tabulator-col-content
-  .tabulator-col-title {
+.tabulator .tabulator-header .tabulator-col .tabulator-col-content .tabulator-col-title {
   white-space: normal;
   text-overflow: clip;
 }
@@ -1685,10 +1660,7 @@ table {
 
    Only the arrow's own width and a hair beside it: a board of a dozen tasks pays this
    reserve twelve times over. */
-.tabulator
-  .tabulator-header
-  .tabulator-col.tabulator-sortable
-  .tabulator-col-content {
+.tabulator .tabulator-header .tabulator-col.tabulator-sortable .tabulator-col-content {
   padding-right: 14px;
 }
 
@@ -1880,7 +1852,6 @@ table {
   cursor: pointer;
 }
 
-
 /*----------------------------------------------------------------------------------------
 BARS
 --------------------------------------------------------------------------------------*/
@@ -1901,7 +1872,6 @@ BARS
 .wide-bar {
   height: 6px;
 }
-
 
 .bar.ts1 {
   background: var(--ts1);
@@ -2091,7 +2061,6 @@ WIZARD
   align-items: start;
 }
 
-
 /* A panel on the single-page create form (js/models/modelCreate.js), which shows every
    panel at once and locks the ones below the point the user has reached.
 
@@ -2115,12 +2084,9 @@ WIZARD
   opacity: 50%;
 }
 
-
 /* ─── Current step ───────────────────────────────────────────── */
 
-
 /* ─── Completed step ─────────────────────────────────────────── */
-
 
 /* This is the round icon which can be reused */
 .task-status {
@@ -2199,11 +2165,9 @@ WIZARD
   white-space: nowrap;
 }
 
-
 /*----------------------------------------------------------------------------------------
 COMPARISON
 --------------------------------------------------------------------------------------*/
-
 
 /* .input-select is width:100%, which in a flex row beside its label would swallow the rest
    of the line. The wrapper is what gives it a size to be 100% of. */
@@ -2263,11 +2227,7 @@ COMPARISON
    at the weight a picked card and a picked table row carry, so the row above the tabs reads as
    a key to the panels under them. */
 .chip.pick {
-  background: color-mix(
-    in srgb,
-    var(--pick-ink, var(--primary)) 12%,
-    var(--surface)
-  );
+  background: color-mix(in srgb, var(--pick-ink, var(--primary)) 12%, var(--surface));
   border-color: var(--pick-ink, var(--border-color));
 
   /* A step up from the chip's own size: these name what the panels below are of, where a
@@ -2332,7 +2292,6 @@ COMPARISON
 .card.disabled {
   opacity: 60%;
 }
-
 
 /* Which way a difference went. Green is the primary green rather than a fresh one, so the
    page has one "better" colour; the red is the same as .task-item.invalid. */

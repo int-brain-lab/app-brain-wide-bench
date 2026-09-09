@@ -105,9 +105,7 @@ function withHelp(labelHtml, helpHtml) {
 // checkbox-list could have had one per row, and did, but a column of "?"s beside the boxes
 // is noise where a single pinned block reads as one explanation.
 function optionsHelpText(field) {
-  const described = (field.options ?? []).filter(
-    (option) => option?.description,
-  );
+  const described = (field.options ?? []).filter((option) => option?.description);
 
   if (!described.length) return field.description ?? "";
 
@@ -143,10 +141,7 @@ function buildFieldLabel(key, field) {
   const help = buildHelp(key, field.description, { label: field.label });
 
   if (!field.icon) {
-    return withHelp(
-      `<label class="field-label">${escapeHtml(field.label)}</label>`,
-      help,
-    );
+    return withHelp(`<label class="field-label">${escapeHtml(field.label)}</label>`, help);
   }
 
   return withHelp(
@@ -193,11 +188,7 @@ const REQUIRED_MARKER = `<span class="required-marker" aria-hidden="true">*</spa
 // Returns the label row *and* the pinned help block, in that order, because every caller
 // puts the result immediately before its control — which is exactly where the pinned text
 // belongs, with no caller needing to place it.
-function buildInputLabel(
-  key,
-  field,
-  { htmlFor = true, help = field.description } = {},
-) {
+function buildInputLabel(key, field, { htmlFor = true, help = field.description } = {}) {
   const labelRow = withHelp(
     `
     <label class="field-label"${htmlFor ? ` for="${escapeHtml(key)}"` : ""}>
@@ -391,9 +382,7 @@ function buildFields(keys, state, fields) {
 }
 
 function buildDisplayFields(keys, state, fields, inline = false) {
-  return keys
-    .map((key) => buildDisplayField(key, state, fields, inline))
-    .join("");
+  return keys.map((key) => buildDisplayField(key, state, fields, inline)).join("");
 }
 
 // ─── CARDS AND GRIDS ─────────────────────────────────────────────────────────
@@ -436,9 +425,7 @@ function buildPanelCards(panelGroups, values, fields, buildRun) {
   return `
     <div class="column gap-xl">
       ${panelGroups
-        .map((panelGroup) =>
-          buildPanelCard(panelGroup, values, fields, buildRun),
-        )
+        .map((panelGroup) => buildPanelCard(panelGroup, values, fields, buildRun))
         .join("")}
     </div>
   `;

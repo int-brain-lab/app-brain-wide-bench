@@ -15,14 +15,7 @@ import { suiteFromTask, taskLabel } from "../core/suites.js";
  * @param height        in px.
  * @returns { element, chart }.
  */
-function createTaskPlot({
-  series,
-  categories,
-  categoryLabel,
-  yRange,
-  task,
-  height,
-}) {
+function createTaskPlot({ series, categories, categoryLabel, yRange, task, height }) {
   const plot = createBarPlot({
     series: [series],
     categories,

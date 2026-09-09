@@ -54,11 +54,7 @@ function matchInArray(field) {
  */
 function optionsFromRows(rows, field, toLabel = (value) => value) {
   return [
-    ...new Set(
-      rows
-        .map((row) => row[field])
-        .filter((value) => value != null && value !== ""),
-    ),
+    ...new Set(rows.map((row) => row[field]).filter((value) => value != null && value !== "")),
   ]
     .sort((a, b) => String(a).localeCompare(String(b)))
     .map((value) => ({ value, label: toLabel(value) }));
@@ -76,9 +72,7 @@ function optionsFromRows(rows, field, toLabel = (value) => value) {
  *                    every option is a real choice.
  */
 function buildOptions(options, { selected = null, placeholder = "" } = {}) {
-  const blank = placeholder
-    ? `<option value="">${escapeHtml(placeholder)}</option>`
-    : "";
+  const blank = placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : "";
 
   return (
     blank +
@@ -294,9 +288,9 @@ function buildPinnedSelect({ name, label = "", options, selected = [], ...rest }
  * @param name as buildPinnedSelect.
  */
 function pinnedIn(root, name) {
-  return [
-    ...root.querySelectorAll(`[data-${PINS}="${name}"] [data-${UNPIN}="${name}"]`),
-  ].map((button) => button.value);
+  return [...root.querySelectorAll(`[data-${PINS}="${name}"] [data-${UNPIN}="${name}"]`)].map(
+    (button) => button.value,
+  );
 }
 
 // A pinned option is out of the list and a returned one is back in it — see the note above.
@@ -323,9 +317,7 @@ function pin(pins, name, value, option) {
 }
 
 function optionFor(root, name, hook, value) {
-  return root.querySelector(
-    `select[data-${hook}="${name}"] option[value="${CSS.escape(value)}"]`,
-  );
+  return root.querySelector(`select[data-${hook}="${name}"] option[value="${CSS.escape(value)}"]`);
 }
 
 /**
@@ -468,9 +460,7 @@ function buildFilterControl({ control, value, className = "" }) {
           name: control.name,
           options: control.options,
           selected: value || null,
-          placeholder: control.required
-            ? ""
-            : (control.placeholder ?? control.label),
+          placeholder: control.required ? "" : (control.placeholder ?? control.label),
         })
       : buildSearch({
           name: control.name,
@@ -535,9 +525,7 @@ function buildFilterBar(controls, values = {}) {
           (row) => `
         <div class="${layout}${align}">
           ${row
-            .map((control) =>
-              buildFilterControl({ control, value: values[control.name] }),
-            )
+            .map((control) => buildFilterControl({ control, value: values[control.name] }))
             .join("")}
         </div>`,
         )

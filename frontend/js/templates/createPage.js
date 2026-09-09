@@ -13,21 +13,13 @@
 // exist before the form performs its first completeness check.
 
 import { getElement } from "../core/render.js";
-import {
-  buildFailureMessage,
-  buildWarningMessage,
-} from "../components/messages.js";
+import { buildFailureMessage, buildWarningMessage } from "../components/messages.js";
 import { buildHeader, buildPage } from "../components/sections.js";
 import { buildFormFooter, SUBMIT_BUTTON_ID } from "../components/buttons.js";
 import { CLEARED_MESSAGE } from "../forms/form.js";
 import { createForm } from "../forms/createForm.js";
 import { loadPage } from "./page.js";
-import {
-  clearMessage,
-  renderHeader,
-  renderMessage,
-  renderPage,
-} from "./pageChrome.js";
+import { clearMessage, renderHeader, renderMessage, renderPage } from "./pageChrome.js";
 
 const PANELS_ID = "panels";
 
@@ -114,11 +106,9 @@ async function loadCreatePage({
 
       const container = getElement(PANELS_ID);
 
-      const resolvedFields =
-        typeof fields === "function" ? await fields(context) : fields;
+      const resolvedFields = typeof fields === "function" ? await fields(context) : fields;
 
-      const resolvedPanels =
-        typeof panels === "function" ? await panels(context) : panels;
+      const resolvedPanels = typeof panels === "function" ? await panels(context) : panels;
 
       form = createForm({
         container,
@@ -128,8 +118,7 @@ async function loadCreatePage({
         submit: (state) => submit(state, context),
 
         onChange: onChange
-          ? (key, value, cleared) =>
-              onChange(key, value, cleared, { form, context })
+          ? (key, value, cleared) => onChange(key, value, cleared, { form, context })
           : undefined,
 
         onCleared: (labels) => {

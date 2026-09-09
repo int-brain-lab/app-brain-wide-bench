@@ -28,12 +28,7 @@
 
 import { disposeAll } from "../core/disposable.js";
 import { resolveContainer } from "../core/dom.js";
-import {
-  getElement,
-  refreshIcons,
-  renderHtml,
-  setText,
-} from "../core/render.js";
+import { getElement, refreshIcons, renderHtml, setText } from "../core/render.js";
 import { metricLabel, suiteFromTask, taskLabel } from "../core/suites.js";
 import { TASK_FIELDS } from "../schemas/taskSubmissionSchema.js";
 import { withRanges } from "../plots/series.js";
@@ -50,34 +45,18 @@ import {
   setButtonLabel,
 } from "../components/buttons.js";
 import { getIcon } from "../components/icons.js";
-import {
-  buildComparisonGrid,
-  buildPicks,
-  dropFromClick,
-} from "../components/comparisonGrid.js";
-import {
-  methodologyCells,
-  methodologyColumns,
-} from "../components/methodologyGrid.js";
+import { buildComparisonGrid, buildPicks, dropFromClick } from "../components/comparisonGrid.js";
+import { methodologyCells, methodologyColumns } from "../components/methodologyGrid.js";
 import { buildOptions, buildSelect } from "../components/filters.js";
 import { buildEmptyMessage, buildInfoMessage } from "../components/messages.js";
-import {
-  buildSections,
-  getSection,
-  getSectionBody,
-} from "../components/sections.js";
+import { buildSections, getSection, getSectionBody } from "../components/sections.js";
 import { createComparison } from "./comparison.js";
-import {
-  buildRecordingsToggle,
-  createTaskComparison,
-} from "./taskScoreComparison.js";
-
+import { buildRecordingsToggle, createTaskComparison } from "./taskScoreComparison.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
 const DETAILS = "summary";
 const BREAKDOWN = "breakdown";
-
 
 const PICKS_ID = "compare-picks";
 
@@ -115,7 +94,6 @@ const SCORE_VIEW_ID = "compare-score-view";
 const SHOW_SCORES = "See scores breakdown";
 const HIDE_SCORES = "See every task";
 
-
 // ─── DETAILS ─────────────────────────────────────────────────────────────────
 
 /**
@@ -132,11 +110,7 @@ function buildDetails(picks, details, colourFor, scoreFor = null) {
 
     // `trailing` reads under the methodology — a preset's own attributes that belong below
     // the task's rather than above them.
-    attributes: [
-      ...details.attributes(),
-      ...methodology,
-      ...(details.trailing?.() ?? []),
-    ],
+    attributes: [...details.attributes(), ...methodology, ...(details.trailing?.() ?? [])],
     entities: picks.map((pick) => ({
       label: pick.name,
       ink: colourFor(pick.key),
@@ -152,7 +126,6 @@ function buildDetails(picks, details, colourFor, scoreFor = null) {
     })),
   });
 }
-
 
 // ─── RECORDS ─────────────────────────────────────────────────────────────────
 
@@ -237,9 +210,7 @@ function diffMode(records, baselineId) {
       const other = record.tasks[taskId];
       const against = baseline?.tasks[taskId];
 
-      return other && against
-        ? { mean: other.mean - against.mean, sem: null }
-        : null;
+      return other && against ? { mean: other.mean - against.mean, sem: null } : null;
     },
     yAxisLabelOf: (metric) => `Δ ${metricLabel(metric)}`,
     skip: baselineId,
@@ -249,7 +220,6 @@ function diffMode(records, baselineId) {
 }
 
 // ─── SCORES ──────────────────────────────────────────────────────────────────
-
 
 // One task's scores as a plot series: a category per record, so a bar each.
 function toTaskSeries(records, task, { valueOf, yAxisLabelOf }) {
@@ -290,7 +260,6 @@ function buildBaselineSelect() {
       ${buildSelect({ name: "baseline", hook: "role", options: [] })}
     </span>`;
 }
-
 
 // ─── WIDGET ──────────────────────────────────────────────────────────────────
 
@@ -335,7 +304,6 @@ function createRecordComparison({
   let selectedView = PLOT_VIEW;
   let selectedBaseline = "";
 
-
   let selectedRecords = [];
   let taskSuiteGroups = [];
 
@@ -348,9 +316,7 @@ function createRecordComparison({
   // task at a glance.
   let showScores = false;
 
-
   // ─── STATE HELPERS ─────────────────────────────────────────────────────────
-
 
   // Empty for the scores themselves. A baseline that has since been dropped is empty too.
   function getBaseline() {
@@ -358,7 +324,6 @@ function createRecordComparison({
       ? selectedBaseline
       : "";
   }
-
 
   function updateScores() {
     const scored = comparison
@@ -370,7 +335,6 @@ function createRecordComparison({
       ...toRecord(pick, scores),
       colour: comparison.colourFor(pick.key),
     }));
-
 
     taskSuiteGroups = toTaskSuiteGroups(scoredTasksIn(selectedRecords));
 
@@ -386,7 +350,6 @@ function createRecordComparison({
     return taskSuiteGroups.flatMap((group) => group.tasks);
   }
 
-
   // Both of them at once, each hidden while there is nothing to compare.
   function updateSections() {
     for (const id of [BREAKDOWN, DETAILS]) {
@@ -396,18 +359,14 @@ function createRecordComparison({
     }
   }
 
-
   // ─── PICKS ─────────────────────────────────────────────────────────────────
 
   function heldCount() {
     return comparison?.picks().length ?? 0;
   }
 
-
   function getPicksRoot() {
-    return picksContainer
-      ? resolveContainer(picksContainer)
-      : getElement(PICKS_ID);
+    return picksContainer ? resolveContainer(picksContainer) : getElement(PICKS_ID);
   }
 
   function renderPicks() {
@@ -423,7 +382,6 @@ function createRecordComparison({
     renderHtml(getPicksRoot(), buildPicks(held), { refresh: true });
   }
 
-
   // ─── TASK DETAIL ───────────────────────────────────────────────────────────
 
   function toTaskPicks(taskId) {
@@ -434,13 +392,15 @@ function createRecordComparison({
         return [];
       }
 
-      return [{
-        key: score.task_submission_id,
-        submissionId: score.submission_id,
-        taskId,
-        modelName: record.name,
-        colour: record.colour,
-      }];
+      return [
+        {
+          key: score.task_submission_id,
+          submissionId: score.submission_id,
+          taskId,
+          modelName: record.name,
+          colour: record.colour,
+        },
+      ];
     });
   }
 
@@ -505,7 +465,6 @@ function createRecordComparison({
     renderTaskDetail();
   }
 
-
   // ─── SCORE PANELS ──────────────────────────────────────────────────────────
 
   function clearCharts() {
@@ -516,11 +475,7 @@ function createRecordComparison({
 
   // What the rows are read for, over the column of names.
   function buildTaskCorner(task) {
-    return buildTaskBadge(
-      taskLabel(task.taskId),
-      suiteFromTask(task.taskId) ?? "",
-      "sm",
-    );
+    return buildTaskBadge(taskLabel(task.taskId), suiteFromTask(task.taskId) ?? "", "sm");
   }
 
   // A table per task, laid out where the plots are: the task heads the names, the metric heads
@@ -542,10 +497,7 @@ function createRecordComparison({
         buildComparisonGrid({
           layout: "rows",
           className: "task-scores",
-          corner: buildMetricBadge(
-                mode.yAxisLabelOf(task.metric || "score"),
-                "sm",
-              ),
+          corner: buildMetricBadge(mode.yAxisLabelOf(task.metric || "score"), "sm"),
           attributes: [
             {
               key: task.taskId,
@@ -623,9 +575,7 @@ function createRecordComparison({
   function renderBreakdownHint() {
     const baseline = getBaseline();
 
-    const against = selectedRecords.find(
-      (record) => record.key === baseline,
-    )?.name;
+    const against = selectedRecords.find((record) => record.key === baseline)?.name;
 
     setText(
       getElement(HINT_ID),
@@ -669,10 +619,7 @@ function createRecordComparison({
     }
 
     if (baseline && selectedRecords.length < 2) {
-      renderHtml(
-        section,
-        buildInfoMessage(`Select a second ${noun} to see the difference.`),
-      );
+      renderHtml(section, buildInfoMessage(`Select a second ${noun} to see the difference.`));
       return;
     }
 
@@ -698,9 +645,7 @@ function createRecordComparison({
   }
 
   function renderBaselineOptions() {
-    const select = getElement("baseline")?.querySelector(
-      "[data-role='baseline']",
-    );
+    const select = getElement("baseline")?.querySelector("[data-role='baseline']");
 
     if (!select) return;
 
@@ -718,7 +663,6 @@ function createRecordComparison({
       ),
     );
   }
-
 
   // ─── VIEW ──────────────────────────────────────────────────────────────────
 
@@ -739,7 +683,6 @@ function createRecordComparison({
     setActiveView();
     renderPanel();
   }
-
 
   // ─── RENDERING ─────────────────────────────────────────────────────────────
 
@@ -804,7 +747,6 @@ function createRecordComparison({
     updateSections();
   }
 
-
   // ─── EVENTS ────────────────────────────────────────────────────────────────
 
   function attachEvents() {
@@ -868,7 +810,6 @@ function createRecordComparison({
       renderBreakdown();
     });
   }
-
 
   // ─── SETUP ─────────────────────────────────────────────────────────────────
 
@@ -980,4 +921,3 @@ function createRecordComparison({
 }
 
 export { createRecordComparison };
-

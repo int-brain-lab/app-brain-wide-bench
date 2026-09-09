@@ -15,10 +15,7 @@ function bucketOf(value, { min, max }) {
 
   const fraction = (value - min) / (max - min);
 
-  return Math.min(
-    SEQUENTIAL.length - 1,
-    Math.max(0, Math.floor(fraction * SEQUENTIAL.length)),
-  );
+  return Math.min(SEQUENTIAL.length - 1, Math.max(0, Math.floor(fraction * SEQUENTIAL.length)));
 }
 
 function buildCell(cell, range) {
@@ -123,9 +120,7 @@ function buildHeatmaps({
 }) {
   return plots
     .map((plot) => {
-      const positions = plot.series.map((series) =>
-        positionsOf(series, plot.categories),
-      );
+      const positions = plot.series.map((series) => positionsOf(series, plot.categories));
 
       return buildHeatmap({
         title: plot.name,

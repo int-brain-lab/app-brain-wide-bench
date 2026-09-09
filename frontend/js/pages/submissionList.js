@@ -4,10 +4,7 @@
 // see is reachable through the model it was made for, and through the task scores list.
 
 import { getMySubmissions } from "../api/submissionApi.js";
-import {
-  getSubmissionFilters,
-  toSubmissionRows,
-} from "../utils/submissionUtils.js";
+import { getSubmissionFilters, toSubmissionRows } from "../utils/submissionUtils.js";
 import { createSubmissionsTable } from "../tables/submissionTable.js";
 import { createSubmissionCardGrid } from "../cards/submissionCards.js";
 import { MAX_SUBMISSIONS } from "../comparisons/limits.js";

@@ -9,9 +9,7 @@ import { escapeHtml } from "../core/html.js";
 // `width: -14%` is not a short bar, it is no bar at all, silently identical to "no score".
 // Clamped rather than hidden: the number beside it still reports what was measured.
 function barWidth(value) {
-  return value == null
-    ? 0
-    : Math.min(100, Math.max(0, Math.round(value * 100)));
+  return value == null ? 0 : Math.min(100, Math.max(0, Math.round(value * 100)));
 }
 
 /**

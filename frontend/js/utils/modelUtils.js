@@ -2,12 +2,7 @@
 // header and dashboard show.
 
 import { formatDate } from "../core/utils.js";
-import {
-  SUITES,
-  suiteLabel,
-  suitesFromModel,
-  suitesFromSubmission,
-} from "../core/suites.js";
+import { SUITES, suiteLabel, suitesFromModel, suitesFromSubmission } from "../core/suites.js";
 import {
   buildPretrainedBadge,
   buildSuiteBadgeList,

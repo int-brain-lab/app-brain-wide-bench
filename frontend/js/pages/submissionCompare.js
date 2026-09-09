@@ -12,9 +12,7 @@
 
 import { getSubmissions } from "../api/submissionApi.js";
 import { toSubmissionRows } from "../utils/submissionUtils.js";
-import {
-  createSubmissionComparison,
-} from "../comparisons/submissionComparison.js";
+import { createSubmissionComparison } from "../comparisons/submissionComparison.js";
 import { loadComparePage } from "../templates/comparePage.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────

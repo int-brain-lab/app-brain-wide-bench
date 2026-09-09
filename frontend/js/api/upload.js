@@ -101,12 +101,8 @@ function createUpload({
 }) {
   const controller = new AbortController();
 
-  const urls = new Map(
-    partUrls.map(({ part_number, url }) => [part_number, url]),
-  );
-  const receipts = new Map(
-    uploaded.map(({ part_number, etag }) => [part_number, etag]),
-  );
+  const urls = new Map(partUrls.map(({ part_number, url }) => [part_number, url]));
+  const receipts = new Map(uploaded.map(({ part_number, etag }) => [part_number, etag]));
 
   // Only what S3 does not already have, smallest first so a resumed upload reports
   // progress in the order the file reads.
@@ -119,8 +115,7 @@ function createUpload({
   let resigning = null;
 
   let bytes = uploaded.reduce(
-    (total, { part_number }) =>
-      total + sliceFor(file, part_number, partSize).size,
+    (total, { part_number }) => total + sliceFor(file, part_number, partSize).size,
     0,
   );
 
@@ -165,11 +160,7 @@ function createUpload({
 
     for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
       try {
-        const etag = await putPart(
-          await urlFor(partNumber),
-          blob,
-          controller.signal,
-        );
+        const etag = await putPart(await urlFor(partNumber), blob, controller.signal);
 
         receipts.set(partNumber, etag);
         bytes += blob.size;
@@ -197,19 +188,13 @@ function createUpload({
   // Workers share one queue rather than taking a slice each, so a slow part does not
   // leave the other workers idle at the end.
   async function worker() {
-    for (
-      let partNumber = pending.shift();
-      partNumber;
-      partNumber = pending.shift()
-    ) {
+    for (let partNumber = pending.shift(); partNumber; partNumber = pending.shift()) {
       await sendPart(partNumber);
     }
   }
 
   async function send() {
-    await Promise.all(
-      Array.from({ length: Math.min(CONCURRENCY, pending.length) }, worker),
-    );
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, pending.length) }, worker));
 
     return [...receipts.entries()]
       .map(([part_number, etag]) => ({ part_number, etag }))

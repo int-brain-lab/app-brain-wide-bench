@@ -123,10 +123,7 @@ async function loadSubmissionMeta() {
 async function loadSubmissionFields() {
   const needsModels = SUBMISSION_FIELDS.model_id.options === null;
 
-  const [, models] = await Promise.all([
-    loadSubmissionMeta(),
-    needsModels ? getMyModels() : null,
-  ]);
+  const [, models] = await Promise.all([loadSubmissionMeta(), needsModels ? getMyModels() : null]);
 
   if (models) {
     SUBMISSION_FIELDS.model_id.options = models.map((model) => ({
@@ -138,9 +135,4 @@ async function loadSubmissionFields() {
   return SUBMISSION_FIELDS;
 }
 
-export {
-  SUBMISSION_FIELDS,
-  SUBMISSION_PANELS,
-  loadSubmissionFields,
-  loadSubmissionMeta,
-};
+export { SUBMISSION_FIELDS, SUBMISSION_PANELS, loadSubmissionFields, loadSubmissionMeta };

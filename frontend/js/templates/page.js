@@ -95,11 +95,7 @@ function getRecordId(required) {
 // ─── LOAD ────────────────────────────────────────────────────────────────────
 
 function showLoadFailure(noun, subject, requiresId, id) {
-  renderPageError(
-    requiresId
-      ? `Could not load ${noun} ${id}.`
-      : `Could not load your ${subject}.`,
-  );
+  renderPageError(requiresId ? `Could not load ${noun} ${id}.` : `Could not load your ${subject}.`);
 }
 
 function handlePrivateRecord(error, noun, requiresAuth) {

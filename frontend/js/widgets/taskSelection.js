@@ -10,12 +10,7 @@
 
 import { escapeHtml } from "../core/html.js";
 import { refreshIcons, renderHtml } from "../core/render.js";
-import {
-  SUITES,
-  suiteFromTask,
-  suiteLabel,
-  taskFullLabel,
-} from "../core/suites.js";
+import { SUITES, suiteFromTask, suiteLabel, taskFullLabel } from "../core/suites.js";
 import {
   buildPinnedControl,
   buildPins,
@@ -40,9 +35,7 @@ const TASKS_PARAM = "tasks";
 
 // Every task by default: the board opens on the whole benchmark.
 function readTasks(available) {
-  const asked = (
-    new URLSearchParams(location.search).get(TASKS_PARAM) ?? ""
-  ).split(",");
+  const asked = (new URLSearchParams(location.search).get(TASKS_PARAM) ?? "").split(",");
 
   const known = asked.filter((taskId) => available.includes(taskId));
 
@@ -117,10 +110,7 @@ function updateBadges(root, name, states) {
     badge.classList.toggle("partial", state === "partial");
 
     // "mixed" is what aria has for a control part-way there, which is what `partial` is.
-    badge.setAttribute(
-      "aria-pressed",
-      state === "partial" ? "mixed" : String(state === "on"),
-    );
+    badge.setAttribute("aria-pressed", state === "partial" ? "mixed" : String(state === "on"));
   }
 }
 
@@ -232,7 +222,7 @@ function createTaskSelection({ container, available, onChange }) {
         <span data-role="task-pins"></span>
       </div>
   </div>
-  `
+  `;
   let chosen = readTasks(available);
 
   // Ticked for a suite wholly ranked over, part-way for one some of whose tasks are, clear
@@ -261,13 +251,13 @@ function createTaskSelection({ container, available, onChange }) {
         options: toTaskOptions(available),
         selected: chosen,
       }),
-      {refresh: true},
+      { refresh: true },
     );
   }
 
   // Made true rather than flipped: pressing a part-way badge adds what is missing, and
   // pressing a full one takes the whole suite off.
-  function applySuite({value, on}) {
+  function applySuite({ value, on }) {
     let changed = false;
 
     for (const taskId of bySuite.get(value) ?? []) {
@@ -293,9 +283,7 @@ function createTaskSelection({ container, available, onChange }) {
     if (!changed) return;
 
     // In the order the board reads, not the order they were pinned.
-    chosen = available.filter((taskId) =>
-      pinnedIn(container, TASK_LIST).includes(taskId),
-    );
+    chosen = available.filter((taskId) => pinnedIn(container, TASK_LIST).includes(taskId));
 
     refreshIcons();
     updateSuites();
@@ -313,7 +301,7 @@ function createTaskSelection({ container, available, onChange }) {
   container.addEventListener("change", handleChoice);
   container.addEventListener("click", handleChoice);
 
-  return {taskIds: () => [...chosen]};
+  return { taskIds: () => [...chosen] };
 }
 
 export { createTaskSelection };

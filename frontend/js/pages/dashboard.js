@@ -18,16 +18,9 @@ import {
   toScoreResultRows,
 } from "../utils/taskScoreUtils.js";
 import { toTeamRows } from "../utils/teamUtils.js";
-import {
-  getUserSubtitle,
-  getWelcome,
-  isNewAccount,
-} from "../utils/userUtils.js";
+import { getUserSubtitle, getWelcome, isNewAccount } from "../utils/userUtils.js";
 import { dateSorter } from "../tables/formatters.js";
-import {
-  buildBestScoresTable,
-  createTaskScoresTable,
-} from "../tables/taskScoreTable.js";
+import { buildBestScoresTable, createTaskScoresTable } from "../tables/taskScoreTable.js";
 import { previewRows } from "../tables/table.js";
 import { SCORE_PANEL } from "../comparisons/taskScoreComparison.js";
 import { buildCreateCard } from "../cards/createCard.js";
@@ -119,11 +112,9 @@ const DASHBOARD_SECTIONS = [
 // A section with nothing in it says what it is for, in the words of the thing that would
 // fill it.
 function renderCreateCard(container, create) {
-  renderHtml(
-    container,
-    buildCreateCard({ href: create.href, label: create.card }),
-    { refresh: true },
-  );
+  renderHtml(container, buildCreateCard({ href: create.href, label: create.card }), {
+    refresh: true,
+  });
 }
 
 // The way from a section's preview to the whole of it, under the content — see
@@ -161,11 +152,7 @@ function renderTeamsSection(teams) {
     return;
   }
 
-  renderCards(
-    "teams",
-    buildTeamCards(toTeamRows(teams).slice(0, MAX_CARDS)),
-    teams.length,
-  );
+  renderCards("teams", buildTeamCards(toTeamRows(teams).slice(0, MAX_CARDS)), teams.length);
 }
 
 function renderModelsSection(models) {
@@ -303,15 +290,14 @@ loadRecordPage({
     // enums, which is where the score filters read them from. Caught rather than allowed to
     // reject: a failing /api/meta then costs those filters their options rather than the
     // page its panels.
-    const [models, taskSubmissions, submissions, teams, user] =
-      await Promise.all([
-        getMyModels(),
-        getMyTaskSubmissions(),
-        getMySubmissions(),
-        getMyTeams(),
-        loadMe(),
-        loadTaskFields().catch(() => undefined),
-      ]);
+    const [models, taskSubmissions, submissions, teams, user] = await Promise.all([
+      getMyModels(),
+      getMyTaskSubmissions(),
+      getMySubmissions(),
+      getMyTeams(),
+      loadMe(),
+      loadTaskFields().catch(() => undefined),
+    ]);
 
     return {
       user,

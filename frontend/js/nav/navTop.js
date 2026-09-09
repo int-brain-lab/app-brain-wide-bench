@@ -127,13 +127,9 @@ async function renderAuthSection() {
 function attachNavEvents() {
   // Arrows, not the bare functions: a listener is called with the click event, and `login`
   // now reads its first argument as the page to return to.
-  document
-    .getElementById("login-btn")
-    ?.addEventListener("click", () => login(DASHBOARD_HREF));
+  document.getElementById("login-btn")?.addEventListener("click", () => login(DASHBOARD_HREF));
 
-  document
-    .getElementById("logout-btn")
-    ?.addEventListener("click", () => logout());
+  document.getElementById("logout-btn")?.addEventListener("click", () => logout());
 }
 
 // ─── INITIALISATION ──────────────────────────────────────────────────────────

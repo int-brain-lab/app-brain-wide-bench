@@ -34,12 +34,8 @@ function toDatasets(allSeries, categories, mark) {
 
     return {
       label: series.label,
-      data: at.map((position) =>
-        position < 0 ? null : (series.values.mean[position] ?? null),
-      ),
-      sems: at.map((position) =>
-        position < 0 ? null : (series.values.sem[position] ?? null),
-      ),
+      data: at.map((position) => (position < 0 ? null : (series.values.mean[position] ?? null))),
+      sems: at.map((position) => (position < 0 ? null : (series.values.sem[position] ?? null))),
       ...mark(series),
     };
   });
@@ -62,10 +58,7 @@ function withRanges(plots) {
       const values = series.values.mean.flatMap((mean, at) =>
         mean == null
           ? []
-          : [
-              mean - (series.values.sem[at] ?? 0),
-              mean + (series.values.sem[at] ?? 0),
-            ],
+          : [mean - (series.values.sem[at] ?? 0), mean + (series.values.sem[at] ?? 0)],
       );
 
       if (!values.length) continue;
@@ -85,9 +78,4 @@ function withRanges(plots) {
   }));
 }
 
-
-export {
-  positionsOf,
-  toDatasets,
-  withRanges,
-};
+export { positionsOf, toDatasets, withRanges };

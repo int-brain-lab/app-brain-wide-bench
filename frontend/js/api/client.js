@@ -105,9 +105,7 @@ async function isAuthenticated() {
  * @throws when the session failed to initialise, so a caller can say so rather than leave a
  *         button that appears to do nothing.
  */
-async function login(
-  returnTo = window.location.pathname + window.location.search,
-) {
+async function login(returnTo = window.location.pathname + window.location.search) {
   await ensureAuth();
 
   if (DEV_MODE) {
@@ -118,9 +116,7 @@ async function login(
   }
 
   if (!auth0Client) {
-    throw new Error(
-      "Signing in is unavailable — authentication failed to initialise.",
-    );
+    throw new Error("Signing in is unavailable — authentication failed to initialise.");
   }
 
   // The callback always lands on CALLBACK_PATH; `returnTo` is what sends them on.
@@ -192,9 +188,7 @@ async function apiFetch(path, options = {}) {
 
   if (!response.ok) {
     const body = await response.text();
-    const error = new Error(
-      `${response.status} ${response.statusText}: ${body}`,
-    );
+    const error = new Error(`${response.status} ${response.statusText}: ${body}`);
 
     error.status = response.status;
 

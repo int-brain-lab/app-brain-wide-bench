@@ -10,20 +10,10 @@
 import { createTeam } from "../api/teamApi.js";
 import { loadMe } from "../api/userApi.js";
 import { TEAM_FIELDS } from "../schemas/teamSchema.js";
-import {
-  buildFailureMessage,
-  buildInfoMessage,
-} from "../components/messages.js";
-import {
-  buildMembersPanel,
-  createMembersSection,
-} from "../widgets/teamMembers.js";
+import { buildFailureMessage, buildInfoMessage } from "../components/messages.js";
+import { buildMembersPanel, createMembersSection } from "../widgets/teamMembers.js";
 import { loadCreatePage } from "../templates/createPage.js";
-import {
-  clearMessage,
-  renderMessage,
-  renderPageError,
-} from "../templates/pageChrome.js";
+import { clearMessage, renderMessage, renderPageError } from "../templates/pageChrome.js";
 
 // Panel 2 has no `complete`: a team with only its creator is valid. `build` marks it as the
 // page's own, so its listeners survive a re-render of the team panel.

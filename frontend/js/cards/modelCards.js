@@ -5,11 +5,7 @@
 
 import { escapeHtml } from "../core/html.js";
 import { formatDate } from "../core/utils.js";
-import {
-  buildMineBadge,
-  buildPretrainedBadge,
-  buildSuiteBadgeList,
-} from "../components/badges.js";
+import { buildMineBadge, buildPretrainedBadge, buildSuiteBadgeList } from "../components/badges.js";
 import { buildCount } from "../components/count.js";
 import { createCardGrid } from "./cardGrid.js";
 

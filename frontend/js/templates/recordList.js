@@ -4,12 +4,7 @@
 // This module only provides the record-page shell and mounts the list into its section.
 
 import { buildEmptyMessage } from "../components/messages.js";
-import {
-  buildHeader,
-  buildPage,
-  buildSection,
-  getSectionBody,
-} from "../components/sections.js";
+import { buildHeader, buildPage, buildSection, getSectionBody } from "../components/sections.js";
 import { refreshIcons, renderHtml } from "../core/render.js";
 import { createListView } from "./listView.js";
 import { renderPage } from "./pageChrome.js";
@@ -27,13 +22,7 @@ import { renderPage } from "./pageChrome.js";
  *
  * @returns the list view, or null when there are no rows.
  */
-function renderRecordListView({
-  noun,
-  renderTitle,
-  empty,
-  rows,
-  ...list
-}) {
+function renderRecordListView({ noun, renderTitle, empty, rows, ...list }) {
   renderPage(
     buildPage({
       header: buildHeader(),

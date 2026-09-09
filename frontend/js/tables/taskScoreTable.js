@@ -5,11 +5,7 @@
 // infrastructure in table.js.
 
 import { getTaskScoreFilters } from "../utils/taskScoreUtils.js";
-import {
-  buildStaticTable,
-  createFilterableTable,
-  previewRows,
-} from "./table.js";
+import { buildStaticTable, createFilterableTable, previewRows } from "./table.js";
 import {
   buildFlagFormatter,
   buildLinkFormatter,
@@ -23,7 +19,7 @@ import {
   taskNameFormatter,
   taskRankFormatter,
 } from "./formatters.js";
-import {TASK_FIELDS, trainingFieldKeys} from "../schemas/taskSubmissionSchema.js";
+import { TASK_FIELDS, trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
@@ -53,11 +49,7 @@ const BAR_WIDTH = 120;
 // `showRanking` adds the column saying which rankings each score is carrying. Off by
 // default: it needs rows stamped by markRankedRows, which only a page that has fetched the
 // model's ranking can do.
-function getScoreColumns({
-  showSubmission = true,
-  showModel = false,
-  showRanking = false,
-} = {}) {
+function getScoreColumns({ showSubmission = true, showModel = false, showRanking = false } = {}) {
   const modelColumn = showModel
     ? [
         {
@@ -319,11 +311,7 @@ function buildBestScoresTable({ rows, total }) {
  * @returns the markup.
  */
 function buildLatestScoresTable({ rows, limit }) {
-  const shown = previewRows(
-    rows,
-    (a, b) => numericSorter(b.mean_score, a.mean_score),
-    limit,
-  );
+  const shown = previewRows(rows, (a, b) => numericSorter(b.mean_score, a.mean_score), limit);
 
   return buildStaticTable({
     columns: getLatestScoreColumns(),
@@ -378,8 +366,4 @@ function createTaskScoresTable({
   });
 }
 
-export {
-  buildBestScoresTable,
-  buildLatestScoresTable,
-  createTaskScoresTable,
-};
+export { buildBestScoresTable, buildLatestScoresTable, createTaskScoresTable };

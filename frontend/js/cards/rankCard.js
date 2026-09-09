@@ -56,8 +56,7 @@ function buildFigure(side, label, muted = false) {
  */
 function buildOverall(row, showPrivate) {
   const figures = showPrivate
-    ? buildFigure(row.publicSide, "Public") +
-      buildFigure(row.privateSide, "Private", true)
+    ? buildFigure(row.publicSide, "Public") + buildFigure(row.privateSide, "Private", true)
     : buildFigure(row.publicSide, "OVERALL");
 
   // A model placed overall says the field it beat, in the caps a figure's label takes; one
@@ -87,9 +86,7 @@ function buildSuiteRow(row, showPrivate) {
     `;
   }
 
-  const held = showPrivate
-    ? ` <span class="muted">(${positionOf(row.privateSide)})</span>`
-    : "";
+  const held = showPrivate ? ` <span class="muted">(${positionOf(row.privateSide)})</span>` : "";
 
   const field = row.publicSide.nRanked || row.privateSide.nRanked;
 

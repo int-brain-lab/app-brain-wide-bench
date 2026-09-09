@@ -16,10 +16,7 @@ import {
   TASK_PANELS,
   toMethodologyValues,
 } from "../schemas/taskSubmissionSchema.js";
-import {
-  getSubmissionBadges,
-  getSubmissionSubtitle,
-} from "../utils/submissionUtils.js";
+import { getSubmissionBadges, getSubmissionSubtitle } from "../utils/submissionUtils.js";
 import {
   getTaskSubmissionFilters,
   markStandingRows,
@@ -55,17 +52,10 @@ import {
   getSection,
   getSectionBody,
 } from "../components/sections.js";
-import {
-  attachEditLink,
-  renderRecordDetailsView,
-} from "../templates/recordDetails.js";
+import { attachEditLink, renderRecordDetailsView } from "../templates/recordDetails.js";
 import { loadRecordPage } from "../templates/recordPage.js";
 import { renderRecordListView } from "../templates/recordList.js";
-import {
-  renderHeader,
-  renderMessage,
-  renderPage,
-} from "../templates/pageChrome.js";
+import { renderHeader, renderMessage, renderPage } from "../templates/pageChrome.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
@@ -89,9 +79,7 @@ const VIEW_ALL = {
 };
 
 // The record's own fields have no count to name: the button opens one page, not a list.
-const DETAILS_FOOTER = buildSectionFooter(
-  buildDetailsButton({ view: "details" }),
-);
+const DETAILS_FOOTER = buildSectionFooter(buildDetailsButton({ view: "details" }));
 
 const DASHBOARD_SECTIONS = [
   {
@@ -185,11 +173,7 @@ function renderScoresSection(rows) {
     return;
   }
 
-  renderSection(
-    "scores",
-    buildSubmissionScoresTable({ rows }),
-    buildFooter("scores", rows.length),
-  );
+  renderSection("scores", buildSubmissionScoresTable({ rows }), buildFooter("scores", rows.length));
 }
 
 function renderDashboardView(context, router) {
@@ -227,8 +211,7 @@ function renderDetailsView({ submission, fields, canEdit, edit, created }) {
     edit,
     created,
 
-    renderTitle: (shown) =>
-      renderHeader(shown.label, getSubmissionSubtitle(shown)),
+    renderTitle: (shown) => renderHeader(shown.label, getSubmissionSubtitle(shown)),
   });
 
   if (!page) return null;
@@ -249,8 +232,7 @@ function renderDetailsView({ submission, fields, canEdit, edit, created }) {
 function renderTasksView({ submission, canEdit }) {
   return renderRecordListView({
     noun: "task",
-    renderTitle: () =>
-      renderHeader(submission.label, getSubmissionSubtitle(submission)),
+    renderTitle: () => renderHeader(submission.label, getSubmissionSubtitle(submission)),
     empty: "No tasks yet.",
 
     rows: toTaskSubmissionRows(submission),
@@ -276,8 +258,7 @@ function renderTasksView({ submission, canEdit }) {
 function renderScoresView({ submission }) {
   return renderRecordListView({
     noun: "task",
-    renderTitle: () =>
-      renderHeader(submission.label, getSubmissionSubtitle(submission)),
+    renderTitle: () => renderHeader(submission.label, getSubmissionSubtitle(submission)),
     empty: "No tasks yet.",
 
     rows: toTaskSubmissionRows(submission),
@@ -308,25 +289,13 @@ function buildApplyToSuite() {
 }
 
 function getTaskSubtitle(submission, taskSubmission) {
-  return [
-    suiteLabel(suiteFromTask(taskSubmission.task_id)),
-    submission.label,
-    submission.team_name,
-  ]
+  return [suiteLabel(suiteFromTask(taskSubmission.task_id)), submission.label, submission.team_name]
     .filter(Boolean)
     .join(" · ");
 }
 
-function renderTaskView({
-  submission,
-  taskFields,
-  task,
-  canEdit,
-  edit = false,
-}) {
-  const taskSubmission = (submission.task_submissions ?? []).find(
-    (row) => row.id === task,
-  );
+function renderTaskView({ submission, taskFields, task, canEdit, edit = false }) {
+  const taskSubmission = (submission.task_submissions ?? []).find((row) => row.id === task);
 
   // `task` is a durable param, so this view is entered from the URL as well as from the
   // table — a deep link, a refresh or a Back can name a task this submission hasn't got.
@@ -366,8 +335,7 @@ function renderTaskView({
     canEdit,
     edit,
 
-    renderTitle: (shown) =>
-      renderHeader(shown.task_id, getTaskSubtitle(submission, shown)),
+    renderTitle: (shown) => renderHeader(shown.task_id, getTaskSubtitle(submission, shown)),
   });
 
   if (!page) return null;
@@ -468,9 +436,7 @@ loadRecordPage({
     // After the three above rather than beside them: the model is named by the submission,
     // so there is nothing to ask for until it has arrived. Undefined on failure, which
     // leaves the scores table without a standing rather than the page without scores.
-    const breakdown = await loadModelBreakdown(submission.model_id).catch(
-      () => undefined,
-    );
+    const breakdown = await loadModelBreakdown(submission.model_id).catch(() => undefined);
 
     return {
       submission,

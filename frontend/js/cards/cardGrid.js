@@ -17,19 +17,12 @@ const CARDS_PER_PAGE = 8;
 function getPageNumbers(currentPage, pageCount) {
   const count = Math.min(MAX_PAGE_BUTTONS, pageCount);
 
-  const first = Math.min(
-    Math.max(1, currentPage - Math.floor(count / 2)),
-    pageCount - count + 1,
-  );
+  const first = Math.min(Math.max(1, currentPage - Math.floor(count / 2)), pageCount - count + 1);
 
   return Array.from({ length: count }, (_, index) => first + index);
 }
 
-function buildPageButton(
-  label,
-  page,
-  { active = false, disabled = false } = {},
-) {
+function buildPageButton(label, page, { active = false, disabled = false } = {}) {
   return `
     <button
       type="button"
@@ -92,10 +85,7 @@ function highlightSelectedCards(root, keys, inkOf = () => null) {
     const picked = keys.has(card.dataset.key);
 
     card.classList.toggle("selected", picked);
-    card.style.setProperty(
-      "--pick-ink",
-      (picked && inkOf(card.dataset.key)) || "",
-    );
+    card.style.setProperty("--pick-ink", (picked && inkOf(card.dataset.key)) || "");
   });
 }
 
@@ -120,14 +110,7 @@ function toRowMap(rows, getKey) {
 // ─── MARKUP ──────────────────────────────────────────────────────────────────
 
 // `total` is the count before filtering.
-function buildGridHtml({
-  visibleRows,
-  buildCards,
-  total,
-  noun,
-  page,
-  pageCount,
-}) {
+function buildGridHtml({ visibleRows, buildCards, total, noun, page, pageCount }) {
   return `
     <div class="grid-2" data-role="cards">
       ${buildCards(visibleRows)}
@@ -186,10 +169,7 @@ function createCardGrid({
     clearContent(element);
 
     if (!matching.length) {
-      renderHtml(
-        element,
-        buildEmptyMessage(`No ${noun}s match these filters.`),
-      );
+      renderHtml(element, buildEmptyMessage(`No ${noun}s match these filters.`));
       rowMap = new Map();
 
       return;

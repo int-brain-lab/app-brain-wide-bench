@@ -17,9 +17,7 @@ async function updateTaskSubmissions(submissionId, taskSubmissionIds, updates) {
 // submission read through the model or submission that owns it carries its score's summary and
 // how it was produced, and nothing per recording.
 async function loadTaskSubmission(submissionId, taskSubmissionId) {
-  return await apiFetch(
-    `/api/submissions/${submissionId}/tasks/${taskSubmissionId}`,
-  );
+  return await apiFetch(`/api/submissions/${submissionId}/tasks/${taskSubmissionId}`);
 }
 
 async function getMyTaskSubmissions() {
@@ -34,9 +32,4 @@ async function getTaskSubmissions(teamId) {
   return await apiFetch(`/api/task-submissions${buildQuery({ team_id: teamId })}`);
 }
 
-export {
-  getMyTaskSubmissions,
-  getTaskSubmissions,
-  loadTaskSubmission,
-  updateTaskSubmissions,
-};
+export { getMyTaskSubmissions, getTaskSubmissions, loadTaskSubmission, updateTaskSubmissions };

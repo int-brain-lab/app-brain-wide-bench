@@ -5,13 +5,7 @@
 
 import { buildPageErrorMessage } from "../components/messages.js";
 import { escapeHtml } from "../core/html.js";
-import {
-  clearContent,
-  getElement,
-  refreshIcons,
-  renderHtml,
-  setText,
-} from "../core/render.js";
+import { clearContent, getElement, refreshIcons, renderHtml, setText } from "../core/render.js";
 import {
   TITLE_ID,
   DESCRIPTION_ID,
@@ -53,9 +47,7 @@ function renderHeader(title, description = "", badges = []) {
 
   renderHeaderPart(
     getElement(DESCRIPTION_ID),
-    typeof description === "string"
-      ? escapeHtml(description)
-      : buildSubtitle(description),
+    typeof description === "string" ? escapeHtml(description) : buildSubtitle(description),
   );
 
   renderHeaderPart(getElement(BADGES_ID), buildTitleBadges(badges ?? []));
@@ -68,11 +60,4 @@ function renderHeaderPart(element, html) {
   element.hidden = !html;
 }
 
-export {
-  CONTAINER_ID,
-  renderPage,
-  renderPageError,
-  renderHeader,
-  renderMessage,
-  clearMessage,
-};
+export { CONTAINER_ID, renderPage, renderPageError, renderHeader, renderMessage, clearMessage };

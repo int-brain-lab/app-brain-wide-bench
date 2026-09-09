@@ -112,10 +112,7 @@ function getPointValue(value) {
 }
 
 function getPointSem(dataset, value, index) {
-  return (
-    dataset.sems?.[index] ??
-    (value !== null && typeof value === "object" ? value.sem : null)
-  );
+  return dataset.sems?.[index] ?? (value !== null && typeof value === "object" ? value.sem : null);
 }
 
 function drawErrorBar(ctx, x, top, bottom) {
@@ -193,18 +190,9 @@ const errorBars = {
  * @param height CSS height of the chart container.
  * @param tooltip tooltip overrides.
  */
-function createChart({
-  container,
-  type,
-  data,
-  options,
-  height,
-  tooltip,
-}) {
+function createChart({ container, type, data, options, height, tooltip }) {
   if (typeof Chart === "undefined") {
-    throw new Error(
-      `createChart: Chart.js is not loaded — add its <script> to the page.`,
-    );
+    throw new Error(`createChart: Chart.js is not loaded — add its <script> to the page.`);
   }
 
   const root = resolveContainer(container);
@@ -267,7 +255,6 @@ function createCategoryChart({
 }) {
   const element = document.createElement("div");
 
-
   element.className = "chart-facet";
   const chart = createChart({
     container: element,
@@ -276,8 +263,7 @@ function createCategoryChart({
     height,
     tooltip: {
       callbacks: {
-        title: (items) =>
-          items[0] ? (categoryLabel(items[0].label) ?? items[0].label) : "",
+        title: (items) => (items[0] ? (categoryLabel(items[0].label) ?? items[0].label) : ""),
         label: (item) => {
           const sem = item.dataset.sems?.[item.dataIndex];
           const name = item.dataset.label;
@@ -319,9 +305,7 @@ function createCategoryChart({
         y: {
           title: { display: Boolean(yAxisLabel), text: yAxisLabel, color: AXIS },
           ...yGrid,
-          ...(yRange
-            ? { suggestedMin: yRange.min, suggestedMax: yRange.max }
-            : {}),
+          ...(yRange ? { suggestedMin: yRange.min, suggestedMax: yRange.max } : {}),
         },
       },
     },

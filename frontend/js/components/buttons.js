@@ -1,9 +1,7 @@
-import {getIcon} from "./icons.js";
-import {escapeHtml} from "../core/html.js";
-import {buildCount} from "./count.js";
-import {pluralise} from "../core/utils.js";
-
-
+import { getIcon } from "./icons.js";
+import { escapeHtml } from "../core/html.js";
+import { buildCount } from "./count.js";
+import { pluralise } from "../core/utils.js";
 
 export const COMPARE_BUTTON_ID = "compare-button";
 export const GO_BUTTON_ID = "go-to-comparison";
@@ -17,8 +15,8 @@ export const SUBMIT_BUTTON_ID = "submit-button";
 export const TABLE_TOGGLE_ID = "table-toggle";
 export const CARD_TOGGLE_ID = "card-toggle";
 
-export const TABLE_VIEW = "table-view"
-export const PLOT_VIEW = "plot-view"
+export const TABLE_VIEW = "table-view";
+export const PLOT_VIEW = "plot-view";
 
 // Read out by the hint beside them as well as worn by the buttons: a renamed button would
 // otherwise leave the sentence naming one that is not there. The leaderboard and the lists
@@ -26,7 +24,6 @@ export const PLOT_VIEW = "plot-view"
 // templates/listView.js.
 export const DONE_LABEL = "Done";
 export const GO_COMPARE_LABEL = "Go to comparison";
-
 
 function buttonBody({ label, icon }) {
   return `
@@ -93,11 +90,13 @@ export function buildButton({
   return `<button type="button" ${attributes}>${body}</button>`;
 }
 
-
-
-export function buildCompareButton(
-  { id = COMPARE_BUTTON_ID, href=null, label = "Compare", className = "", disabled = false } = {}
-) {
+export function buildCompareButton({
+  id = COMPARE_BUTTON_ID,
+  href = null,
+  label = "Compare",
+  className = "",
+  disabled = false,
+} = {}) {
   return buildButton({
     id,
     label,
@@ -110,9 +109,12 @@ export function buildCompareButton(
 
 // `className` is the caller's, for a create button beside others it should read with rather
 // than lead — an empty string leaves `.btn`'s own fill.
-export function buildCreateButton(
-  { id = CREATE_BUTTON_ID, href=null, label = "New", className = "" } = {}
-) {
+export function buildCreateButton({
+  id = CREATE_BUTTON_ID,
+  href = null,
+  label = "New",
+  className = "",
+} = {}) {
   return buildButton({
     id,
     label,
@@ -122,10 +124,7 @@ export function buildCreateButton(
   });
 }
 
-
-export function buildEditButton(
-  { id = EDIT_BUTTON_ID, href=null, label = "Edit" } = {}
-) {
+export function buildEditButton({ id = EDIT_BUTTON_ID, href = null, label = "Edit" } = {}) {
   return buildButton({
     id,
     label,
@@ -134,10 +133,12 @@ export function buildEditButton(
   });
 }
 
-
-export function buildCancelButton(
-  { id = CANCEL_BUTTON_ID, href=null, label = "Cancel", hidden = false } = {}
-) {
+export function buildCancelButton({
+  id = CANCEL_BUTTON_ID,
+  href = null,
+  label = "Cancel",
+  hidden = false,
+} = {}) {
   return buildButton({
     id,
     label,
@@ -147,11 +148,12 @@ export function buildCancelButton(
   });
 }
 
-
-
-export function buildSaveButton(
-  { id = SAVE_BUTTON_ID, href=null, label = "Save", hidden = false } = {}
-) {
+export function buildSaveButton({
+  id = SAVE_BUTTON_ID,
+  href = null,
+  label = "Save",
+  hidden = false,
+} = {}) {
   return buildButton({
     id,
     label,
@@ -161,7 +163,6 @@ export function buildSaveButton(
     className: "primary",
   });
 }
-
 
 /**
  * The way from a section's preview to the whole of it, under the section's content.
@@ -186,7 +187,6 @@ export function buildViewAllButton(noun, viewAll, { count = null } = {}) {
   });
 }
 
-
 // The record's own fields, from a section showing something else about it — "all details"
 // would promise a longer version of what is on screen, which is not what it opens.
 export function buildDetailsButton({ href = null, view = null } = {}) {
@@ -199,10 +199,12 @@ export function buildDetailsButton({ href = null, view = null } = {}) {
   });
 }
 
-
-export function buildMembersButton(
-  { id = MEMBERS_BUTTON_ID, href=null, view=null, label = "Manage members" } = {}
-) {
+export function buildMembersButton({
+  id = MEMBERS_BUTTON_ID,
+  href = null,
+  view = null,
+  label = "Manage members",
+} = {}) {
   return buildButton({
     id,
     label,
@@ -272,8 +274,6 @@ export function buildPlotTableToggle(scope = "") {
     })),
   );
 }
-
-
 
 // A create page's footer: Cancel back to where it came from, and the submit button, which
 // starts disabled — the form enables it once every panel is complete.

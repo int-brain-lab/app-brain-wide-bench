@@ -35,13 +35,8 @@ function toTaskSubmissionRow(submission, taskSubmission) {
 
 // Plural counterpart. The submission is the same for every row — it carries the id the
 // edit link needs — so it stays outside the map rather than being repeated per task.
-function toTaskSubmissionRows(
-  submission,
-  taskSubmissions = submission.task_submissions ?? [],
-) {
-  return taskSubmissions.map((taskSubmission) =>
-    toTaskSubmissionRow(submission, taskSubmission),
-  );
+function toTaskSubmissionRows(submission, taskSubmissions = submission.task_submissions ?? []) {
+  return taskSubmissions.map((taskSubmission) => toTaskSubmissionRow(submission, taskSubmission));
 }
 
 // ─── STANDING ────────────────────────────────────────────────────────────────
@@ -97,9 +92,7 @@ function suiteSiblings(submission, taskSubmission) {
 // than only into the edited record.
 function mergeUpdated(submission, updated) {
   for (const row of updated) {
-    const existing = (submission.task_submissions ?? []).find(
-      (task) => task.id === row.id,
-    );
+    const existing = (submission.task_submissions ?? []).find((task) => task.id === row.id);
 
     if (existing) Object.assign(existing, row);
   }

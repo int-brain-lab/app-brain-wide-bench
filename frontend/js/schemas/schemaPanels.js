@@ -8,20 +8,13 @@
 // false to keep `editable: false` rows as well.
 function fieldsForPanel(fields, panel, editableOnly = true) {
   return Object.keys(fields).filter(
-    (key) =>
-      fields[key].panel === panel &&
-      (!editableOnly || fields[key].editable !== false),
+    (key) => fields[key].panel === panel && (!editableOnly || fields[key].editable !== false),
   );
 }
 
 // One panel with its keys resolved, or null when it has none to draw. `columns` overrides
 // the panel's own, which is how one layout serves both modes.
-function toPanelGroup(
-  fields,
-  name,
-  panel,
-  { editableOnly = false, columns } = {},
-) {
+function toPanelGroup(fields, name, panel, { editableOnly = false, columns } = {}) {
   const keys = fieldsForPanel(fields, name, editableOnly);
 
   if (!keys.length) return null;

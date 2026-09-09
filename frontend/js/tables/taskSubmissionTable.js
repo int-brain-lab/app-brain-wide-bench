@@ -5,16 +5,9 @@
 // The columns only. Rows and filters are in utils/taskSubmissionUtils.js, and the table
 // infrastructure in table.js.
 
-import {
-  TASK_FIELDS,
-  trainingFieldKeys,
-} from "../schemas/taskSubmissionSchema.js";
+import { TASK_FIELDS, trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
 import { getTaskSubmissionFilters } from "../utils/taskSubmissionUtils.js";
-import {
-  buildStaticTable,
-  createFilterableTable,
-  previewRows,
-} from "./table.js";
+import { buildStaticTable, createFilterableTable, previewRows } from "./table.js";
 import {
   buildFlagFormatter,
   buildScoreSemFormatter,
@@ -173,10 +166,7 @@ function getScoreColumns() {
       // run, and what it wants to know is whether that run is still the one that counts.
       title: "Latest entry",
       field: "latest",
-      formatter: buildFlagFormatter(
-        (row) => row.latest,
-        "The model's current entry for this task",
-      ),
+      formatter: buildFlagFormatter((row) => row.latest, "The model's current entry for this task"),
       headerSort: false,
       hozAlign: "center",
       headerHozAlign: "center",
@@ -216,17 +206,8 @@ function buildSubmissionScoresTable({ rows }) {
  *
  * @returns the markup.
  */
-function buildStaticTaskSubmissionsTable({
-  rows,
-  showEdit = false,
-  showScore = true,
-  limit,
-}) {
-  const shown = previewRows(
-    rows,
-    (a, b) => String(a.task_id).localeCompare(b.task_id),
-    limit,
-  );
+function buildStaticTaskSubmissionsTable({ rows, showEdit = false, showScore = true, limit }) {
+  const shown = previewRows(rows, (a, b) => String(a.task_id).localeCompare(b.task_id), limit);
 
   return buildStaticTable({
     columns: getTaskSubmissionColumns({ showEdit, showScore }),
@@ -236,8 +217,4 @@ function buildStaticTaskSubmissionsTable({
   });
 }
 
-export {
-  buildStaticTaskSubmissionsTable,
-  buildSubmissionScoresTable,
-  createTaskSubmissionsTable,
-};
+export { buildStaticTaskSubmissionsTable, buildSubmissionScoresTable, createTaskSubmissionsTable };

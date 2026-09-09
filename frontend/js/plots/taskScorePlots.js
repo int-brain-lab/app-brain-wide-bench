@@ -35,9 +35,7 @@ function categoryTickLabel(key, { taskType, index, count, columns }) {
   const named = NAMED_TICKS[columns] ?? NARROWEST;
   const stride = Math.max(1, Math.ceil(count / named));
 
-  return index % stride === Math.floor(stride / 2)
-    ? String(key).slice(0, 8)
-    : null;
+  return index % stride === Math.floor(stride / 2) ? String(key).slice(0, 8) : null;
 }
 
 // ─── PLOTS ───────────────────────────────────────────────────────────────────

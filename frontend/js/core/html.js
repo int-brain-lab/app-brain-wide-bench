@@ -11,4 +11,3 @@ function escapeHtml(value) {
 }
 
 export { escapeHtml };
-

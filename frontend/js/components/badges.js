@@ -21,7 +21,6 @@ function buildSuiteBadge(suite, size = "") {
   return `<span class="badge ${size} ${escapeHtml(suite)}">${escapeHtml(suiteLabel(suite))}</span>`;
 }
 
-
 function buildTaskBadge(task, suite, size = "") {
   return `<span class="badge ${size} ${escapeHtml(suite)}">${escapeHtml(task)}</span>`;
 }
@@ -137,5 +136,5 @@ export {
   buildVisibleBadge,
   buildPretrainedBadge,
   buildMineBadge,
-  buildTaskBadge
+  buildTaskBadge,
 };

@@ -2,12 +2,7 @@
 //
 // The panel a score row opens is SCORE_PANEL in comparisons/taskScoreComparison.js.
 
-import {
-  metricLabel,
-  suiteFromTask,
-  taskFullLabel,
-  taskLabel,
-} from "../core/suites.js";
+import { metricLabel, suiteFromTask, taskFullLabel, taskLabel } from "../core/suites.js";
 import {
   TASK_FIELDS,
   toMethodologyValues,
@@ -117,13 +112,11 @@ function toBestScoreRows(rows) {
 // Short names, which are unique across the suites, and the suite as the class — so a pinned
 // task wears the colour of the suite it came from.
 function taskOptions(rows) {
-  return [...new Set(rows.map((row) => row.task_id).filter(Boolean))]
-    .sort()
-    .map((taskId) => ({
-      value: taskId,
-      label: taskLabel(taskId),
-      className: suiteFromTask(taskId),
-    }));
+  return [...new Set(rows.map((row) => row.task_id).filter(Boolean))].sort().map((taskId) => ({
+    value: taskId,
+    label: taskLabel(taskId),
+    className: suiteFromTask(taskId),
+  }));
 }
 
 // Typed text against a task, matched on both the name the reader sees and the id it is
@@ -131,9 +124,7 @@ function taskOptions(rows) {
 // type. The pinned Task control beside this one is for picking whole tasks out; this is for
 // finding them.
 function matchTaskText(row, value) {
-  return `${row.task_id} ${taskFullLabel(row.task_id)}`
-    .toLowerCase()
-    .includes(value.toLowerCase());
+  return `${row.task_id} ${taskFullLabel(row.task_id)}`.toLowerCase().includes(value.toLowerCase());
 }
 
 // How each task was produced: the methodology panel of a task submission, whatever it holds.
@@ -144,10 +135,7 @@ function getMethodologyFilters() {
     name: key,
     label: TASK_FIELDS[key].label,
     options: TASK_FIELDS[key].options ?? [],
-    match:
-      TASK_FIELDS[key].input === "checkbox-list"
-        ? matchInArray(key)
-        : matchEquals(key),
+    match: TASK_FIELDS[key].input === "checkbox-list" ? matchInArray(key) : matchEquals(key),
   }));
 }
 
@@ -240,10 +228,4 @@ function getCoverageBadges(scoreRows) {
   return [buildSuiteCoverageBadges([...covered])];
 }
 
-export {
-  getCoverageBadges,
-  getTaskScoreFilters,
-  toBestScoreRows,
-  toScoreResultRows,
-  toScoreRows,
-};
+export { getCoverageBadges, getTaskScoreFilters, toBestScoreRows, toScoreResultRows, toScoreRows };

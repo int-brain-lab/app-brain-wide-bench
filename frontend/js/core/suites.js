@@ -1,6 +1,5 @@
 const SUITES = ["ts1", "ts2", "ts3"];
 
-
 // A task in as few words as read it. The id names what was decoded and how it was measured
 // — "whisker_motion_energy" — where an axis tick or a column head only has to say which task
 // it is, and the metric is written beside it anyway. Keyed by the ids in
@@ -30,9 +29,7 @@ function suitesFromSubmission(submission) {
   }
 
   const taskSubmissions = submission.task_submissions ?? [];
-  const derived = new Set(
-    taskSubmissions.map((ts) => suiteFromTask(ts.task_id)).filter(Boolean),
-  );
+  const derived = new Set(taskSubmissions.map((ts) => suiteFromTask(ts.task_id)).filter(Boolean));
 
   return SUITES.filter((suite) => derived.has(suite));
 }
@@ -54,9 +51,7 @@ function suitesFromModel(model) {
 
   if (scored.size) return SUITES.filter((suite) => scored.has(suite));
 
-  const derived = new Set(
-    (model.submissions ?? []).flatMap(suitesFromSubmission),
-  );
+  const derived = new Set((model.submissions ?? []).flatMap(suitesFromSubmission));
 
   return SUITES.filter((suite) => derived.has(suite));
 }
@@ -123,9 +118,7 @@ function metricLabel(metric) {
 
   // A region is already written as it reads — "TH", "Isocortex" — where the average over
   // them is the one prefix that is a word.
-  return `${region === MACRO_REGION ? "Macro" : region} ${metricLabel(
-    name.slice(at + 1),
-  )}`;
+  return `${region === MACRO_REGION ? "Macro" : region} ${metricLabel(name.slice(at + 1))}`;
 }
 
 function suiteFromTask(taskId) {
@@ -161,9 +154,7 @@ function taskTypeLabel(taskType) {
 // The suite in front of the short name — "TS1 Choice". What a task is called wherever it is
 // named away from its suite: a chip on a comparison, a badge on a list spanning all three.
 function taskFullLabel(taskId) {
-  return [suiteLabel(suiteFromTask(taskId)), taskLabel(taskId)]
-    .filter(Boolean)
-    .join(" ");
+  return [suiteLabel(suiteFromTask(taskId)), taskLabel(taskId)].filter(Boolean).join(" ");
 }
 
 function taskTypeOf(taskId) {

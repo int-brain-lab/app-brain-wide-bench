@@ -52,12 +52,7 @@ function previewRows(rows, compare, limit) {
  *
  * @returns the markup.
  */
-function buildStaticTable({
-  columns,
-  rows,
-  noun,
-  total = rows.length,
-}) {
+function buildStaticTable({ columns, rows, noun, total = rows.length }) {
   return `
     <div class="table">
       <table>
@@ -142,14 +137,10 @@ function createTable({
   layout = "fitColumns",
 }) {
   if (typeof Tabulator === "undefined") {
-    throw new Error(
-      `Tabulator is not loaded — add its <script> and <link> to the page.`,
-    );
+    throw new Error(`Tabulator is not loaded — add its <script> and <link> to the page.`);
   }
 
-  const root = container
-    ? resolveContainer(container)
-    : document.createElement("div");
+  const root = container ? resolveContainer(container) : document.createElement("div");
 
   root.className = "column gap-lg";
 
@@ -167,10 +158,7 @@ function createTable({
     const count = root.querySelector("[data-role='count']");
     if (!count) return;
 
-    setText(
-      count,
-      buildTableCount(table.getDataCount("display"), rows.length, noun),
-    );
+    setText(count, buildTableCount(table.getDataCount("display"), rows.length, noun));
   }
 
   const table = new Tabulator(root.querySelector("[data-role='grid']"), {
@@ -291,9 +279,4 @@ function createFilterableTable({ controls = [], ...rest }) {
   return { element, table };
 }
 
-export {
-  buildStaticTable,
-  createFilterableTable,
-  createTable,
-  previewRows,
-};
+export { buildStaticTable, createFilterableTable, createTable, previewRows };

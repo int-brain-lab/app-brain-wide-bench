@@ -208,9 +208,7 @@ function loadComparePage({
     // colour it was picked in. One added by the select is not in the URL yet and goes last,
     // which is the next colour.
     function applySelection() {
-      comparison.setPicks(
-        [...seeded, ...withIds].map((key) => rowByKey.get(key)).filter(Boolean),
-      );
+      comparison.setPicks([...seeded, ...withIds].map((key) => rowByKey.get(key)).filter(Boolean));
     }
 
     // Delegated: the select is rebuilt whenever what is held changes.

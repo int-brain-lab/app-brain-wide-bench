@@ -6,11 +6,7 @@
 // infrastructure in table.js.
 
 import { getTeamFilters } from "../utils/teamUtils.js";
-import {
-  buildStaticTable,
-  createFilterableTable,
-  previewRows,
-} from "./table.js";
+import { buildStaticTable, createFilterableTable, previewRows } from "./table.js";
 import { buildLinkFormatter, roleBadgeFormatter } from "./formatters.js";
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
@@ -80,11 +76,7 @@ function createTeamsTable({ rows, showFilters = true }) {
  * @returns the markup.
  */
 function buildStaticTeamsTable({ rows, limit }) {
-  const shown = previewRows(
-    rows,
-    (a, b) => String(a.name).localeCompare(b.name),
-    limit,
-  );
+  const shown = previewRows(rows, (a, b) => String(a.name).localeCompare(b.name), limit);
 
   return buildStaticTable({
     columns: getTeamColumns(),

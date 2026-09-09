@@ -32,9 +32,7 @@ const ID_PARAM = "id";
 // ─── HEADER ──────────────────────────────────────────────────────────────────
 
 function getSubtitle(model) {
-  return [{ text: model.team_name, icon: getIcon("team") }].filter(
-    (entry) => entry.text,
-  );
+  return [{ text: model.team_name, icon: getIcon("team") }].filter((entry) => entry.text);
 }
 
 // ─── LOAD ────────────────────────────────────────────────────────────────────
@@ -57,9 +55,7 @@ loadComparePage({
     const modelId = readModelId();
     const models = (await getModels()) ?? [];
 
-    const model = modelId
-      ? (models.find((one) => String(one.id) === modelId) ?? null)
-      : null;
+    const model = modelId ? (models.find((one) => String(one.id) === modelId) ?? null) : null;
 
     // A model named in the URL but absent from the list is a failure; no model at all is not.
     if (modelId && !model) return null;
@@ -71,9 +67,7 @@ loadComparePage({
   createComparison: createModelComparison,
 
   header: ({ model }) =>
-    model
-      ? { title: model.name, subtitle: getSubtitle(model) }
-      : { title: SET_TITLE },
+    model ? { title: model.name, subtitle: getSubtitle(model) } : { title: SET_TITLE },
 
   seedIds: ({ model }) => (model ? [model.id] : []),
 });

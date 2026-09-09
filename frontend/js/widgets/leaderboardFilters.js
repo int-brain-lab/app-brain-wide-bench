@@ -7,10 +7,7 @@
 import { getElement, renderHtml } from "../core/render.js";
 import { formatCount } from "../core/utils.js";
 import { MODEL_FIELDS } from "../schemas/modelSchema.js";
-import {
-  TASK_FIELDS,
-  trainingFieldKeys,
-} from "../schemas/taskSubmissionSchema.js";
+import { TASK_FIELDS, trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
 import { buildButton } from "../components/buttons.js";
 import { buildFilterControl } from "../components/filters.js";
 import { createFilterState } from "../components/filterState.js";
@@ -180,9 +177,7 @@ function createLeaderboardFilters({ container, hasBoard, onApply }) {
 
     const cells = [
       ...lead.map((control) => buildCell(control, values)),
-      ...folded.map((control) =>
-        buildCell(control, values, showingMore ? "" : "folded"),
-      ),
+      ...folded.map((control) => buildCell(control, values, showingMore ? "" : "folded")),
       buildMore(showingMore),
     ];
 
@@ -215,15 +210,14 @@ function createLeaderboardFilters({ container, hasBoard, onApply }) {
     if (apply) {
       apply.disabled = hasBoard() && filters.same(pending, applied);
       if (apply.disabled) {
-        apply.classList.remove('primary')
+        apply.classList.remove("primary");
       } else {
-        apply.classList.add('primary')
+        apply.classList.add("primary");
       }
     }
 
     if (clear) {
-      clear.disabled =
-        filters.same(pending, empty) && filters.same(applied, empty);
+      clear.disabled = filters.same(pending, empty) && filters.same(applied, empty);
     }
   }
 

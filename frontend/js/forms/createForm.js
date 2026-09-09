@@ -79,9 +79,7 @@ function createForm({
   const panelNames = Object.keys(panels);
 
   // Only schema-driven panels are managed by createFieldForm.
-  const fieldPanelNames = panelNames.filter(
-    (name) => panels[name].type === "fields",
-  );
+  const fieldPanelNames = panelNames.filter((name) => panels[name].type === "fields");
 
   // Required fields never change, so calculate them once. A component panel has none,
   // which is why it declares `complete()` instead.
@@ -157,10 +155,9 @@ function createForm({
 
   // ─── FIELD PANELS ──────────────────────────────────────────────────────────
 
-  // The group for one panel, without its title — the fieldset carries that, so that every
-  // panel wears it the same way.
+  // The group for one panel, without its title: the fieldset renders that.
   function groupForPanel(name) {
-    const { title, ...layout } = panels[name];
+    const { title: _title, ...layout } = panels[name];
 
     return toPanelGroup(fields, name, layout, {
       editableOnly: true,
@@ -192,8 +189,7 @@ function createForm({
     return fieldPanelNames.map((name) => ({
       container: panelElements.get(name).querySelector("[data-panel-body]"),
 
-      draw: (values) =>
-        buildPanelCard(groupForPanel(name), values, fields, buildFields),
+      draw: (values) => buildPanelCard(groupForPanel(name), values, fields, buildFields),
     }));
   }
 

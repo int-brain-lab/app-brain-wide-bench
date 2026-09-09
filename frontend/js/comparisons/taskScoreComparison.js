@@ -12,13 +12,7 @@
 import { disposeAll } from "../core/disposable.js";
 import { resolveContainer } from "../core/dom.js";
 import { escapeHtml } from "../core/html.js";
-import {
-  clearContent,
-  getElement,
-  refreshIcons,
-  renderHtml,
-  setText,
-} from "../core/render.js";
+import { clearContent, getElement, refreshIcons, renderHtml, setText } from "../core/render.js";
 import {
   metricLabel,
   suiteFromTask,
@@ -28,10 +22,7 @@ import {
   taskTypeOf,
 } from "../core/suites.js";
 import { loadTaskSubmission } from "../api/taskSubmissionApi.js";
-import {
-  REGION_TASK_TYPE,
-  toScoreDetail,
-} from "../utils/recordingScoreUtils.js";
+import { REGION_TASK_TYPE, toScoreDetail } from "../utils/recordingScoreUtils.js";
 import { SERIES_COLOURS } from "../plots/palette.js";
 import {
   SCORE_RANGE,
@@ -44,11 +35,7 @@ import { buildMetricBadge, buildTaskBadge } from "../components/badges.js";
 import { buildToggle } from "../components/buttons.js";
 import { buildPicks, dropFromClick } from "../components/comparisonGrid.js";
 import { buildEmptyMessage } from "../components/messages.js";
-import {
-  buildSections,
-  getSection,
-  getSectionBody,
-} from "../components/sections.js";
+import { buildSections, getSection, getSectionBody } from "../components/sections.js";
 import { createComparison } from "./comparison.js";
 import { MAX_COMPARED } from "./limits.js";
 
@@ -134,9 +121,7 @@ function toCategories(scores) {
 
 // `numeric` so a key ending in 10 follows one ending in 2.
 function sorted(keys) {
-  return [...keys].sort((a, b) =>
-    String(a).localeCompare(String(b), undefined, { numeric: true }),
-  );
+  return [...keys].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
 }
 
 // A metric the score never recorded, or a detail that has not landed: a series of gaps
@@ -195,9 +180,7 @@ function toTaskTypeGroups(scores) {
 function buildMeanBadges(group, metric) {
   const suite = suiteFromTask(group.scores[0]?.taskId ?? "");
 
-  const name = [suiteLabel(suite), taskTypeLabel(group.key)]
-    .filter(Boolean)
-    .join(" ");
+  const name = [suiteLabel(suite), taskTypeLabel(group.key)].filter(Boolean).join(" ");
 
   // Not `left`: the two say different things — what is drawn, and what it is of — so they
   // read as the card's two ends rather than as a pair.
@@ -312,8 +295,7 @@ function createTaskComparison({
 
     taskTypeGroups = toTaskTypeGroups(scores);
 
-    ({ recordings: uniqueRecordings, regions: uniqueRegions } =
-      toCategories(scores));
+    ({ recordings: uniqueRecordings, regions: uniqueRegions } = toCategories(scores));
   }
 
   function categoriesFor(taskType) {
@@ -418,9 +400,7 @@ function createTaskComparison({
   }
 
   function getGroupSlot(key, slot) {
-    return getSectionBody(SCORES_SECTION)?.querySelector(
-      `[data-${GROUP_ROW}="${key}"] ${slot}`,
-    );
+    return getSectionBody(SCORES_SECTION)?.querySelector(`[data-${GROUP_ROW}="${key}"] ${slot}`);
   }
 
   // One task type's mean, a bar per pick, and under it the choice of what to read it in.
@@ -429,9 +409,7 @@ function createTaskComparison({
   function buildMeanCell(group) {
     const metric = metricFor(group.key);
 
-    const labels = new Map(
-      group.scores.map((score) => [score.key, score.label]),
-    );
+    const labels = new Map(group.scores.map((score) => [score.key, score.label]));
 
     const series = toMeanSeries(group.scores, metric);
     const categories = group.scores.map((score) => score.key);
@@ -624,10 +602,7 @@ function createTaskComparison({
 
   function setActiveView(selected) {
     for (const { id } of VIEWS) {
-      getElement(id)?.classList.toggle(
-        "primary-inv",
-        id === selected,
-      );
+      getElement(id)?.classList.toggle("primary-inv", id === selected);
     }
   }
 
@@ -666,9 +641,7 @@ function createTaskComparison({
 
         if (!badge) return;
 
-        const key = badge.closest(`[data-${METRIC_GROUP}]`)?.dataset[
-          METRIC_GROUP
-        ];
+        const key = badge.closest(`[data-${METRIC_GROUP}]`)?.dataset[METRIC_GROUP];
 
         // The lit one: clicking it would tear the plots down and build them again the same.
         if (!key || badge.value === metricFor(key)) return;
@@ -691,21 +664,20 @@ function createTaskComparison({
       id: SCORES_SECTION,
 
       // What is being shown, opposite the choice of how to show it.
-      controls: nested
-        ? ""
-        : `<span class="metadata bold action-hint" id="${HINT_ID}"></span>`,
+      controls: nested ? "" : `<span class="metadata bold action-hint" id="${HINT_ID}"></span>`,
       actions: nested ? [] : [buildToggle(VIEWS)],
     };
 
     renderHtml(
       container,
       `
-        ${showPicks
-          ? `<span
+        ${
+          showPicks
+            ? `<span
                class="row left gap-sm compare-picks push-down"
                id="${PICKS_ID}"
              ></span>`
-          : ""
+            : ""
         }
 
         ${buildSections([scores])}
@@ -773,9 +745,4 @@ const SCORE_PANEL = {
   create: (container) => createTaskComparison({ container, toPick: toScorePick }),
 };
 
-export {
-  SCORE_PANEL,
-  buildRecordingsToggle,
-  createTaskComparison,
-};
-
+export { SCORE_PANEL, buildRecordingsToggle, createTaskComparison };

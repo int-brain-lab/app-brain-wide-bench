@@ -12,11 +12,7 @@
 // The page provides #member-search, #member-results and #member-list; #member-add is
 // optional and wraps the lookup where a page needs to hide it outside edit mode.
 
-import {
-  addTeamMember,
-  removeTeamMember,
-  updateTeamMember,
-} from "../api/teamApi.js";
+import { addTeamMember, removeTeamMember, updateTeamMember } from "../api/teamApi.js";
 import { searchUsers } from "../api/userApi.js";
 import { buildRoleBadge } from "../components/badges.js";
 import { buildTableCount } from "../components/count.js";
@@ -139,9 +135,7 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
   // ─── MEMBERS ───────────────────────────────────────────────────────────────
 
   function getEffectiveMembers() {
-    const current = (getTeam().members ?? []).filter(
-      (member) => !pendingRemoves.has(member.id),
-    );
+    const current = (getTeam().members ?? []).filter((member) => !pendingRemoves.has(member.id));
 
     return [...current, ...pendingAdds.values()];
   }
@@ -160,13 +154,10 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
     // there isn't one yet, and `canRemove` protects the creator there as it does for
     // removal.
     const settable =
-      editing &&
-      (pendingAdds.has(member.email) ||
-        (getTeam().id != null && canRemove(member)));
+      editing && (pendingAdds.has(member.email) || (getTeam().id != null && canRemove(member)));
 
     const options = ROLES.map(
-      (role) =>
-        `<option value="${role}"${role === selected ? " selected" : ""}>${role}</option>`,
+      (role) => `<option value="${role}"${role === selected ? " selected" : ""}>${role}</option>`,
     ).join("");
 
     return `
@@ -285,9 +276,7 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
   }
 
   function renderSearchResults(users) {
-    const existingIds = new Set(
-      getEffectiveMembers().map((member) => member.id),
-    );
+    const existingIds = new Set(getEffectiveMembers().map((member) => member.id));
 
     const available = users.filter((user) => !existingIds.has(user.id));
 

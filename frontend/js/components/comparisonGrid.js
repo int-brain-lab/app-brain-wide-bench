@@ -84,9 +84,7 @@ function buildPicks(picks) {
  * The key a click asked to drop, or null if it landed anywhere else.
  */
 function dropFromClick(event) {
-  return (
-    event.target.closest(`[data-role='${DROP_ROLE}']`)?.dataset.key ?? null
-  );
+  return event.target.closest(`[data-role='${DROP_ROLE}']`)?.dataset.key ?? null;
 }
 
 // ─── GRID ────────────────────────────────────────────────────────────────────
@@ -104,9 +102,7 @@ const CELL = (html, ink = "") => `<td${ink}>${html}</td>`;
 function cellHtml(cell) {
   if (cell?.html) return cell.html;
 
-  return cell?.value == null || cell.value === ""
-    ? "—"
-    : escapeHtml(cell.value);
+  return cell?.value == null || cell.value === "" ? "—" : escapeHtml(cell.value);
 }
 
 /**
@@ -143,9 +139,7 @@ function buildComparisonGrid({
       ? `<thead><tr><th>${corner}</th>${entities
           .map(
             (entity) =>
-              `<th scope="col"${inkStyle(entity.ink)}>${escapeHtml(
-                entity.label ?? "",
-              )}</th>`,
+              `<th scope="col"${inkStyle(entity.ink)}>${escapeHtml(entity.label ?? "")}</th>`,
           )
           .join("")}</tr></thead>`
       : `<thead><tr><th>${corner}</th>${attributes
@@ -160,9 +154,7 @@ function buildComparisonGrid({
       <tr>
         ${label(attribute, "row")}
         ${entities
-          .map((entity) =>
-            CELL(cellHtml(entity.cells[attribute.key]), inkStyle(entity.ink)),
-          )
+          .map((entity) => CELL(cellHtml(entity.cells[attribute.key]), inkStyle(entity.ink)))
           .join("")}
       </tr>`,
           )
@@ -174,9 +166,7 @@ function buildComparisonGrid({
         <th scope="row" title="${escapeHtml(entity.label ?? "")}">${escapeHtml(
           entity.label ?? "",
         )}</th>
-        ${attributes
-          .map((attribute) => CELL(cellHtml(entity.cells[attribute.key])))
-          .join("")}
+        ${attributes.map((attribute) => CELL(cellHtml(entity.cells[attribute.key]))).join("")}
       </tr>`,
           )
           .join("");

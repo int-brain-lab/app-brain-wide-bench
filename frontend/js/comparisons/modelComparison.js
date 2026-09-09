@@ -66,9 +66,7 @@ const DETAILS = {
 
   cells: (pick) => ({
     ...ownCells(pick.detail),
-    ...Object.fromEntries(
-      detailKeys().map((key) => [key, { value: valueOf(pick.detail, key) }]),
-    ),
+    ...Object.fromEntries(detailKeys().map((key) => [key, { value: valueOf(pick.detail, key) }])),
   }),
 };
 

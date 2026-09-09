@@ -21,7 +21,7 @@ import {
   modelFormatter,
   rankFormatter,
   rankSorter,
-  taskHeader
+  taskHeader,
 } from "./formatters.js";
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────

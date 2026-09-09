@@ -147,10 +147,7 @@ async function loadModelMeta() {
 async function loadModelFields() {
   const needsTeams = MODEL_FIELDS.team_id.options === null;
 
-  const [, teams] = await Promise.all([
-    loadModelMeta(),
-    needsTeams ? getMyTeams() : null,
-  ]);
+  const [, teams] = await Promise.all([loadModelMeta(), needsTeams ? getMyTeams() : null]);
 
   if (teams) {
     MODEL_FIELDS.team_id.options = teams.map((team) => ({

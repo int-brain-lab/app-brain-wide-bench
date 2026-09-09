@@ -74,9 +74,7 @@ const ICONS = {
  */
 function getIcon(name) {
   if (!(name in ICONS)) {
-    console.warn(
-      `No icon registered for "${name}" — using it as a Lucide name.`,
-    );
+    console.warn(`No icon registered for "${name}" — using it as a Lucide name.`);
   }
 
   return ICONS[name] ?? name;

@@ -14,21 +14,10 @@ import { getLeaderboard } from "../api/leaderboardApi.js";
 import { getTasks } from "../api/metaApi.js";
 import { getMyTeams } from "../api/teamApi.js";
 import { dispose } from "../core/disposable.js";
-import {
-  getElement,
-  refreshIcons,
-  renderHtml,
-  setText,
-} from "../core/render.js";
+import { getElement, refreshIcons, renderHtml, setText } from "../core/render.js";
 import { loadModelMeta } from "../schemas/modelSchema.js";
-import {
-  loadTaskFields,
-  trainingFieldKeys,
-} from "../schemas/taskSubmissionSchema.js";
-import {
-  toLeaderboardRows,
-  toTaskMetrics,
-} from "../utils/leaderboardUtils.js";
+import { loadTaskFields, trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
+import { toLeaderboardRows, toTaskMetrics } from "../utils/leaderboardUtils.js";
 import { createLeaderboardTable } from "../tables/leaderboardTable.js";
 import {
   buildButton,
@@ -54,23 +43,15 @@ import {
 import { createModelComparison } from "../comparisons/modelComparison.js";
 import { createTableBinding } from "../comparisons/binding.js";
 import { createPanels } from "../components/panels.js";
-import {
-  buildFilterActions,
-  createLeaderboardFilters,
-} from "../widgets/leaderboardFilters.js";
+import { buildFilterActions, createLeaderboardFilters } from "../widgets/leaderboardFilters.js";
 import { createTaskSelection } from "../widgets/taskSelection.js";
 import { loadPage } from "../templates/page.js";
-import {
-  CONTAINER_ID,
-  renderHeader,
-  renderPage,
-} from "../templates/pageChrome.js";
+import { CONTAINER_ID, renderHeader, renderPage } from "../templates/pageChrome.js";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 const TITLE = "Leaderboard";
-const DESCRIPTION =
-  "Public, completed submissions scored against held-out test data.";
+const DESCRIPTION = "Public, completed submissions scored against held-out test data.";
 
 // The chips naming what is being compared, in the board's own header row — see picksContainer.
 const PICKS_ID = "board-picks";
@@ -133,8 +114,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
             {
               id: TASKS_SECTION,
               title: "Suites",
-              description:
-                "Select the suites or a combination of tasks to include in the ranking",
+              description: "Select the suites or a combination of tasks to include in the ranking",
               compact: true,
               collapsible: true,
             },
@@ -154,7 +134,6 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
 
           // Opposite the buttons: what is being compared.
           controls: `<span class="row left gap-sm compare-picks" id="${PICKS_ID}"></span>`,
-
 
           // What pressing them does, then the buttons: the one that stays put reads
           // "Compare models", then "Done", and the other appears beside it.
@@ -200,9 +179,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     return {
       key: row.modelId,
       name: row.model_name,
-      taskSubmissionIds: Object.values(row.scores ?? {}).map(
-        (score) => score.task_submission_id,
-      ),
+      taskSubmissionIds: Object.values(row.scores ?? {}).map((score) => score.task_submission_id),
     };
   }
 
@@ -210,9 +187,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   function methodologyOf(task) {
     if (!task) return null;
 
-    return Object.fromEntries(
-      METHODOLOGY_KEYS.map((key) => [key, task[key] ?? null]),
-    );
+    return Object.fromEntries(METHODOLOGY_KEYS.map((key) => [key, task[key] ?? null]));
   }
 
   // The board's own scores, looked up per render rather than carried on the pick: Apply
@@ -234,9 +209,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
         .filter((taskId) => scores[taskId])
         .map((taskId) => [
           taskId,
-          tasks
-            ? { ...scores[taskId], ...methodologyOf(tasks[taskId]) }
-            : scores[taskId],
+          tasks ? { ...scores[taskId], ...methodologyOf(tasks[taskId]) } : scores[taskId],
         ]),
     );
   }
@@ -460,9 +433,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
 
     // The one control that switches them, so it says where it goes rather than what it is.
     getElement(GO_BUTTON_ID).addEventListener("click", () => {
-      panels.select(
-        panels.active() === COMPARE_PANEL ? BOARD_PANEL : COMPARE_PANEL,
-      );
+      panels.select(panels.active() === COMPARE_PANEL ? BOARD_PANEL : COMPARE_PANEL);
 
       updateComparing();
     });
@@ -477,10 +448,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     return getLeaderboard(filters.applied()).then((loaded) => {
       standings = loaded;
       scoresByModel = new Map(
-        (loaded ?? []).map((standing) => [
-          String(standing.model_id),
-          standing.scores ?? {},
-        ]),
+        (loaded ?? []).map((standing) => [String(standing.model_id), standing.scores ?? {}]),
       );
 
       // Before the board is built, so it is mounted against the surviving picks.

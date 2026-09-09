@@ -2,11 +2,7 @@
 // page heads with.
 
 import { buildCount } from "../components/count.js";
-import {
-  matchEquals,
-  matchIncludes,
-  optionsFromRows,
-} from "../components/filters.js";
+import { matchEquals, matchIncludes, optionsFromRows } from "../components/filters.js";
 import { getIcon } from "../components/icons.js";
 
 // ─── ROWS ────────────────────────────────────────────────────────────────────

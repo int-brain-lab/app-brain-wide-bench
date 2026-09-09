@@ -57,12 +57,7 @@ function capitalise(text) {
 function renderDetails(section, values, fields, panels) {
   renderHtml(
     getSectionBody(section),
-    buildPanelCards(
-      toPanelGroups(fields, panels),
-      values,
-      fields,
-      buildDisplayFields,
-    ),
+    buildPanelCards(toPanelGroups(fields, panels), values, fields, buildDisplayFields),
   );
 }
 
@@ -159,9 +154,7 @@ function attachRecordEditor({
       }),
 
     onSaved: async (saved) => {
-      renderMessage(
-        buildSuccessMessage(`${capitalise(noun)} successfully saved.`),
-      );
+      renderMessage(buildSuccessMessage(`${capitalise(noun)} successfully saved.`));
 
       renderTitle?.(saved);
       renderRows();
@@ -262,17 +255,14 @@ function renderRecordDetailsView({
   renderDetails(noun, record, fields, panels);
 
   if (created) {
-    renderMessage(
-      buildSuccessMessage(`${capitalise(noun)} successfully created.`),
-    );
+    renderMessage(buildSuccessMessage(`${capitalise(noun)} successfully created.`));
   }
 
   if (!canEdit) {
     return null;
   }
 
-  const postCreateSection =
-    created && createCard ? renderCreateSection(noun, createCard) : null;
+  const postCreateSection = created && createCard ? renderCreateSection(noun, createCard) : null;
 
   function attachEditor(options) {
     return attachRecordEditor({

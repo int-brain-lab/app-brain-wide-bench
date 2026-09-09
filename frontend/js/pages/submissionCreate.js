@@ -19,10 +19,7 @@ import { finaliseSubmission } from "../api/submissionApi.js";
 import { loadSubmissionFields } from "../schemas/submissionSchema.js";
 import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
 import { buildFailureMessage } from "../components/messages.js";
-import {
-  buildUploadPanel,
-  createUploadSection,
-} from "../widgets/submissionUpload.js";
+import { buildUploadPanel, createUploadSection } from "../widgets/submissionUpload.js";
 import { buildTaskPanel, createTaskSection } from "../widgets/taskPanel.js";
 import { loadCreatePage } from "../templates/createPage.js";
 import { renderMessage, renderPageError } from "../templates/pageChrome.js";
@@ -91,9 +88,7 @@ async function preselectModel(state, fields, taskSection) {
 
   if (!requested) return;
 
-  const known = fields.model_id.options.some(
-    (option) => String(option.value) === requested,
-  );
+  const known = fields.model_id.options.some((option) => String(option.value) === requested);
 
   if (!known) return;
 

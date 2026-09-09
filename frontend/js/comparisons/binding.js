@@ -18,12 +18,7 @@ import { highlightSelectedCards } from "../cards/cardGrid.js";
  */
 function createTableBinding(
   comparison,
-  {
-    rowIndex = (pick) => pick.key,
-    rolling = false,
-    enabled,
-    claimLinks,
-  } = {},
+  { rowIndex = (pick) => pick.key, rolling = false, enabled, claimLinks } = {},
 ) {
   let table = null;
 
@@ -34,9 +29,7 @@ function createTableBinding(
     // getRows throws on a table that is still building.
     if (!table?.initialized || syncing) return;
 
-    const wanted = new Set(
-      comparison.picks().map((pick) => String(rowIndex(pick))),
-    );
+    const wanted = new Set(comparison.picks().map((pick) => String(rowIndex(pick))));
 
     syncing = true;
 
@@ -63,18 +56,11 @@ function createTableBinding(
     if (!table?.initialized) return;
 
     const inks = new Map(
-      comparison
-        .picks()
-        .map((pick) => [
-          String(rowIndex(pick)),
-          comparison.colourFor(pick.key),
-        ]),
+      comparison.picks().map((pick) => [String(rowIndex(pick)), comparison.colourFor(pick.key)]),
     );
 
     for (const row of table.getRows()) {
-      row
-        .getElement()
-        .style.setProperty("--pick-ink", inks.get(String(row.getIndex())) ?? "");
+      row.getElement().style.setProperty("--pick-ink", inks.get(String(row.getIndex())) ?? "");
     }
   }
 
@@ -158,11 +144,7 @@ function createCardBinding(comparison) {
 
   function repaint() {
     if (attached) {
-      highlightSelectedCards(
-        attached,
-        comparison.keySet(),
-        comparison.colourFor,
-      );
+      highlightSelectedCards(attached, comparison.keySet(), comparison.colourFor);
     }
   }
 

@@ -6,11 +6,7 @@
 // infrastructure in table.js.
 
 import { getSubmissionFilters } from "../utils/submissionUtils.js";
-import {
-  buildStaticTable,
-  createFilterableTable,
-  previewRows,
-} from "./table.js";
+import { buildStaticTable, createFilterableTable, previewRows } from "./table.js";
 import {
   dateFormatter,
   dateSorter,
@@ -44,10 +40,7 @@ function getSubmissionColumns({ showModel = false } = {}) {
     {
       title: "Label",
       field: "label",
-      formatter: buildLinkFormatter(
-        "/html/submissions/submissions.html",
-        "label",
-      ),
+      formatter: buildLinkFormatter("/html/submissions/submissions.html", "label"),
       widthGrow: 2,
     },
     ...modelColumns,
@@ -85,12 +78,7 @@ function getSubmissionColumns({ showModel = false } = {}) {
  *
  * @returns { element, table } — as createModelsTable; the caller mounts the element.
  */
-function createSubmissionsTable({
-  rows,
-  showModel = false,
-  showFilters = true,
-  selection,
-}) {
+function createSubmissionsTable({ rows, showModel = false, showFilters = true, selection }) {
   return createFilterableTable({
     rows,
     columns: getSubmissionColumns({ showModel }),
@@ -116,16 +104,8 @@ function createSubmissionsTable({
  *
  * @returns the markup. The caller writes it where it wants it.
  */
-function buildStaticSubmissionsTable({
-  rows,
-  showModel = false,
-  limit,
-}) {
-  const shown = previewRows(
-    rows,
-    (a, b) => dateSorter(b.updated_at, a.updated_at),
-    limit,
-  );
+function buildStaticSubmissionsTable({ rows, showModel = false, limit }) {
+  const shown = previewRows(rows, (a, b) => dateSorter(b.updated_at, a.updated_at), limit);
 
   return buildStaticTable({
     columns: getSubmissionColumns({ showModel }),

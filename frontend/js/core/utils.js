@@ -52,9 +52,7 @@ function formatDate(value, locale = "en-GB") {
 }
 
 function mean(values) {
-  return values.length
-    ? values.reduce((sum, value) => sum + value, 0) / values.length
-    : null;
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 }
 
 // The standard error of that mean: how far the mean itself would move on another sample of
@@ -68,8 +66,7 @@ function sem(values) {
 
   const centre = mean(values);
   const variance =
-    values.reduce((sum, value) => sum + (value - centre) ** 2, 0) /
-    (values.length - 1);
+    values.reduce((sum, value) => sum + (value - centre) ** 2, 0) / (values.length - 1);
 
   return Math.sqrt(variance / values.length);
 }
@@ -106,13 +103,4 @@ function score(value) {
   return value == null ? "—" : value.toFixed(3);
 }
 
-export {
-  formatCount,
-  formatDate,
-  initials,
-  formatBytes,
-  mean,
-  pluralise,
-  score,
-  sem,
-};
+export { formatCount, formatDate, initials, formatBytes, mean, pluralise, score, sem };

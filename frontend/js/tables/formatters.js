@@ -17,7 +17,8 @@ import {
   buildPretrainedBadge,
   buildRoleBadge,
   buildStatusBadge,
-  buildSuiteBadgeList, buildTaskBadge,
+  buildSuiteBadgeList,
+  buildTaskBadge,
 } from "../components/badges.js";
 import { buildIcon, getIcon } from "../components/icons.js";
 
@@ -40,9 +41,7 @@ function rankBadge(rank) {
 
   const medalClass = MEDAL_CLASSES[rank];
 
-  return medalClass
-    ? `<span class="${medalClass}">${escapeHtml(rank)}</span>`
-    : String(rank);
+  return medalClass ? `<span class="${medalClass}">${escapeHtml(rank)}</span>` : String(rank);
 }
 
 /**
@@ -60,9 +59,7 @@ function buildMeanSem(mean, sem, { stacked = false } = {}) {
 
   // No alignment of its own: the two lines stretch, so the column they are in decides where
   // they sit — a mean with no spread is a bare value and follows it either way.
-  return stacked
-    ? `<span class="column gap-xs">${value}${spread}</span>`
-    : `${value} ${spread}`;
+  return stacked ? `<span class="column gap-xs">${value}${spread}</span>` : `${value} ${spread}`;
 }
 
 function taskLinkAttributes(row) {
@@ -114,10 +111,7 @@ const rankSorter = valueSorter(ascending, { emptyLast: true });
 
 // A `{ mean, sem }` cell — the score tables and the comparison grids hold the whole object so
 // that both halves print from one field.
-const meanSorter = valueSorter(
-  (a, b) => a.mean - b.mean,
-  { emptyLast: true },
-);
+const meanSorter = valueSorter((a, b) => a.mean - b.mean, { emptyLast: true });
 
 function dateSorter(a, b) {
   if (!a && !b) return 0;
@@ -336,13 +330,8 @@ function taskNameFormatter(cell) {
 
   if (!value) return EMPTY_VALUE;
 
-  return `<span>${buildTaskBadge(
-    taskFullLabel(value),
-    suiteFromTask(value),
-    "sm",
-  )}</span>`;
+  return `<span>${buildTaskBadge(taskFullLabel(value), suiteFromTask(value), "sm")}</span>`;
 }
-
 
 function statusFormatter(cell) {
   return buildStatusBadge(cell.getValue(), "sm");
@@ -402,9 +391,7 @@ function rankFormatter(cell) {
  */
 function buildFlagFormatter(read, title) {
   return (cell) =>
-    read(cell.getData())
-      ? buildIcon("tick", { className: "tick-icon", title })
-      : emptyMetadata();
+    read(cell.getData()) ? buildIcon("tick", { className: "tick-icon", title }) : emptyMetadata();
 }
 
 // Signed and coloured by which way it went — see .diff-up in style.css.
@@ -442,9 +429,6 @@ function taskHeader(taskId, metric, { stacked = true, align = "left" } = {}) {
       ${badges}
     </span>`;
 }
-
-
-
 
 export {
   buildDiff,

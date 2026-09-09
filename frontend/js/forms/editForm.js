@@ -20,10 +20,7 @@ function sameValue(a, b) {
     const left = [...(a ?? [])].sort();
     const right = [...(b ?? [])].sort();
 
-    return (
-      left.length === right.length &&
-      left.every((value, index) => value === right[index])
-    );
+    return left.length === right.length && left.every((value, index) => value === right[index]);
   }
 
   return (a ?? null) === (b ?? null);

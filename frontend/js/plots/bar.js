@@ -72,7 +72,6 @@ function createBarPlot({
   plotTitle,
   height,
 }) {
-
   return createCategoryChart({
     type: "bar",
     categories,
@@ -82,9 +81,7 @@ function createBarPlot({
     xTickLabel,
     categoryLabel,
     xTickRotation,
-    yRange: yRange
-      ? { min: Math.min(0, yRange.min), max: Math.max(0, yRange.max) }
-      : null,
+    yRange: yRange ? { min: Math.min(0, yRange.min), max: Math.max(0, yRange.max) } : null,
     yGrid: ZERO_LINE,
     plotTitle,
     height,

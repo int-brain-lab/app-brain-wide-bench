@@ -19,10 +19,7 @@ import {
   setFieldValue,
   renderPreservingFocus,
 } from "../forms/form.js";
-import {
-  TASK_FIELDS,
-  trainingFieldKeys,
-} from "../schemas/taskSubmissionSchema.js";
+import { TASK_FIELDS, trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
 import { suiteLabel, SUITES } from "../core/suites.js";
 import { buildSuiteBadgeList } from "../components/badges.js";
 
@@ -85,9 +82,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
 
   function valuesEqual(a, b) {
     if (Array.isArray(a) && Array.isArray(b)) {
-      return (
-        a.length === b.length && a.every((value, index) => value === b[index])
-      );
+      return a.length === b.length && a.every((value, index) => value === b[index]);
     }
 
     return a === b;
@@ -106,9 +101,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     // depend on more than one value.
     revalidateFields(target.state, TASK_FIELDS);
 
-    target.cleared = keys.filter(
-      (key) => !valuesEqual(source.state[key], target.state[key]),
-    );
+    target.cleared = keys.filter((key) => !valuesEqual(source.state[key], target.state[key]));
 
     // A copied confirmation is only valid if copying did not invalidate anything.
     target.confirmed = source.confirmed && target.cleared.length === 0;
@@ -137,10 +130,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
   function buildTaskItem(task) {
     const id = escapeHtml(task.taskId);
 
-    const classes = [
-      "task-item",
-      task.taskId === selectedTaskId ? "selected" : "",
-    ]
+    const classes = ["task-item", task.taskId === selectedTaskId ? "selected" : ""]
       .filter(Boolean)
       .join(" ");
 
@@ -288,10 +278,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
 
   function render() {
     if (!tasks.size) {
-      renderHtml(
-        container,
-        buildEmptyMessage("No tasks yet — upload a .zip on the panel above."),
-      );
+      renderHtml(container, buildEmptyMessage("No tasks yet — upload a .zip on the panel above."));
       return;
     }
 
@@ -402,11 +389,8 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     // The methodology fields, on the same container: a second `change` listener, because
     // this half of the panel is an ordinary schema form and gets the shared handling —
     // one write through setFieldValue, revalidated, reporting what it cleared.
-    attachFieldEvents(
-      container,
-      selectedState,
-      TASK_FIELDS,
-      (key, value, cleared) => updateField(cleared),
+    attachFieldEvents(container, selectedState, TASK_FIELDS, (key, value, cleared) =>
+      updateField(cleared),
     );
 
     // Draws the "no tasks yet" placeholder; without it the panel is blank until a zip

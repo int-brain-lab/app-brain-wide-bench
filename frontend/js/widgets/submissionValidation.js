@@ -37,9 +37,7 @@ function buildValidationPanel() {
 // fault — a heading over an empty list otherwise.
 function buildValidationCodes(errors, nFiles = null) {
   if (nFiles === 0) {
-    return buildFailureMessage(
-      "This file contains no prediction files in the expected layout.",
-    );
+    return buildFailureMessage("This file contains no prediction files in the expected layout.");
   }
 
   const items = errors
@@ -94,9 +92,7 @@ function createValidationSection({ onVerdict } = {}) {
 
     renderHtml(
       element,
-      buildSuccessMessage(
-        `This file is ready to score — ${files} prediction files.`,
-      ),
+      buildSuccessMessage(`This file is ready to score — ${files} prediction files.`),
       { show: true },
     );
   }
@@ -117,20 +113,15 @@ function createValidationSection({ onVerdict } = {}) {
       return;
     }
 
-    renderHtml(
-      element,
-      buildValidationCodes(validation.errors, validation.n_files),
-      { show: true },
-    );
+    renderHtml(element, buildValidationCodes(validation.errors, validation.n_files), {
+      show: true,
+    });
   }
 
   function renderUnavailable(error) {
     renderHtml(
       element,
-      buildFailureMessage(
-        "Checking the file failed — reload to see where it got to.",
-        error,
-      ),
+      buildFailureMessage("Checking the file failed — reload to see where it got to.", error),
       { show: true },
     );
   }

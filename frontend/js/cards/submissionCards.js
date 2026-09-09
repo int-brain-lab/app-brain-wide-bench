@@ -37,9 +37,7 @@ function buildSubmissionCard(submission, { showTeam = true } = {}) {
 }
 
 function buildSubmissionCards(submissions, options) {
-  return submissions
-    .map((submission) => buildSubmissionCard(submission, options))
-    .join("");
+  return submissions.map((submission) => buildSubmissionCard(submission, options)).join("");
 }
 
 /**

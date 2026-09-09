@@ -29,10 +29,7 @@ import { getIcon } from "../components/icons.js";
 import { dispose } from "../core/disposable.js";
 import { refreshIcons, renderHtml, setText } from "../core/render.js";
 import { pluralise } from "../core/utils.js";
-import {
-  createCardBinding,
-  createTableBinding,
-} from "../comparisons/binding.js";
+import { createCardBinding, createTableBinding } from "../comparisons/binding.js";
 import { createPicks } from "../comparisons/picks.js";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
@@ -112,8 +109,7 @@ function createListView({
   // Whether there is anything to compare at all, which is what puts the buttons on the page.
   const comparable = Boolean(panel || picking);
 
-  const compareLabel =
-    picking?.label ?? panel?.label ?? `Compare ${pluralise(noun)}`;
+  const compareLabel = picking?.label ?? panel?.label ?? `Compare ${pluralise(noun)}`;
 
   // Once, not per use: the bar's markup and the state behind it read the same descriptors,
   // and a pinned control's options are what its chips are labelled from.
@@ -132,9 +128,7 @@ function createListView({
   // ─── VIEW ──────────────────────────────────────────────────────────────────
 
   function getInitialView() {
-    return createCards && rows.length <= maxCards
-      ? CARD_TOGGLE_ID
-      : TABLE_TOGGLE_ID;
+    return createCards && rows.length <= maxCards ? CARD_TOGGLE_ID : TABLE_TOGGLE_ID;
   }
 
   function getSlot(selector) {
@@ -142,10 +136,7 @@ function createListView({
   }
 
   function setActiveView(view) {
-    for (const button of [
-      getSlot(`#${CARD_TOGGLE_ID}`),
-      getSlot(`#${TABLE_TOGGLE_ID}`),
-    ]) {
+    for (const button of [getSlot(`#${CARD_TOGGLE_ID}`), getSlot(`#${TABLE_TOGGLE_ID}`)]) {
       button?.classList.toggle("primary-inv", button.id === view);
     }
   }
@@ -200,9 +191,7 @@ function createListView({
 
     picks?.cards?.attach(comparing ? cardView.element : null);
 
-    cardView.setSelection(
-      comparing ? (picks?.cards?.selectionOptions() ?? null) : null,
-    );
+    cardView.setSelection(comparing ? (picks?.cards?.selectionOptions() ?? null) : null);
   }
 
   // ─── CARDS ─────────────────────────────────────────────────────────────────
@@ -404,13 +393,9 @@ function createListView({
   }
 
   function attachEvents() {
-    getSlot(`#${CARD_TOGGLE_ID}`)?.addEventListener("click", () =>
-      renderView(CARD_TOGGLE_ID),
-    );
+    getSlot(`#${CARD_TOGGLE_ID}`)?.addEventListener("click", () => renderView(CARD_TOGGLE_ID));
 
-    getSlot(`#${TABLE_TOGGLE_ID}`)?.addEventListener("click", () =>
-      renderView(TABLE_TOGGLE_ID),
-    );
+    getSlot(`#${TABLE_TOGGLE_ID}`)?.addEventListener("click", () => renderView(TABLE_TOGGLE_ID));
 
     getCompareButton()?.addEventListener("click", handleCompare);
     getGoButton()?.addEventListener("click", handleGo);
