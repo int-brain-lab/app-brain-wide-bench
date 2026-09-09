@@ -56,7 +56,20 @@ async function putPart(url, blob, signal) {
     throw new Error(`Uploading part failed (${response.status})`);
   }
 
-  return response.headers.get("etag");
+  const etag = response.headers.get("etag");
+
+  // Null means the part arrived but the header is not readable from script, which is a
+  // bucket CORS configuration rather than anything about this upload. Failing here names
+  // it; carrying the null to the completion call fails much later as a schema error about
+  // `parts[0].etag`.
+  if (!etag) {
+    throw new Error(
+      "The storage service did not return a readable ETag — its CORS configuration must " +
+        "expose that header.",
+    );
+  }
+
+  return etag;
 }
 
 // ─── CONTROLLER ──────────────────────────────────────────────────────────────
