@@ -15,7 +15,7 @@ import {
   toBestScoreRows,
   toScoreResultRows,
 } from "../utils/taskScoreUtils.js";
-import { getTeamSubtitle, isTeamOwner } from "../utils/teamUtils.js";
+import { canManageMembers, getTeamSubtitle } from "../utils/teamUtils.js";
 import { dateSorter } from "../tables/formatters.js";
 import { buildBestScoresTable, createTaskScoresTable } from "../tables/taskScoreTable.js";
 import { previewRows } from "../tables/table.js";
@@ -360,7 +360,7 @@ function renderDetailsView({ team, fields, canEdit, edit, created }) {
   let failedMembers = [];
 
   return page.attachEditor({
-    onEdit: () => members.setEditing(isTeamOwner(team)),
+    onEdit: () => members.setEditing(canManageMembers(team)),
 
     // Members first, then the rename: PATCH answers with the full TeamDetail, so doing it
     // last means the response already reflects the membership changes.

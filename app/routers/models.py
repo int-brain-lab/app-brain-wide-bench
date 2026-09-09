@@ -3,7 +3,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import ColumnElement, func, or_, select
+from sqlalchemy import ColumnElement, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from typing import Annotated, Any, Sequence
@@ -27,6 +27,7 @@ from app.models import (
     TaskSubmission,
     TaskSuite,
     User,
+    UserRole,
 )
 from app.schemas.models import (
     ModelBreakdown,
@@ -49,7 +50,10 @@ async def visible_models(
     user: User | None,
     session: AsyncSession,
 ) -> ColumnElement[bool]:
-    """Return a SQLAlchemy expression that evaluates to True for models visible to the user."""
+    """Return a SQLAlchemy expression that evaluates to True for models visible to the user.
+
+    An admin sees every model.
+    """
 
     has_public_submission = (
         select(Submission.id)
@@ -59,6 +63,10 @@ async def visible_models(
 
     if user is None:
         return has_public_submission
+
+    # A tautology rather than every team id — see ``visible_submissions``.
+    if user.role is UserRole.admin:
+        return true()
 
     my_team_ids = await member_team_ids(user.id, session)
 
@@ -247,7 +255,7 @@ async def list_models(
     Anonymous callers see only models with at least one public submission
 
     An authenticated user additionally sees every model on a team they belong
-    to, whether or not it has a public submission.
+    to, whether or not it has a public submission. An admin sees all of them.
 
     ``team_id`` narrows the list to one team, for a team page listing what it has
     registered. It narrows what is *shown*, never what is visible: a team the caller isn't
@@ -275,12 +283,15 @@ async def list_models(
     # One query for the whole listing rather than a membership check per row.
     my_team_ids = await member_team_ids(user.id if user else None, session)
 
+    # An admin may edit every row, which is what ``is_mine`` reports.
+    admin = user is not None and user.role is UserRole.admin
+
     return [
         ModelResponse.from_model(
             model,
             n_submissions=n_submissions.get(model.id, 0),
             task_suites=suites.get(model.id, []),
-            is_mine=model.team_id in my_team_ids,
+            is_mine=admin or model.team_id in my_team_ids,
         )
         for model in models
     ]

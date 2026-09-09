@@ -23,14 +23,15 @@ class TeamResponse(BaseModel):
     # ``GET /api/teams`` can return and ``/me/teams`` never does.
     role: TeamRole | None = None
 
-    # Whether the caller is a member, which is what makes the team theirs to edit — the
-    # same rule PATCH enforces. Implied by ``role`` being set, and stated anyway: this is
-    # the one field ``models`` and ``submissions`` carry under the same name, so a client
-    # asking "is this mine" asks it the same way of all three.
-    #
-    # Deciding who is *in* the team is narrower still and stays keyed off ``role``, since
-    # the member endpoints require ownership.
+    # Whether the team is the caller's to edit — the rule PATCH enforces, which a member
+    # passes and so does an admin. The one field ``models`` and ``submissions`` carry under
+    # the same name, so a client asks "is this mine" the same way of all three.
     is_mine: bool = False
+
+    # Whether the caller may add, remove and re-role members — the rule
+    # ``require_team_owner`` enforces on those endpoints. Not derivable from ``role``: an
+    # admin may manage any team while holding a role in none.
+    can_manage_members: bool = False
 
     @classmethod
     def from_team(cls, team, **extra) -> "TeamResponse":

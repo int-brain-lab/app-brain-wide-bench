@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import ColumnElement, and_, func, or_, select
+from sqlalchemy import ColumnElement, and_, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -33,6 +33,7 @@ from app.models import (
     TaskSubmission,
     TaskSuite,
     User,
+    UserRole,
 )
 from app.schemas.submissions import (
     MAX_PARTS,
@@ -130,12 +131,19 @@ async def visible_submissions(
     Publishing a submission does not publish it before it exists: an in-flight one stays with
     its team, which still sees it — a submitter who reloads mid-form reaches it through the
     listing, and there is nowhere else to reach it from.
+
+    An admin sees every submission.
     """
 
     published_submission = and_(Submission.is_public.is_(True), arrived())
 
     if user is None:
         return published_submission
+
+    # A tautology rather than every team id: an admin's listing costs no more than an
+    # anonymous one.
+    if user.role is UserRole.admin:
+        return true()
 
     my_team_ids = await member_team_ids(user.id, session)
 
@@ -914,7 +922,7 @@ async def list_submissions(
     Anonymous callers see only public submissions.
 
     An authenticated user additionally sees every submission on a team they belong
-    to, whether or not it is public.
+    to, whether or not it is public. An admin sees all of them.
 
     ``team_id`` narrows the list to one team, for a team page listing what it has
     submitted. It narrows what is *shown*, never what is visible: a team the caller isn't
@@ -940,11 +948,14 @@ async def list_submissions(
     # One query for the whole listing rather than a membership check per row.
     my_team_ids = await member_team_ids(user.id if user else None, session)
 
+    # An admin may edit every row, which is what ``is_mine`` reports.
+    admin = user is not None and user.role is UserRole.admin
+
     return [
         SubmissionResponse.from_submission(
             submission,
             task_suites=suites.get(submission.id, []),
-            is_mine=submission.model.team_id in my_team_ids,
+            is_mine=admin or submission.model.team_id in my_team_ids,
         )
         for submission in submissions
     ]

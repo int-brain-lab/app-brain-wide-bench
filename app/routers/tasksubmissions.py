@@ -185,7 +185,7 @@ async def list_task_submissions(
     """List every task submission the caller may see.
 
     Anonymous callers see the tasks of public submissions; an authenticated caller also sees
-    those of their own teams', whether or not they are public.
+    those of their own teams', whether or not they are public, and an admin every one.
 
     Newest submission first, then by task, so tasks of one submission stay together — the same
     order as ``my_task_submissions``, which this is the unscoped counterpart of.

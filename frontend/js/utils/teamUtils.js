@@ -47,11 +47,10 @@ function getTeamFilters(rows) {
 
 // ─── DISPLAY ─────────────────────────────────────────────────────────────────
 
-// A separate question from `canEdit`: renaming the team is any member's, but deciding who
-// is *in* it is the owner's, and the server refuses the rest with a 403. Offering the
-// controls to a collaborator would only produce that error on save.
-function isTeamOwner(team) {
-  return team.role === "owner";
+// Renaming a team is any member's; deciding who is *in* it is the owner's or an admin's.
+// Answered by the API rather than derived from `role`, which an admin holds none of.
+function canManageMembers(team) {
+  return team.can_manage_members === true;
 }
 
 /**
@@ -71,4 +70,4 @@ function getTeamSubtitle(team) {
   ].filter((entry) => entry.text);
 }
 
-export { getTeamFilters, getTeamSubtitle, isTeamOwner, toTeamRows };
+export { canManageMembers, getTeamFilters, getTeamSubtitle, toTeamRows };

@@ -44,6 +44,16 @@ class DescribedEnum(str, enum.Enum):
         return member
 
 
+class UserRole(str, enum.Enum):
+    """A user's standing in the application, independent of any team.
+
+    ``admin`` passes every team membership and ownership check — see ``app.auth``.
+    """
+
+    user = "user"
+    admin = "admin"
+
+
 class TeamRole(str, enum.Enum):
     owner = "owner"
     collaborator = "collaborator"
@@ -293,6 +303,9 @@ class User(SQLModel, table=True):
     name: str | None = None
     affiliation: str | None = None
     provider: str
+    # Least privilege by default. Every fixture file and every row load_baselines writes
+    # creates a user without one.
+    role: UserRole = Field(default=UserRole.user)
     orcid_id: str | None = Field(default=None, unique=True)
     created_at: datetime | None = _ts()
 
