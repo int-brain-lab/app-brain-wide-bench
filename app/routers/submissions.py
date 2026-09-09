@@ -54,7 +54,7 @@ from app.storage import (
     abort_multipart,
     complete_multipart,
     create_multipart,
-    delete_submission,
+    delete_submission_file,
     list_parts,
     presign_parts,
     submission_key,
@@ -92,6 +92,18 @@ IN_FLIGHT = (
     SubmissionStatus.uploading,
     SubmissionStatus.validating,
     SubmissionStatus.invalid,
+    SubmissionStatus.unchecked,
+)
+
+
+# Abandoning a submission is only ever the submitter's own housekeeping, so it stops where
+# the submission becomes a result. ``validating`` is out for a different reason: a worker is
+# reading the row, and deleting it under one makes its final write raise.
+ABANDONABLE = (
+    SubmissionStatus.uploading,
+    SubmissionStatus.invalid,
+    SubmissionStatus.unchecked,
+    SubmissionStatus.pending,
 )
 
 
@@ -416,6 +428,11 @@ def _require_validated(submission: Submission) -> dict:
             status.HTTP_409_CONFLICT, "This submission's file has not finished validating"
         )
 
+    if submission.status == SubmissionStatus.unchecked:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "This submission's file could not be checked — contact us"
+        )
+
     if submission.status != SubmissionStatus.pending:
         raise HTTPException(
             status.HTTP_409_CONFLICT, "This submission has already been submitted for scoring"
@@ -495,8 +512,8 @@ async def _restart_upload(
 
     An ``uploading`` row whose file is the same size keeps its multipart upload, so parts
     that already arrived are not sent twice and only the missing ones are signed. Anything
-    else starts a new upload — an ``invalid`` row has none to keep, its object having been
-    deleted when it failed.
+    else starts a new upload: an ``invalid`` or ``unchecked`` row has no multipart upload to
+    keep, ``complete`` having cleared its id, and a fresh one overwrites the same key.
 
     The body's fields overwrite the row's: the submitter is filling the form again, so what
     they have just typed wins. ``validation`` is cleared, or the previous run's codes would
@@ -647,7 +664,11 @@ async def create_submission(
     existing = await _submission_with_label(label, body.model_id, session)
 
     if existing is not None:
-        if existing.status not in (SubmissionStatus.uploading, SubmissionStatus.invalid):
+        if existing.status not in (
+            SubmissionStatus.uploading,
+            SubmissionStatus.invalid,
+            SubmissionStatus.unchecked,
+        ):
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
                 f"This model already has a submission labelled '{label}'",
@@ -744,7 +765,7 @@ async def complete_upload(
         submission.file_size = size
         await session.commit()
 
-        delete_submission(submission.s3_key)
+        delete_submission_file(submission.s3_key)
 
         raise HTTPException(
             status.HTTP_413_CONTENT_TOO_LARGE,
@@ -763,20 +784,27 @@ async def complete_upload(
     return SubmissionResponse.from_submission(submission)
 
 
-@router.post("/{submission_id}/upload/abort", status_code=status.HTTP_204_NO_CONTENT)
-async def abort_upload(
+@router.delete("/{submission_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_submission(
     submission_id: uuid.UUID,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> None:
-    """Discard an unfinished upload and the submission it was for.
+    """Abandon a submission that has not been submitted for scoring, and its file.
+
+    What the form's Delete button does, at any point before scoring: a file still arriving,
+    one that failed, one we could not check, and one validated but never submitted.
+
+    Whichever of the two the submission has is released — the stored parts of an unfinished
+    upload, or the assembled object. It never has both: ``complete`` clears the upload id as
+    it produces the object.
 
     ``task_submissions`` is eager-loaded only so the ORM cascade can run: an async session
     cannot lazy-load during a delete.
 
     Raises: 404 - Not found if the submission doesn't exist
     Raises: 403 - Forbidden if the caller is not a member of the submission's team
-    Raises: 409 - Conflict if its file has already arrived
+    Raises: 409 - Conflict if it is being validated or has been submitted for scoring
     """
     submission = await _get_submission_as_member(
         submission_id,
@@ -784,9 +812,17 @@ async def abort_upload(
         session,
         options=[selectinload(Submission.task_submissions)],
     )
-    _require_uploading(submission)
 
-    abort_multipart(submission.s3_key, submission.upload_id)
+    if submission.status not in ABANDONABLE:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "This submission can no longer be deleted",
+        )
+
+    if submission.upload_id is not None:
+        abort_multipart(submission.s3_key, submission.upload_id)
+    else:
+        delete_submission_file(submission.s3_key)
 
     await session.delete(submission)
     await session.commit()

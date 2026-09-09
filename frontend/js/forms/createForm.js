@@ -1,5 +1,8 @@
-// A form whose fields are grouped into panels, where each panel is locked until all
-// preceding panels are complete.
+// A form whose fields are grouped into panels, where each panel is locked until the ones
+// before it are done with.
+//
+// "Done with" and "complete" are usually the same thing, and a panel that needs them apart
+// says so with `unlocks()`.
 //
 // The form only owns the supplied container. It does not know about the page, buttons,
 // or messages. Changes and completeness are reported through callbacks.
@@ -37,7 +40,9 @@ function isFilled(value) {
  *                    "fields" or "component" — and a `title`. A "fields" panel is filled
  *                    from the schema and is complete when its required fields are; a
  *                    "component" panel declares `build()` for markup drawn once and never
- *                    redrawn, and `complete()`, which only it can answer.
+ *                    redrawn, and `complete()`, which only it can answer. A panel may also
+ *                    declare `unlocks()` where opening the next panel is a different
+ *                    question from being complete. Omit for the two to be the same.
  * @param fields      field definitions, keyed by field name — the schema the "fields"
  *                    panels are built from.
  * @param submit      async (state) => result. Run by `submit()`, with the form locked until
@@ -104,10 +109,18 @@ function createForm({
     );
   }
 
-  // A panel opens when every preceding panel is complete, so one pass down the panels
-  // carries the answer: `open` after the last one is every panel complete.
+  // Whether a panel lets the next one open. Not always the same question as whether it is
+  // complete: the upload panel opens the tasks panel once the file is on its way, and stays
+  // incomplete until the server has finished checking it.
+  function canOpenNext(name) {
+    return panels[name].unlocks?.() ?? isPanelComplete(name);
+  }
+
+  // One pass answers both: which panels open, and whether every one of them is complete,
+  // which is what the form may be submitted on.
   function updatePanelState() {
     let open = true;
+    let complete = true;
 
     for (const name of panelNames) {
       const element = panelElements.get(name);
@@ -116,10 +129,11 @@ function createForm({
         element.disabled = !open;
       }
 
-      open = open && isPanelComplete(name);
+      complete = complete && isPanelComplete(name);
+      open = open && canOpenNext(name);
     }
 
-    onRefresh?.(open);
+    onRefresh?.(complete);
   }
 
   // ─── SUBMITTING ────────────────────────────────────────────────────────────

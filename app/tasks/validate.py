@@ -18,7 +18,12 @@ from app.config import settings
 from app.database import async_session_factory
 from app.models import Submission, SubmissionStatus, TaskSuite
 from app.scoring import BaseScorer
-from app.storage import delete_submission, download_ground_truth, download_submission
+from app.storage import (
+    delete_submission_file,
+    download_ground_truth,
+    download_submission,
+    is_stubbed,
+)
 from app.validation.validate_submission import ValidationResult, validate_folder
 from app.worker import celery_app
 
@@ -65,8 +70,8 @@ def _validation_document(result: ValidationResult, is_deterministic: bool) -> di
 def _internal_error_document(is_deterministic: bool) -> dict:
     """The payload for a validation that could not be run to a verdict.
 
-    ``E999`` maps to the generic submitter-facing message, so this says no more than that
-    something went wrong on our side.
+    Keeps the shape of a real one so a reader needs no special case; ``E999`` maps to the
+    generic submitter-facing message, which is all there is to say about our own failure.
     """
     return {
         "codes": [{"code": "E999", "path": "."}],
@@ -136,12 +141,28 @@ def _suites_in(pred_dir: Path) -> set[str]:
 def _materialise(s3_key: str, tmpdir: Path) -> Path:
     """Return the prediction root for ``s3_key``, downloading and extracting if needed.
 
-    A key naming an existing local directory is used in place, which is how a submission
-    made with no object store validates — see ``scripts/load_baselines.py``.
+    Two local paths come before the download. A key naming a directory is used in place,
+    which is how the submissions ``scripts/load_baselines.py`` writes are validated. And
+    with no object store there was no upload to read back, so ``stub_submission_dir`` stands
+    in for it — every transition and the whole validator still run, over a submission the
+    developer put there rather than the one the form chose.
+
+    Raises
+    ------
+    FileNotFoundError
+        Stubbed with no ``stub_submission_dir`` configured, which leaves nothing to check.
     """
     local = Path(s3_key)
     if local.is_dir():
         return local
+
+    if is_stubbed():
+        if not settings.stub_submission_dir:
+            raise FileNotFoundError(
+                "No object store and no stub_submission_dir: nothing to validate."
+            )
+
+        return Path(settings.stub_submission_dir)
 
     zip_path = download_submission(s3_key, tmpdir.joinpath("submission.zip"))
     return BaseScorer.extract(zip_path, tmpdir.joinpath("pred"))
@@ -152,8 +173,8 @@ def validate_submission(submission_id: str) -> str:
     """Validate a submission's uploaded file and record the outcome.
 
     A file that fails is deleted from S3: it will not be scored, and the submitter has to
-    upload a corrected one. A run that cannot reach a verdict at all leaves the file alone,
-    so it can be re-validated once the cause is fixed.
+    upload a corrected one. A run that cannot reach a verdict at all leaves the submission
+    ``unchecked`` and the file alone, so it can be checked again once the cause is fixed.
 
     Parameters
     ----------
@@ -164,6 +185,7 @@ def validate_submission(submission_id: str) -> str:
     -------
     str
         Final status: ``"pending"`` when the file passed, ``"invalid"`` when it did not.
+        A check that could not be run leaves ``unchecked`` and raises.
     """
     sid = uuid.UUID(submission_id)
     s3_key, is_deterministic = asyncio.run(_start_validation(sid))
@@ -186,7 +208,7 @@ def validate_submission(submission_id: str) -> str:
             logger.exception("could not validate submission %s", sid)
             asyncio.run(
                 _finish_validation(
-                    sid, SubmissionStatus.invalid, _internal_error_document(is_deterministic)
+                    sid, SubmissionStatus.unchecked, _internal_error_document(is_deterministic)
                 )
             )
             raise
@@ -202,5 +224,5 @@ def validate_submission(submission_id: str) -> str:
             return "pending"
 
         asyncio.run(_finish_validation(sid, SubmissionStatus.invalid, document))
-        delete_submission(s3_key)
+        delete_submission_file(s3_key)
         return "invalid"

@@ -61,6 +61,9 @@ const SUBMISSION_FIELDS = {
     required: true,
   },
 
+  // Set when a submission is created and fixed afterwards: validation reaches its verdict
+  // under this flag, and PATCH does not accept it. submissionCreate.js re-enables it for
+  // the one form that sets it.
   is_deterministic: {
     label: "Deterministic",
     input: "select",
@@ -68,6 +71,7 @@ const SUBMISSION_FIELDS = {
     options: [true, false],
     panel: "information",
     required: true,
+    editable: false,
   },
 
   // `s3_key`, not `s3_url` — matches SubmissionDetail and the mock fixture.

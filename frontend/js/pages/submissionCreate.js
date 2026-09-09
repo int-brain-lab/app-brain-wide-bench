@@ -3,25 +3,22 @@
 // Contains 4 panels
 //   1. Identity     submission name and associated model
 //   2. Visibility   submission visibility and optional narratives
-//   3. File         upload a zip file and detect tasks
+//   3. File         upload a zip file, and the server's verdict on it
 //   4. Tasks        task parameters
 //
 // Panels 1 and 2 are schema-driven, panels 3 and 4 are component-driven and their markup
 // and events are built and controlled via submissionUpload.js and taskPanel.js.
+//
+// The submission exists from the moment its file starts uploading, so panels 1 and 2 have
+// already been sent by the time the form is submitted. Submitting carries them again along
+// with the tasks, since they stay editable while the file is on its way.
 
 import { getMeta } from "../api/metaApi.js";
 import { loadModel } from "../api/modelApi.js";
-import {
-  finaliseSubmission,
-  presignSubmission,
-  uploadToPresignedUrl,
-} from "../api/submissionApi.js";
+import { finaliseSubmission } from "../api/submissionApi.js";
 import { loadSubmissionFields } from "../schemas/submissionSchema.js";
 import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
-import {
-  buildFailureMessage,
-  buildInfoMessage,
-} from "../components/messages.js";
+import { buildFailureMessage } from "../components/messages.js";
 import {
   buildUploadPanel,
   createUploadSection,
@@ -49,9 +46,11 @@ function buildPanels(context) {
       title: "3. Upload a zip file and detect tasks",
       build: buildUploadPanel,
 
-      // The file is this panel's, not the schema's: it never renders as a field.
-      complete: () =>
-        Boolean(context.file) && context.unknownTaskIds.length === 0,
+      // The two questions this panel answers separately. Panel 4 opens as soon as the file
+      // has arrived, so its metadata is filled in while the server checks the file; the
+      // form cannot be submitted until that check has passed.
+      unlocks: () => context.uploaded,
+      complete: () => context.verdict === "pending",
     },
 
     tasks: {
@@ -103,7 +102,8 @@ async function preselectModel(state, fields, taskSection) {
   await loadSelectedModel(requested, taskSection);
 }
 
-// One request shared by the detected-task pills and the task section.
+// The suites the task section groups its tasks by. The task *list* comes from
+// prevalidation, which reads the file itself.
 async function loadKnownTasks() {
   try {
     const { tasks } = await getMeta();
@@ -112,12 +112,7 @@ async function loadKnownTasks() {
   } catch (error) {
     console.error(error);
 
-    renderMessage(
-      buildFailureMessage(
-        "Loading the task list failed — task validation is unavailable.",
-        error,
-      ),
-    );
+    renderMessage(buildFailureMessage("Loading the task list failed.", error));
 
     return new Map();
   }
@@ -125,30 +120,24 @@ async function loadKnownTasks() {
 
 // ─── SUBMIT ──────────────────────────────────────────────────────────────────
 
-// Three round-trips, each with its own progress line: only this page knows how far along
-// it is.
-async function submitSubmission(state, taskSection) {
-  const file = state.file;
-  delete state.file;
+// One round trip: the submission and its file are already on the server, and this is the
+// tasks plus whatever panels 1-2 now say.
+async function submitSubmission(state, context) {
+  const submissionId = context.uploadPanel.submissionId();
 
-  const presigned = await presignSubmission(state, taskSection);
-
-  renderMessage(buildInfoMessage("Uploading file…"));
-
-  await uploadToPresignedUrl(presigned.upload_url, file);
-
-  await finaliseSubmission(presigned.submission_id);
+  await finaliseSubmission(submissionId, state, context.taskPanel);
 
   return (
     `/html/submissions/submissions.html` +
-    `?id=${encodeURIComponent(presigned.submission_id)}&view=details&created`
+    `?id=${encodeURIComponent(submissionId)}&view=details&created`
   );
 }
 
 // ─── INITIALISATION ──────────────────────────────────────────────────────────
 
-// `unknownTaskIds` and `taskPanel` start empty and are filled in by `setup` and the upload
-// panel's `onFile`. The panels read them through the context, so they see current values.
+// `uploaded`, `verdict` and the two panels start empty and are filled in by `setup` and the
+// upload panel's callbacks. The panels read them through the context, so they see current
+// values.
 async function loadSubmissionContext() {
   // All three read /api/meta, which is memoised: one document between them.
   const [fields, knownTasks] = await Promise.all([
@@ -163,45 +152,50 @@ async function loadSubmissionContext() {
   }
 
   return {
-    fields,
+    // The schema marks `is_deterministic` uneditable, since PATCH does not accept it and
+    // validation reaches its verdict under it. This is the one form that sets it.
+    fields: {
+      ...fields,
+      is_deterministic: { ...fields.is_deterministic, editable: true },
+    },
+
     knownTasks,
-    unknownTaskIds: [],
     taskPanel: null,
-    file: null,
+    uploadPanel: null,
+    uploaded: false,
+    verdict: null,
   };
 }
 
 // Built between the form's `initialise()` and `attach()`, so a re-render can't destroy
 // their listeners.
 async function setupComponentPanels(form, context) {
-  const { knownTasks } = context;
-
   context.taskPanel = createTaskSection({
-    taskSuites: knownTasks,
+    taskSuites: context.knownTasks,
     onChange: () => form.refresh(),
   });
 
   context.taskPanel.attach();
 
-  const uploadPanel = createUploadSection({
-    knownTasks,
-    onFile: (file, taskIds) => {
-      // A catalogue that failed to load can't judge anything, so nothing is unknown.
-      context.unknownTaskIds = knownTasks.size
-        ? taskIds.filter((id) => !knownTasks.has(id))
-        : [];
+  context.uploadPanel = createUploadSection({
+    state: form.state,
 
-      // Onto the context for panel 3's `complete`, and onto the state for
-      // submitSubmission. Neither is a drawn field, so no redraw is owed.
-      context.file = file;
-      form.state.file = file;
+    // Prevalidation read them out of the file, so an unrecognised id was already refused
+    // before the upload started.
+    onTasks: (taskIds) => context.taskPanel.setTasks(taskIds),
 
-      // Only recognised ids reach the task panel, which has no handling for the rest.
-      context.taskPanel.setTasks(context.unknownTaskIds.length ? [] : taskIds);
+    onUploaded: (uploaded) => {
+      context.uploaded = uploaded;
+      form.refresh();
+    },
+
+    onVerdict: (verdict) => {
+      context.verdict = verdict;
+      form.refresh();
     },
   });
 
-  uploadPanel.attach();
+  context.uploadPanel.attach();
 
   await preselectModel(form.state, context.fields, context.taskPanel);
 }
@@ -214,7 +208,7 @@ loadCreatePage({
 
   fields: (context) => context.fields,
   panels: buildPanels,
-  submit: (state, context) => submitSubmission(state, context.taskPanel),
+  submit: submitSubmission,
 
   load: loadSubmissionContext,
   setup: setupComponentPanels,

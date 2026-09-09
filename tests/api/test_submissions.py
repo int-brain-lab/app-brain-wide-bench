@@ -659,7 +659,7 @@ async def test_upload_complete_refuses_an_oversize_object(
 
     deleted = []
     monkeypatch.setattr(router, "submission_size", lambda key: settings.max_submission_bytes + 1)
-    monkeypatch.setattr(router, "delete_submission", lambda key: deleted.append(key))
+    monkeypatch.setattr(router, "delete_submission_file", lambda key: deleted.append(key))
     await add(UserTeam(user_id=me, team_id=MY_TEAM))
 
     response = await seeded_client.post(
@@ -676,47 +676,92 @@ async def test_upload_complete_refuses_an_oversize_object(
     assert submission.status == SubmissionStatus.invalid
 
 
-# ── POST /api/submissions/{id}/upload/abort ───────────────────────────────────
+# ── DELETE /api/submissions/{id} ──────────────────────────────────────────────
 
 
-async def test_upload_abort_as_non_member(seeded_client, uploading):
-    """Only the team may abandon its upload."""
-    response = await seeded_client.post(upload_url(uploading, "abort"))
+async def test_delete_as_non_member(seeded_client, uploading):
+    """Only the team may abandon its own submission."""
+    response = await seeded_client.delete(submissions_url(uploading))
 
     assert response.status_code == 403
 
 
-async def test_upload_abort_deletes_the_submission(
+async def test_delete_releases_the_parts_of_an_unfinished_upload(
     seeded_client, uploading, add, me, monkeypatch, session_factory
 ):
-    """Abandoning the upload takes the submission with it, and releases the stored parts."""
+    """A file still arriving has stored parts and no object, so the upload is aborted."""
     import app.routers.submissions as router
 
     aborted = []
+    deleted = []
     monkeypatch.setattr(router, "abort_multipart", lambda key, upload_id: aborted.append(upload_id))
+    monkeypatch.setattr(router, "delete_submission_file", lambda key: deleted.append(key))
     await add(UserTeam(user_id=me, team_id=MY_TEAM))
 
-    response = await seeded_client.post(upload_url(uploading, "abort"))
+    response = await seeded_client.delete(submissions_url(uploading))
 
     assert response.status_code == 204
     assert aborted == ["mock-upload"]
+    assert deleted == []
 
     async with session_factory() as session:
         assert await session.get(Submission, uploading) is None
 
 
-async def test_upload_abort_rejects_a_submission_whose_file_has_arrived(
-    seeded_client, add, me, session_factory
+async def test_delete_removes_the_object_of_a_validated_submission(
+    seeded_client, validated, add, me, monkeypatch, session_factory
 ):
-    """A submission whose file arrived is not an upload to abandon."""
+    """A validated file is an object with no upload behind it, so the object goes."""
+    import app.routers.submissions as router
+
+    aborted = []
+    deleted = []
+    monkeypatch.setattr(router, "abort_multipart", lambda key, upload_id: aborted.append(upload_id))
+    monkeypatch.setattr(router, "delete_submission_file", lambda key: deleted.append(key))
     await add(UserTeam(user_id=me, team_id=MY_TEAM))
 
-    response = await seeded_client.post(upload_url(PUBLIC, "abort"))
+    response = await seeded_client.delete(submissions_url(validated))
+
+    assert response.status_code == 204
+    assert deleted != []
+    assert aborted == []
+
+    async with session_factory() as session:
+        assert await session.get(Submission, validated) is None
+
+
+async def test_delete_refuses_a_submission_being_validated(
+    seeded_client, uploading, add, me, session_factory
+):
+    """A worker is reading it; deleting the row would make its final write raise."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    async with session_factory() as session:
+        submission = await session.get(Submission, uploading)
+        submission.status = SubmissionStatus.validating
+        await session.commit()
+
+    response = await seeded_client.delete(submissions_url(uploading))
+
+    assert response.status_code == 409
+
+    async with session_factory() as session:
+        assert await session.get(Submission, uploading) is not None
+
+
+async def test_delete_refuses_a_submission_that_has_been_scored(
+    seeded_client, add, me, session_factory
+):
+    """Abandoning stops where a submission becomes a result."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.delete(submissions_url(PUBLIC))
 
     assert response.status_code == 409
 
     async with session_factory() as session:
         assert await session.get(Submission, PUBLIC) is not None
+
 
 
 # ── GET /api/submissions/{id}/validation ──────────────────────────────────────
@@ -952,6 +997,55 @@ async def test_submit_refuses_a_submission_that_failed_validation(seeded_client,
 
     assert response.status_code == 409
     assert queued["score"] == []
+
+
+async def test_submit_refuses_a_submission_that_could_not_be_checked(
+    seeded_client, add, me, queued
+):
+    """Our failure, not the submitter's — so it says so rather than "already submitted"."""
+    unchecked_id = uuid.uuid4()
+    await add(
+        Submission(
+            id=unchecked_id,
+            model_id=BASELINE,
+            label="mlp-ts1-unchecked",
+            s3_key=f"submissions/{unchecked_id}/mlp-ts1-unchecked.zip",
+            status=SubmissionStatus.unchecked,
+            validation={"codes": [{"code": "E999", "path": "."}], "tasks": []},
+        )
+    )
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.post(
+        submit_url(unchecked_id), json=submit_body("ts1-reward")
+    )
+
+    assert response.status_code == 409
+    assert "could not be checked" in response.json()["detail"]
+    assert queued["score"] == []
+
+
+async def test_create_reuses_the_label_of_an_unchecked_submission(seeded_client, add, me):
+    """A submitter is not held behind our own failure to check their file."""
+    unchecked_id = uuid.uuid4()
+    await add(
+        Submission(
+            id=unchecked_id,
+            model_id=BASELINE,
+            label="mlp-ts1-unchecked",
+            s3_key=f"submissions/{unchecked_id}/mlp-ts1-unchecked.zip",
+            status=SubmissionStatus.unchecked,
+            file_size=UPLOADING_SIZE,
+        )
+    )
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.post(
+        submissions_url(), json=create_body(label="mlp-ts1-unchecked")
+    )
+
+    assert response.status_code == 200
+    assert response.json()["submission_id"] == str(unchecked_id)
 
 
 async def test_submit_refuses_a_submission_already_scored(seeded_client, add, me, queued):

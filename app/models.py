@@ -52,13 +52,18 @@ class TeamRole(str, enum.Enum):
 class SubmissionStatus(str, enum.Enum):
     """Lifecycle order.
 
-    ``pending`` means uploaded and validated, waiting on the submitter. ``invalid`` means
-    validation failed and the file has been deleted.
+    ``pending`` means uploaded and validated, waiting on the submitter.
+
+    The two ways validation can end badly are separate because they mean different things
+    and the file fares differently. ``invalid`` is the submitter's: the file was checked and
+    is wrong, and it has been deleted. ``unchecked`` is ours: the check could not be run at
+    all, and the file is kept so it can be checked again.
     """
 
     uploading = "uploading"
     validating = "validating"
     invalid = "invalid"
+    unchecked = "unchecked"
     pending = "pending"
     scoring = "scoring"
     done = "done"

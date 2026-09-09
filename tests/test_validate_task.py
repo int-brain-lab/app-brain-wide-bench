@@ -21,6 +21,7 @@ from sqlmodel import SQLModel
 
 import app.models  # noqa: F401 — register tables on SQLModel.metadata
 import app.tasks.validate as validate_task
+from app.config import settings
 from app.models import Model, Submission, SubmissionStatus, Team
 from app.tasks.validate import MAX_CODES_PER_KIND, validate_submission
 from tests.fixtures.submissions import TASK, write_submission
@@ -92,7 +93,7 @@ def use_ground_truth(monkeypatch, gt_dir):
 def record_deletes(monkeypatch) -> list[str]:
     """Capture the keys the task deletes instead of removing anything."""
     deleted: list[str] = []
-    monkeypatch.setattr(validate_task, "delete_submission", lambda key: deleted.append(key))
+    monkeypatch.setattr(validate_task, "delete_submission_file", lambda key: deleted.append(key))
 
     return deleted
 
@@ -194,11 +195,55 @@ def test_no_internal_detail_reaches_the_document(tmp_path, monkeypatch, factory,
     assert all(set(code) == {"code", "path"} for code in document["codes"])
 
 
+# ── With no object store ──────────────────────────────────────────────────────
+
+
+def test_a_stub_directory_stands_in_for_a_skipped_upload(
+    tmp_path, monkeypatch, factory, submission
+):
+    """With nothing uploaded there is nothing to read back, so a local tree stands in.
+
+    Every transition and the whole validator still run — over the developer's directory
+    rather than whatever the form chose.
+    """
+    pred_dir, gt_dir = write_submission(tmp_path)
+    use_ground_truth(monkeypatch, gt_dir)
+    record_deletes(monkeypatch)
+
+    monkeypatch.setattr(settings, "s3_stub", True)
+    monkeypatch.setattr(settings, "stub_submission_dir", str(pred_dir))
+
+    # A key that is not a local path, as the create endpoint writes them.
+    submission_id = submission(s3_key="submissions/abc/run.zip")
+
+    assert validate_submission(str(submission_id)) == "pending"
+    assert read(factory, submission_id).validation["tasks"] == [TASK]
+
+
+def test_a_stub_with_nowhere_to_read_from_is_unchecked(monkeypatch, factory, submission):
+    """Ours to fix: a mode that cannot check anything says so rather than blaming the file."""
+    monkeypatch.setattr(settings, "s3_stub", True)
+    monkeypatch.setattr(settings, "stub_submission_dir", "")
+    record_deletes(monkeypatch)
+
+    submission_id = submission(s3_key="submissions/abc/run.zip")
+
+    with pytest.raises(FileNotFoundError):
+        validate_submission(str(submission_id))
+
+    assert read(factory, submission_id).status == SubmissionStatus.unchecked
+
+
 # ── When it cannot reach a verdict ────────────────────────────────────────────
 
 
-def test_a_failure_to_run_keeps_the_file(tmp_path, monkeypatch, factory, submission):
-    """Ours to fix, not the submitter's: the object survives so it can be re-validated."""
+def test_a_failure_to_run_leaves_it_unchecked_and_keeps_the_file(
+    tmp_path, monkeypatch, factory, submission
+):
+    """Ours to fix, not the submitter's — a different state, and the object survives.
+
+    ``invalid`` would say the file is wrong. It may be perfectly good; we could not look.
+    """
     pred_dir, _ = write_submission(tmp_path)
 
     def unavailable(suites, dest):
@@ -214,6 +259,6 @@ def test_a_failure_to_run_keeps_the_file(tmp_path, monkeypatch, factory, submiss
 
     row = read(factory, submission_id)
 
-    assert row.status == SubmissionStatus.invalid
+    assert row.status == SubmissionStatus.unchecked
     assert [code["code"] for code in row.validation["codes"]] == ["E999"]
     assert deleted == []

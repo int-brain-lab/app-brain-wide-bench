@@ -1,6 +1,6 @@
 """submission upload + validation state
 
-Adds ``upload_id``, ``file_size``, ``validation``, and the three statuses preceding
+Adds ``upload_id``, ``file_size``, ``validation``, and the four statuses preceding
 ``pending``. See ``docs/submission_validation_plan_todo.md``.
 
 ``--autogenerate`` does not detect enum value additions, and ``compare_metadata`` in
@@ -27,7 +27,7 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     # Reverse order: each lands immediately before 'pending'.
-    for value in ('invalid', 'validating', 'uploading'):
+    for value in ('unchecked', 'invalid', 'validating', 'uploading'):
         op.execute(f"alter type submissionstatus add value if not exists '{value}' before 'pending'")
 
     op.add_column(

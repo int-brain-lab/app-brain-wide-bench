@@ -31,7 +31,7 @@ def _client():
     )
 
 
-def _stubbed() -> bool:
+def is_stubbed() -> bool:
     """Whether there is no object store, so the upload helpers return placeholders."""
     return settings.s3_stub
 
@@ -71,7 +71,7 @@ def create_multipart(key: str, content_type: str = "application/zip") -> str:
     str
         The ``UploadId`` every part and the completion call must quote.
     """
-    if _stubbed():
+    if is_stubbed():
         return MOCK_UPLOAD_ID
 
     response = _client().create_multipart_upload(
@@ -97,7 +97,7 @@ def presign_parts(key: str, upload_id: str, part_numbers: Iterable[int]) -> dict
     dict[int, str]
         ``{part_number: url}``, each valid for ``s3_part_expiry`` seconds.
     """
-    if _stubbed():
+    if is_stubbed():
         return {
             number: f"mock-s3://{settings.s3_bucket}/{key}?part={number}" for number in part_numbers
         }
@@ -131,7 +131,7 @@ def complete_multipart(key: str, upload_id: str, parts: list[tuple[int, str]]) -
         ``(part_number, etag)`` for every part, in any order. S3 rejects a completion whose
         parts are not ascending, so they are sorted here.
     """
-    if _stubbed():
+    if is_stubbed():
         return
 
     _client().complete_multipart_upload(
@@ -150,7 +150,7 @@ def abort_multipart(key: str, upload_id: str) -> None:
     Parts of an upload that is never completed or aborted are billed and do not appear in a
     normal bucket listing.
     """
-    if _stubbed():
+    if is_stubbed():
         return
 
     _client().abort_multipart_upload(Bucket=settings.s3_bucket, Key=key, UploadId=upload_id)
@@ -161,7 +161,7 @@ def list_parts(key: str, upload_id: str) -> dict[int, str]:
 
     Paginated: ``ListParts`` answers 1,000 parts at a time.
     """
-    if _stubbed():
+    if is_stubbed():
         return {}
 
     client = _client()
@@ -181,15 +181,19 @@ def submission_size(s3_key: str) -> int | None:
     ``None`` when there is no object store to ask, so a caller enforcing a size limit skips
     it rather than inventing a number.
     """
-    if _stubbed():
+    if is_stubbed():
         return None
 
     return _client().head_object(Bucket=settings.s3_bucket, Key=s3_key)["ContentLength"]
 
 
-def delete_submission(s3_key: str) -> None:
-    """Delete a submission's object, for one that failed validation."""
-    if _stubbed():
+def delete_submission_file(s3_key: str) -> None:
+    """Delete a submission's object.
+
+    Deleting a key that is not there succeeds, so a caller need not know whether an earlier
+    failure already removed it.
+    """
+    if is_stubbed():
         return
 
     _client().delete_object(Bucket=settings.s3_bucket, Key=s3_key)

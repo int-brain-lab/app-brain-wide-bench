@@ -22,11 +22,14 @@ from app.worker import celery_app
 
 async def _start_scoring(
     submission_id: uuid.UUID,
-) -> tuple[str, list[tuple[uuid.UUID, str]]]:
+) -> tuple[str, list[tuple[uuid.UUID, str]]] | None:
     """Set status to ``scoring``; return ``(s3_key, [(task_submission_id, task_id)])``.
 
     Returns the task-submission list so the Celery task can pass it to
     :func:`_finish_scoring` without re-querying the DB.
+
+    ``None`` when the submission is gone: a delete racing this task is a submitter
+    abandoning their submission, and the outcome they asked for is that nothing is scored.
     """
     async with async_session_factory() as session:
         submission = (
@@ -35,7 +38,11 @@ async def _start_scoring(
                 .options(selectinload(Submission.task_submissions))
                 .where(Submission.id == submission_id)
             )
-        ).scalar_one()
+        ).scalar_one_or_none()
+
+        if submission is None:
+            return None
+
         submission.status = SubmissionStatus.scoring
         ts_list = [(ts.id, ts.task_id) for ts in submission.task_submissions]
         s3_key = submission.s3_key
@@ -91,10 +98,16 @@ def score_submission(submission_id: str) -> str:
     Returns
     -------
     str
-        Final status (``"done"`` or ``"failed"``).
+        Final status (``"done"`` or ``"failed"``), or ``"gone"`` when the submission was
+        deleted before this ran.
     """
     sid = uuid.UUID(submission_id)
-    s3_key, ts_list = asyncio.run(_start_scoring(sid))
+    started = asyncio.run(_start_scoring(sid))
+
+    if started is None:
+        return "gone"
+
+    s3_key, ts_list = started
 
     if not ts_list:
         asyncio.run(_finish_scoring(sid, SubmissionStatus.failed, ts_list))

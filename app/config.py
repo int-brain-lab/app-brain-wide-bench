@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     s3_stub : bool
         Return placeholders from the upload helpers instead of calling S3, for local work
         with no bucket. Must be off to reach ``s3_endpoint_url``.
+    stub_submission_dir : str
+        Local prediction directory validation reads when stubbed, since a skipped upload
+        leaves nothing to read. Every status transition and the real validator still run;
+        the file the submitter chose is not what is checked.
     s3_part_expiry : int
         Lifetime in seconds of a presigned part URL. Long, because a multi-hour upload
         outlives a normal presign window.
@@ -65,6 +69,7 @@ class Settings(BaseSettings):
     s3_bucket: str = "brainwidebench-submissions"
     s3_endpoint_url: str = ""
     s3_stub: bool = False
+    stub_submission_dir: str = ""
     s3_part_expiry: int = 43200
     upload_part_size: int = 64 * 1024 * 1024
     max_submission_bytes: int = 20 * 1024**3

@@ -1,5 +1,8 @@
 // Minimal, dependency-free ZIP reader: lists entry paths from the central
 // directory without decompressing. Handles ZIP64 for large archives.
+//
+// The entry list is what the prevalidate endpoint checks, so a badly structured submission
+// is refused before any of it is sent.
 
 const EOCD_SIG = 0x06054b50; // End of Central Directory record
 const EOCD64_LOCATOR_SIG = 0x07064b50; // Zip64 EOCD locator
@@ -68,20 +71,4 @@ async function listZipEntries(file) {
   return names;
 }
 
-// Task folders are named ts<digit>-... and may sit at any depth, e.g.
-//   <label>/<task>/<recording>/seed_*.safetensors
-//   <label>/<model>/<task>/<recording>/seed_*.safetensors
-// so we scan every path segment for one matching the task pattern.
-const TASK_RE = /^ts\d-/;
-
-function inferTasks(paths) {
-  const tasks = new Set();
-  for (const path of paths) {
-    for (const seg of path.split("/")) {
-      if (TASK_RE.test(seg)) tasks.add(seg);
-    }
-  }
-  return [...tasks].sort();
-}
-
-export { listZipEntries, inferTasks };
+export { listZipEntries };
