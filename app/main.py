@@ -22,17 +22,29 @@ app.add_middleware(
 )
 
 
-class NoCacheStaticMiddleware(BaseHTTPMiddleware):
-    """Add Cache-Control: no-cache to all static asset responses."""
+class StaticCacheMiddleware(BaseHTTPMiddleware):
+    """Set Cache-Control on static responses.
+
+    ``/assets/`` holds the built frontend's content-hashed chunks, which a new build renames
+    rather than overwrites. Everything else revalidates, HTML included: the document names the
+    chunk filenames a reader loads.
+
+    Serving ``frontend/`` unbuilt there is no ``/assets/``, and every path takes ``no-cache``.
+    """
 
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
-        if request.url.path.startswith("/") and not request.url.path.startswith("/api"):
+        path = request.url.path
+        if path.startswith("/api"):
+            return response
+        if path.startswith("/assets/"):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
             response.headers["Cache-Control"] = "no-cache"
         return response
 
 
-app.add_middleware(NoCacheStaticMiddleware)
+app.add_middleware(StaticCacheMiddleware)
 
 app.include_router(submissions.router)
 app.include_router(tasksubmissions.router)
