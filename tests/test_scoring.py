@@ -38,6 +38,10 @@ FIXTURES_DIR = Path.home().joinpath(
 GT_DIR = FIXTURES_DIR.joinpath("ground_truth")
 BASELINES_DIR = FIXTURES_DIR.joinpath("baselines")
 
+# ibl_bwb_eval.scoring.aggregation.aggregate's clip set, which every scorer aggregates
+# through: a metric named here is floored at 0 per seed and never comes back negative.
+CLIPPED_METRICS = frozenset({"r2", "poisson_d2"})
+
 requires_fixtures = pytest.mark.skipif(
     not GT_DIR.is_dir(), reason=f"fixture dataset not found: {GT_DIR}"
 )
@@ -139,12 +143,48 @@ def test_ts3_wrapper_shape(monkeypatch):
     result = TS3Scorer().score(Path("pred"), Path("gt"))
 
     (row,) = result["rows"]
+    # aggregate() keys TS3 (label, task, NO_RECORDING_ID); the rows keep the label alone
     assert row["label"] == "m"
     assert row["task"] == "ts3-cosmos"
     assert "recording_id" not in row  # TS3 classifies the whole population at once
     assert "macro/f1-score" in row["metrics"]
     # headline is macro/f1-score → mean of 0.60 and 0.80
     assert result["summary"]["ts3-cosmos"]["mean"] == pytest.approx(0.70)
+
+
+def test_ts1_clips_r2_at_zero_per_seed(monkeypatch):
+    """A negative r2 seed is floored before averaging; metrics outside the clip set are not."""
+    raw = {
+        ("m", "ts1-wheel_speed", "recA", 42): {"r2": -0.4, "pearson": -0.5, "mae": 1.0},
+        ("m", "ts1-wheel_speed", "recA", 43): {"r2": 0.6, "pearson": 0.3, "mae": 0.8},
+    }
+    monkeypatch.setattr("ibl_bwb_eval.scoring.ts1.score_dir", lambda p, g: raw)
+
+    result = TS1Scorer().score(Path("pred"), Path("gt"))
+
+    (row,) = result["rows"]
+    # mean of (0.0, 0.6), not of (-0.4, 0.6) — clipping the mean would give 0.10
+    assert row["metrics"]["r2"]["mean"] == pytest.approx(0.30)
+    # the SEM is taken over the clipped seeds too
+    assert row["metrics"]["r2"]["sem"] == pytest.approx(0.30)
+    assert row["metrics"]["pearson"]["mean"] == pytest.approx(-0.10)
+    assert result["summary"]["ts1-wheel_speed"]["mean"] == pytest.approx(0.30)
+
+
+def test_ts2_clips_poisson_d2_but_not_bps(monkeypatch):
+    """TS2's primary metric is floored at 0 per seed; bps is left signed."""
+    raw = {
+        ("m", "ts2-co_smoothing", "recA", 42): {"poisson_d2": -0.2, "bps": -0.6},
+        ("m", "ts2-co_smoothing", "recA", 43): {"poisson_d2": 0.4, "bps": 0.2},
+    }
+    monkeypatch.setattr("ibl_bwb_eval.scoring.ts2.score_dir", lambda p, g: raw)
+
+    result = TS2Scorer().score(Path("pred"), Path("gt"))
+
+    (row,) = result["rows"]
+    assert row["metrics"]["poisson_d2"]["mean"] == pytest.approx(0.20)
+    assert row["metrics"]["bps"]["mean"] == pytest.approx(-0.20)
+    assert result["summary"]["ts2-co_smoothing"]["mean"] == pytest.approx(0.20)
 
 
 def test_wrapper_empty_input(monkeypatch):
@@ -200,9 +240,11 @@ def test_score_real_fixtures(suite, baseline, expect_recording_id):
     for row in result["rows"]:
         assert {"label", "task", "metrics"} <= row.keys()
         assert ("recording_id" in row) == expect_recording_id
-        for metric in row["metrics"].values():
+        for name, metric in row["metrics"].items():
             assert math.isfinite(metric["mean"])
             assert metric["n"] >= 1
+            if name in CLIPPED_METRICS:
+                assert metric["mean"] >= 0
 
     for task_summary in result["summary"].values():
         assert math.isfinite(task_summary["mean"])

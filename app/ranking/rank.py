@@ -10,6 +10,10 @@ with the published numbers.
 
 Ranks are computed over exactly the standings handed in, so narrowing the leaderboard
 narrows the field a model is ranked against rather than merely hiding rows.
+
+The stored means this reads are already clipped where the benchmark clips — ``r2`` and
+``poisson_d2`` floored at 0 per seed, by the scorer. Nothing is clipped here: a clip applied
+to a mean is not the clip applied to the seeds under it.
 """
 
 import logging

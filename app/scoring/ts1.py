@@ -1,4 +1,4 @@
-"""TS1 scorer: thin OOP wrapper over ``core.scoring.ts1_scoring``."""
+"""TS1 scorer: thin OOP wrapper over ``ibl_bwb_eval.scoring.ts1``."""
 
 from collections import defaultdict
 from pathlib import Path
@@ -11,17 +11,22 @@ from app.scoring.base import BaseScorer
 class TS1Scorer(BaseScorer):
     """Score TS1 submissions against the ground-truth oracle.
 
-    Delegates all numerical work to :func:`core.scoring.ts1_scoring.score_dir` and
-    :func:`~core.scoring.ts1_scoring.summarize`, then flattens the tuple-keyed
-    summary into a JSON-serialisable structure (see :class:`app.schemas.scoring.TS1ScoreResult`).
+    Delegates all numerical work to :func:`ibl_bwb_eval.scoring.ts1.score_dir` and
+    :func:`ibl_bwb_eval.scoring.aggregation.aggregate`, then flattens the tuple-keyed summary
+    into a JSON-serialisable structure (see :class:`app.schemas.scoring.TS1ScoreResult`).
+
+    ``aggregate`` is the suite's own ``summarize`` with a clip: ``r2`` and ``poisson_d2`` are
+    floored at 0 per seed before the mean and SEM are taken, so a stored mean of either is a
+    mean of clipped values and never negative. Metrics outside that set pass through.
     """
 
     def score(self, pred_dir: Path, gt_dir: Path) -> dict:
         """Score predictions and return a JSON-serialisable result dict."""
-        from ibl_bwb_eval.scoring.ts1 import score_dir, summarize
+        from ibl_bwb_eval.scoring.aggregation import aggregate
+        from ibl_bwb_eval.scoring.ts1 import score_dir
 
         raw = score_dir(pred_dir, gt_dir)
-        summary = summarize(raw)  # {(label, task, recording_id): {metric: (mean, sem, n)}}
+        summary = aggregate(raw)  # {(label, task, recording_id): {metric: (mean, sem, n)}}
 
         rows = []
         per_task_primary: dict[str, list[float]] = defaultdict(list)

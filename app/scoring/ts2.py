@@ -1,4 +1,4 @@
-"""TS2 scorer: thin OOP wrapper over ``core.scoring.ts2_scoring``."""
+"""TS2 scorer: thin OOP wrapper over ``ibl_bwb_eval.scoring.ts2``."""
 
 from collections import defaultdict
 from pathlib import Path
@@ -15,14 +15,19 @@ class TS2Scorer(BaseScorer):
 
     Same (label, task, recording_id) row/summary shape as :class:`~app.scoring.ts1.TS1Scorer`,
     but TS2's metrics (``poisson_d2``, ``bps``) are fixed rather than per-task.
+
+    Aggregated through :func:`ibl_bwb_eval.scoring.aggregation.aggregate`, which floors
+    ``poisson_d2`` at 0 per seed before the mean and SEM are taken. ``bps`` is not clipped and
+    can be negative.
     """
 
     def score(self, pred_dir: Path, gt_dir: Path) -> dict:
         """Score predictions and return a JSON-serialisable result dict."""
-        from ibl_bwb_eval.scoring.ts2 import score_dir, summarize
+        from ibl_bwb_eval.scoring.aggregation import aggregate
+        from ibl_bwb_eval.scoring.ts2 import score_dir
 
         raw = score_dir(pred_dir, gt_dir)
-        summary = summarize(raw)  # {(label, task, recording_id): {metric: (mean, sem, n)}}
+        summary = aggregate(raw)  # {(label, task, recording_id): {metric: (mean, sem, n)}}
 
         rows = []
         per_task_primary: dict[str, list[float]] = defaultdict(list)

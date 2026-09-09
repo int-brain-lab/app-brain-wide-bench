@@ -584,6 +584,10 @@ class TaskScore(SQLModel, table=True):
 
     ``primary_metric_*`` are scalar columns for fast leaderboard ORDER BY;
     all metrics live in ``metrics`` JSON: ``{"r2": {"mean": 0.42, "sem": 0.03}, ...}``.
+
+    ``r2`` and ``poisson_d2`` are floored at 0 per seed before aggregation, here and in the
+    scalar columns; ``bps`` is not, and can be negative. Rows written before that floor was
+    applied hold unclipped means.
     """
 
     __tablename__ = "task_scores"
