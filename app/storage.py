@@ -231,6 +231,13 @@ def download_ground_truth(suites: Iterable[str], dest_dir: Path) -> Path:
     -------
     Path
         Root ground-truth directory to pass to the scorers.
+
+    Raises
+    ------
+    FileNotFoundError
+        If a suite's prefix holds no objects at all. Downloading nothing silently reads
+        downstream as every prediction file lacking ground truth, which blames the
+        submitter for a prefix misconfigured on our side.
     """
     local = Path(settings.s3_gt_prefix)
     if local.is_dir():
@@ -242,12 +249,28 @@ def download_ground_truth(suites: Iterable[str], dest_dir: Path) -> Path:
 
     for suite in suites:
         prefix = f"{root}/{suite}"
+        downloaded = 0
+
         for page in paginator.paginate(Bucket=settings.s3_bucket, Prefix=prefix):
             for obj in page.get("Contents", []):
                 key = obj["Key"]
                 rel = key[len(prefix) :].lstrip("/")
+
+                # A "folder" made in the S3 console is a zero-byte object whose key ends in
+                # "/". Written as a file it takes the name the next key needs for a
+                # directory, and that key then fails with NotADirectoryError.
+                if not rel or key.endswith("/"):
+                    continue
+
                 target = dest_dir.joinpath(rel)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 client.download_file(settings.s3_bucket, key, str(target))
+                downloaded += 1
+
+        if not downloaded:
+            raise FileNotFoundError(
+                f"No ground truth under s3://{settings.s3_bucket}/{prefix} — check "
+                "s3_gt_prefix, which names the root holding one directory per suite."
+            )
 
     return dest_dir
