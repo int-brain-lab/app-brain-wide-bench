@@ -179,11 +179,19 @@ function metricsForSuite(suite) {
   return SUITE_METRICS[suite] ?? [];
 }
 
+// The tasks a suite carries, in the order TASK_NAMES lists them. Read off the ids rather than
+// kept as a second list beside them: a task belongs to its suite by its own prefix, so one
+// added to TASK_NAMES is in its suite here without being named twice.
+function tasksForSuite(suite) {
+  return Object.keys(TASK_NAMES).filter((taskId) => suiteFromTask(taskId) === suite);
+}
+
 export {
   REGION_SEPARATOR,
   SUITES,
   metricLabel,
   metricsForSuite,
+  tasksForSuite,
   suiteFromTask,
   suiteLabel,
   taskFullLabel,

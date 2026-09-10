@@ -21,6 +21,14 @@ const ICONS = {
   suite: "grid-3x3",
   score: "chart-column",
 
+  // A neural model itself, where the invitation to submit one needs a mark of its own
+  neural: "network",
+
+  // What each task suite asks a model to predict
+  behavior: "rat",
+  dynamics: "activity",
+  anatomy: "brain",
+
   // Places
   dashboard: "layout-grid",
   leaderboard: "trophy",
@@ -48,6 +56,9 @@ const ICONS = {
   remove: "x",
   create: "plus",
   delete: "trash-2",
+  train: "database",
+  submit: "cloud-upload",
+  next: "arrow-right",
   filter: "funnel",
   viewAll: "arrow-right",
   expand: "plus",

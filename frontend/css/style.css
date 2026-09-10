@@ -178,7 +178,7 @@ MAIN SHELLS ETC
 }
 
 .content.landing {
-  max-width: 800px;
+  max-width: 1040px;
 }
 
 /* The one shell with a footer, so it fills the window: without a height to fill, the bar
@@ -375,14 +375,16 @@ FOOTER
   background: var(--surface-secondary);
 }
 
-/* Icon and label as one target, at .link's size and colour. */
-.footer-link {
+/* Icon and label as one target, at .link's size and colour — the footer's three, and the
+   "View tasks" under each suite card. */
+.icon-link {
   display: inline-flex;
   align-items: center;
   gap: var(--gap-md);
 }
 
 /* Sized to the label beside it, and never squashed before the row wraps — as .btn-icon is. */
+.icon-link .field-icon,
 .footer-icon {
   width: 14px;
   height: 14px;
@@ -495,14 +497,26 @@ BUTTONS
 SECTIONS
 --------------------------------------------------------------------------------------*/
 
+/* The landing page's opening block, and the only user of this class. The title takes two
+   thirds of the column with the figures beside it in the last third — the same split as the
+   panel further down the page.
+
+   Flush with the sections below it, with no side padding or margin of its own, so the title
+   starts at the same edge as "Task suites" and the cards. */
 .page-hero {
   display: flex;
-  flex-direction: column;
   gap: var(--gap-xl);
-  justify-content: space-between;
-  padding: 64px 40px 100px;
-  margin: 0 40px;
-  text-align: center;
+  padding: var(--gap-xl) 0 var(--gap-xxl);
+  text-align: left;
+}
+
+/* The title, description and buttons. `> .column` and not `:first-child`: the figures beside
+   them are a grid rather than a column, so this reaches only the half it means.
+
+   No `align-items` on the row above, so both halves take its full height by default — which
+   is what runs the figures' rules down past the buttons. */
+.page-hero > .column {
+  flex: 2;
 }
 
 .page-section {
@@ -1009,21 +1023,6 @@ CARDS
   overflow: hidden;
   align-items: center;
   justify-content: center;
-}
-
-.card.ts1 {
-  border-color: transparent;
-  background: var(--ts1-light);
-}
-
-.card.ts2 {
-  border-color: transparent;
-  background: var(--ts2-light);
-}
-
-.card.ts3 {
-  border-color: transparent;
-  background: var(--ts3-light);
 }
 
 /*----------------------------------------------------------------------------------------
@@ -2378,4 +2377,187 @@ COMPARISON
 }
 .diff-flat {
   color: var(--text-muted);
+}
+
+/*----------------------------------------------------------------------------------------
+LANDING PAGE
+----------------------------------------------------------------------------------------*/
+
+/* The figures beside the title, two by two across the whole height of the row — the rows are
+   `1fr` each, so the four cards divide whatever the title and buttons come to. `.hero-title`
+   and `.hero-description` are up in GENERIC TEXT with the rest of the type; these are layout. */
+.hero-stats {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, 1fr);
+  gap: var(--gap-md);
+}
+
+/* A filled block with no edge, as .how-panel is further down: `.card.secondary`'s own fill is
+   --surface, which is the same white as this page's ground, so a borderless card in it would
+   have nothing to show. The shade back is what separates the four here. */
+.hero-stat {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-md);
+  border-color: transparent;
+  background: var(--surface-secondary);
+}
+
+/* A figure's own icon: quieter than the number beside it, which is what a reader is here to
+   read. Muted rather than the app's colour for the same reason. */
+.hero-stat .field-icon {
+  width: 28px;
+  height: 28px;
+  color: var(--text-muted);
+}
+
+.hero-stat-value {
+  font-size: var(--font-xl);
+  font-weight: var(--bold);
+}
+
+.hero-stat-label {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+/* The label over a card's chips — "TASKS", "METRICS". Lettered out so a one-word group still
+   reads as a label rather than as a chip that lost its box. */
+.chip-label {
+  font-size: var(--font-xxs);
+  font-weight: var(--bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* A hairline inside a card, between what the card is and the detail under it. */
+.rule {
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--border-color);
+}
+
+/* The three cards share one grid, so each card's sections sit on the parent's rows rather
+   than on rows of its own: the tasks and metrics of all three line up, and a card whose
+   metrics wrap to a third line lengthens that row for every card instead of only for itself.
+   Six rows because a card has six sections — adding one means raising both counts.
+
+   Without `subgrid` a card is simply a grid of its own six rows, which is what these looked
+   like before: laid out correctly, just not aligned with each other. */
+.suite-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(6, auto);
+  gap: var(--gap-lg);
+}
+
+.suite-card {
+  display: grid;
+  grid-row: span 6;
+  grid-template-rows: subgrid;
+  gap: var(--gap-lg);
+
+  /* The fill is the suite's, below — the border goes with it, as .card.secondary's does. */
+  border-color: transparent;
+}
+
+/* Its own width at the card's right edge, under the chips it opens. `justify-self` rather
+   than a margin: a grid would otherwise stretch it, and the whole row would be clickable. */
+.suite-card > .icon-link {
+  justify-self: end;
+}
+
+/* A suite card's own subject, opposite its badge. The suite is named on the icon as well as
+   on the card, which carries only the fill. */
+.suite-icon .field-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.suite-icon.ts1 .field-icon {
+  color: var(--ts1);
+}
+
+.suite-icon.ts2 .field-icon {
+  color: var(--ts2);
+}
+
+.suite-icon.ts3 .field-icon {
+  color: var(--ts3);
+}
+
+/* Train, Submit, Compare. The arrows between them are their own items rather than pseudo-
+   elements on the steps, so they take a gap of the row's own and wrap out with it. */
+.how-steps {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gap-lg);
+}
+
+.how-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+}
+
+/* What each step is, at the size that makes it the thing a reader sees first — `.field-icon`
+   is 13px, sized for sitting inside a line of text. Muted at that size, as the hero's figures
+   are: at 40px the text colour reads as heavier than the words under it. */
+.step-icon .field-icon {
+  width: 40px;
+  height: 40px;
+  color: var(--text-muted);
+}
+
+/* Level with the row of numbers above the text rather than with the middle of the step. */
+.how-arrow {
+  flex: none;
+  margin-top: 4px;
+  color: var(--text-muted);
+}
+
+/* A leading glyph in a button, at the size the button's own icons are drawn. */
+.btn .field-icon {
+  width: 15px;
+  height: 15px;
+}
+
+/* Tinted by suite, and lighter than the chips inside it: the chips are --tsN-light, and a card
+   painted that same colour would swallow them. */
+.suite-card[data-suite="ts1"] {
+  background: color-mix(in srgb, var(--ts1) 5%, transparent);
+}
+
+.suite-card[data-suite="ts2"] {
+  background: color-mix(in srgb, var(--ts2) 5%, transparent);
+}
+
+.suite-card[data-suite="ts3"] {
+  background: color-mix(in srgb, var(--ts3) 5%, transparent);
+}
+
+/* One panel holding the three steps and the ways on from them. A shade back from the page, as
+   .nav is: it reads as a block of the page rather than as a card on it. */
+.how-panel {
+  align-items: stretch;
+  padding: 32px;
+  border-color: transparent;
+  background: var(--surface-secondary);
+}
+
+/* The steps take twice the width of the block beside them. `:first-child` and not `.column`:
+   the block beside them is a `.column` too, and this would out-specify its own `flex: 1`. */
+.how-panel > .column:first-child {
+  flex: 2;
+}
+
+/* The leaderboard and the invitation, stacked and ruled off from the steps beside them. */
+.how-explore {
+  flex: 1;
+  padding-left: var(--gap-xl);
+  border-left: 1px solid var(--border-color);
 }

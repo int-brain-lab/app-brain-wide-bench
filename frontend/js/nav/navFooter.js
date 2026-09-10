@@ -49,7 +49,7 @@ const HELP_ICON = `<i class="footer-icon" data-lucide="${getIcon("help")}"></i>`
 // from the footer has not finished with the page they were on.
 function buildFooterLink({ href, icon, label }) {
   return `
-    <a class="link footer-link" href="${href}" target="_blank" rel="noopener noreferrer">
+    <a class="link icon-link" href="${href}" target="_blank" rel="noopener noreferrer">
       ${icon}
       <span>${label}</span>
     </a>
@@ -59,7 +59,7 @@ function buildFooterLink({ href, icon, label }) {
 // The same greyed placeholder the hero's Docs button is, one row down.
 function buildPendingLink({ icon, label, title }) {
   return `
-    <span class="link disabled-link footer-link" aria-disabled="true" title="${title}">
+    <span class="link disabled-link icon-link" aria-disabled="true" title="${title}">
       ${icon}
       <span>${label}</span>
     </span>

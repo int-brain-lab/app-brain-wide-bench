@@ -14,101 +14,227 @@
       <nav class="nav" id="top-nav"></nav>
       <div class="content landing">
         <!-- Hero -->
-
         <section class="page-hero">
-          <div class="column gap-md">
+          <div class="column left gap-lg">
             <h1 class="hero-title">
-              How well does your model <br />
-              understand the brain?
+              Benchmark your model <br />
+              against the brain.
             </h1>
             <p class="hero-description">
-              Brain-Wide Bench evaluates neural population models across behavior, dynamics, and
-              anatomy — on held-out data from the International Brain Laboratory.
+              Brain-Wide Bench evaluates neural population models on held-out data from the
+              International Brain Laboratory, across behavior, dynamics, and anatomy.
             </p>
-            <div class="row centre gap-md">
-              <a class="btn primary large" href="/html/leaderboard/leaderboard.html"
-                >View leaderboard</a
-              >
-              <span
-                class="btn large disabled-link"
-                aria-disabled="true"
-                title="Documentation link not yet available"
-                >Docs coming soon</span
-              >
+            <div class="row left gap-md">
+              <a class="btn primary with-icon" href="/html/leaderboard/leaderboard.html">
+                <span data-icon="leaderboard"></span>
+                View leaderboard
+                <span data-icon="next"></span>
+              </a>
+              <a class="btn with-icon" href="/html/dashboard/dashboard.html">
+                <span data-icon="add"></span>
+                Submit a model
+              </a>
             </div>
           </div>
 
-          <div class="grid-3">
-            <div class="card secondary column centre gap-sm">
-              <p class="title">3</p>
-              <p class="subheading">task suites</p>
-            </div>
-            <div class="card secondary column centre gap-sm">
-              <p class="title" id="stat-submissions">—</p>
-              <p class="subheading">submissions</p>
-            </div>
-            <div class="card secondary column centre gap-sm">
-              <p class="title" id="stat-models">—</p>
-              <p class="subheading">models submitted</p>
-            </div>
-          </div>
+          <!-- Filled by landing.js, which reads the figures this page asked for. -->
+          <div
+            class="hero-stats"
+            id="hero-stats"
+            data-figures="suites tasks models submissions"
+          ></div>
         </section>
 
-        <!-- Task Suite Info Cards -->
+        <!-- Task suites -->
         <section class="page-section">
           <div class="row">
-            <h2 class="section-title">Task suites</h2>
-            <span
-              class="link disabled-link"
-              aria-disabled="true"
-              title="Dataset details link not yet available"
-              >Dataset details coming soon</span
-            >
+            <div class="column left">
+              <h2 class="section-title">Task suites</h2>
+              <p class="section-description">
+                Three complementary suites, 11 tasks, and a range of metrics.
+              </p>
+            </div>
+
+            <a class="link icon-link" href="/html/tasks/task_list_public.html">
+              Explore all tasks
+              <span data-icon="next"></span>
+            </a>
           </div>
-          <div class="grid-3">
-            <div class="card column left gap-lg">
-              <div class="column left gap-sm">
+
+          <div class="suite-cards">
+            <div class="card suite-card" data-suite="ts1">
+              <div class="row">
                 <span class="badge ts1">TS1</span>
+                <span class="suite-icon ts1" data-icon="behavior"></span>
+              </div>
+
+              <div class="column left gap-sm">
                 <h3 class="card-title">Behavior</h3>
                 <p class="card-description">
                   Predict trial-level behavioral outcomes from neural population activity.
                 </p>
               </div>
-              <div data-suite-metrics="ts1"></div>
-            </div>
-            <div class="card column left gap-lg">
+
+              <hr class="rule" />
+
               <div class="column left gap-sm">
+                <span class="chip-label">Tasks</span>
+                <div data-slot="tasks"></div>
+              </div>
+
+              <div class="column left gap-sm">
+                <span class="chip-label">Metrics</span>
+                <div data-slot="metrics"></div>
+              </div>
+
+              <a class="link icon-link" href="/html/tasks/task_list_public.html?suite=ts1">
+                View tasks
+                <span data-icon="next"></span>
+              </a>
+            </div>
+
+            <div class="card suite-card" data-suite="ts2">
+              <div class="row">
                 <span class="badge ts2">TS2</span>
+                <span class="suite-icon ts2" data-icon="dynamics"></span>
+              </div>
+
+              <div class="column left gap-sm">
                 <h3 class="card-title">Dynamics</h3>
                 <p class="card-description">
                   Reconstruct firing rate trajectories and spike predictions across brain regions.
                 </p>
               </div>
-              <div data-suite-metrics="ts2"></div>
-            </div>
-            <div class="card column left gap-lg">
+
+              <hr class="rule" />
+
               <div class="column left gap-sm">
+                <span class="chip-label">Tasks</span>
+                <div data-slot="tasks"></div>
+              </div>
+
+              <div class="column left gap-sm">
+                <span class="chip-label">Metrics</span>
+                <div data-slot="metrics"></div>
+              </div>
+
+              <a class="link icon-link" href="/html/tasks/task_list_public.html?suite=ts2">
+                View tasks
+                <span data-icon="next"></span>
+              </a>
+            </div>
+
+            <div class="card suite-card" data-suite="ts3">
+              <div class="row">
                 <span class="badge ts3">TS3</span>
+                <span class="suite-icon ts3" data-icon="anatomy"></span>
+              </div>
+
+              <div class="column left gap-sm">
                 <h3 class="card-title">Anatomy</h3>
                 <p class="card-description">
                   Classify recorded neurons to their brain region from activity alone.
                 </p>
               </div>
-              <div data-suite-metrics="ts3"></div>
+
+              <hr class="rule" />
+
+              <div class="column left gap-sm">
+                <span class="chip-label">Tasks</span>
+                <div data-slot="tasks"></div>
+              </div>
+
+              <div class="column left gap-sm">
+                <span class="chip-label">Metrics</span>
+                <div data-slot="metrics"></div>
+              </div>
+
+              <a class="link icon-link" href="/html/tasks/task_list_public.html?suite=ts3">
+                View tasks
+                <span data-icon="next"></span>
+              </a>
             </div>
           </div>
         </section>
 
-        <!-- Call to action -->
+        <!-- How it works, and the way into the leaderboard beside it -->
         <section class="page-section">
-          <div class="card row gap-lg">
-            <div class="column left gap-xs">
-              <!-- Hidden until the count arrives: a failed /api/meta leaves the invitation
-                   standing rather than a sentence with a hole in it. -->
-              <p class="card-title" id="cta-count" hidden></p>
-              <p class="card-description">Test the performance of your model.</p>
+          <div class="card how-panel row gap-xl">
+            <div class="column left gap-xl">
+              <div class="column left">
+                <h2 class="section-title">How it works</h2>
+                <p class="section-description">
+                  From publicly available data to the leaderboard in three steps.
+                </p>
+              </div>
+
+              <div class="how-steps">
+                <div class="how-step">
+                  <div class="row left gap-md">
+                    <span class="step-number">1</span>
+                    <span class="step-icon" data-icon="train"></span>
+                  </div>
+                  <h3 class="card-title">Train</h3>
+                  <p class="card-description">Train your model on publicly available data.</p>
+                </div>
+
+                <span class="how-arrow" data-icon="next"></span>
+
+                <div class="how-step">
+                  <div class="row left gap-md">
+                    <span class="step-number">2</span>
+                    <span class="step-icon" data-icon="submit"></span>
+                  </div>
+                  <h3 class="card-title">Submit</h3>
+                  <p class="card-description">
+                    Upload your model's prediction results on held-out data.
+                  </p>
+                </div>
+
+                <span class="how-arrow" data-icon="next"></span>
+
+                <div class="how-step">
+                  <div class="row left gap-md">
+                    <span class="step-number">3</span>
+                    <span class="step-icon" data-icon="score"></span>
+                  </div>
+                  <h3 class="card-title">Compare</h3>
+                  <p class="card-description">See where your model ranks against the others.</p>
+                </div>
+              </div>
             </div>
-            <a class="btn primary" href="/html/dashboard/dashboard.html">Get started</a>
+
+            <div class="column left gap-xl how-explore">
+              <div class="column left gap-md">
+                <div class="row left gap-md">
+                  <span class="step-icon" data-icon="leaderboard"></span>
+                  <h3 class="card-title">Explore the benchmark</h3>
+                </div>
+                <p class="card-description">
+                  See how models perform across behavior, dynamics and anatomy.
+                </p>
+                <a class="btn primary with-icon" href="/html/leaderboard/leaderboard.html">
+                  View leaderboard
+                  <span data-icon="next"></span>
+                </a>
+              </div>
+
+              <hr class="rule" />
+
+              <div class="column left gap-md">
+                <div class="row left gap-md">
+                  <span class="step-icon" data-icon="neural"></span>
+                  <h3 class="card-title">Have a model?</h3>
+                </div>
+                <p class="card-description">
+                  Evaluate it on held-out IBL data and see how it compares with other models.
+                </p>
+                <a class="btn primary with-icon" href="/html/dashboard/dashboard.html">
+                  Submit a model
+                  <span data-icon="next"></span>
+                </a>
+              </div>
+            </div>
           </div>
         </section>
       </div>
