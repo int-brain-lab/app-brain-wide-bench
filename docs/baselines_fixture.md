@@ -5,7 +5,7 @@ The official baselines, scored from local prediction files and written as the fl
 
 ```bash
 uv run python scripts/make_baselines.py
-uv run python scripts/load_fixtures.py --data-only tests/fixtures/2026_09_baselines.json
+uv run python scripts/load_fixture_data.py tests/fixtures/2026_09_baselines.json
 ```
 
 Paths default to `~/Downloads/new_brainwidebench_data`; `--data-root` moves all three at once,
@@ -76,8 +76,9 @@ with `not enough values to unpack (expected 3, got 2)`. The three categorical ta
 unaffected. Not shimmed: reshaping a submitter's predictions is a guess in a way that
 renaming a key with identical content is not.
 
-**Every submission is `is_public: false`**, as the metadata declares, so a signed-out visitor
-sees none of them. `--public` overrides it for a local look at the leaderboard.
+**The metadata declares every submission `is_public: false`**, which leaves a signed-out
+visitor seeing none of them. The committed fixture was built with `--public`, so keep passing
+it — a plain re-run makes them all private again.
 
 `baselines/cnn-ts1-baseline/cnn/cnn/` is an empty stray directory. It holds no predictions and
 is reported as "on disk but not declared".

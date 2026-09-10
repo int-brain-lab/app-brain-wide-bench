@@ -276,7 +276,6 @@ function renderDashboardView(context, router) {
 
   renderMembersSection(team);
 
-
   // Manage members names the thing it opens, so it goes straight into the editor — where the
   // header's View details only navigates. By id and not `[data-view='details']`: that header
   // button carries the same attribute, and is the first of the two in the document.

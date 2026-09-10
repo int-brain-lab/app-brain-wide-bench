@@ -43,6 +43,13 @@ function applyShell(mine) {
 
   if (topNav) topNav.hidden = mine;
   if (sidebar) sidebar.hidden = !mine;
+
+  // The footer belongs to the public shell, as the pages built private from the start show:
+  // none of them carries one. `.main-private` is a grid of named areas, so a footer left in
+  // it is auto-placed into the sidebar's column.
+  const footer = document.getElementById("page-footer");
+
+  if (footer) footer.hidden = mine;
 }
 
 // ─── GATE ────────────────────────────────────────────────────────────────────

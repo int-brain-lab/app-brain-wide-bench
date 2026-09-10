@@ -200,7 +200,7 @@ function renderSubmissionsSection(model) {
   );
 }
 
-function renderDashboardView(context, router) {
+function renderDashboardView(context) {
   const { model, fields, ranking, canEdit } = context;
 
   // Before the page is built: the sections it holds depend on what the scores say.
@@ -244,7 +244,6 @@ function renderDashboardView(context, router) {
   renderScoresSection(scoreRows);
   renderDetailsSection(model, fields);
   renderSubmissionsSection(model);
-
 }
 
 // ─── DETAILS VIEW ────────────────────────────────────────────────────────────

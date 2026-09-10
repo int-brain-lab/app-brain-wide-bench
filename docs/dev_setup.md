@@ -51,7 +51,7 @@ Storage settings go here too — see step 4.
 
 ```bash
 uv run --env-file .env.local alembic upgrade head
-uv run --env-file .env.local python scripts/load_fixtures.py --data-only
+uv run --env-file .env.local python scripts/load_fixture_data.py
 uv run --env-file .env.local python scripts/seed_dev_admin.py
 ```
 

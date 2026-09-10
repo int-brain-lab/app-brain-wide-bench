@@ -179,7 +179,7 @@ function renderScoresSection(rows) {
   renderSection("scores", buildSubmissionScoresTable({ rows }), buildFooter("scores", rows.length));
 }
 
-function renderDashboardView(context, router) {
+function renderDashboardView(context) {
   const { submission, breakdown, canEdit } = context;
 
   renderPage(
@@ -198,7 +198,6 @@ function renderDashboardView(context, router) {
   renderNarrativeSection(submission, canEdit);
   renderMethodologySection(submission, canEdit);
   renderScoresSection(markStandingRows(toTaskSubmissionRows(submission), breakdown));
-
 }
 
 // ─── DETAILS VIEW ────────────────────────────────────────────────────────────

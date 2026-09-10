@@ -166,47 +166,37 @@ a {
 /*----------------------------------------------------------------------------------------
 MAIN SHELLS ETC
 --------------------------------------------------------------------------------------*/
+/* Every shell with a top nav, which is every shell carrying the footer. It fills the window:
+   without a height to fill, the bar would sit partway up a page whose content is shorter than
+   the viewport, and `.page-footer`'s `margin-top: auto` needs a flex column to answer to. */
 .main {
-  height: auto;
-  overflow: visible;
-}
-
-.content {
-  display: flex;
-  flex-direction: column;
-  flex: 1; /* take all height left under the top nav */
-  min-height: 0; /* allow the inner .main to scroll instead of growing the page */
-  overflow: hidden;
-  background: transparent;
-  justify-content: center;
-  margin: 40px auto 0px;
-  max-width: 1440px;
-}
-
-.content.landing {
-  max-width: 1040px;
-}
-
-/* The one shell with a footer, so it fills the window: without a height to fill, the bar
-   would sit partway up a page whose content is shorter than the viewport. */
-.main-landing {
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
 }
 
-/* Its natural height, at the top of the shell. `.content`'s own `flex: 1`, `min-height: 0`
-   and `overflow: hidden` are written for the fixed-height private grid and are inert under a
-   block parent; in a flex column they would clip this page's overflow instead of growing the
-   shell, and its centring would drop the hero down the window.
+/* Its natural height, at the top of the shell. The `flex: 1`, `min-height: 0` and
+   `overflow: hidden` this used to carry were written for the fixed-height private grid, which
+   is `.content-private` below and takes none of them: here they clipped the page's overflow
+   instead of growing the shell, and the centring dropped the content down the window.
 
    The gap above the footer is here rather than on the footer, which is what leaves the
    footer's own `margin-top: auto` free to push it down. */
-.main-landing > .content {
-  flex: none;
-  overflow: visible;
-  justify-content: flex-start;
-  margin-bottom: var(--gap-xxl);
+.content {
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  margin: 40px auto var(--gap-xxl);
+
+  /* `width` as well as `max-width`: a flex item whose cross-axis margins are `auto` is not
+     stretched, so without this the column sizes to its content and a short page comes out
+     narrower than a long one. The auto margins still centre it under the cap. */
+  width: 100%;
+  max-width: 1440px;
+}
+
+.content.landing {
+  max-width: 1040px;
 }
 
 .main-private {
@@ -373,10 +363,10 @@ FOOTER
 
    `margin-top: auto` puts it on the bottom edge of a shell taller than its content, and
    resolves to nothing once the content fills it — or outside a flex column altogether. The
-   gap above the band belongs to the shell: see `.main-landing > .content`.
+   gap above the band belongs to the shell: see `.content`.
 
    Sticky against the window's bottom edge while the page scrolls, and back in the flow at the
-   foot of it. It is the last child of `.main-landing`, whose box is the whole document, so it
+   foot of it. It is the last child of `.main`, whose box is the whole document, so it
    stays put the length of the scroll. */
 .page-footer {
   position: sticky;
@@ -1260,10 +1250,10 @@ GENERIC TEXT
 /* `left` and `top` are written by components/fieldHelp.js, which measures the trigger and
    the box and opens it away from the nearer edge of the viewport, so it is never cut off.
 
-   Fixed, not absolute: this sits inside a `.card` and inside `.content`, both of which hide
-   their overflow, and `.content`'s is load-bearing — it is what makes the inner region
-   scroll rather than the page grow. A fixed box is positioned against the viewport and
-   clipped by neither. Nothing in this stylesheet sets `transform`, `filter` or `contain`, so
+   Fixed, not absolute: this sits inside a `.card`, which hides its overflow, and on a private
+   page inside `.content-private`, whose `overflow-y: auto` is load-bearing — it is what makes
+   the inner region scroll rather than the page grow. A fixed box is positioned against the
+   viewport and clipped by neither. Nothing in this stylesheet sets `transform`, `filter` or `contain`, so
    no ancestor turns that back into containment.
 
    Hidden with `visibility` and not `display` so it keeps dimensions to measure before it is
@@ -2901,4 +2891,3 @@ LANDING PAGE
 .how-panel .step-number {
   font-size: var(--font-xs);
 }
-

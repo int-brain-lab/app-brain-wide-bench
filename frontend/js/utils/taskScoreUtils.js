@@ -238,10 +238,4 @@ function getSuiteBadges(scoreRows) {
   return [buildSuiteBadgeList(SUITES.filter((suite) => covered.has(suite)))];
 }
 
-export {
-  getSuiteBadges,
-  getTaskScoreFilters,
-  toBestScoreRows,
-  toScoreResultRows,
-  toScoreRows,
-};
+export { getSuiteBadges, getTaskScoreFilters, toBestScoreRows, toScoreResultRows, toScoreRows };

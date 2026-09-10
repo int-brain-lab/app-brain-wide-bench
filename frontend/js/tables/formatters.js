@@ -242,10 +242,7 @@ function dateFormatter(cell) {
 function modelFormatter(cell) {
   const row = cell.getData();
 
-  const badges = [
-    buildPretrainedBadge(row.isPretrained),
-    buildMineBadge(row.isMine),
-  ].join("");
+  const badges = [buildPretrainedBadge(row.isPretrained), buildMineBadge(row.isMine)].join("");
 
   return `
     <a
