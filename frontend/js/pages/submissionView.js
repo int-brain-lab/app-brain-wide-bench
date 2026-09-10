@@ -4,7 +4,7 @@ import { renderHtml } from "../core/render.js";
 import { suiteFromTask, suiteLabel } from "../core/suites.js";
 import { escapeHtml } from "../core/html.js";
 import { loadModelBreakdown } from "../api/modelApi.js";
-import { loadSubmission, updateSubmission } from "../api/submissionApi.js";
+import { deleteSubmission, loadSubmission, updateSubmission } from "../api/submissionApi.js";
 import { updateTaskSubmissions } from "../api/taskSubmissionApi.js";
 import {
   loadSubmissionFields,
@@ -16,6 +16,7 @@ import {
   TASK_PANELS,
   toMethodologyValues,
 } from "../schemas/taskSubmissionSchema.js";
+import { getSubmissionDeleteItems } from "../utils/deleteUtils.js";
 import { getSubmissionBadges, getSubmissionSubtitle } from "../utils/submissionUtils.js";
 import {
   getTaskSubmissionFilters,
@@ -52,6 +53,7 @@ import {
   getSection,
   getSectionBody,
 } from "../components/sections.js";
+import { createDeleteSection } from "../widgets/deleteRecord.js";
 import { attachEditLink, renderRecordDetailsView } from "../templates/recordDetails.js";
 import { loadRecordPage } from "../templates/recordPage.js";
 import { renderRecordListView } from "../templates/recordList.js";
@@ -77,6 +79,13 @@ const VIEW_ALL = {
   methodology: { noun: "task", view: "tasks" },
   scores: { noun: "score", view: "scores" },
 };
+
+// The foot of the details view, for a member. The widget draws into it — see
+// widgets/deleteRecord.js.
+const DELETE_SECTION = { id: "delete", title: "Delete this submission" };
+
+// Where a deleted submission leaves the reader.
+const SUBMISSION_LIST_HREF = "/html/submissions/submission_list.html";
 
 // The record's own fields have no count to name: the button opens one page, not a list.
 const DETAILS_FOOTER = buildSectionFooter(buildDetailsButton({ view: "details" }));
@@ -211,13 +220,36 @@ function renderDetailsView({ submission, fields, canEdit, edit, created }) {
     edit,
     created,
 
+    // Any member may delete a submission, which is the rule that gates editing it.
+    sections: canEdit ? [DELETE_SECTION] : [],
+
     renderTitle: (shown) => renderHeader(shown.label, getSubmissionSubtitle(shown)),
   });
 
   if (!page) return null;
 
+  const remove = createDeleteSection({
+    section: DELETE_SECTION.id,
+    noun: "submission",
+    name: () => submission.label,
+    items: () => getSubmissionDeleteItems(submission),
+
+    // `force`, so a submitted or scored submission goes too. The create form's Remove
+    // button is the caller that wants the narrower rule.
+    remove: () => deleteSubmission(submission.id, { force: true }),
+    onDeleted: () => window.location.assign(SUBMISSION_LIST_HREF),
+  });
+
+  remove.render();
+
   return page.attachEditor({
     save: (draft) => updateSubmission(submission.id, draft),
+
+    // One record, one action at a time: the delete is out of reach while the form above it
+    // is open, and back once it closes either way.
+    onEdit: () => remove.setEditing(true),
+    onSaved: () => remove.setEditing(false),
+    onCancel: () => remove.setEditing(false),
   });
 }
 

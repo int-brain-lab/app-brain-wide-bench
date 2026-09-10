@@ -6,10 +6,11 @@
     <title>Brain-Wide Bench</title>
     <!-- Handshakes for the script origins at the end of the body. -->
     <link rel="preconnect" href="https://cdn.auth0.com" />
+    <link rel="preconnect" href="https://unpkg.com" />
     <link rel="stylesheet" href="/css/style.css" />
   </head>
   <body>
-    <div class="main">
+    <div class="main main-landing">
       <nav class="nav" id="top-nav"></nav>
       <div class="content landing">
         <!-- Hero -->
@@ -73,10 +74,7 @@
                   Predict trial-level behavioral outcomes from neural population activity.
                 </p>
               </div>
-              <div class="row left gap-sm">
-                <span class="badge metric">R²</span><span class="badge metric">D²</span
-                ><span class="badge metric">Balanced Acc.</span><span class="badge metric">F1</span>
-              </div>
+              <div data-suite-metrics="ts1"></div>
             </div>
             <div class="card column left gap-lg">
               <div class="column left gap-sm">
@@ -86,9 +84,7 @@
                   Reconstruct firing rate trajectories and spike predictions across brain regions.
                 </p>
               </div>
-              <div class="row left gap-sm">
-                <span class="badge metric">D²</span><span class="badge metric">Bits/spike</span>
-              </div>
+              <div data-suite-metrics="ts2"></div>
             </div>
             <div class="card column left gap-lg">
               <div class="column left gap-sm">
@@ -98,17 +94,33 @@
                   Classify recorded neurons to their brain region from activity alone.
                 </p>
               </div>
-              <div class="row left gap-sm">
-                <span class="badge metric">Macro-F1</span>
-              </div>
+              <div data-suite-metrics="ts3"></div>
             </div>
           </div>
         </section>
+
+        <!-- Call to action -->
+        <section class="page-section">
+          <div class="card row gap-lg">
+            <div class="column left gap-xs">
+              <!-- Hidden until the count arrives: a failed /api/meta leaves the invitation
+                   standing rather than a sentence with a hole in it. -->
+              <p class="card-title" id="cta-count" hidden></p>
+              <p class="card-description">Test the performance of your model.</p>
+            </div>
+            <a class="btn primary" href="/html/dashboard/dashboard.html">Get started</a>
+          </div>
+        </section>
       </div>
+
+      <!-- Footer -->
+      <footer class="page-footer row" id="page-footer"></footer>
     </div>
 
+    <script src="https://unpkg.com/lucide@1.42.0/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
     <script type="module" src="/js/nav/navTop.js"></script>
+    <script type="module" src="/js/nav/navFooter.js"></script>
     <script type="module" src="/js/pages/landing.js"></script>
   </body>
 </html>

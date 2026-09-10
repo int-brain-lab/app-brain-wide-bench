@@ -10,6 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import ColumnElement, and_, func, or_, select, true
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -97,9 +98,8 @@ IN_FLIGHT = (
 )
 
 
-# Abandoning a submission is only ever the submitter's own housekeeping, so it stops where
-# the submission becomes a result. ``validating`` is out for a different reason: a worker is
-# reading the row, and deleting it under one makes its final write raise.
+# What the create form's Remove button may delete: everything before a submission becomes a
+# result. The default guard on ``DELETE``, which ``force`` drops.
 ABANDONABLE = (
     SubmissionStatus.uploading,
     SubmissionStatus.invalid,
@@ -574,6 +574,58 @@ async def _validate_task_ids(task_ids: list[str], session: AsyncSession) -> None
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Duplicate task IDs: {duplicates}")
 
 
+# ── Deletion ───────────────────────────────────────────────────────────────────────────────────
+
+
+def _release_file(s3_key: str, upload_id: str | None) -> None:
+    """Release whichever of the two a submission's file is held as.
+
+    The stored parts of an unfinished upload, or the assembled object. Never both:
+    ``complete`` clears the upload id as it produces the object.
+
+    Failures are logged, not raised: the rows are already gone by the time this runs.
+    """
+    try:
+        if upload_id is not None:
+            abort_multipart(s3_key, upload_id)
+        else:
+            delete_submission_file(s3_key)
+    except Exception:
+        logger.exception("could not release the file at %s", s3_key)
+
+
+async def delete_and_release(
+    record: Any, submissions: Sequence[Submission], session: AsyncSession
+) -> None:
+    """Delete ``record`` and release the files of the ``submissions`` going with it.
+
+    ``record`` is a submission, a model or a team. The ORM cascade takes everything under it,
+    so every relationship it reaches must already be loaded: an async session cannot lazy-load
+    during a flush.
+
+    Files are released after the commit, so a failure there leaves an object behind rather
+    than rows whose file has gone.
+
+    Raises 409 if a worker wrote a score under ``record`` between the read and the delete —
+    a child row the cascade never loaded, which its foreign key then refuses.
+    """
+    # Read before the delete: a deleted instance cannot be refreshed for its own key.
+    files = [(submission.s3_key, submission.upload_id) for submission in submissions]
+
+    await session.delete(record)
+
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "A submission was being scored — try again"
+        ) from exc
+
+    for s3_key, upload_id in files:
+        _release_file(s3_key, upload_id)
+
+
 async def _load_submission_detail(
     submission_id: uuid.UUID,
     user_id: uuid.UUID | None,
@@ -795,45 +847,42 @@ async def complete_upload(
 @router.delete("/{submission_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_submission(
     submission_id: uuid.UUID,
+    force: bool = False,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> None:
-    """Abandon a submission that has not been submitted for scoring, and its file.
+    """Delete a submission, its task entries and their scores, and its file.
 
-    What the form's Delete button does, at any point before scoring: a file still arriving,
-    one that failed, one we could not check, and one validated but never submitted.
+    ``force`` drops the status rule. Without it only a submission that has not been submitted
+    for scoring may go, which is what the create form's Remove button sends: it holds the id
+    of a file still arriving, and must not delete a result if it is ever wrong about which
+    submission it has. The details page sends ``force``, having asked twice.
 
-    Whichever of the two the submission has is released — the stored parts of an unfinished
-    upload, or the assembled object. It never has both: ``complete`` clears the upload id as
-    it produces the object.
+    Under ``force`` a submission being validated or scored goes like any other. The worker's
+    next write finds the row gone and its task ends ``"gone"``.
 
-    ``task_submissions`` is eager-loaded only so the ORM cascade can run: an async session
-    cannot lazy-load during a delete.
+    The loader options are the ORM cascade's, not the response's: an async session cannot
+    lazy-load during a flush, and a scored submission is the first this reaches a score for.
 
-    Raises: 404 - Not found if the submission doesn't exist
-    Raises: 403 - Forbidden if the caller is not a member of the submission's team
-    Raises: 409 - Conflict if it is being validated or has been submitted for scoring
+    Raises 404 if the submission does not exist.
+    Raises 403 if the caller is not a member of the submission's team.
+    Raises 409 without ``force``, if it is being validated or submitted for scoring.
+    Raises 409 if a worker wrote a score under it between the read and the delete.
     """
     submission = await _get_submission_as_member(
         submission_id,
         user.id,
         session,
-        options=[selectinload(Submission.task_submissions)],
+        options=[selectinload(Submission.task_submissions).selectinload(TaskSubmission.score)],
     )
 
-    if submission.status not in ABANDONABLE:
+    if not force and submission.status not in ABANDONABLE:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             "This submission can no longer be deleted",
         )
 
-    if submission.upload_id is not None:
-        abort_multipart(submission.s3_key, submission.upload_id)
-    else:
-        delete_submission_file(submission.s3_key)
-
-    await session.delete(submission)
-    await session.commit()
+    await delete_and_release(submission, [submission], session)
 
 
 @router.get("/{submission_id}/validation", response_model=ValidationResponse)

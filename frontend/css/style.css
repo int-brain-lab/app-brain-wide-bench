@@ -181,6 +181,28 @@ MAIN SHELLS ETC
   max-width: 800px;
 }
 
+/* The one shell with a footer, so it fills the window: without a height to fill, the bar
+   would sit partway up a page whose content is shorter than the viewport. */
+.main-landing {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+/* Its natural height, at the top of the shell. `.content`'s own `flex: 1`, `min-height: 0`
+   and `overflow: hidden` are written for the fixed-height private grid and are inert under a
+   block parent; in a flex column they would clip this page's overflow instead of growing the
+   shell, and its centring would drop the hero down the window.
+
+   The gap above the footer is here rather than on the footer, which is what leaves the
+   footer's own `margin-top: auto` free to push it down. */
+.main-landing > .content {
+  flex: none;
+  overflow: visible;
+  justify-content: flex-start;
+  margin-bottom: var(--gap-xxl);
+}
+
 .main-private {
   display: grid;
   grid-template-columns: 200px 1fr; /* sidebar | content */
@@ -336,6 +358,38 @@ SIDE NAVIGATION BAR
 }
 
 /*----------------------------------------------------------------------------------------
+FOOTER
+----------------------------------------------------------------------------------------*/
+
+/* The bar at the foot of the page, mirroring .nav at the head of it: the full width of the
+   shell rather than the width of the content column, the same padding, and the same shade
+   back from the page. Its border is the top edge, where the nav's is the bottom one.
+
+   `margin-top: auto` puts it on the bottom edge of a shell taller than its content, and
+   resolves to nothing once the content fills it — or outside a flex column altogether. The
+   gap above the band belongs to the shell: see `.main-landing > .content`. */
+.page-footer {
+  margin-top: auto;
+  padding: 14px 40px;
+  border-top: 1px solid var(--border-color);
+  background: var(--surface-secondary);
+}
+
+/* Icon and label as one target, at .link's size and colour. */
+.footer-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-md);
+}
+
+/* Sized to the label beside it, and never squashed before the row wraps — as .btn-icon is. */
+.footer-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/*----------------------------------------------------------------------------------------
 USER LOGO
 ----------------------------------------------------------------------------------------*/
 
@@ -389,6 +443,19 @@ BUTTONS
   background: var(--primary);
   color: var(--surface);
   border-color: var(--primary);
+}
+
+/* The one button that destroys something. Filled rather than outlined: it is the action a
+   reader has to mean, and an outline reads as the quieter of two choices beside Cancel. */
+.btn.danger {
+  background: var(--danger);
+  color: var(--surface);
+  border-color: var(--danger);
+}
+
+.btn.danger:hover {
+  background: var(--danger-dark);
+  border-color: var(--danger-dark);
 }
 
 .btn:disabled {
@@ -706,6 +773,14 @@ CARDS
 
 .card.secondary {
   background: var(--surface);
+}
+
+/* What a delete takes with it, listed before it happens. The tint is the danger colour at
+   low opacity rather than --danger-light, matching .failure-msg: it reads the same on either
+   shell's ground. */
+.card.danger {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
 }
 
 /* The suites under a ranking card's own figure: a badge, and the standing beside it. Ruled

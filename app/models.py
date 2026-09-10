@@ -288,8 +288,14 @@ class Team(SQLModel, table=True):
     id: uuid.UUID = _uuid()
     name: str
 
-    members: list["UserTeam"] = Relationship(back_populates="team")
-    models: list["Model"] = Relationship(back_populates="team")
+    members: list["UserTeam"] = Relationship(
+        back_populates="team",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    models: list["Model"] = Relationship(
+        back_populates="team",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
 
 class User(SQLModel, table=True):
@@ -362,7 +368,10 @@ class Model(SQLModel, table=True):
     created_at: datetime | None = _ts()
 
     team: Team | None = Relationship(back_populates="models")
-    submissions: list["Submission"] = Relationship(back_populates="model")
+    submissions: list["Submission"] = Relationship(
+        back_populates="model",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
     # Help text for the create and edit forms, keyed by field name and served by
     # /api/meta. Here rather than on the response schemas so the wording sits with the

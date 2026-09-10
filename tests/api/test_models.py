@@ -3,12 +3,15 @@
 Visibility is the thing worth testing here. A model is listed publicly because a
 *submission* of it is public, so most of these turn on what the caller may see rather
 than on the model itself. The caller is a member of nothing until a test says otherwise.
+
+Deleting is the exception: it is any member's, and it takes every submission of the model
+with it.
 """
 
 import uuid
 
-from app.models import Model, Submission, SubmissionStatus, UserTeam
-from tests.conftest import MODEL_ROWS, MODELS, SUBMISSIONS, TEAMS
+from app.models import Model, Submission, SubmissionStatus, TaskScore, TaskSubmission, UserTeam
+from tests.conftest import MODEL_ROWS, MODELS, SUBMISSIONS, TASK_SUBMISSIONS, TEAMS
 
 BASELINE = MODELS["mlp-baseline"]
 PRETRAINED = MODELS["ssl-transformer"]
@@ -16,6 +19,9 @@ UNSUBMITTED = MODELS["unsubmitted-net"]
 
 MY_TEAM = TEAMS["Brain Wide Bench"]
 OTHER_TEAM = TEAMS["Int Brain Lab"]
+
+# Every submission of BASELINE, which is what deleting it has to take with it.
+BASELINE_LABELS = ("mlp-ts1-baseline", "mlp-ts1-rerun", "mlp-ts1-queued", "mlp-ts3-internal")
 
 
 def by_name(response):
@@ -541,3 +547,63 @@ async def test_update_rejects_unknown_fields(seeded_client, add, me):
     )
 
     assert response.status_code == 422
+
+
+# ── DELETE /api/models/{id} ───────────────────────────────────────────────────
+
+
+async def test_delete_as_non_member(seeded_client, remaining):
+    """A model is its own team's to remove."""
+    response = await seeded_client.delete(models_url(BASELINE))
+
+    assert response.status_code == 403
+    assert await remaining(Model.id, [BASELINE]) == [BASELINE]
+
+
+async def test_delete_takes_every_submission_under_it(
+    seeded_client, add, me, monkeypatch, remaining
+):
+    """A model goes with its submissions, their task entries, and those entries' scores.
+
+    Any member may: the caller joins as a collaborator, not an owner.
+    """
+    import app.routers.submissions as router
+
+    released = []
+    monkeypatch.setattr(router, "delete_submission_file", lambda key: released.append(key))
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    submissions = [SUBMISSIONS[label] for label in BASELINE_LABELS]
+    entries = [
+        entry for label in BASELINE_LABELS for entry in TASK_SUBMISSIONS.get(label, {}).values()
+    ]
+
+    response = await seeded_client.delete(models_url(BASELINE))
+
+    assert response.status_code == 204
+    assert len(released) == len(BASELINE_LABELS)
+
+    assert await remaining(Model.id, [BASELINE]) == []
+    assert await remaining(Submission.id, submissions) == []
+    assert await remaining(TaskSubmission.id, entries) == []
+    assert await remaining(TaskScore.task_submission_id, entries) == []
+
+
+async def test_delete_leaves_the_teams_other_models(seeded_client, add, me, remaining):
+    """The cascade stops at the model: its team and the team's other models stand."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.delete(models_url(BASELINE))
+
+    assert response.status_code == 204
+    assert await remaining(Model.id, [PRETRAINED]) == [PRETRAINED]
+    assert await remaining(Submission.id, [SUBMISSIONS["ssl-ts2-pilot"]]) != []
+
+
+async def test_delete_unknown_model(seeded_client, add, me):
+    """A model that isn't there is a 404, before any membership is considered."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.delete(models_url(uuid.uuid4()))
+
+    assert response.status_code == 404

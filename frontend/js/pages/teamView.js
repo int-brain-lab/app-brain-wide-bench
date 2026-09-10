@@ -4,9 +4,10 @@ import { renderHtml } from "../core/render.js";
 import { getModels } from "../api/modelApi.js";
 import { getSubmissions } from "../api/submissionApi.js";
 import { getTaskSubmissions } from "../api/taskSubmissionApi.js";
-import { loadTeam, updateTeam } from "../api/teamApi.js";
+import { deleteTeam, loadTeam, updateTeam } from "../api/teamApi.js";
 import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
 import { TEAM_FIELDS, TEAM_PANELS } from "../schemas/teamSchema.js";
+import { getTeamDeleteItems } from "../utils/deleteUtils.js";
 import { toModelRows } from "../utils/modelUtils.js";
 import { toSubmissionRows } from "../utils/submissionUtils.js";
 import {
@@ -43,6 +44,7 @@ import {
   getSection,
   getSectionBody,
 } from "../components/sections.js";
+import { createDeleteSection } from "../widgets/deleteRecord.js";
 import {
   buildMemberTable,
   buildMembersPanel,
@@ -107,6 +109,13 @@ const MEMBERS_SECTION_BODY = {
   id: "members",
   title: "Members",
 };
+
+// The foot of the details view, for an owner. The widget draws into it — see
+// widgets/deleteRecord.js.
+const DELETE_SECTION = { id: "delete", title: "Delete this team" };
+
+// Where a deleted team leaves the reader.
+const TEAM_LIST_HREF = "/html/teams/team_list.html";
 
 /**
  * Who the team is, then what it has entered, then how it has done — the same reading order
@@ -312,7 +321,17 @@ function renderScoresView({ team, models, scoreRows }) {
 
 // ─── DETAILS VIEW ────────────────────────────────────────────────────────────
 
-function renderDetailsView({ team, fields, canEdit, edit, created }) {
+function renderDetailsView({
+  team,
+  models,
+  submissions,
+  taskSubmissions,
+  fields,
+  canEdit,
+  canDelete,
+  edit,
+  created,
+}) {
   const page = renderRecordDetailsView({
     noun: "team",
     record: team,
@@ -329,7 +348,10 @@ function renderDetailsView({ team, fields, canEdit, edit, created }) {
 
     // A reader who may not edit gets no members block: it would report an empty team rather
     // than an unreadable one, and every write it offers would 403.
-    sections: canEdit ? [MEMBERS_SECTION_BODY] : [],
+    //
+    // Delete is the owner's alone, so it is gated separately — a collaborator edits a team
+    // they cannot dissolve.
+    sections: [...(canEdit ? [MEMBERS_SECTION_BODY] : []), ...(canDelete ? [DELETE_SECTION] : [])],
 
     renderTitle: (shown) => renderHeader(shown.name, getTeamSubtitle(shown)),
   });
@@ -355,12 +377,31 @@ function renderDetailsView({ team, fields, canEdit, edit, created }) {
 
   members.render();
 
+  // Null for a collaborator, whose details view has no delete section to draw into.
+  const remove = canDelete
+    ? createDeleteSection({
+        section: DELETE_SECTION.id,
+        noun: "team",
+        name: () => team.name,
+        items: () => getTeamDeleteItems({ team, models, submissions, taskSubmissions }),
+        remove: () => deleteTeam(team.id),
+        onDeleted: () => window.location.assign(TEAM_LIST_HREF),
+      })
+    : null;
+
+  remove?.render();
+
   // Set by `save`, read by `onSaved`: the editor's save must return the one record it
   // merges, so per-member failures have no way through except a variable scoped to here.
   let failedMembers = [];
 
   return page.attachEditor({
-    onEdit: () => members.setEditing(canManageMembers(team)),
+    // One record, one action at a time: the delete is out of reach while the form above it
+    // is open, and back once it closes either way.
+    onEdit: () => {
+      members.setEditing(canManageMembers(team));
+      remove?.setEditing(true);
+    },
 
     // Members first, then the rename: PATCH answers with the full TeamDetail, so doing it
     // last means the response already reflects the membership changes.
@@ -373,6 +414,7 @@ function renderDetailsView({ team, fields, canEdit, edit, created }) {
     onSaved: () => {
       members.setEditing(false);
       members.render();
+      remove?.setEditing(false);
 
       // attachRecordEditor has already reported the save; this overwrites it only when the
       // rename went through but a member didn't, which the standard card cannot say.
@@ -391,6 +433,7 @@ function renderDetailsView({ team, fields, canEdit, edit, created }) {
     onCancel: () => {
       members.reset();
       members.setEditing(false);
+      remove?.setEditing(false);
     },
   });
 }
@@ -434,9 +477,14 @@ loadRecordPage({
       team,
       models,
       submissions: submissions ?? [],
+      // Kept beside the rows built from them: the delete summary counts the records, and
+      // a score row is a mapping of one rather than the entry itself.
+      taskSubmissions: taskSubmissions ?? [],
       scoreRows: toScoreResultRows(taskSubmissions ?? []),
       fields: TEAM_FIELDS,
       canEdit: signedIn && team.is_mine === true,
+      // Owners only, which is a narrower rule than editing — see can_delete on TeamResponse.
+      canDelete: signedIn && team.can_delete === true,
     };
   },
 });

@@ -96,6 +96,18 @@ const METRIC_NAMES = {
   recall: "Recall",
 };
 
+// What each suite reports, in the order a reader meets them, keyed by the names the scorers
+// write. Beside METRIC_NAMES so a metric is named once and listed once: the landing page used
+// to spell its own, and four of the eleven had drifted from these.
+//
+// TS3's are per brain region with a macro average over them, and the average is what the
+// cards name — see REGION_SEPARATOR.
+const SUITE_METRICS = {
+  ts1: ["bacc", "r2", "poisson_d2", "mae", "f1", "ap", "pearson", "bps"],
+  ts2: ["poisson_d2", "bps"],
+  ts3: ["macro/f1-score", "precision", "recall"],
+};
+
 /**
  * How a metric is written wherever one is shown — a badge, a button, a heatmap block.
  *
@@ -161,10 +173,17 @@ function taskTypeOf(taskId) {
   return TASK_TYPES[taskId] ?? suiteFromTask(taskId) ?? "";
 }
 
+// The metrics a suite reports. Empty for a suite this does not name, as the labels are for a
+// metric it does not name.
+function metricsForSuite(suite) {
+  return SUITE_METRICS[suite] ?? [];
+}
+
 export {
   REGION_SEPARATOR,
   SUITES,
   metricLabel,
+  metricsForSuite,
   suiteFromTask,
   suiteLabel,
   taskFullLabel,

@@ -86,10 +86,19 @@ async function completeUpload(submissionId, parts) {
   });
 }
 
-// Abandons the submission and whatever it holds — stored parts, or the object they were
-// assembled into. Refused once it is being validated or has been submitted for scoring.
-async function deleteSubmission(submissionId) {
-  return await apiFetch(`/api/submissions/${submissionId}`, {
+/**
+ * Delete the submission and whatever its file is held as — stored parts, or the object they
+ * were assembled into.
+ *
+ * @param force delete it whatever state it is in. Without this the request is refused once
+ *              the submission is being validated or has been submitted for scoring, which is
+ *              what the create form's Remove button wants: it holds the id of a file still
+ *              arriving. The details page passes it, having asked twice.
+ */
+async function deleteSubmission(submissionId, { force = false } = {}) {
+  const query = buildQuery({ force: force ? "true" : undefined });
+
+  return await apiFetch(`/api/submissions/${submissionId}${query}`, {
     method: "DELETE",
   });
 }

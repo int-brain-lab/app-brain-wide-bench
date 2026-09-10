@@ -27,6 +27,8 @@ const ICONS = {
   home: "house",
   settings: "settings",
   details: "book-open",
+  docs: "book-open",
+  help: "life-buoy",
 
   // Facts about a record
   created: "calendar",
@@ -45,6 +47,7 @@ const ICONS = {
   cancel: "x",
   remove: "x",
   create: "plus",
+  delete: "trash-2",
   filter: "funnel",
   viewAll: "arrow-right",
   expand: "plus",

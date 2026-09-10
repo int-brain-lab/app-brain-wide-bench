@@ -55,12 +55,20 @@ async def _finish_scoring(
     status: SubmissionStatus,
     ts_list: list[tuple[uuid.UUID, str]],
     results: dict | None = None,
-) -> None:
-    """Persist final status and, on success, write one :class:`TaskScore` per task."""
+) -> bool:
+    """Persist final status and, on success, write one :class:`TaskScore` per task.
+
+    ``False`` when the submission is gone, as :func:`_start_scoring` returns ``None``: the
+    task rows the scores would hang off went with it.
+    """
     async with async_session_factory() as session:
         submission = (
             await session.execute(select(Submission).where(Submission.id == submission_id))
-        ).scalar_one()
+        ).scalar_one_or_none()
+
+        if submission is None:
+            return False
+
         submission.status = status
 
         if results and "summary" in results:
@@ -85,6 +93,8 @@ async def _finish_scoring(
 
         await session.commit()
 
+    return True
+
 
 @celery_app.task(name="score_submission")
 def score_submission(submission_id: str) -> str:
@@ -99,7 +109,7 @@ def score_submission(submission_id: str) -> str:
     -------
     str
         Final status (``"done"`` or ``"failed"``), or ``"gone"`` when the submission was
-        deleted before this ran.
+        deleted before or during the run.
     """
     sid = uuid.UUID(submission_id)
     started = asyncio.run(_start_scoring(sid))
@@ -134,8 +144,14 @@ def score_submission(submission_id: str) -> str:
                 results["rows"].extend(scored["rows"])
                 results["summary"].update(scored["summary"])
 
-            asyncio.run(_finish_scoring(sid, SubmissionStatus.done, ts_list, results))
+            if not asyncio.run(_finish_scoring(sid, SubmissionStatus.done, ts_list, results)):
+                return "gone"
+
             return "done"
         except Exception as exc:  # noqa: BLE001 — surface any failure in the DB for the user
-            asyncio.run(_finish_scoring(sid, SubmissionStatus.failed, ts_list))
+            # A submission deleted mid-run is the likeliest cause of landing here, and there
+            # is no row left to record the failure on.
+            if not asyncio.run(_finish_scoring(sid, SubmissionStatus.failed, ts_list)):
+                return "gone"
+
             raise exc

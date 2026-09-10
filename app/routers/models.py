@@ -17,7 +17,7 @@ from app.auth import (
 )
 from app.database import get_session
 from app.ranking.rank import Placings, Standing, latest_entries, place_standings, standings
-from app.routers.submissions import arrived, has_arrived, visible_submissions
+from app.routers.submissions import arrived, delete_and_release, has_arrived, visible_submissions
 from app.models import (
     Model,
     Submission,
@@ -597,3 +597,37 @@ async def update_model(
     await session.commit()
 
     return await _load_model_detail(model.id, user, session)
+
+
+@router.delete("/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_model(
+    model_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Delete a model, every submission of it, and their task entries, scores and files.
+
+    Any member of the model's team, whatever state its submissions are in: one being
+    validated or scored goes with the rest, and that worker's task ends ``"gone"``.
+
+    The loader options are the ORM cascade's rather than a response's — an async session
+    cannot lazy-load during a flush, so everything under the model is read before it goes.
+
+    Raises 404 if the model does not exist.
+    Raises 403 if the caller is not a member of the model's team.
+    Raises 409 if a worker wrote a score under it between the read and the delete.
+    """
+    model = await _get_model_as_member(
+        model_id,
+        user.id,
+        session,
+        options=[
+            selectinload(Model.submissions).selectinload(Submission.user_links),
+            selectinload(Model.submissions)
+            .selectinload(Submission.task_submissions)
+            .selectinload(TaskSubmission.score),
+        ],
+        detail="Not a member of this model's team",
+    )
+
+    await delete_and_release(model, model.submissions, session)

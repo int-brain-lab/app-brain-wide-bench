@@ -7,14 +7,15 @@ The main visibility rules are:
 - Submission and model counts are based on what the caller can see.
 - A team's role is only returned to its members.
 - Team members can update the team and manage its membership.
+- Only an owner may delete a team, and everything it holds goes with it.
 """
 
 import uuid
 
 from sqlalchemy import select
 
-from app.models import TeamRole, UserTeam
-from tests.conftest import TEAMS, USERS
+from app.models import Model, Submission, TaskScore, TaskSubmission, TeamRole, UserTeam
+from tests.conftest import MODELS, SUBMISSIONS, TASK_SUBMISSIONS, TEAMS, USERS
 
 BENCHMARK = "benchmark@internationalbrainlab.org"
 COLLABORATOR = "collaborator@internationalbrainlab.org"
@@ -609,3 +610,57 @@ async def test_remove_last_member_is_refused(seeded_client, me):
 
     assert response.status_code == 409
 
+
+# ── DELETE /api/teams/{id} ────────────────────────────────────────────────────
+
+
+async def test_delete_as_collaborator(seeded_client, add, me, remaining):
+    """Owners only: a collaborator must not be able to destroy everyone else's work."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.collaborator))
+
+    response = await seeded_client.delete(teams_url(MY_TEAM))
+
+    assert response.status_code == 403
+    assert await remaining(UserTeam.team_id, [MY_TEAM]) != []
+
+
+async def test_delete_as_owner(seeded_client, add, me, monkeypatch, remaining):
+    """A team goes with its memberships, its models, and everything under those."""
+    import app.routers.submissions as router
+
+    released = []
+    monkeypatch.setattr(router, "delete_submission_file", lambda key: released.append(key))
+    await add(UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner))
+
+    entries = [
+        entry for label in TASK_SUBMISSIONS for entry in TASK_SUBMISSIONS[label].values()
+    ]
+
+    response = await seeded_client.delete(teams_url(MY_TEAM))
+
+    assert response.status_code == 204
+    assert released != []
+
+    assert await remaining(UserTeam.team_id, [MY_TEAM]) == []
+    assert await remaining(Model.team_id, [MY_TEAM]) == []
+    assert await remaining(Submission.id, [SUBMISSIONS["mlp-ts1-baseline"]]) == []
+    assert await remaining(TaskSubmission.id, entries) == []
+    assert await remaining(TaskScore.task_submission_id, entries) == []
+
+
+async def test_delete_leaves_other_teams(seeded_client, add, me, remaining):
+    """One team's delete is not another's: the model on OTHER_TEAM stands."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM, role=TeamRole.owner))
+
+    response = await seeded_client.delete(teams_url(MY_TEAM))
+
+    assert response.status_code == 204
+    assert await remaining(Model.id, [MODELS["unsubmitted-net"]]) != []
+    assert await remaining(UserTeam.team_id, [OTHER_TEAM]) != []
+
+
+async def test_delete_unknown_team(seeded_client):
+    """Ownership is checked before the id is looked up, so an unknown team is refused."""
+    response = await seeded_client.delete(teams_url(uuid.uuid4()))
+
+    assert response.status_code == 403

@@ -9,6 +9,7 @@ export const CREATE_BUTTON_ID = "create-button";
 export const EDIT_BUTTON_ID = "edit-button";
 export const CANCEL_BUTTON_ID = "cancel-button";
 export const SAVE_BUTTON_ID = "save-button";
+export const DELETE_BUTTON_ID = "delete-button";
 export const MEMBERS_BUTTON_ID = "members-button";
 export const SUBMIT_BUTTON_ID = "submit-button";
 
@@ -130,6 +131,22 @@ export function buildEditButton({ id = EDIT_BUTTON_ID, href = null, label = "Edi
     label,
     href,
     icon: getIcon("edit"),
+  });
+}
+
+// Red wherever it appears: both the one that opens the confirmation and the one inside it
+// that carries it out. `id` is the caller's, since the card holds a second of these.
+export function buildDeleteButton({
+  id = DELETE_BUTTON_ID,
+  label = "Delete",
+  disabled = false,
+} = {}) {
+  return buildButton({
+    id,
+    label,
+    disabled,
+    icon: getIcon("delete"),
+    className: "danger",
   });
 }
 

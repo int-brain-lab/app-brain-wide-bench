@@ -16,7 +16,7 @@ from app.auth import (
     require_team_owner,
 )
 from app.database import get_session
-from app.models import Model, Submission, Team, TeamRole, User, UserRole, UserTeam
+from app.models import Model, Submission, TaskSubmission, Team, TeamRole, User, UserRole, UserTeam
 from app.schemas.teams import (
     TeamCreate,
     TeamDetail,
@@ -28,7 +28,12 @@ from app.schemas.teams import (
 )
 
 from app.routers.models import visible_models
-from app.routers.submissions import has_arrived, submissions_of_teams, visible_submissions
+from app.routers.submissions import (
+    delete_and_release,
+    has_arrived,
+    submissions_of_teams,
+    visible_submissions,
+)
 
 router = APIRouter(prefix="/api/teams", tags=["teams"])
 
@@ -214,6 +219,7 @@ async def _load_team_detail(
         # something to withhold.
         role=my_link.role if my_link else None,
         can_manage_members=admin or (my_link is not None and my_link.role is TeamRole.owner),
+        can_delete=admin or (my_link is not None and my_link.role is TeamRole.owner),
         members=[TeamMemberOut.from_member(member) for member in team.members],
     )
 
@@ -238,7 +244,7 @@ async def list_teams(
     submissions and models with at least one public submission. An admin sees everything.
 
     ``role`` is the caller's own membership and stays null for an admin outside the team;
-    what they may *do* is ``is_mine`` and ``can_manage_members``.
+    what they may *do* is ``is_mine``, ``can_manage_members`` and ``can_delete``.
     """
     teams = (await session.execute(select(Team).order_by(Team.name))).scalars().all()
 
@@ -263,6 +269,7 @@ async def list_teams(
             role=my_roles.get(team.id),
             is_mine=admin or team.id in my_roles,
             can_manage_members=admin or my_roles.get(team.id) is TeamRole.owner,
+            can_delete=admin or my_roles.get(team.id) is TeamRole.owner,
         )
         for team in teams
     ]
@@ -497,3 +504,42 @@ async def remove_team_member(
         remaining[0].role = TeamRole.owner
 
     await session.commit()
+
+
+@router.delete("/{team_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_team(
+    team_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Delete a team, its memberships, and every model and submission it holds.
+
+    Owners only, like managing membership: a collaborator admitted to a team must not be able
+    to destroy the work of everyone already in it.
+
+    The loader options are the ORM cascade's rather than a response's — an async session
+    cannot lazy-load during a flush, so everything under the team is read before it goes.
+
+    Raises 403 if the caller does not own the team.
+    Raises 404 if the team does not exist.
+    Raises 409 if a worker wrote a score under it between the read and the delete.
+    """
+    await require_team_owner(user.id, team_id, session)
+
+    team = await _get_team(
+        team_id,
+        session,
+        options=[
+            selectinload(Team.models)
+            .selectinload(Model.submissions)
+            .selectinload(Submission.user_links),
+            selectinload(Team.models)
+            .selectinload(Model.submissions)
+            .selectinload(Submission.task_submissions)
+            .selectinload(TaskSubmission.score),
+        ],
+    )
+
+    submissions = [submission for model in team.models for submission in model.submissions]
+
+    await delete_and_release(team, submissions, session)

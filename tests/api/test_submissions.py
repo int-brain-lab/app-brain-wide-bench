@@ -14,6 +14,8 @@ The main rules are:
 - A label held by the caller's own unfinished attempt restarts that attempt; only one whose
   file has arrived collides.
 - The size limit is enforced against the assembled object, not the size the client claimed.
+- Deleting is member-only. It stops at a submitted submission unless the caller sends
+  ``force``, which is the details page rather than the create form's Remove button.
 """
 
 import uuid
@@ -22,9 +24,9 @@ import pytest_asyncio
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
-from app.models import Submission, SubmissionStatus, UserTeam
+from app.models import Submission, SubmissionStatus, TaskScore, TaskSubmission, UserTeam
 from app.validation.validate_submission import TS1_TASK_IDS, TS3_TASK_IDS
-from tests.conftest import MODELS, SUBMISSIONS, TEAMS
+from tests.conftest import MODELS, SUBMISSIONS, TASK_SUBMISSIONS, TEAMS
 
 PUBLIC = SUBMISSIONS["mlp-ts1-baseline"]
 PRIVATE = SUBMISSIONS["mlp-ts1-rerun"]
@@ -155,11 +157,14 @@ def labels(response):
     return sorted(row["label"] for row in response.json())
 
 
-def submissions_url(submission_id=None):
-    """The collection, or one submission within it."""
+def submissions_url(submission_id=None, *, force=False):
+    """The collection, or one submission within it. ``force`` is DELETE's own parameter."""
     url = "/api/submissions"
 
-    return url if submission_id is None else f"{url}/{submission_id}"
+    if submission_id is None:
+        return url
+
+    return f"{url}/{submission_id}{'?force=true' if force else ''}"
 
 
 def prevalidate_url():
@@ -733,7 +738,7 @@ async def test_delete_removes_the_object_of_a_validated_submission(
 async def test_delete_refuses_a_submission_being_validated(
     seeded_client, uploading, add, me, session_factory
 ):
-    """A worker is reading it; deleting the row would make its final write raise."""
+    """Remove stops where the file stops being the submitter's alone. ``force`` is the way past."""
     await add(UserTeam(user_id=me, team_id=MY_TEAM))
 
     async with session_factory() as session:
@@ -752,7 +757,7 @@ async def test_delete_refuses_a_submission_being_validated(
 async def test_delete_refuses_a_submission_that_has_been_scored(
     seeded_client, add, me, session_factory
 ):
-    """Abandoning stops where a submission becomes a result."""
+    """Abandoning stops where a submission becomes a result — the default guard's whole job."""
     await add(UserTeam(user_id=me, team_id=MY_TEAM))
 
     response = await seeded_client.delete(submissions_url(PUBLIC))
@@ -762,6 +767,57 @@ async def test_delete_refuses_a_submission_that_has_been_scored(
     async with session_factory() as session:
         assert await session.get(Submission, PUBLIC) is not None
 
+
+async def test_delete_with_force_removes_a_scored_submission(
+    seeded_client, add, me, monkeypatch, session_factory, remaining
+):
+    """``force`` drops the status rule, and the task entries and scores go with the row."""
+    import app.routers.submissions as router
+
+    deleted = []
+    monkeypatch.setattr(router, "delete_submission_file", lambda key: deleted.append(key))
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    entries = list(TASK_SUBMISSIONS["mlp-ts1-baseline"].values())
+
+    response = await seeded_client.delete(submissions_url(PUBLIC, force=True))
+
+    assert response.status_code == 204
+    assert deleted != []
+
+    async with session_factory() as session:
+        assert await session.get(Submission, PUBLIC) is None
+
+    assert await remaining(TaskSubmission.id, entries) == []
+    assert await remaining(TaskScore.task_submission_id, entries) == []
+
+
+async def test_delete_with_force_removes_a_submission_being_validated(
+    seeded_client, uploading, add, me, session_factory
+):
+    """The row goes under a running worker; its next write finds nothing and ends "gone"."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    async with session_factory() as session:
+        submission = await session.get(Submission, uploading)
+        submission.status = SubmissionStatus.validating
+        await session.commit()
+
+    response = await seeded_client.delete(submissions_url(uploading, force=True))
+
+    assert response.status_code == 204
+
+    async with session_factory() as session:
+        assert await session.get(Submission, uploading) is None
+
+
+async def test_delete_unknown_submission(seeded_client, add, me):
+    """A submission that isn't there is a 404, with or without ``force``."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.delete(submissions_url(uuid.uuid4(), force=True))
+
+    assert response.status_code == 404
 
 
 # ── GET /api/submissions/{id}/validation ──────────────────────────────────────

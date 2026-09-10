@@ -33,6 +33,11 @@ class TeamResponse(BaseModel):
     # admin may manage any team while holding a role in none.
     can_manage_members: bool = False
 
+    # Whether the caller may delete the team, and everything it holds with it. The same rule
+    # as ``can_manage_members`` today, and a separate field: one governs who is in a team,
+    # the other whether the team and its work continue to exist.
+    can_delete: bool = False
+
     @classmethod
     def from_team(cls, team, **extra) -> "TeamResponse":
         """Build from an ORM ``Team`` plus whatever the caller computed about it.

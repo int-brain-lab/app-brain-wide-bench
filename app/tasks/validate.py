@@ -86,16 +86,22 @@ def _internal_error_document(is_deterministic: bool) -> dict:
 # ── Database ───────────────────────────────────────────────────────────────────────────────────
 
 
-async def _start_validation(submission_id: uuid.UUID) -> tuple[str, bool]:
+async def _start_validation(submission_id: uuid.UUID) -> tuple[str, bool] | None:
     """Set status to ``validating``; return ``(s3_key, is_deterministic)``.
 
     ``is_deterministic`` is read here rather than passed in, so the run records the value
     that was current when it started — a later flip is what re-validation is for.
+
+    ``None`` when the submission is gone: a delete racing this task is a submitter
+    abandoning their submission, and the outcome they asked for is that nothing is checked.
     """
     async with async_session_factory() as session:
         submission = (
             await session.execute(select(Submission).where(Submission.id == submission_id))
-        ).scalar_one()
+        ).scalar_one_or_none()
+
+        if submission is None:
+            return None
 
         submission.status = SubmissionStatus.validating
         s3_key = submission.s3_key
@@ -108,17 +114,26 @@ async def _start_validation(submission_id: uuid.UUID) -> tuple[str, bool]:
 
 async def _finish_validation(
     submission_id: uuid.UUID, status: SubmissionStatus, validation: dict
-) -> None:
-    """Persist the verdict and its document."""
+) -> bool:
+    """Persist the verdict and its document. ``False`` when the submission is gone.
+
+    A delete racing this task takes the verdict with it: there is no row to record it on,
+    and the file it describes has been released already.
+    """
     async with async_session_factory() as session:
         submission = (
             await session.execute(select(Submission).where(Submission.id == submission_id))
-        ).scalar_one()
+        ).scalar_one_or_none()
+
+        if submission is None:
+            return False
 
         submission.status = status
         submission.validation = validation
 
         await session.commit()
+
+    return True
 
 
 # ── Task ───────────────────────────────────────────────────────────────────────────────────────
@@ -189,11 +204,17 @@ def validate_submission(submission_id: str) -> str:
     Returns
     -------
     str
-        Final status: ``"pending"`` when the file passed, ``"invalid"`` when it did not.
-        A check that could not be run leaves ``unchecked`` and raises.
+        Final status: ``"pending"`` when the file passed, ``"invalid"`` when it did not, or
+        ``"gone"`` when the submission was deleted before or during the run. A check that
+        could not be run leaves ``unchecked`` and raises.
     """
     sid = uuid.UUID(submission_id)
-    s3_key, is_deterministic = asyncio.run(_start_validation(sid))
+    started = asyncio.run(_start_validation(sid))
+
+    if started is None:
+        return "gone"
+
+    s3_key, is_deterministic = started
 
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
@@ -211,11 +232,16 @@ def validate_submission(submission_id: str) -> str:
             )
         except Exception:
             logger.exception("could not validate submission %s", sid)
-            asyncio.run(
+
+            # A submission deleted mid-run is what failed the read that landed here, so there
+            # is nothing left to report it on.
+            if not asyncio.run(
                 _finish_validation(
                     sid, SubmissionStatus.unchecked, _internal_error_document(is_deterministic)
                 )
-            )
+            ):
+                return "gone"
+
             raise
 
         # The only place details are recorded. Never the document, never the response.
@@ -223,11 +249,12 @@ def validate_submission(submission_id: str) -> str:
             logger.warning("%s %s %s: %s", sid, finding.code, finding.path, finding.detail)
 
         document = _validation_document(result, is_deterministic)
+        verdict = SubmissionStatus.pending if result.ok else SubmissionStatus.invalid
 
-        if result.ok:
-            asyncio.run(_finish_validation(sid, SubmissionStatus.pending, document))
-            return "pending"
+        if not asyncio.run(_finish_validation(sid, verdict, document)):
+            return "gone"
 
-        asyncio.run(_finish_validation(sid, SubmissionStatus.invalid, document))
-        delete_submission_file(s3_key)
-        return "invalid"
+        if verdict is SubmissionStatus.invalid:
+            delete_submission_file(s3_key)
+
+        return verdict.value

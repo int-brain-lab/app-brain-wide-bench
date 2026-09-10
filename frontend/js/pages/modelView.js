@@ -7,10 +7,11 @@
 
 import { renderHtml } from "../core/render.js";
 import { markRankedRows } from "../utils/modelUtils.js";
-import { getModelRanking, loadModel, updateModel } from "../api/modelApi.js";
+import { deleteModel, getModelRanking, loadModel, updateModel } from "../api/modelApi.js";
 import { loadModelFields, loadModelMeta, MODEL_PANELS } from "../schemas/modelSchema.js";
 import { fieldsForPanel } from "../schemas/schemaPanels.js";
 import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
+import { getModelDeleteItems } from "../utils/deleteUtils.js";
 import { getModelBadges, getModelSubtitle, hasPrivateOnlyScores } from "../utils/modelUtils.js";
 import { getSubmissionFilters, toSubmissionRows } from "../utils/submissionUtils.js";
 import { getTaskScoreFilters, toScoreRows } from "../utils/taskScoreUtils.js";
@@ -39,6 +40,7 @@ import {
   getSection,
   getSectionBody,
 } from "../components/sections.js";
+import { createDeleteSection } from "../widgets/deleteRecord.js";
 import { attachEditLink, renderRecordDetailsView } from "../templates/recordDetails.js";
 import { loadRecordPage } from "../templates/recordPage.js";
 import { renderRecordListView } from "../templates/recordList.js";
@@ -63,6 +65,13 @@ const VIEW_ALL = {
   submissions: { noun: "submission", view: "submissions" },
   scores: { noun: "score", view: "scores" },
 };
+
+// The foot of the details view, for a member. The widget draws into it — see
+// widgets/deleteRecord.js.
+const DELETE_SECTION = { id: "delete", title: "Delete this model" };
+
+// Where a deleted model leaves the reader.
+const MODEL_LIST_HREF = "/html/models/model_list.html";
 
 // The record's own fields have no count to name: the button opens one page, not a list.
 const DETAILS_BUTTON = buildDetailsButton({ view: "details" });
@@ -261,13 +270,33 @@ function renderDetailsView({ model, fields, canEdit, edit, created }) {
       label: "Make your first submission for this model",
     },
 
+    // Any member may delete a model, which is the rule that gates editing it.
+    sections: canEdit ? [DELETE_SECTION] : [],
+
     renderTitle: (shown) => renderHeader(shown.name, getModelSubtitle(shown)),
   });
 
   if (!page) return null;
 
+  const remove = createDeleteSection({
+    section: DELETE_SECTION.id,
+    noun: "model",
+    name: () => model.name,
+    items: () => getModelDeleteItems(model),
+    remove: () => deleteModel(model.id),
+    onDeleted: () => window.location.assign(MODEL_LIST_HREF),
+  });
+
+  remove.render();
+
   return page.attachEditor({
     save: (draft) => updateModel(model.id, draft),
+
+    // One record, one action at a time: the delete is out of reach while the form above it
+    // is open, and back once it closes either way.
+    onEdit: () => remove.setEditing(true),
+    onSaved: () => remove.setEditing(false),
+    onCancel: () => remove.setEditing(false),
   });
 }
 

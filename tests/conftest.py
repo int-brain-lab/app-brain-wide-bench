@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel
@@ -223,3 +224,21 @@ async def add(session_factory):
             await session.commit()
 
     return _add
+
+
+@pytest_asyncio.fixture
+async def remaining(session_factory):
+    """Which of ``values`` are still in a column — ``await remaining(TaskSubmission.id, ids)``.
+
+    For what a cascade left behind. A column rather than a model, so the children of a
+    deleted row are asked for by the key that names their parent:
+    ``await remaining(TaskScore.task_submission_id, entries)``.
+    """
+
+    async def _remaining(column, values):
+        async with session_factory() as session:
+            rows = await session.execute(select(column).where(column.in_(list(values))))
+
+            return list(rows.scalars())
+
+    return _remaining
