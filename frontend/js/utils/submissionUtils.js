@@ -22,6 +22,8 @@ function toSubmissionRow(submission) {
     // On the row rather than fetched with the detail: it is on every response a listing
     // returns, and the comparison's details panel is one of the things that reads it.
     is_public: submission.is_public ?? null,
+    // Whose it is, which a row's link carries as its shell hint — see core/links.js.
+    is_mine: submission.is_mine ?? false,
     suites: suitesFromSubmission(submission),
   };
 }

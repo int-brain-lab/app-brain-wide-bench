@@ -13,6 +13,9 @@ function toTeamRow(team) {
     name: team.name,
     // The caller's own role, absent on a team they aren't in.
     role: team.role ?? null,
+    // Whose it is, which a row's link carries as its shell hint — see core/links.js. Not
+    // `role`: an admin holds none and every team is still theirs to edit.
+    is_mine: team.is_mine ?? false,
     n_members: team.n_members ?? 0,
     n_models: team.n_models ?? 0,
     n_submissions: team.n_submissions ?? 0,

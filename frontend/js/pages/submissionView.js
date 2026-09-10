@@ -434,6 +434,10 @@ loadRecordPage({
   // withholds the team-only fields rather than the whole record.
   requiresAuth: false,
 
+  // Their own submission sits inside the app, with the sidebar; anyone else's is a public
+  // page and keeps the top nav.
+  privateShell: (context) => context.canEdit,
+
   load: async (submissionId, { signedIn }) => {
     const [submission, fields, taskFields] = await Promise.all([
       loadSubmission(submissionId),

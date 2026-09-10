@@ -1,18 +1,48 @@
 // Shared boot sequence for all pages:
 //
-//   authenticate → gate → get id → load → render
+//   authenticate → gate → get id → shell hint → load → shell → render
 //
 // This module owns everything needed to get a page running. Each page's render
 // determines what is drawn on the page.
 //
 // The page markup needs a #container, and private pages also need a #gate card. A private
-// page carries the sidebar shell; a public one carries the top nav, and keeps it.
+// page carries the sidebar shell; a public one carries the top nav, and keeps it unless what
+// it loaded turns out to be the viewer's own — see `privateShell`.
 
 import { isAuthenticated, login } from "../api/client.js";
 import { escapeHtml } from "../core/html.js";
+import { readMineHint } from "../core/links.js";
 import { pluralise } from "../core/utils.js";
 import { getElement } from "../core/render.js";
 import { CONTAINER_ID, renderPageError } from "./pageChrome.js";
+
+// ─── SHELL ───────────────────────────────────────────────────────────────────
+
+function replaceClass(selector, from, to) {
+  const element = document.querySelector(selector);
+
+  if (element?.classList.contains(from)) {
+    element.classList.replace(from, to);
+  }
+}
+
+// Swaps a public page's markup for the sidebar shell, and back. Only a page whose markup
+// carries a hidden #side-nav can be swapped — see the record pages, which are the ones that
+// can turn out to be the reader's own.
+function applyShell(mine) {
+  const to = mine ? "-private" : "";
+  const from = mine ? "" : "-private";
+
+  // Both class names in each selector: whichever shell is up now is the one to find.
+  replaceClass(".main, .main-private", `main${from}`, `main${to}`);
+  replaceClass(".content, .content-private", `content${from}`, `content${to}`);
+
+  const topNav = document.getElementById("top-nav");
+  const sidebar = document.getElementById("side-nav");
+
+  if (topNav) topNav.hidden = mine;
+  if (sidebar) sidebar.hidden = !mine;
+}
 
 // ─── GATE ────────────────────────────────────────────────────────────────────
 
@@ -94,6 +124,11 @@ function handlePrivateRecord(error, noun, requiresAuth) {
  *                     page with no one record — a list, or the viewer's own.
  * @param requiresAuth whether the page itself requires signing in. False lets one URL serve
  *                     signed-out and signed-in readers alike.
+ * @param privateShell (context) => boolean, asked once the record is loaded: true swaps the
+ *                     public shell for the sidebar, for a record that is the viewer's own.
+ *                     A `?mine=1` hint applies it before the load and this answer settles
+ *                     it — see core/links.js. Omit for a page whose shell is whatever its
+ *                     markup says.
  * @param load         (id, { signedIn }) => context. A falsy result is reported as a load
  *                     failure.
  * @param render       (context, { id, signedIn }) => void. Awaited, so a rendering error is
@@ -106,6 +141,8 @@ async function loadPage({
   requiresId = true,
   requiresAuth = true,
 
+  privateShell,
+
   load,
   render,
 }) {
@@ -116,8 +153,6 @@ async function loadPage({
   try {
     const signedIn = await isAuthenticated();
 
-    // A public page's shell is the one in its markup, whoever is reading: the top nav
-    // carries the way into the signed-in half, so there is nothing to swap.
     if (requiresAuth) {
       showGate(signedIn);
 
@@ -131,12 +166,28 @@ async function loadPage({
       return;
     }
 
+    // What the page that linked here already knew, so the shell is right in the first frame
+    // rather than a round trip later. Corrected below by the record itself.
+    //
+    // `signedIn` as well as the hint, for the same reason the pages pair it with `is_mine`:
+    // nothing is a reader's own when there is no reader, and a hint that outvoted that would
+    // paint the sidebar for a visitor and take it back a round trip later.
+    if (privateShell && signedIn && readMineHint()) {
+      applyShell(true);
+    }
+
     const context = await load(id, { signedIn });
 
     if (!context) {
       showLoadFailure(noun, subject, requiresId, id);
       return;
     }
+
+    // The record is the authority: it confirms the hint above, or takes it back.
+    if (privateShell) {
+      applyShell(privateShell(context));
+    }
+
     await render(context, { id, signedIn });
   } catch (error) {
     console.error(`Failed to load the ${subject} page:`, error);

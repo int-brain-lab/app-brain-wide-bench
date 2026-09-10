@@ -21,10 +21,13 @@
 
   <body>
     <!-- One URL for both audiences, and no gate: a public model is readable signed out.
-         The public shell, whoever is reading: the top nav carries the way into the
-         signed-in half for a reader who has one. -->
+         The markup is the public shell — what a visitor should see, painted before any
+         script runs. A model the reader's own team owns swaps in the sidebar instead, once
+         the record has come back and said so: see `privateShell` in templates/page.js. -->
     <div class="main">
       <nav class="nav" id="top-nav"></nav>
+
+      <aside class="sidebar" id="side-nav" hidden></aside>
 
       <div class="content">
         <div id="container"></div>
@@ -39,6 +42,7 @@
     <script src="https://unpkg.com/lucide@1.42.0/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
     <script type="module" src="/js/nav/navTop.js"></script>
+    <script type="module" src="/js/nav/navSide.js"></script>
     <script type="module" src="/js/pages/modelView.js"></script>
   </body>
 </html>

@@ -365,6 +365,10 @@ loadRecordPage({
   // team-only fields rather than the whole record.
   requiresAuth: false,
 
+  // Their own model sits inside the app, with the sidebar; anyone else's is a public page
+  // and keeps the top nav.
+  privateShell: (context) => context.canEdit,
+
   load: async (modelId, { signedIn }) => {
     // `loadTaskFields` costs no second request and fills the methodology fields' options in
     // place from the server's own enums, which is where the score filters read them from.

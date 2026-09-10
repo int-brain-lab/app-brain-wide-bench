@@ -7,6 +7,7 @@
 // Panel 1 is schema-driven, panel 2 is component-driven and its markup and events are
 // built and controlled via teamMembers.js.
 
+import { hrefForRecord } from "../core/links.js";
 import { createTeam } from "../api/teamApi.js";
 import { loadMe } from "../api/userApi.js";
 import { TEAM_FIELDS } from "../schemas/teamSchema.js";
@@ -17,6 +18,10 @@ import { renderMessage, renderPageError } from "../templates/pageChrome.js";
 
 // Panel 2 has no `complete`: a team with only its creator is valid. `build` marks it as the
 // page's own, so its listeners survive a re-render of the team panel.
+// Where a created team is read, and the hint that it is the reader's own — see
+// core/links.js.
+const TEAM_PAGE = "/html/teams/teams.html";
+
 const TEAM_PANELS = {
   team: { type: "fields", title: "1. Choose a team name" },
   members: {
@@ -70,7 +75,7 @@ async function submitTeam(state, draft, members) {
   // `&created` is read by teamView.js. It travels in the URL because navigating discards
   // this document.
   if (failed.length === 0) {
-    return `/html/teams/teams.html?id=${encodeURIComponent(team.id)}&view=details&created`;
+    return `${hrefForRecord(TEAM_PAGE, team.id, { mine: true })}&view=details&created`;
   }
 
   renderMessage(

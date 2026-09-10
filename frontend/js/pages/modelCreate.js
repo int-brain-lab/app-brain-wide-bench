@@ -7,9 +7,14 @@
 //
 // Every panel is schema-driven, so this page contributes no markup of its own.
 
+import { hrefForRecord } from "../core/links.js";
 import { createModel } from "../api/modelApi.js";
 import { loadModelFields } from "../schemas/modelSchema.js";
 import { loadCreatePage } from "../templates/createPage.js";
+
+// Where a created model is read, and the hint that it is the reader's own — the sidebar
+// shell paints on arrival rather than a round trip later. See core/links.js.
+const MODEL_PAGE = "/html/models/models.html";
 
 const MODEL_PANELS = {
   identity: {
@@ -23,7 +28,7 @@ const MODEL_PANELS = {
 async function submitModel(state) {
   const model = await createModel(state);
 
-  return `/html/models/models.html?id=${encodeURIComponent(model.id)}&view=details&created`;
+  return `${hrefForRecord(MODEL_PAGE, model.id, { mine: true })}&view=details&created`;
 }
 
 loadCreatePage({

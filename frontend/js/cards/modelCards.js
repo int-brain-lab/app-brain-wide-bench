@@ -4,10 +4,13 @@
 // above them and the table beside them read one shape.
 
 import { escapeHtml } from "../core/html.js";
+import { hrefForRecord } from "../core/links.js";
 import { formatDate } from "../core/utils.js";
 import { buildMineBadge, buildPretrainedBadge, buildSuiteBadgeList } from "../components/badges.js";
 import { buildCount } from "../components/count.js";
 import { createCardGrid } from "./cardGrid.js";
+
+const MODEL_PAGE = "/html/models/models.html";
 
 // `showMine` marks the cards on the viewer's own teams, for a listing that mixes them
 // with everyone else's. Off by default: on a listing that is all theirs it says nothing.
@@ -19,7 +22,7 @@ function buildModelCard(model, { showMine = false, showTeam = true } = {}) {
   return `
     <a
       class="card column left gap-lg"
-      href="/html/models/models.html?id=${encodeURIComponent(model.id)}"
+      href="${hrefForRecord(MODEL_PAGE, model.id, { mine: model.is_mine })}"
     >
       <div class="column left">
         <p class="title">${escapeHtml(model.name)}</p>

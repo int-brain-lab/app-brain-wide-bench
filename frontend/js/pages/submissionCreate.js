@@ -18,6 +18,7 @@
 // narratives are not answered until panel 4 and arrive with the tasks; the name and model
 // are carried again, since they stay editable while the file is on its way.
 
+import { hrefForRecord } from "../core/links.js";
 import { getMeta } from "../api/metaApi.js";
 import { loadModel } from "../api/modelApi.js";
 import { finaliseSubmission } from "../api/submissionApi.js";
@@ -32,6 +33,10 @@ import { renderMessage, renderPageNote } from "../templates/pageChrome.js";
 
 // Where a submitter with no model has to go first.
 const MODEL_CREATE_HREF = "/html/models/model_create.html";
+
+// Where a created submission is read, and the hint that it is the reader's own — see
+// core/links.js.
+const SUBMISSION_PAGE = "/html/submissions/submissions.html";
 
 // Built from the context rather than declared as a constant: panels 2 and 3 report their
 // completeness by asking objects that only exist once `setup` has run.
@@ -131,10 +136,7 @@ async function submitSubmission(state, context) {
 
   await finaliseSubmission(submissionId, state, context.taskPanel);
 
-  return (
-    `/html/submissions/submissions.html` +
-    `?id=${encodeURIComponent(submissionId)}&view=details&created`
-  );
+  return `${hrefForRecord(SUBMISSION_PAGE, submissionId, { mine: true })}&view=details&created`;
 }
 
 // ─── INITIALISATION ──────────────────────────────────────────────────────────

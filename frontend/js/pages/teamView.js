@@ -427,6 +427,10 @@ loadRecordPage({
   // member list rather than the whole record.
   requiresAuth: false,
 
+  // Their own team sits inside the app, with the sidebar; anyone else's is a public page and
+  // keeps the top nav.
+  privateShell: (context) => context.canEdit,
+
   // Score rows are built once here, not per view — both the dashboard and the scores view
   // render the same rows, and the scores view is reached without a reload.
   load: async (teamId, { signedIn }) => {

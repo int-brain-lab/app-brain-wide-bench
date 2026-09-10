@@ -7,6 +7,7 @@
 // with what that column needs, and returns one.
 
 import { escapeHtml } from "../core/html.js";
+import { hrefForRecord } from "../core/links.js";
 import { buildScoreBar } from "../components/bars.js";
 import { suiteFromTask, taskFullLabel, taskLabel } from "../core/suites.js";
 import { formatDate, score } from "../core/utils.js";
@@ -25,6 +26,9 @@ import { buildIcon, getIcon } from "../components/icons.js";
 // ─── VALUES ──────────────────────────────────────────────────────────────────
 
 const EMPTY_VALUE = "—";
+
+// modelFormatter builds its own link rather than taking the page, as the buildLink* ones do.
+const MODEL_PAGE = "/html/models/models.html";
 
 function emptyMetadata() {
   return `<span class="metadata">${EMPTY_VALUE}</span>`;
@@ -128,7 +132,10 @@ function dateSorter(a, b) {
  *
  * @param page       the page the link goes to; the row id becomes its `?id=`.
  * @param labelField the row field the link text comes from.
- * @param idField    the row field holding the id. Defaults to "id".
+ * @param idField    the row field holding the id. Defaults to "id". A row carrying
+ *                   `is_mine` links with the shell hint — see core/links.js; one that does
+ *                   not links without it, and the record page settles the question a round
+ *                   trip later.
  * @param className  classes on the link — "metadata" for a column that says where a row came
  *                   from rather than what it is. Omit for the text colour and size.
  *
@@ -140,7 +147,7 @@ function buildLinkFormatter(page, labelField, idField = "id", className = "") {
 
     return `
       <a
-        href="${page}?id=${encodeURIComponent(row[idField])}"
+        href="${hrefForRecord(page, row[idField], { mine: row.is_mine })}"
         class="${escapeHtml(className)}"
       >
         ${escapeHtml(row[labelField] ?? EMPTY_VALUE)}
@@ -241,7 +248,7 @@ function modelFormatter(cell) {
 
   return `
     <a
-      href="/html/models/models.html?id=${encodeURIComponent(row.modelId)}"
+      href="${hrefForRecord(MODEL_PAGE, row.modelId, { mine: row.isMine })}"
       class="column"
     >
       <span class="label">${escapeHtml(row.model_name)}</span>

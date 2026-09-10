@@ -19,9 +19,13 @@
 
   <body>
     <!-- One URL for both audiences, and no gate: a team's page is readable signed out,
-         minus the member list. The public shell, whoever is reading. -->
+         minus the member list. The markup is the public shell; a team the reader belongs to
+         swaps in the sidebar instead, once the record has come back and said so — see
+         `privateShell` in templates/page.js. -->
     <div class="main">
       <nav class="nav" id="top-nav"></nav>
+
+      <aside class="sidebar" id="side-nav" hidden></aside>
 
       <div class="content">
         <div id="container"></div>
@@ -36,6 +40,7 @@
     <script src="https://unpkg.com/lucide@1.42.0/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
     <script type="module" src="/js/nav/navTop.js"></script>
+    <script type="module" src="/js/nav/navSide.js"></script>
     <script type="module" src="/js/pages/teamView.js"></script>
   </body>
 </html>
