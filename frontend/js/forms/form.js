@@ -13,7 +13,7 @@ import { refreshIcons, renderHtml } from "../core/render.js";
 // ─── SCHEMA RULES ────────────────────────────────────────────────────────────
 
 const CLEARED_MESSAGE =
-  "That change ruled out choices you had already made, so they have been cleared.";
+  "That change ruled out choices you had already made, so they have been cleared";
 
 function clearedLabels(fields, cleared) {
   return cleared.map((key) => fields[key].label).join(", ");
@@ -21,6 +21,16 @@ function clearedLabels(fields, cleared) {
 
 function isDisabled(field, state) {
   return typeof field.disabledWhen === "function" && field.disabledWhen(state);
+}
+
+// A locked field keeps its value: only `disabledWhen` clears one.
+function isLocked(field, state) {
+  return typeof field.lockedWhen === "function" && field.lockedWhen(state);
+}
+
+// What the markup asks: both rules render the control off.
+function isInactive(field, state) {
+  return isDisabled(field, state) || isLocked(field, state);
 }
 
 // Disabled options remain visible but cannot be selected.
@@ -224,8 +234,9 @@ function attachFieldEvents(container, getState, fields, onChange) {
 /**
  * A live form over one or more field containers.
  *
- * @param fields   the field definitions. Schema rules such as `disabledWhen` and
- *                 `disabledOptionsWhen` are evaluated against the current state.
+ * @param fields   the field definitions. Schema rules such as `disabledWhen`,
+ *                 `disabledOptionsWhen` and `lockedWhen` are evaluated against the current
+ *                 state.
  * @param getState () => state | null. The object that receives changes; null makes the
  *                 form inactive without removing its listeners.
  * @param sections [{ container, draw }] — the containers whose fields share one state.
@@ -283,6 +294,8 @@ export {
   disabledOptionValues,
   isDisabled,
   isHelpPinned,
+  isInactive,
+  isLocked,
   renderPreservingFocus,
   revalidateFields,
   setFieldValue,

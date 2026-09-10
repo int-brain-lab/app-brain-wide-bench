@@ -114,7 +114,7 @@ function getElements() {
  * team_members.html since folded into the details page. With no caller left it was two
  * unreachable branches and an `onChanged` hook nobody passed.
  */
-function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
+function createMembersSection({ getTeam, canRemove = () => true }) {
   const elements = getElements();
 
   const pendingAdds = new Map();
@@ -213,7 +213,7 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
     }
 
     if (members.length === 0) {
-      renderHtml(elements.list, buildEmptyMessage("No members yet."));
+      renderHtml(elements.list, buildEmptyMessage("No members yet"));
       return;
     }
 
@@ -412,18 +412,24 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
     }
 
     if (users.length === 0) {
-      clearSearchResults();
-      // Second argument, not a class name: the host decides what a failure looks like, and
-      // both of them render it the same way.
-      onMessage(`No user with that email: ${query}`, true);
+      // Nothing failed — the search found nobody, which is an answer, and it belongs in the
+      // results region rather than in the page's own message.
+      renderHtml(elements.results, buildEmptyMessage(`No user with that email: ${query}`), {
+        show: true,
+      });
+
       return;
     }
 
-    onMessage("");
     renderSearchResults(users);
   }
 
   elements.search.addEventListener("change", handleSearch);
+
+  // Whatever the last search answered is about the last query: typing or deleting a
+  // character makes it stale, so it goes at the first keystroke rather than at the next
+  // `change`.
+  elements.search.addEventListener("input", clearSearchResults);
 
   elements.results.addEventListener("click", (event) => {
     const button = event.target.closest(".add-member");

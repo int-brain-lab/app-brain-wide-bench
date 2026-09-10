@@ -31,11 +31,7 @@ import {
   buildViewAllButton,
 } from "../components/buttons.js";
 import { buildCount } from "../components/count.js";
-import {
-  buildEmptyMessage,
-  buildFailureMessage,
-  buildInfoMessage,
-} from "../components/messages.js";
+import { buildEmptyMessage, buildWarningMessage } from "../components/messages.js";
 import {
   buildHeader,
   buildPage,
@@ -44,7 +40,7 @@ import {
   getSection,
   getSectionBody,
 } from "../components/sections.js";
-import { createDeleteSection } from "../widgets/deleteRecord.js";
+import { createDeleteControl } from "../widgets/deleteRecord.js";
 import {
   buildMemberTable,
   buildMembersPanel,
@@ -53,7 +49,7 @@ import {
 import { attachEditLink, renderRecordDetailsView } from "../templates/recordDetails.js";
 import { loadRecordPage } from "../templates/recordPage.js";
 import { renderRecordListView } from "../templates/recordList.js";
-import { clearMessage, renderHeader, renderMessage, renderPage } from "../templates/pageChrome.js";
+import { renderHeader, renderMessage, renderPage } from "../templates/pageChrome.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
@@ -112,8 +108,6 @@ const MEMBERS_SECTION_BODY = {
 
 // The foot of the details view, for an owner. The widget draws into it — see
 // widgets/deleteRecord.js.
-const DELETE_SECTION = { id: "delete", title: "Delete this team" };
-
 // Where a deleted team leaves the reader.
 const TEAM_LIST_HREF = "/html/teams/team_list.html";
 
@@ -240,7 +234,7 @@ function renderMembersSection(team) {
   const container = getSectionBody("members");
 
   if (!team.members.length) {
-    renderHtml(container, buildEmptyMessage("No members yet."));
+    renderHtml(container, buildEmptyMessage("No members yet"));
     return;
   }
 
@@ -341,17 +335,21 @@ function renderDetailsView({
     edit,
     created,
 
-    createCard: {
+    createdNext: {
+      detail: "Go to the team dashboard, or register a new model associated with this team.",
       href: CREATE_MODEL_HREF,
-      label: "Register your first model for this team",
+      label: "New model",
     },
+
+    dashboard: true,
 
     // A reader who may not edit gets no members block: it would report an empty team rather
     // than an unreadable one, and every write it offers would 403.
     //
     // Delete is the owner's alone, so it is gated separately — a collaborator edits a team
     // they cannot dissolve.
-    sections: [...(canEdit ? [MEMBERS_SECTION_BODY] : []), ...(canDelete ? [DELETE_SECTION] : [])],
+    sections: canEdit ? [MEMBERS_SECTION_BODY] : [],
+    deletable: canDelete,
 
     renderTitle: (shown) => renderHeader(shown.name, getTeamSubtitle(shown)),
   });
@@ -362,46 +360,27 @@ function renderDetailsView({
   // the hooks below have to be live before `edit` opens the editor by itself.
   renderHtml(getSectionBody("members"), buildMembersPanel());
 
-  const members = createMembersSection({
-    getTeam: () => team,
-    onMessage: (message, failed) => {
-      if (!message) {
-        clearMessage();
-      } else if (failed) {
-        renderMessage(buildFailureMessage(message));
-      } else {
-        renderMessage(buildInfoMessage(message));
-      }
-    },
-  });
+  const members = createMembersSection({ getTeam: () => team });
 
   members.render();
 
   // Null for a collaborator, whose details view has no delete section to draw into.
-  const remove = canDelete
-    ? createDeleteSection({
-        section: DELETE_SECTION.id,
-        noun: "team",
-        name: () => team.name,
-        items: () => getTeamDeleteItems({ team, models, submissions, taskSubmissions }),
-        remove: () => deleteTeam(team.id),
-        onDeleted: () => window.location.assign(TEAM_LIST_HREF),
-      })
-    : null;
-
-  remove?.render();
+  if (canDelete) {
+    createDeleteControl({
+      noun: "team",
+      name: () => team.name,
+      items: () => getTeamDeleteItems({ team, models, submissions, taskSubmissions }),
+      remove: () => deleteTeam(team.id),
+      onDeleted: () => window.location.assign(TEAM_LIST_HREF),
+    }).attach();
+  }
 
   // Set by `save`, read by `onSaved`: the editor's save must return the one record it
   // merges, so per-member failures have no way through except a variable scoped to here.
   let failedMembers = [];
 
   return page.attachEditor({
-    // One record, one action at a time: the delete is out of reach while the form above it
-    // is open, and back once it closes either way.
-    onEdit: () => {
-      members.setEditing(canManageMembers(team));
-      remove?.setEditing(true);
-    },
+    onEdit: () => members.setEditing(canManageMembers(team)),
 
     // Members first, then the rename: PATCH answers with the full TeamDetail, so doing it
     // last means the response already reflects the membership changes.
@@ -414,15 +393,14 @@ function renderDetailsView({
     onSaved: () => {
       members.setEditing(false);
       members.render();
-      remove?.setEditing(false);
 
       // attachRecordEditor has already reported the save; this overwrites it only when the
       // rename went through but a member didn't, which the standard card cannot say.
       if (failedMembers.length) {
         renderMessage(
-          buildFailureMessage(
-            "Team saved, but some members could not be changed.",
-            new Error(failedMembers.join("; ")),
+          buildWarningMessage(
+            "Team updated, but some members could not be changed",
+            failedMembers.join("; "),
           ),
         );
       }
@@ -433,7 +411,6 @@ function renderDetailsView({
     onCancel: () => {
       members.reset();
       members.setEditing(false);
-      remove?.setEditing(false);
     },
   });
 }

@@ -169,7 +169,7 @@ function createCardGrid({
     clearContent(element);
 
     if (!matching.length) {
-      renderHtml(element, buildEmptyMessage(`No ${noun}s match these filters.`));
+      renderHtml(element, buildEmptyMessage(`No ${noun}s match these filters`));
       rowMap = new Map();
 
       return;

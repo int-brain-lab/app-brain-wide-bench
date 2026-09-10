@@ -13,7 +13,7 @@
 import { installFieldHelp } from "../components/fieldHelp.js";
 import { formatDate } from "../core/utils.js";
 import { escapeHtml } from "../core/html.js";
-import { disabledOptionValues, isDisabled, isHelpPinned } from "./form.js";
+import { disabledOptionValues, isHelpPinned, isInactive, isLocked } from "./form.js";
 
 // Positioning a help popover so it stays on screen needs measurements, so it is document
 // work and lives in its own module. Asked for here because this is the module that emits the
@@ -217,7 +217,7 @@ function buildTextareaField(key, state, fields) {
         placeholder="${escapeHtml(field.placeholder)}"
         data-field="${escapeHtml(key)}"
         ${field.required ? "required" : ""}
-        ${isDisabled(field, state) ? "disabled" : ""}
+        ${isInactive(field, state) ? "disabled" : ""}
       >${escapeHtml(value)}</textarea>
     </div>
   `;
@@ -238,7 +238,7 @@ function buildInputField(key, state, fields) {
         placeholder="${escapeHtml(field.placeholder)}"
         data-field="${escapeHtml(key)}"
         ${field.required ? "required" : ""}
-        ${isDisabled(field, state) ? "disabled" : ""}
+        ${isInactive(field, state) ? "disabled" : ""}
         value="${escapeHtml(value)}">
     </div>
   `;
@@ -266,7 +266,7 @@ function buildSelectField(key, state, fields) {
         class="input-select"
         data-field="${escapeHtml(key)}"
         ${field.required ? "required" : ""}
-        ${isDisabled(field, state) ? "disabled" : ""}>
+        ${isInactive(field, state) ? "disabled" : ""}>
 
         <option value="" disabled ${value == null ? "selected" : ""}>
           ${escapeHtml(field.placeholder ?? "Select an option...")}
@@ -301,7 +301,7 @@ function buildCheckboxListField(key, state, fields) {
   const field = fields[key];
   const options = field.options.map(normalizeOption);
   const disabledOptions = disabledOptionValues(field, state);
-  const fieldDisabled = isDisabled(field, state);
+  const fieldDisabled = isInactive(field, state);
 
   return `
     <div class="column gap-xs">
@@ -311,7 +311,7 @@ function buildCheckboxListField(key, state, fields) {
         ${options
           .map(
             ({ value: optionValue, label: optionLabel }) => `
-          <label class="value row left gap-sm">
+          <label class="field-option row left gap-sm">
             <input
               class="field-checkbox"
               type="checkbox"
@@ -342,20 +342,14 @@ function buildCheckboxField(key, state, fields) {
         class="field-checkbox"
         type="checkbox"
         data-field="${escapeHtml(key)}"
-        ${isDisabled(field, state) ? "disabled" : ""}
+        ${isInactive(field, state) ? "disabled" : ""}
         ${value ? "checked" : ""}>
     </div>
   `;
 }
 
-function buildField(key, state, fields) {
-  const field = fields[key];
-
-  if (field.editable === false) {
-    return buildDisplayField(key, state, fields);
-  }
-
-  switch (field.input) {
+function buildControl(key, state, fields) {
+  switch (fields[key].input) {
     case "checkbox-list":
       return buildCheckboxListField(key, state, fields);
 
@@ -371,6 +365,26 @@ function buildField(key, state, fields) {
     default:
       return buildInputField(key, state, fields);
   }
+}
+
+// Why a locked control is off. A `lockedWhen` with no `lockedNote` just switches the control
+// off, which is the right shape where the reason is obvious from the page.
+function lockedNoteOf(field, state) {
+  return isLocked(field, state) ? (field.lockedNote ?? "") : "";
+}
+
+function buildField(key, state, fields) {
+  const field = fields[key];
+
+  if (field.editable === false) {
+    return buildDisplayField(key, state, fields);
+  }
+
+  const control = buildControl(key, state, fields);
+  const note = lockedNoteOf(field, state);
+
+  // A disabled control takes no pointer events, so its hover text hangs on a wrapper.
+  return note ? `<div class="locked-field" title="${escapeHtml(note)}">${control}</div>` : control;
 }
 
 // ─── RUNS OF FIELDS ──────────────────────────────────────────────────────────

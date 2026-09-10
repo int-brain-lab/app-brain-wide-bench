@@ -25,11 +25,15 @@ class ValidationCode(BaseModel):
 
     ``Finding.detail`` has no field here and must never gain one: it can reveal
     ground-truth structure.
+
+    ``generic`` marks a ``message`` that is the shared fallback text rather than this code's
+    own: a reader showing one line per code repeats it once, not per code.
     """
 
     code: str
     message: str
     path: str
+    generic: bool = True
 
 
 class PrevalidateRequest(BaseModel):
@@ -200,7 +204,10 @@ class SubmissionDetail(SubmissionBase):
 class SubmissionCreate(BaseModel):
     """Request body for POST /api/submissions.
 
-    No ``tasks``: panel 4 is filled in while the file uploads, so they arrive at ``submit``.
+    No ``tasks``: they are configured while the file uploads, and arrive at ``submit``.
+
+    Only the fields the submitter has answered are sent. Visibility and the narratives are
+    asked for after the upload has started, and take their defaults here until ``submit``.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -237,8 +244,8 @@ class SubmissionUpdate(BaseModel):
 class SubmissionSubmit(SubmissionUpdate):
     """Request body for POST /api/submissions/{id}/submit.
 
-    Panels 1-2 come along because they stayed editable while the file uploaded, so what the
-    submitter has on screen is what should be stored.
+    The submission's own fields come along: they were still being filled in, or were still
+    editable, while the file uploaded, so what the submitter has on screen is what is stored.
     """
 
     tasks: list[TaskSubmissionCreate]

@@ -38,12 +38,7 @@ import {
   buildSaveButton,
   buildViewAllButton,
 } from "../components/buttons.js";
-import { buildCount } from "../components/count.js";
-import {
-  buildEmptyMessage,
-  buildFailureMessage,
-  buildSuccessMessage,
-} from "../components/messages.js";
+import { buildEmptyMessage, buildFailureMessage } from "../components/messages.js";
 import {
   buildHeader,
   buildPage,
@@ -53,11 +48,11 @@ import {
   getSection,
   getSectionBody,
 } from "../components/sections.js";
-import { createDeleteSection } from "../widgets/deleteRecord.js";
+import { createDeleteControl } from "../widgets/deleteRecord.js";
 import { attachEditLink, renderRecordDetailsView } from "../templates/recordDetails.js";
 import { loadRecordPage } from "../templates/recordPage.js";
 import { renderRecordListView } from "../templates/recordList.js";
-import { renderHeader, renderMessage, renderPage } from "../templates/pageChrome.js";
+import { renderHeader, renderPage } from "../templates/pageChrome.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
@@ -82,8 +77,6 @@ const VIEW_ALL = {
 
 // The foot of the details view, for a member. The widget draws into it — see
 // widgets/deleteRecord.js.
-const DELETE_SECTION = { id: "delete", title: "Delete this submission" };
-
 // Where a deleted submission leaves the reader.
 const SUBMISSION_LIST_HREF = "/html/submissions/submission_list.html";
 
@@ -158,7 +151,7 @@ function renderMethodologySection(submission, canEdit) {
   const rows = toTaskSubmissionRows(submission);
 
   if (!rows.length) {
-    renderHtml(container, buildEmptyMessage("No tasks yet."));
+    renderHtml(container, buildEmptyMessage("No tasks yet"));
     return;
   }
 
@@ -219,17 +212,17 @@ function renderDetailsView({ submission, fields, canEdit, edit, created }) {
     canEdit,
     edit,
     created,
+    dashboard: true,
 
     // Any member may delete a submission, which is the rule that gates editing it.
-    sections: canEdit ? [DELETE_SECTION] : [],
+    deletable: true,
 
     renderTitle: (shown) => renderHeader(shown.label, getSubmissionSubtitle(shown)),
   });
 
   if (!page) return null;
 
-  const remove = createDeleteSection({
-    section: DELETE_SECTION.id,
+  createDeleteControl({
     noun: "submission",
     name: () => submission.label,
     items: () => getSubmissionDeleteItems(submission),
@@ -238,19 +231,9 @@ function renderDetailsView({ submission, fields, canEdit, edit, created }) {
     // button is the caller that wants the narrower rule.
     remove: () => deleteSubmission(submission.id, { force: true }),
     onDeleted: () => window.location.assign(SUBMISSION_LIST_HREF),
-  });
+  }).attach();
 
-  remove.render();
-
-  return page.attachEditor({
-    save: (draft) => updateSubmission(submission.id, draft),
-
-    // One record, one action at a time: the delete is out of reach while the form above it
-    // is open, and back once it closes either way.
-    onEdit: () => remove.setEditing(true),
-    onSaved: () => remove.setEditing(false),
-    onCancel: () => remove.setEditing(false),
-  });
+  return page.attachEditor({ save: (draft) => updateSubmission(submission.id, draft) });
 }
 
 // ─── TASKS VIEW ──────────────────────────────────────────────────────────────
@@ -342,7 +325,7 @@ function renderTaskView({ submission, taskFields, task, canEdit, edit = false })
     renderHeader(submission.label, submission.team_name ?? "");
     renderHtml(
       getSectionBody("task"),
-      buildFailureMessage("That task is not part of this submission."),
+      buildFailureMessage("That task is not part of this submission"),
     );
 
     return null;
@@ -366,6 +349,7 @@ function renderTaskView({ submission, taskFields, task, canEdit, edit = false })
 
     canEdit,
     edit,
+    dashboard: "Go back to dashboard",
 
     renderTitle: (shown) => renderHeader(shown.task_id, getTaskSubtitle(submission, shown)),
   });
@@ -413,20 +397,19 @@ function renderTaskView({ submission, taskFields, task, canEdit, edit = false })
       return updated.find((row) => row.id === taskSubmission.id) ?? updated[0];
     },
 
+    // Names what the server reported it changed, not what the page asked for. Read before
+    // `onSaved` empties it — see attachRecordEditor, which reports the update first.
+    savedNote: () => ({
+      line: `Task ${updated.length === 1 ? "submission" : "submissions"} successfully updated`,
+      detail: updated
+        .map((row) => row.task_id)
+        .sort()
+        .join(", "),
+    }),
+
     onSaved: () => {
       mergeUpdated(submission, updated);
       showApplyToSuite(false);
-
-      // Names what the server reported it changed, not what the page asked for.
-      const names = updated.map((row) => row.task_id).sort();
-
-      renderMessage(
-        buildSuccessMessage(
-          names.length === 1
-            ? `Updated ${names[0]}.`
-            : `Updated ${buildCount(names.length, "task")}: ${names.join(", ")}.`,
-        ),
-      );
 
       updated = [];
     },

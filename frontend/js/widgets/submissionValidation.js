@@ -6,11 +6,8 @@
 
 import { escapeHtml } from "../core/html.js";
 import { getValidation } from "../api/submissionApi.js";
-import {
-  buildFailureMessage,
-  buildInfoMessage,
-  buildSuccessMessage,
-} from "../components/messages.js";
+import { buildCount } from "../components/count.js";
+import { buildStateNote } from "../components/messages.js";
 import { clearContent, renderHtml } from "../core/render.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
@@ -30,36 +27,78 @@ function buildValidationPanel() {
   return `<div id="${VALIDATION_ID}" hidden></div>`;
 }
 
-// Shared with submissionUpload.js: a prevalidation refusal and a validation verdict carry
-// the same shape, and read the same way to a submitter.
-//
-// `nFiles` is 0 for an archive holding no predictions at all, which fails with nothing to
-// fault — a heading over an empty list otherwise.
-function buildValidationCodes(errors, nFiles = null) {
-  if (nFiles === 0) {
-    return buildFailureMessage("This file contains no prediction files in the expected layout.");
+// The first error of each code, in the order the codes first appear. One bad tensor across
+// 500 files is 500 findings of one code, and the second says nothing the first did not.
+function toUniqueCodes(errors) {
+  const byCode = new Map();
+
+  for (const error of errors) {
+    if (!byCode.has(error.code)) {
+      byCode.set(error.code, error);
+    }
   }
 
-  const items = errors
+  return [...byCode.values()];
+}
+
+/**
+ * A refusal, as a state note whose body is its codes. Shared with submissionUpload.js: a
+ * prevalidation refusal and a validation verdict read the same way to a submitter.
+ *
+ * One row per code — repeats say nothing new. A code marked `generic` carries the shared
+ * fallback text rather than its own, so it shows without a message and that text stands
+ * once underneath.
+ *
+ * @param errors the findings, as many per code as the run produced.
+ * @param title  the heading. Omit for the verdict's own.
+ * @param nFiles predictions found. 0 is an archive holding none at all, which fails with
+ *               nothing to fault — a heading over an empty list otherwise.
+ */
+function buildValidationCodes(errors, { title = "This file cannot be submitted", nFiles } = {}) {
+  if (nFiles === 0) {
+    return buildStateNote({
+      tone: "failed",
+      icon: "error",
+      line: "This file holds no predictions",
+      detail: "Nothing in it is laid out the way a predictions folder is.",
+    });
+  }
+
+  const codes = toUniqueCodes(errors);
+
+  const items = codes
     .map(
       (error) => `
         <li>
           <span class="badge error">${escapeHtml(error.code)}</span>
-          ${escapeHtml(error.message)}
+          <span class="${error.generic ? "no-detail" : ""}">
+            ${error.generic ? "no detail we can share" : escapeHtml(error.message)}
+          </span>
         </li>
       `,
     )
     .join("");
 
-  return `
-    <div class="column gap-sm">
-      <p class="bold">This file cannot be submitted:</p>
-      <ul class="column gap-xs">${items}</ul>
-      <p class="text-sm muted">
-        Correct the file and upload it again under the same name.
-      </p>
-    </div>
-  `;
+  const generic = codes.find((error) => error.generic)?.message ?? "";
+
+  // Only where the two differ: with one finding per code the tally says nothing.
+  const repeats = errors.length > codes.length ? `, found ${errors.length} times in total` : "";
+
+  return buildStateNote({
+    tone: "failed",
+    icon: "error",
+    line: title,
+    detail: `${buildCount(codes.length, "kind")} of problem${repeats}.`,
+
+    body: `
+      <ul class="code-list">${items}</ul>
+
+      <div class="what-to-do">
+        ${generic ? `<span><b>What to do.</b> ${escapeHtml(generic)}</span>` : ""}
+        <span>Delete the file, correct it, and add it again under the same name.</span>
+      </div>
+    `,
+  });
 }
 
 // ─── CONTROLLER ──────────────────────────────────────────────────────────────
@@ -68,8 +107,8 @@ function buildValidationCodes(errors, nFiles = null) {
  * The verdict on one submission's file, and the wait for it.
  *
  * @param onVerdict (state) => void, each time the state changes — "validating", "pending"
- *                  for a file that passed, or "invalid". Omit for a caller with nothing
- *                  to update.
+ *                  for a file that passed, or "invalid". Null where the wait was given up
+ *                  and no verdict is coming. Omit for a caller with nothing to update.
  *
  * @returns `{ attach, watch, stop }`. `watch(submissionId)` starts polling; `stop()` ends
  *          it, and is what a caller does when the file is replaced.
@@ -83,17 +122,20 @@ function createValidationSection({ onVerdict } = {}) {
 
   // ─── RENDERING ─────────────────────────────────────────────────────────────
 
-  function renderValidating() {
-    renderHtml(element, buildInfoMessage("Checking the file…"), { show: true });
-  }
-
-  function renderPassed(validation) {
-    const files = validation.n_files;
-
+  // "Create submission" is the label templates/createPage.js gives the button at the foot of
+  // the form this sits in.
+  function renderPassed({ n_files: files, tasks }) {
     renderHtml(
       element,
-      buildSuccessMessage(`This file is ready to score — ${files} prediction files.`),
-      { show: true },
+      buildStateNote({
+        tone: "done",
+        icon: "tick",
+        line: "Folder successfully uploaded and validated",
+        detail:
+          `${buildCount(files, "prediction file")} across ${buildCount(tasks.length, "task")}. ` +
+          `Fill in the rest of the form, then press Create submission to start scoring.`,
+      }),
+      { show: true, refresh: true },
     );
   }
 
@@ -104,16 +146,21 @@ function createValidationSection({ onVerdict } = {}) {
     if (validation.state === "unchecked") {
       renderHtml(
         element,
-        buildFailureMessage(
-          "We could not check this file. As far as we know nothing is wrong with it — please contact us.",
-        ),
-        { show: true },
+        buildStateNote({
+          tone: "failed",
+          icon: "error",
+          line: "We could not check this file",
+          detail:
+            "As far as we know nothing is wrong with it — the check itself did not finish. " +
+            "Please contact us.",
+        }),
+        { show: true, refresh: true },
       );
 
       return;
     }
 
-    renderHtml(element, buildValidationCodes(validation.errors, validation.n_files), {
+    renderHtml(element, buildValidationCodes(validation.errors, { nFiles: validation.n_files }), {
       show: true,
     });
   }
@@ -121,8 +168,15 @@ function createValidationSection({ onVerdict } = {}) {
   function renderUnavailable(error) {
     renderHtml(
       element,
-      buildFailureMessage("Checking the file failed — reload to see where it got to.", error),
-      { show: true },
+      buildStateNote({
+        tone: "failed",
+        icon: "error",
+        line: "Checking the file failed",
+        detail: ["Reload the page to see where it got to.", error?.message]
+          .filter(Boolean)
+          .join(" "),
+      }),
+      { show: true, refresh: true },
     );
   }
 
@@ -143,6 +197,9 @@ function createValidationSection({ onVerdict } = {}) {
     } catch (error) {
       console.error(error);
       renderUnavailable(error);
+
+      // Polling stops here, so there is no verdict coming: a caller waiting on one is told.
+      onVerdict?.(null);
 
       return;
     }
@@ -184,7 +241,8 @@ function createValidationSection({ onVerdict } = {}) {
     submissionId = id;
     delay = POLL_MS;
 
-    renderValidating();
+    // The panel's own wait note covers this half of the wait; this slot holds verdicts.
+    clearContent(element, { hide: true });
     onVerdict?.("validating");
 
     timer = setTimeout(poll, delay);

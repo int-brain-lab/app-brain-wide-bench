@@ -77,7 +77,7 @@ function loadListPage({
       });
     }
 
-    return buildMessageCard(`No public ${pluralise(noun)} yet.`, "empty-msg");
+    return buildMessageCard(`No public ${pluralise(noun)} yet`, "empty-msg");
   }
 
   function buildBody() {

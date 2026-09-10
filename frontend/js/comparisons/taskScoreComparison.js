@@ -55,7 +55,7 @@ const PROMPT_ID = "score-prompt";
 // The line beside the view toggle saying what the rows under it are — see renderHint.
 const HINT_ID = "score-hint";
 
-const EMPTY_PROMPT = `Select up to ${MAX_COMPARED} task scores to compare them.`;
+const EMPTY_PROMPT = `Select up to ${MAX_COMPARED} task scores to compare them`;
 
 const METRIC = "metric";
 

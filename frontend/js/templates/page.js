@@ -95,7 +95,7 @@ function getRecordId(required) {
 // ─── LOAD ────────────────────────────────────────────────────────────────────
 
 function showLoadFailure(noun, subject, requiresId, id) {
-  renderPageError(requiresId ? `Could not load ${noun} ${id}.` : `Could not load your ${subject}.`);
+  renderPageError(requiresId ? `Could not load ${noun} ${id}` : `Could not load your ${subject}`);
 }
 
 function handlePrivateRecord(error, noun, requiresAuth) {
@@ -141,7 +141,6 @@ async function loadPage({
 
   try {
     const signedIn = await isAuthenticated();
-
     if (requiresAuth) {
       showGate(signedIn);
 
@@ -153,7 +152,7 @@ async function loadPage({
     const id = getRecordId(requiresId);
 
     if (requiresId && !id) {
-      renderPageError(`No ${noun} id in the URL.`);
+      renderPageError(`No ${noun} id in the URL`);
       return;
     }
 
@@ -163,7 +162,6 @@ async function loadPage({
       showLoadFailure(noun, subject, requiresId, id);
       return;
     }
-
     await render(context, { id, signedIn });
   } catch (error) {
     console.error(`Failed to load the ${subject} page:`, error);
@@ -172,7 +170,7 @@ async function loadPage({
       return;
     }
 
-    renderPageError(`The ${subject} page could not be loaded.`, error);
+    renderPageError(`The ${subject} page could not be loaded`, error);
   }
 }
 

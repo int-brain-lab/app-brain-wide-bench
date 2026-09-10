@@ -67,6 +67,7 @@ from app.tasks.validate import validate_submission
 from app.validation.validate_submission import (
     Finding,
     crawl_submission_entries,
+    is_generic_message,
     user_message,
 )
 
@@ -373,7 +374,12 @@ def _local_ground_truth() -> Path:
 def _validation_codes(findings: Sequence[Finding]) -> list[ValidationCode]:
     """Findings as a submitter may see them. ``detail`` is dropped, never relayed."""
     return [
-        ValidationCode(code=finding.code, message=finding.message, path=finding.path)
+        ValidationCode(
+            code=finding.code,
+            message=finding.message,
+            path=finding.path,
+            generic=is_generic_message(finding.code),
+        )
         for finding in findings
     ]
 
@@ -418,7 +424,12 @@ def _validation_response(submission: Submission) -> ValidationResponse:
         n_files=document.get("n_files", 0),
         tasks=document.get("tasks", []),
         errors=[
-            ValidationCode(code=code["code"], message=user_message(code["code"]), path=code["path"])
+            ValidationCode(
+                code=code["code"],
+                message=user_message(code["code"]),
+                path=code["path"],
+                generic=is_generic_message(code["code"]),
+            )
             for code in document.get("codes", [])
         ],
         omitted=document.get("omitted", {}),
@@ -463,7 +474,7 @@ async def _apply_submission_update(
     user_id: uuid.UUID,
     session: AsyncSession,
 ) -> None:
-    """Apply the panel 1-2 fields in ``updates`` to ``submission``, without committing.
+    """Apply the submission's own fields in ``updates`` to ``submission``, without committing.
 
     Shared by PATCH and submit, both of which carry these fields.
 
@@ -918,7 +929,7 @@ async def submit(
     leaderboard is per task — and so is a set spanning suites, which
     :func:`app.tasks.score.score_submission` runs one scorer per.
 
-    Panels 1-2 arrive with it, since they stayed editable while the file uploaded.
+    The submission's own fields arrive with it: they stay editable while the file uploads.
 
     Raises: 404 - Not found if the submission doesn't exist
     Raises: 403 - Forbidden if the caller is not a member of the submission's team

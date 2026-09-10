@@ -256,7 +256,7 @@ function loadComparePage({
 
       renderHtml(
         getSectionBody(INTRO_SECTION),
-        buildEmptyMessage(`There are no ${pluralise(noun)} to compare.`),
+        buildEmptyMessage(`There are no ${pluralise(noun)} to compare`),
       );
     }
 

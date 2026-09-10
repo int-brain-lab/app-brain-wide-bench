@@ -789,14 +789,6 @@ CARDS
   background: var(--surface);
 }
 
-/* What a delete takes with it, listed before it happens. The tint is the danger colour at
-   low opacity rather than --danger-light, matching .failure-msg: it reads the same on either
-   shell's ground. */
-.card.danger {
-  border-color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 8%, transparent);
-}
-
 /* The suites under a ranking card's own figure: a badge, and the standing beside it. Ruled
    off from the figure above rather than boxed, so the card reads as one thing.
 
@@ -1156,8 +1148,8 @@ GENERIC TEXT
 }
 
 /* A record's value, read against the label above it: the same size, told apart by weight
-   and colour. `.value` stays unbolded — it is a table's score and a checkbox's own label,
-   neither of which is read that way. */
+   and colour. `.value` stays unbolded — it is a table's score as well as a record's field,
+   and a score is not read that way. */
 .field-value {
   font-weight: var(--bold);
 }
@@ -1343,111 +1335,42 @@ GENERIC TEXT
   margin-bottom: var(--gap-xl);
 }
 
-/* Message cards: one skeleton, four meanings. Each fills the slot the content it stands in
-   for would have taken, so none carries an outer margin — the section around it spaces it.
-   .info-msg below stays text-only, for a line inside a page rather than a block standing in
-   its place. */
-.empty-msg,
-.success-msg,
-.warn-msg,
-.failure-msg,
-.page-error {
-  margin: 0;
-  padding: 24px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  font-size: var(--font-md);
-  text-align: center;
+/* Every message card is a .state-note — see components/messages.js, which maps each kind of
+   news onto one of its tones. `.info-msg` above keeps its own rule for the other use: a
+   plain muted line inside a page, with no box around it.
+
+   A note standing in for a whole page — one that failed to load, or cannot be filled in yet
+   — is placed as well as toned: it is the content area rather than a line inside one. */
+.state-note.standalone {
+  max-width: 520px;
+  margin: 80px auto;
 }
 
-.info-msg p,
-.empty-msg p,
-.success-msg p,
-.warn-msg p,
-.failure-msg p,
-.page-error p {
-  margin: 0;
-}
-
-/* Nothing here yet. */
-.empty-msg {
-  background: var(--surface-secondary);
-  color: var(--text-muted);
-}
-
-/* It worked. */
-.success-msg {
-  border-color: var(--success);
-  background: color-mix(in srgb, var(--success) 8%, transparent);
-  color: var(--success-dark);
-  font-weight: var(--bold);
-}
-
-/* It worked, but something went with it. */
-.warn-msg {
-  border-color: var(--warning);
-  background: color-mix(in srgb, var(--warning) 10%, transparent);
-  color: var(--warning-dark);
-  font-weight: var(--bold);
-}
-
-/* It didn't. */
-.failure-msg {
-  border-color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 8%, transparent);
-  color: var(--danger-dark);
-  font-weight: var(--bold);
-}
-
-/* What actually went wrong, under the sentence that says something did. Quieter, and
-   allowed to break mid-word: it carries whatever the server sent back, which can be one
-   long unbroken line. */
-.msg-detail {
-  margin-top: 10px;
-  font-size: var(--font-sm);
-  font-weight: 400;
-  overflow-wrap: anywhere;
-}
-
-/* A page that failed before it could render anything: this is the whole content area, not a
-   line inside a page, so it is sized and spaced to stand alone. The tint is the danger
-   colour at low opacity rather than --danger-light, so it reads the same on either shell's
-   ground. */
-/* The sign-in gate, and the in-page prompt for a record that isn't public. Placed like
-   .page-error below — a lone sentence spanning the full width reads as a mistake — but
-   green and a size up: this is an invitation, not a failure, and it is the only thing on
-   the page. */
+/* The sign-in gate, and the in-page prompt for a record that isn't public. Toned like a
+   .state-note in the green of an invitation rather than a failure, and placed like
+   .page-error: it is the only thing on the page. Not a state note itself — it holds the
+   button as well as the sentence. */
 #gate,
 .sign-in-card {
-  max-width: 560px;
+  max-width: 520px;
   margin: 80px auto;
-  padding: 40px;
+  padding: 14px 16px;
   border-color: var(--success);
   background: color-mix(in srgb, var(--success) 8%, transparent);
   color: var(--success-dark);
-  font-size: var(--font-lg);
+  font-size: var(--font-md);
   font-weight: var(--bold);
-  text-align: center;
 }
 
-/* Centres the button under the sentence rather than stretching it across the card, which is
-   what a .column's default `align-items: stretch` would do. */
+/* The button sits under the sentence at its own width, rather than stretching across the
+   card as a .column's default `align-items: stretch` would have it. */
 #gate .column,
 .sign-in-card .column {
-  align-items: center;
+  align-items: flex-start;
 }
 
 /* A page that failed before it could render anything: this is the whole content area, so
    unlike the others it is sized and placed rather than filling a slot. */
-.page-error {
-  max-width: 520px;
-  margin: 80px auto;
-  border-color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 8%, transparent);
-  color: var(--danger-dark);
-  font-weight: var(--bold);
-}
-
 /*----------------------------------------------------------------------------------------
 RANKS
 --------------------------------------------------------------------------------------*/
@@ -1980,11 +1903,249 @@ BARS
   background: var(--primary-light);
 }
 .dropzone-label {
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   margin: 0;
 }
 
-/* ── Selected-file card ───────────────────────────────────────────────────── */
+/* The schema field the predictions panel hosts — `is_deterministic`, drawn there by the
+   form. Ruled off from the file below it, and gone entirely on a form that puts no field
+   in the slot. */
+.upload-fields:not(:empty) {
+  padding-bottom: var(--gap-lg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* ── Selected-file card ───────────────────────────────────────────────────────
+   One object holding everything true of the file: name, size, what state it is in, and
+   the transfer drawn on its own bottom edge. */
+
+.file-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.file-main {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-lg);
+  padding: 14px 16px;
+}
+
+.file-icon {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+}
+
+.file-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name {
+  font-size: var(--font-md);
+  font-weight: var(--bold);
+  overflow-wrap: anywhere;
+}
+
+.file-meta {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--gap-md);
+  flex: none;
+}
+
+/* Sits on the card's edge, so the bar has no radius of its own to disagree with. */
+.file-progress {
+  height: 3px;
+  background: var(--border-color);
+}
+
+.file-progress > i {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.4s ease;
+}
+
+/* A field held at its value. Only wraps a control that is actually locked, and carries the
+   reason as its `title` — a disabled control shows none of its own. */
+.locked-field {
+  cursor: not-allowed;
+}
+
+/* ── State notes ──────────────────────────────────────────────────────────────
+   Where something has got to, and what to do about it: a headline, its detail beneath, and a
+   tone. Every message card in the app is one of these — components/messages.js maps each
+   kind of news onto a tone below — as are the verdicts on the submission form's file.
+
+   The bare class is work in flight; the four tones are answers. */
+
+.state-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--gap-lg);
+  padding: 14px 16px;
+  border: 1px solid var(--pending);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--pending) 7%, transparent);
+  color: var(--pending-dark);
+  font-size: var(--font-md);
+  font-weight: var(--bold);
+}
+
+/* Only information: a wait with no instruction in it, an empty list, a note to the reader. */
+.state-note.quiet {
+  border-color: var(--border-color);
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* Through. */
+.state-note.done {
+  border-color: var(--success);
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+  color: var(--success-dark);
+}
+
+/* Through, but something went with it. */
+.state-note.warned {
+  border-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  color: var(--warning-dark);
+}
+
+/* Not through. A refusal with codes in it wears this too, and lists them in its body. */
+.state-note.failed {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  color: var(--danger-dark);
+}
+
+/* The leading mark — a spinner or an icon — sits on the first line of the text beside it.
+   Named rather than taken as the first child: a note with no mark would take the offset
+   onto its own text. */
+.state-note > .spinner,
+.state-note > .field-icon {
+  margin-top: 5px;
+}
+
+/* The words. A block rather than a span: a refusal enumerates its codes inside it, and a
+   list is not phrasing content. */
+.state-note > .note-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* What to do next, as controls rather than only as words. Pushed to the far end, and the
+   first thing to drop onto its own line when the note runs out of width. */
+.state-note > .note-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-md);
+  margin-left: auto;
+}
+
+.state-note .sub {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--font-sm);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* The one animation in the app. Two states of the upload panel are waits with no
+   progress to report, and a still ring reads as a control rather than as work. */
+.spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+    border-right-color: currentColor;
+    border-style: dotted;
+  }
+
+  .file-progress > i {
+    transition: none;
+  }
+}
+
+/* ── Validation codes ─────────────────────────────────────────────────────────
+   The body of a refusal note — one row per code. A code whose message is the shared generic
+   one shows no message of its own; that text stands once below, under `.what-to-do`. */
+
+.code-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+  margin-top: var(--gap-lg);
+}
+
+.code-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--gap-lg);
+  align-items: baseline;
+  font-size: var(--font-sm);
+}
+
+.code-list .no-detail {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* What a delete takes with it, listed inside its confirmation. The markers need their
+   indent back: the universal reset zeroes padding, which leaves a bare `ul` drawing them
+   over its own text. */
+.delete-list {
+  margin-top: var(--gap-sm);
+  padding-left: 1.2em;
+}
+
+.what-to-do {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+  margin-top: var(--gap-lg);
+  padding-top: var(--gap-lg);
+  border-top: 1px solid color-mix(in srgb, var(--danger) 25%, transparent);
+  font-size: var(--font-sm);
+  font-weight: 400;
+}
 
 .field-input,
 .input-select,
@@ -2007,11 +2168,18 @@ BARS
   resize: vertical;
 }
 
+/* One option of a checkbox list, sized as the text inside a field's own input is rather than
+   as the larger .value a read-only row reads at: the two sit in the same form. */
+.field-option {
+  font-size: var(--font-xs);
+  overflow-wrap: anywhere;
+}
+
 /* An option the schema has ruled out — `disabledOptionsWhen`, or the whole field being
    disabled. Driven off the control's own :disabled, the same way .form-panel is, so the
    dimming cannot disagree with whether the box can actually be ticked. Without it only the
    small square greys out and the label beside it reads as available. */
-.value:has(.field-checkbox:disabled) {
+.field-option:has(.field-checkbox:disabled) {
   opacity: 50%;
   cursor: not-allowed;
 }
@@ -2170,7 +2338,9 @@ WIZARD
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: var(--font-md);
+  /* The tick is a glyph, not an icon: at the size around it, it fills the circle wall to
+     wall. */
+  font-size: var(--font-xs);
   line-height: 1;
 }
 .task-status.ok {
@@ -2231,8 +2401,8 @@ WIZARD
   color: #d33;
 }
 
-/* Ids can be longer than the column; truncate rather than wrap, so every row is one
-   line high and the list stays scannable. The full id is in the detail pane's title. */
+/* Truncated rather than wrapped, so every row is one line high and the list stays
+   scannable. The row's `title` carries the full id. */
 .task-item-label {
   overflow: hidden;
   text-overflow: ellipsis;

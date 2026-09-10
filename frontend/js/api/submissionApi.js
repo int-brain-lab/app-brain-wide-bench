@@ -8,6 +8,17 @@ function buildSubmissionPayload(state) {
   return normalizeObject(state, { label: trimmed });
 }
 
+// A create is sent while the panels after the file are still open, so it carries only the
+// fields that have an answer: the create schema's own defaults stand for the rest, and a
+// null would be refused outright — `is_public` is a plain bool there.
+function buildCreatePayload(state, fileSize) {
+  const answered = Object.entries(buildSubmissionPayload(state)).filter(
+    ([, value]) => value != null,
+  );
+
+  return { ...Object.fromEntries(answered), file_size: fileSize };
+}
+
 function buildSubmitPayload(state, taskSection) {
   const payload = buildSubmissionPayload(state);
 
@@ -65,10 +76,7 @@ async function prevalidateEntries(entries, isDeterministic) {
 async function createSubmission(state, fileSize) {
   return await apiFetch("/api/submissions", {
     method: "POST",
-    body: JSON.stringify({
-      ...buildSubmissionPayload(state),
-      file_size: fileSize,
-    }),
+    body: JSON.stringify(buildCreatePayload(state, fileSize)),
   });
 }
 

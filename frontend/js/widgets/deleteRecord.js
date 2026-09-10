@@ -1,28 +1,22 @@
 // Delete, in two steps.
 //
-// A section holding one red button; pressing it swaps the button for a card naming
-// everything the delete takes, over Cancel and a second red Delete. The host supplies the
-// section and the request; this owns which of the two is showing.
+// The details header's Delete button opens a confirmation naming everything the delete
+// takes, in the page's own message region directly under it. Cancel takes it back; Delete
+// carries it out. The host supplies the button — see renderRecordDetailsView's `deletable`
+// — and the request; this owns which of the two is showing.
 //
-// Mounted by the details view of a record page, at the foot. Hidden while the editor above
-// it is open — see setEditing.
+// Not shown while the editor is open: attachRecordEditor hides the button with the rest of
+// the header's actions, so one record only ever offers one action at a time.
 
-import { getElement, renderHtml } from "../core/render.js";
-import {
-  ABANDON_BUTTON_ID,
-  buildDeleteCard,
-  CONFIRM_BUTTON_ID,
-  MESSAGE_ID,
-} from "../cards/deleteCard.js";
-import { buildDeleteButton, DELETE_BUTTON_ID } from "../components/buttons.js";
-import { buildFailureMessage } from "../components/messages.js";
-import { getSection, getSectionBody } from "../components/sections.js";
+import { getElement } from "../core/render.js";
+import { ABANDON_BUTTON_ID, buildDeleteCard, CONFIRM_BUTTON_ID } from "../cards/deleteCard.js";
+import { DELETE_BUTTON_ID } from "../components/buttons.js";
+import { clearMessage, renderMessage } from "../templates/pageChrome.js";
 
 /**
- * A record's delete control, over the section the host built for it.
+ * A record's delete control, over the Delete button its details header carries.
  *
- * @param section the id of the section to render into.
- * @param noun    *singular* — "model". Names the record in the button and the card.
+ * @param noun    *singular* — "model". Names the record in the confirmation.
  * @param name    () => the record's own name or label.
  * @param items   () => what goes with it, worded — ["4 submissions", "12 task entries"].
  *
@@ -32,45 +26,30 @@ import { getSection, getSectionBody } from "../components/sections.js";
  * @param remove  async () => void. The request. Rejection leaves the record and reports.
  * @param onDeleted () => void, once the record is gone. Where the page goes next.
  *
- * @returns { render, setEditing }. `render()` to draw the button; `setEditing(true)` to hide
- *          the section while the editor above it is open.
+ * @returns `{ attach }`. `attach()` wires the header's button.
  */
-function createDeleteSection({ section, noun, name, items, remove, onDeleted }) {
+function createDeleteControl({ noun, name, items, remove, onDeleted }) {
   // ─── STEPS ─────────────────────────────────────────────────────────────────
 
-  function renderButton() {
-    renderHtml(getSectionBody(section), buildDeleteButton({ label: `Delete ${noun}` }), {
-      refresh: true,
-    });
+  // `failure` re-opens the confirmation carrying what the last attempt reported, which is
+  // also how it comes back enabled: these are fresh buttons.
+  function open(failure = "") {
+    renderMessage(buildDeleteCard({ noun, name: name(), items: items(), failure }));
 
-    getElement(DELETE_BUTTON_ID)?.addEventListener("click", renderConfirmation);
-  }
-
-  function renderConfirmation() {
-    renderHtml(getSectionBody(section), buildDeleteCard({ noun, name: name(), items: items() }), {
-      refresh: true,
-    });
-
-    getElement(ABANDON_BUTTON_ID)?.addEventListener("click", renderButton);
+    getElement(ABANDON_BUTTON_ID)?.addEventListener("click", clearMessage);
     getElement(CONFIRM_BUTTON_ID)?.addEventListener("click", confirm);
   }
 
   // ─── THE REQUEST ───────────────────────────────────────────────────────────
 
-  // Both footer buttons, so a second click cannot send a second delete while the first is
-  // still in flight.
+  // Both of the confirmation's buttons, so a second click cannot send a second delete while
+  // the first is still in flight. Nothing re-enables them: a failure re-opens it.
   function setBusy(busy) {
     for (const id of [ABANDON_BUTTON_ID, CONFIRM_BUTTON_ID]) {
       const button = getElement(id);
 
       if (button) button.disabled = busy;
     }
-  }
-
-  function renderFailure(error) {
-    renderHtml(MESSAGE_ID, buildFailureMessage(`Deleting the ${noun} failed.`, error), {
-      show: true,
-    });
   }
 
   async function confirm() {
@@ -80,8 +59,7 @@ function createDeleteSection({ section, noun, name, items, remove, onDeleted }) 
       await remove();
     } catch (error) {
       console.error(error);
-      setBusy(false);
-      renderFailure(error);
+      open(error.message ?? "");
 
       return;
     }
@@ -91,17 +69,12 @@ function createDeleteSection({ section, noun, name, items, remove, onDeleted }) 
 
   // ─── LIFECYCLE ─────────────────────────────────────────────────────────────
 
-  // The whole section, not just the button: a heading reading "Delete this model" over
-  // nothing is worse than no heading.
-  function setEditing(editing) {
-    const element = getSection(section);
-
-    if (element) element.hidden = editing;
-
-    if (!editing) renderButton();
+  // Wrapped: a listener is called with the click event, which is not a failure to report.
+  function attach() {
+    getElement(DELETE_BUTTON_ID)?.addEventListener("click", () => open());
   }
 
-  return { render: renderButton, setEditing };
+  return { attach };
 }
 
-export { createDeleteSection };
+export { createDeleteControl };

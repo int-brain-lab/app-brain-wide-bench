@@ -140,7 +140,7 @@ async function loadCreatePage({
         },
 
         onError: (error) => {
-          renderMessage(buildFailureMessage(`Creating ${noun} failed.`, error));
+          renderMessage(buildFailureMessage(`Creating ${noun} failed`, error));
         },
       });
 

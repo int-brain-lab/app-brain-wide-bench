@@ -103,6 +103,11 @@ def user_message(code: str) -> str:
     return SPECIFIC_MESSAGES.get(code, GENERIC_MESSAGE)
 
 
+def is_generic_message(code: str) -> bool:
+    """Whether ``code``'s message is the shared generic one rather than its own."""
+    return code not in SPECIFIC_MESSAGES
+
+
 @dataclass
 class Finding:
     path: str  # entry, relative to the submission root; "." for the submission as a whole

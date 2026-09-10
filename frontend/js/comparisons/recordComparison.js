@@ -294,8 +294,8 @@ function createRecordComparison({
   // Picks that cannot be taken out: their chips are drawn without a ✕.
   const fixed = new Set(fixedKeys);
 
-  const nothingScored = `None of these ${noun}s has a scored task yet.`;
-  const emptyPrompt = `Select up to ${max} ${noun}s to compare them.`;
+  const nothingScored = `None of these ${noun}s has a scored task yet`;
+  const emptyPrompt = `Select up to ${max} ${noun}s to compare them`;
 
   // ─── STATE ─────────────────────────────────────────────────────────────────
 
@@ -619,7 +619,7 @@ function createRecordComparison({
     }
 
     if (baseline && selectedRecords.length < 2) {
-      renderHtml(section, buildInfoMessage(`Select a second ${noun} to see the difference.`));
+      renderHtml(section, buildInfoMessage(`Select a second ${noun} to see the difference`));
       return;
     }
 

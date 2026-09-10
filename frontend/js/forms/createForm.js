@@ -10,6 +10,9 @@
 // Field-driven panels are rendered by one createFieldForm. Component-driven panels
 // provide their own markup through `build()` and are not re-rendered after mounting,
 // allowing them to keep their own state and listeners.
+//
+// A component panel may still hold schema fields, in a slot its own markup marks with
+// `[data-panel-fields]`. Only that slot is redrawn, so the component's DOM is untouched.
 
 import { toPanelGroup } from "../schemas/schemaPanels.js";
 import { buildFields, buildPanelCard } from "./fields.js";
@@ -40,9 +43,11 @@ function isFilled(value) {
  *                    "fields" or "component" — and a `title`. A "fields" panel is filled
  *                    from the schema and is complete when its required fields are; a
  *                    "component" panel declares `build()` for markup drawn once and never
- *                    redrawn, and `complete()`, which only it can answer. A panel may also
- *                    declare `unlocks()` where opening the next panel is a different
- *                    question from being complete. Omit for the two to be the same.
+ *                    redrawn, and `complete()`, which only it can answer — and may hold
+ *                    schema fields as well, in a `[data-panel-fields]` slot of its own
+ *                    markup. A panel may also declare `unlocks()` where opening the next
+ *                    panel is a different question from being complete. Omit for the two to
+ *                    be the same.
  * @param fields      field definitions, keyed by field name — the schema the "fields"
  *                    panels are built from.
  * @param submit      async (state) => result. Run by `submit()`, with the form locked until
@@ -77,9 +82,6 @@ function createForm({
 
   // Object declaration order determines both display order and unlock order.
   const panelNames = Object.keys(panels);
-
-  // Only schema-driven panels are managed by createFieldForm.
-  const fieldPanelNames = panelNames.filter((name) => panels[name].type === "fields");
 
   // Required fields never change, so calculate them once. A component panel has none,
   // which is why it declares `complete()` instead.
@@ -185,12 +187,29 @@ function createForm({
       .join("");
   }
 
-  function getFieldSections() {
-    return fieldPanelNames.map((name) => ({
-      container: panelElements.get(name).querySelector("[data-panel-body]"),
+  // Where one panel's fields are drawn, and how. A component panel may carry schema fields
+  // too — it says where with `[data-panel-fields]`, and the card around them is its own, so
+  // the fields go in bare.
+  function getFieldSection(name) {
+    const slot = panelElements.get(name).querySelector("[data-panel-fields]");
 
+    if (slot) {
+      return {
+        container: slot,
+        draw: (values) => buildFields(groupForPanel(name)?.keys ?? [], values, fields),
+      };
+    }
+
+    if (panels[name].type !== "fields") return null;
+
+    return {
+      container: panelElements.get(name).querySelector("[data-panel-body]"),
       draw: (values) => buildPanelCard(groupForPanel(name), values, fields, buildFields),
-    }));
+    };
+  }
+
+  function getFieldSections() {
+    return panelNames.map(getFieldSection).filter(Boolean);
   }
 
   // ─── LIFECYCLE ─────────────────────────────────────────────────────────────

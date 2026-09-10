@@ -30,7 +30,7 @@ import { getIcon } from "../components/icons.js";
 import {
   buildEmptyMessage,
   buildFailureMessage,
-  buildInfoMessage,
+  buildWaitMessage,
 } from "../components/messages.js";
 import {
   attachCollapse,
@@ -316,13 +316,13 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     table = null;
 
     if (!standings) {
-      renderHtml(body, buildFailureMessage("The leaderboard failed to load."));
+      renderHtml(body, buildFailureMessage("The leaderboard failed to load"));
 
       return;
     }
 
     if (!chosen.length) {
-      renderHtml(body, buildEmptyMessage("Choose a task to rank the board by."));
+      renderHtml(body, buildEmptyMessage("Choose a task to rank the board by"));
 
       return;
     }
@@ -330,7 +330,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     const rows = toLeaderboardRows(standings, chosen, myTeamIds);
 
     if (!rows.length) {
-      renderHtml(body, buildEmptyMessage("No models have been scored yet."));
+      renderHtml(body, buildEmptyMessage("No models have been scored yet"));
 
       return;
     }
@@ -443,7 +443,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
   function loadBoard() {
     filters.setBusy(true);
 
-    renderHtml(getElement(BOARD_PANEL), buildInfoMessage("Loading the board…"));
+    renderHtml(getElement(BOARD_PANEL), buildWaitMessage("Loading the board…"));
 
     return getLeaderboard(filters.applied()).then((loaded) => {
       standings = loaded;

@@ -9,8 +9,7 @@
 
 import { escapeHtml } from "../core/html.js";
 import { buildEmptyMessage, buildMessageCard } from "../components/messages.js";
-import { renderHtml } from "../core/render.js";
-import { buildCount } from "../components/count.js";
+import { refreshIcons, renderHtml } from "../core/render.js";
 import { CLEARED_MESSAGE, createFieldState } from "../forms/form.js";
 import { buildFields } from "../forms/fields.js";
 import {
@@ -20,8 +19,8 @@ import {
   renderPreservingFocus,
 } from "../forms/form.js";
 import { TASK_FIELDS, trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
-import { suiteLabel, SUITES } from "../core/suites.js";
-import { buildSuiteBadgeList } from "../components/badges.js";
+import { suiteLabel, SUITES, taskLabel } from "../core/suites.js";
+import { buildSuiteBadgeList, buildTaskBadge } from "../components/badges.js";
 
 // TODO move out build from controller
 const PANEL_ID = "task-panel";
@@ -119,6 +118,15 @@ function createTaskSection({ taskSuites, onChange } = {}) {
 
   // ─── RENDERING ─────────────────────────────────────────────────────────────
 
+  // A task as the rest of the site writes one — its suite's colour, its short name. With no
+  // catalogue there is no suite to name, so the badge is neutral and carries the name alone.
+  function buildTaskName(taskId, size = "sm") {
+    const suite = getSuite(taskId);
+    const label = suite ? `${suiteLabel(suite)} ${taskLabel(taskId)}` : taskLabel(taskId);
+
+    return buildTaskBadge(label, suite ?? "neutral", size);
+  }
+
   function buildTaskStatus(task) {
     if (task.confirmed) {
       return `<span class="task-status ok">✓</span>`;
@@ -134,33 +142,25 @@ function createTaskSection({ taskSuites, onChange } = {}) {
       .filter(Boolean)
       .join(" ");
 
+    // The id on hover: the rows and the detail's badge both name the task the short way the
+    // rest of the site does, and the id is what the file and the payload carry.
     return `
       <button
         type="button"
         class="${classes}"
         data-task="${id}"
+        title="${id}"
       >
         ${buildTaskStatus(task)}
-        <span class="task-item-label">${id}</span>
+        <span class="task-item-label metadata">${escapeHtml(taskLabel(task.taskId))}</span>
       </button>
     `;
   }
 
   function buildTaskGroup(suite, suiteTasks) {
-    const count = suiteTasks.length;
-
     // A null suite is the no-catalogue case — one unlabelled group, because there is no
     // suite to name.
-    const header = suite
-      ? `
-        <div class="row left gap-sm">
-          ${buildSuiteBadgeList([suite])}
-          <span class="metadata">
-            ${buildCount(count, "task")}
-          </span>
-        </div>
-      `
-      : "";
+    const header = suite ? buildSuiteBadgeList([suite]) : "";
 
     return `
       <div class="column gap-xs">
@@ -204,6 +204,9 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     );
   }
 
+  // Beside the Save button it acts on, rather than in a card of its own: what it changes is
+  // what that button then writes. The input is inside its label, as a field's own options
+  // are, so the whole row is the hit area.
   function buildApplyToSuite(task) {
     const siblings = getSuiteSiblings(task);
 
@@ -214,19 +217,15 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     const suite = escapeHtml(suiteLabel(getSuite(task.taskId)));
 
     return `
-      <div class="card secondary row left gap-sm">
-        <label class="label" for="task-apply-suite">
-          Apply to all ${suite} tasks (${siblings.length})
-        </label>
-
+      <label class="field-option row left gap-sm">
         <input
           class="input-checkbox task-apply-suite"
-          id="task-apply-suite"
           type="checkbox"
           data-task="${taskId}"
           ${task.applyToSuite ? "checked" : ""}
         />
-      </div>
+        Apply to all ${suite} tasks (${siblings.length})
+      </label>
     `;
   }
 
@@ -246,39 +245,40 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     const taskId = escapeHtml(task.taskId);
 
     return `
-      <div class="column gap-lg">
-        <div class="card secondary column gap-lg">
-          <p class="title muted">${taskId}</p>
+      <div class="card secondary column gap-lg">
+        <span class="row left">${buildTaskName(task.taskId, "md")}</span>
 
-          ${buildClearedNotice(task)}
+        ${buildClearedNotice(task)}
 
-          <div class="column gap-lg">
-            ${buildFields(trainingFieldKeys(), task.state, TASK_FIELDS)}
-          </div>
+        <div class="column gap-lg">
+          ${buildFields(trainingFieldKeys(), task.state, TASK_FIELDS)}
+        </div>
+
+        <div class="row right gap-lg">
+          ${buildApplyToSuite(task)}
 
           <!-- One way: editing any field clears the confirmation again (see updateField),
                so there is nothing for the user to untick. Disabled once saved, which is
                also the only feedback the click gives — the tick in the picker is the
                lasting record. -->
-          <div class="row right">
-            <button
-              type="button"
-              class="btn primary task-confirm"
-              data-task="${taskId}"
-              ${task.confirmed ? "disabled" : ""}>
-              ${task.confirmed ? "Saved" : "Save selection"}
-            </button>
-          </div>
+          <button
+            type="button"
+            class="btn primary task-confirm"
+            data-task="${taskId}"
+            ${task.confirmed ? "disabled" : ""}>
+            ${task.confirmed ? "Saved" : "Save selection"}
+          </button>
         </div>
-
-        ${buildApplyToSuite(task)}
       </div>
     `;
   }
 
   function render() {
     if (!tasks.size) {
-      renderHtml(container, buildEmptyMessage("No tasks yet — upload a .zip on the panel above."));
+      renderHtml(
+        container,
+        buildEmptyMessage("No tasks yet — add your file above and we will read them from it"),
+      );
       return;
     }
 
@@ -290,6 +290,10 @@ function createTaskSection({ taskSuites, onChange } = {}) {
         </div>
       `;
     });
+
+    // Written straight into the container rather than through renderHtml, which is what
+    // draws the icon placeholders a field row or a cleared-fields card carries.
+    refreshIcons();
   }
 
   // ─── STATE UPDATES ─────────────────────────────────────────────────────────

@@ -13,6 +13,7 @@ import { escapeHtml } from "../core/html.js";
 
 const ICONS = {
   // Records and their parts
+  file: "file-archive",
   model: "chart-column",
   submission: "layers",
   team: "users",
@@ -47,6 +48,9 @@ const ICONS = {
 
   // Answers
   tick: "check",
+  alert: "triangle-alert",
+  error: "circle-x",
+  info: "info",
 
   // Actions
   add: "plus",
