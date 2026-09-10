@@ -79,7 +79,6 @@ const MODEL_FIELDS = {
   temporal_context_s: {
     label: "Temporal context (s)",
     input: "number",
-    default: 1,
     panel: "specification",
   },
 

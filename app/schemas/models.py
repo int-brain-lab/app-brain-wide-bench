@@ -31,7 +31,7 @@ class ModelBase(ModelMetadata):
     id: uuid.UUID
     team_id: uuid.UUID
     name: str
-    temporal_context_s: float
+    temporal_context_s: float | None = None
     created_at: datetime | None = None
 
     # Optional here only because it lives on the ``team`` relationship rather than on
@@ -118,7 +118,7 @@ class ModelCreate(ModelMetadata):
 
     team_id: uuid.UUID
     name: str
-    temporal_context_s: float = 1.0
+    temporal_context_s: float | None = None
 
 
 class ModelUpdate(ModelMetadata):

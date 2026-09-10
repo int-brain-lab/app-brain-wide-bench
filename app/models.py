@@ -359,7 +359,7 @@ class Model(SQLModel, table=True):
     publication_doi: str | None = None
     # Architecture
     n_parameters: int | None = None
-    temporal_context_s: float = 1.0
+    temporal_context_s: float | None = None
     # Pretraining — all nullable for single-session baselines
     is_pretrained: bool | None = None
     pretrained_in_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON_LIST))
