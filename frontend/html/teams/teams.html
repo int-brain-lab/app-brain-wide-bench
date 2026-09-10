@@ -19,13 +19,9 @@
 
   <body>
     <!-- One URL for both audiences, and no gate: a team's page is readable signed out,
-         minus the member list. The markup is the public shell — what a visitor should see,
-         painted before any script runs — and shell.js swaps in the sidebar for a signed-in
-         reader. -->
+         minus the member list. The public shell, whoever is reading. -->
     <div class="main">
       <nav class="nav" id="top-nav"></nav>
-
-      <aside class="sidebar" id="side-nav" hidden></aside>
 
       <div class="content">
         <div id="container"></div>
@@ -40,7 +36,6 @@
     <script src="https://unpkg.com/lucide@1.42.0/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
     <script type="module" src="/js/nav/navTop.js"></script>
-    <script type="module" src="/js/nav/navSide.js"></script>
     <script type="module" src="/js/pages/teamView.js"></script>
   </body>
 </html>

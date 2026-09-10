@@ -21,12 +21,9 @@
 
   <body>
     <!-- Every task score the viewer may see, which signed out is the public submissions' — so
-         no gate. The markup is the public shell, painted before any script runs, and the nav
-         scripts swap in the sidebar for a signed-in reader. -->
+         no gate. The public shell, whoever is reading. -->
     <div class="main">
       <nav class="nav" id="top-nav"></nav>
-
-      <aside class="sidebar" id="side-nav" hidden></aside>
 
       <div class="content">
         <div id="container"></div>
@@ -38,7 +35,6 @@
     <script src="https://unpkg.com/lucide@1.42.0/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
     <script type="module" src="/js/nav/navTop.js"></script>
-    <script type="module" src="/js/nav/navSide.js"></script>
     <script type="module" src="/js/pages/taskScoreList.js"></script>
   </body>
 </html>

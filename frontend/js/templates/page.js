@@ -1,44 +1,18 @@
 // Shared boot sequence for all pages:
 //
-//   authenticate → gate/shell → get id → load → render
+//   authenticate → gate → get id → load → render
 //
 // This module owns everything needed to get a page running. Each page's render
 // determines what is drawn on the page.
 //
-// The page markup needs a #container, and private pages also need a #gate card.
+// The page markup needs a #container, and private pages also need a #gate card. A private
+// page carries the sidebar shell; a public one carries the top nav, and keeps it.
 
 import { isAuthenticated, login } from "../api/client.js";
 import { escapeHtml } from "../core/html.js";
 import { pluralise } from "../core/utils.js";
 import { getElement } from "../core/render.js";
 import { CONTAINER_ID, renderPageError } from "./pageChrome.js";
-
-// ─── SHELL ───────────────────────────────────────────────────────────────────
-
-function replaceClass(selector, from, to) {
-  const element = document.querySelector(selector);
-
-  if (element?.classList.contains(from)) {
-    element.classList.replace(from, to);
-  }
-}
-
-function applyPrivateShell() {
-  replaceClass(".main", "main", "main-private");
-  replaceClass(".content", "content", "content-private");
-
-  const topNav = document.getElementById("top-nav");
-  const sidebar = document.getElementById("side-nav");
-
-  if (topNav) topNav.hidden = true;
-  if (sidebar) sidebar.hidden = false;
-}
-
-function applyShell(signedIn) {
-  if (signedIn) {
-    applyPrivateShell();
-  }
-}
 
 // ─── GATE ────────────────────────────────────────────────────────────────────
 
@@ -141,12 +115,13 @@ async function loadPage({
 
   try {
     const signedIn = await isAuthenticated();
+
+    // A public page's shell is the one in its markup, whoever is reading: the top nav
+    // carries the way into the signed-in half, so there is nothing to swap.
     if (requiresAuth) {
       showGate(signedIn);
 
       if (!signedIn) return;
-    } else {
-      applyShell(signedIn);
     }
 
     const id = getRecordId(requiresId);

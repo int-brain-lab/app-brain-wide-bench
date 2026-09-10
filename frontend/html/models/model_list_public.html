@@ -21,13 +21,10 @@
 
   <body data-scope="all">
     <!-- Every model the viewer may see, which signed out is the public ones — so no gate.
-         The markup is the public shell, painted before any script runs, and shell.js swaps
-         in the sidebar for a signed-in reader. `data-scope` is what tells modelList.js to
+         The public shell, whoever is reading. `data-scope` is what tells modelList.js to
          list all of them rather than the viewer's own. -->
     <div class="main">
       <nav class="nav" id="top-nav"></nav>
-
-      <aside class="sidebar" id="side-nav" hidden></aside>
 
       <div class="content">
         <div id="container"></div>
@@ -42,7 +39,6 @@
     <script src="https://unpkg.com/lucide@1.42.0/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
     <script type="module" src="/js/nav/navTop.js"></script>
-    <script type="module" src="/js/nav/navSide.js"></script>
     <script type="module" src="/js/pages/modelList.js"></script>
   </body>
 </html>
