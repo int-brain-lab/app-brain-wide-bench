@@ -3,6 +3,7 @@ import { renderHtml } from "../core/render.js";
 import { initials } from "../core/utils.js";
 import { login, logout } from "../api/client.js";
 import { getCurrentUser } from "../api/userApi.js";
+import { buildSignInButton, buildSignOutButton } from "../components/buttons.js";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
@@ -87,12 +88,12 @@ function renderNavLinks(page) {
   `;
 }
 
+// Both are looked up by id once the nav is written — see attachNavEvents.
+const LOGIN_ID = "login-btn";
+const LOGOUT_ID = "logout-btn";
+
 function renderLoginButton() {
-  return `
-    <button type="button" class="btn primary" id="login-btn">
-      Sign in
-    </button>
-  `;
+  return buildSignInButton({ id: LOGIN_ID });
 }
 
 // `initials` takes the leading character of each word, so a display name
@@ -106,9 +107,7 @@ function renderUserMenu(user) {
       ${escapeHtml(initials(name))}
     </span>
 
-    <button type="button" class="btn" id="logout-btn">
-      Sign out
-    </button>
+    ${buildSignOutButton({ id: LOGOUT_ID })}
   `;
 }
 
@@ -127,9 +126,9 @@ async function renderAuthSection() {
 function attachNavEvents() {
   // Arrows, not the bare functions: a listener is called with the click event, and `login`
   // now reads its first argument as the page to return to.
-  document.getElementById("login-btn")?.addEventListener("click", () => login(DASHBOARD_HREF));
+  document.getElementById(LOGIN_ID)?.addEventListener("click", () => login(DASHBOARD_HREF));
 
-  document.getElementById("logout-btn")?.addEventListener("click", () => logout());
+  document.getElementById(LOGOUT_ID)?.addEventListener("click", () => logout());
 }
 
 // ─── INITIALISATION ──────────────────────────────────────────────────────────

@@ -22,7 +22,7 @@ function buildTeamCard(team) {
       href="${hrefForRecord(TEAM_PAGE, team.id, { mine: team.is_mine })}"
     >
       <div class="column left">
-        <p class="title">${escapeHtml(team.name)}</p>
+        <p class="label">${escapeHtml(team.name)}</p>
       </div>
 
       ${role ? `<div class="row left gap-lg">${role}</div>` : ""}

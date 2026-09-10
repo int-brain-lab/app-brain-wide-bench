@@ -26,6 +26,7 @@ import {
   GO_BUTTON_ID,
   GO_COMPARE_LABEL,
 } from "../components/buttons.js";
+import { buildCount } from "../components/count.js";
 import { getIcon } from "../components/icons.js";
 import {
   buildEmptyMessage,
@@ -55,6 +56,9 @@ const DESCRIPTION = "Public, completed submissions scored against held-out test 
 
 // The chips naming what is being compared, in the board's own header row — see picksContainer.
 const PICKS_ID = "board-picks";
+
+// What the board comes to, opposite the buttons that work it — see renderSummary.
+const SUMMARY_ID = "board-summary";
 
 const COMPARE_ID = "compare-models";
 
@@ -132,8 +136,10 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
         {
           id: BOARD_SECTION,
 
-          // Opposite the buttons: what is being compared.
-          controls: `<span class="row left gap-sm compare-picks" id="${PICKS_ID}"></span>`,
+          // Opposite the buttons: what the board comes to, and what is being compared.
+          controls:
+            `<span class="board-summary" id="${SUMMARY_ID}"></span>` +
+            `<span class="row left gap-sm compare-picks" id="${PICKS_ID}"></span>`,
 
           // What pressing them does, then the buttons: the one that stays put reads
           // "Compare models", then "Done", and the other appears beside it.
@@ -305,8 +311,23 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     }
   }
 
+  // How many models placed on the board, over how many tasks. The ranked ones only: a model
+  // not scored on every chosen task sits on the board without a position — see assignPositions
+  // in utils/leaderboardUtils.js.
+  function renderSummary(rows) {
+    const ranked = rows.filter((row) => row.rank != null).length;
+
+    setText(
+      getElement(SUMMARY_ID),
+      `${buildCount(ranked, "model")} ranked across ${buildCount(chosen.length, "task")}`,
+    );
+  }
+
   function renderBoard() {
     const body = getElement(BOARD_PANEL);
+
+    // Nothing to say until there is a board: every early return below leaves it blank.
+    setText(getElement(SUMMARY_ID), "");
 
     // Detached before destroy: the binding subscribes to the comparison, and a disposed table
     // left attached would be reconciled against on the next pick.
@@ -334,6 +355,8 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
 
       return;
     }
+
+    renderSummary(rows);
 
     const mounted = createLeaderboardTable({
       rows,
@@ -409,6 +432,9 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     // left to do. Done is the way back out, so it stays plain.
     compare.classList.toggle("primary-inv", !comparing);
     go.classList.toggle("primary", comparison.size > 0);
+
+    // Off while comparing: the picks share the lead with it, and start where it left off.
+    getElement(SUMMARY_ID).hidden = comparing;
 
     setText(getElement(HINT_ID), getHint(showingComparison));
 

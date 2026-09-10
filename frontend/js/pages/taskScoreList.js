@@ -17,7 +17,6 @@ const DISPLAY = { showModel: true, showSubmission: true };
 loadListPage({
   noun: "score",
   title: "Task scores",
-  description: "Every scored task on a submission the viewer may see.",
 
   // The public counterpart of the dashboard's view: signed out it is the public submissions'
   // tasks, and a session adds the reader's own teams'.

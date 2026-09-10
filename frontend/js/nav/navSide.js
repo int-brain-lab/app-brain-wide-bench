@@ -2,6 +2,7 @@ import { refreshIcons, renderHtml } from "../core/render.js";
 import { initials } from "../core/utils.js";
 import { logout } from "../api/client.js";
 import { getCurrentUser } from "../api/userApi.js";
+import { buildSignOutButton } from "../components/buttons.js";
 import { getIcon } from "../components/icons.js";
 import { renderLogo } from "./navTop.js";
 
@@ -95,6 +96,9 @@ function renderSidebarItems(items, page) {
   return items.map((item) => renderSidebarItem(item, page)).join("");
 }
 
+// Looked up by id once the sidebar is written — see the listener below.
+const LOGOUT_ID = "sidebar-logout";
+
 function renderSidebar() {
   const page = currentPage();
 
@@ -116,7 +120,7 @@ function renderSidebar() {
     <div class="sidebar-bottom">
       <div class="row left gap-lg">
         <div class="user-logo" id="user-initials">—</div>
-        <button type="button" class="btn primary" id="sidebar-logout">Sign out</button>
+        ${buildSignOutButton({ id: LOGOUT_ID })}
       </div>
     </div>
   `;
@@ -153,7 +157,7 @@ async function initialiseSidebar() {
   renderHtml(nav, renderSidebar());
 
   // Straight back to the public home, which logout() is already pointed at.
-  document.getElementById("sidebar-logout")?.addEventListener("click", () => logout());
+  document.getElementById(LOGOUT_ID)?.addEventListener("click", () => logout());
 
   await fillSidebarUser();
 

@@ -86,9 +86,10 @@ function buildAddSelect(rows, { noun, full, toKey, toLabel }) {
       : `No other ${pluralise(noun)} to add`;
 
   // Inline rather than stretched: .input-select is full-width, and a lone select across the
-  // page reads as a field to fill in rather than a scope to pick.
+  // page reads as a field to fill in rather than a scope to pick. `add-select` is the text
+  // size: this is the page's own control, not one of a bar of filters.
   return `
-    <span class="inline-select">
+    <span class="inline-select add-select">
       ${buildSelect({
         name: ADD_ROLE,
         hook: "role",

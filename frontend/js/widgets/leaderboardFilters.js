@@ -104,12 +104,15 @@ function buildCell(control, values, className = "") {
   return className ? `<span class="${className}">${markup}</span>` : markup;
 }
 
+// `sm`, as Clear and Apply are: it works the bar the same way they do, and `metadata` drew it
+// as a caption that happened to be clickable. It is also the only one of the three live at
+// rest, the other two waiting on a change to the filters.
 function buildMore(showingMore) {
   return buildButton({
     id: MORE_ID,
     label: showingMore ? FEWER_LABEL : MORE_LABEL,
     icon: getIcon(showingMore ? "collapse" : "expand"),
-    className: "metadata",
+    className: "sm",
   });
 }
 

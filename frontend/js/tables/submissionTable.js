@@ -40,7 +40,7 @@ function getSubmissionColumns({ showModel = false } = {}) {
     {
       title: "Label",
       field: "label",
-      formatter: buildLinkFormatter("/html/submissions/submissions.html", "label"),
+      formatter: buildLinkFormatter("/html/submissions/submissions.html", "label", "id", "label"),
       widthGrow: 2,
     },
     ...modelColumns,

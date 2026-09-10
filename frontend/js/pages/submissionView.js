@@ -37,6 +37,7 @@ import {
   buildEditButton,
   buildSaveButton,
   buildViewAllButton,
+  EDIT_DETAILS_BUTTON,
 } from "../components/buttons.js";
 import { buildEmptyMessage, buildFailureMessage } from "../components/messages.js";
 import {
@@ -49,7 +50,7 @@ import {
   getSectionBody,
 } from "../components/sections.js";
 import { createDeleteControl } from "../widgets/deleteRecord.js";
-import { attachEditLink, renderRecordDetailsView } from "../templates/recordDetails.js";
+import { renderRecordDetailsView } from "../templates/recordDetails.js";
 import { loadRecordPage } from "../templates/recordPage.js";
 import { renderRecordListView } from "../templates/recordList.js";
 import { renderHeader, renderPage } from "../templates/pageChrome.js";
@@ -88,7 +89,7 @@ const DASHBOARD_SECTIONS = [
     ratio: 3,
     sections: [
       { id: "narrative", title: "Narrative" },
-      { id: "methodology", title: "Methodology" },
+      { id: "methodology", title: "Task submissions" },
     ],
   },
   {
@@ -183,7 +184,7 @@ function renderDashboardView(context, router) {
 
   renderPage(
     buildPage({
-      header: buildHeader(canEdit ? [buildEditButton()] : []),
+      header: buildHeader(canEdit ? [EDIT_DETAILS_BUTTON] : []),
       body: buildSections(DASHBOARD_SECTIONS),
     }),
   );
@@ -198,7 +199,6 @@ function renderDashboardView(context, router) {
   renderMethodologySection(submission, canEdit);
   renderScoresSection(markStandingRows(toTaskSubmissionRows(submission), breakdown));
 
-  if (canEdit) attachEditLink(router);
 }
 
 // ─── DETAILS VIEW ────────────────────────────────────────────────────────────

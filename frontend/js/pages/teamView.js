@@ -11,7 +11,7 @@ import { getTeamDeleteItems } from "../utils/deleteUtils.js";
 import { toModelRows } from "../utils/modelUtils.js";
 import { toSubmissionRows } from "../utils/submissionUtils.js";
 import {
-  getCoverageBadges,
+  getSuiteBadges,
   getTaskScoreFilters,
   toBestScoreRows,
   toScoreResultRows,
@@ -26,9 +26,10 @@ import { buildModelCards } from "../cards/modelCards.js";
 import { buildSubmissionCards } from "../cards/submissionCards.js";
 import {
   buildCreateButton,
-  buildEditButton,
   buildMembersButton,
   buildViewAllButton,
+  EDIT_DETAILS_BUTTON,
+  MEMBERS_BUTTON_ID,
 } from "../components/buttons.js";
 import { buildCount } from "../components/count.js";
 import { buildEmptyMessage, buildWarningMessage } from "../components/messages.js";
@@ -46,7 +47,7 @@ import {
   buildMembersPanel,
   createMembersSection,
 } from "../widgets/teamMembers.js";
-import { attachEditLink, renderRecordDetailsView } from "../templates/recordDetails.js";
+import { renderRecordDetailsView } from "../templates/recordDetails.js";
 import { loadRecordPage } from "../templates/recordPage.js";
 import { renderRecordListView } from "../templates/recordList.js";
 import { renderHeader, renderMessage, renderPage } from "../templates/pageChrome.js";
@@ -153,10 +154,14 @@ function renderEmptySection(id, empty, create) {
 // The way from a section's preview to the whole of it, under the content — see
 // buildSectionFooter. Built at render rather than beside the sections above, because the
 // number it names is data.
-function buildFooter(id, count) {
+//
+// `showing` is a section already holding every one the button would open — "View all 2 teams"
+// under the two of them. Kept as spacing rather than dropped: the stacks beside it size their
+// cards by the row their own buttons take, and one without that row draws taller cards.
+function buildFooter(id, count, { showing = false } = {}) {
   const { noun, ...target } = VIEW_ALL[id];
 
-  return buildSectionFooter(buildViewAllButton(noun, target, { count }));
+  return buildSectionFooter(buildViewAllButton(noun, target, { count }), { hidden: showing });
 }
 
 // What the section shows, with the way to the rest of it underneath. Only for a section
@@ -172,11 +177,11 @@ function renderSection(id, content, count) {
 // The footer goes inside the stack rather than after it, so it takes the row under the last
 // card: a stack of one puts its empty half below the button rather than above it.
 function renderCards(id, cards, count) {
-  renderHtml(
-    getSectionBody(id),
-    `<div class="card-stack">${cards}${buildFooter(id, count)}</div>`,
-    { refresh: true },
-  );
+  const footer = buildFooter(id, count, { showing: count <= MAX_CARDS });
+
+  renderHtml(getSectionBody(id), `<div class="card-stack">${cards}${footer}</div>`, {
+    refresh: true,
+  });
 }
 
 function renderModelsSection(models, canEdit) {
@@ -249,7 +254,7 @@ function renderDashboardView(context, router) {
       header: buildHeader(
         canEdit
           ? [
-              buildEditButton(),
+              EDIT_DETAILS_BUTTON,
               buildCreateButton({
                 href: CREATE_MODEL_HREF,
                 label: "New model",
@@ -261,7 +266,7 @@ function renderDashboardView(context, router) {
     }),
   );
 
-  renderHeader(team.name, getTeamSubtitle(team), getCoverageBadges(scoreRows));
+  renderHeader(team.name, getTeamSubtitle(team), getSuiteBadges(scoreRows));
 
   renderModelsSection(models, canEdit);
   renderSubmissionsSection(submissions, canEdit);
@@ -271,12 +276,14 @@ function renderDashboardView(context, router) {
 
   renderMembersSection(team);
 
-  attachEditLink(router);
 
-  // Manage members means the same thing as Edit, so it opens the editor too. Without
-  // stopPropagation the router's own delegated handler would also see this click and
+  // Manage members names the thing it opens, so it goes straight into the editor — where the
+  // header's View details only navigates. By id and not `[data-view='details']`: that header
+  // button carries the same attribute, and is the first of the two in the document.
+  //
+  // Without stopPropagation the router's own delegated handler would also see this click and
   // navigate a second time, landing read-only.
-  document.querySelector("[data-view='details']").addEventListener("click", (event) => {
+  document.getElementById(MEMBERS_BUTTON_ID).addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
     router.goTo("details", { edit: true });

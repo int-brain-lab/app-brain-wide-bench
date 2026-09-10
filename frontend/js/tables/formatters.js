@@ -9,7 +9,8 @@
 import { escapeHtml } from "../core/html.js";
 import { hrefForRecord } from "../core/links.js";
 import { buildScoreBar } from "../components/bars.js";
-import { suiteFromTask, taskFullLabel, taskLabel } from "../core/suites.js";
+import { buildButton } from "../components/buttons.js";
+import { metricLabel, suiteFromTask, taskFullLabel, taskLabel } from "../core/suites.js";
 import { formatDate, score } from "../core/utils.js";
 import {
   buildMetricBadge,
@@ -166,14 +167,14 @@ function buildLinkFormatter(page, labelField, idField = "id", className = "") {
  * @returns a Tabulator formatter.
  */
 function buildModelNameFormatter(page, { showMine = false } = {}) {
-  const link = buildLinkFormatter(page, "name");
+  const link = buildLinkFormatter(page, "name", "id", "label");
 
   return (cell) => {
     const row = cell.getData();
 
     const badges = [
-      buildPretrainedBadge(row.is_pretrained, "sm"),
-      showMine ? buildMineBadge(row.is_mine, "sm") : "",
+      buildPretrainedBadge(row.is_pretrained),
+      showMine ? buildMineBadge(row.is_mine) : "",
     ].join("");
 
     return `<span class="row left gap-sm">${link(cell)}${badges}</span>`;
@@ -242,8 +243,8 @@ function modelFormatter(cell) {
   const row = cell.getData();
 
   const badges = [
-    buildPretrainedBadge(row.isPretrained, "sm"),
-    buildMineBadge(row.isMine, "sm"),
+    buildPretrainedBadge(row.isPretrained),
+    buildMineBadge(row.isMine),
   ].join("");
 
   return `
@@ -360,12 +361,17 @@ function taskLinkFormatter(cell) {
 }
 
 function editFormatter(cell) {
-  return `
-    <a class="btn with-icon" ${taskLinkAttributes(cell.getData())}>
-      <i class="btn-icon" data-lucide="${getIcon("edit")}"></i>
-      Edit
-    </a>
-  `;
+  return buildButton({
+    label: "Edit",
+    icon: getIcon("edit"),
+    // The row's own task, routed in place — the same trip taskLinkAttributes writes for the
+    // task name beside it. See core/router.js.
+    view: "task",
+    data: { task: cell.getData().id },
+    // A cell's own button, at the size the table's type is rather than a header's. Plain: it
+    // navigates to the task, where the editing is.
+    className: "sm",
+  });
 }
 
 function parameterFormatter(cell) {
@@ -413,27 +419,24 @@ function buildDiff(diff) {
 }
 
 /**
- * One task's column heading: what it is, in its suite's colour, and what it is measured in.
+ * One task's column heading: what it is, over what it is measured in. The suite it came from
+ * is the wash behind the whole cell — see .col-tsN in style.css.
  *
  * @param stacked the metric under the task rather than beside it, for a column sized to what
  *                it holds, where a heading laid out across would set the width instead — a
  *                task name and a metric side by side are wider than "0.641 ± 0.025". Side by
- *                side where the layout stretches the columns anyway, since two badges on one
- *                line keep the header row shallow. See getColumns in leaderboardTable.js.
- * @param align   how the badges sit in it — `left`, `centre` or `right`. Badges are boxes, so
- *                this is theirs to set: text alignment does not place them.
+ *                side where the layout stretches the columns anyway, since one line keeps the
+ *                header row shallow. See getColumns in leaderboardTable.js.
+ * @param align   how the two sit in it — `left`, `centre` or `right`. The wrapper is a flex
+ *                box, so this places them where text alignment would not.
  */
 function taskHeader(taskId, metric, { stacked = true, align = "left" } = {}) {
-  const suite = suiteFromTask(taskId);
-
-  const badges = [
-    suite ? buildTaskBadge(taskLabel(taskId), suite, "sm") : "",
-    metric ? buildMetricBadge(metric, "sm") : "",
-  ].join("");
+  const unit = metric ? `<span class="col-metric">${escapeHtml(metricLabel(metric))}</span>` : "";
 
   return `
     <span class="${stacked ? "column" : "row"} ${escapeHtml(align)} gap-xs">
-      ${badges}
+      <span class="label col-task">${escapeHtml(taskLabel(taskId))}</span>
+      ${unit}
     </span>`;
 }
 

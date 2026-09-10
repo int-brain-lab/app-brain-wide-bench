@@ -1,5 +1,5 @@
-// Which tasks a board is ranked over: a badge per suite in one column, the chips that are the
-// state in the next, and the select that adds one above them.
+// Which tasks a board is ranked over: a badge per suite and the select that adds one on the
+// first line, the chips that are the state on the second.
 //
 // The suites hold nothing — ticking one writes out its tasks, clearing one takes them off —
 // so what is chosen is only ever the chips, and a suite ticked whole reads the same as one
@@ -79,7 +79,7 @@ const BADGE = "badge";
  */
 function buildBadges({ name, options }) {
   return `
-    <span class="row left gap-sm">
+    <span class="row left gap-lg">
       ${options
         .map(
           (option) => `
@@ -177,7 +177,7 @@ function buildSuites(bySuite) {
 }
 
 /**
- * The select that puts one more task in, under the suite badges.
+ * The select that puts one more task in, beside the suite badges.
  *
  * A chosen task is out of it, which is what pinIn reads to leave an already-chosen one alone.
  *
@@ -187,6 +187,9 @@ function buildSuites(bySuite) {
 function buildTaskSelect(available) {
   return buildPinnedControl({
     name: TASK_LIST,
+    // A width of its own, the badges beside it having no line left to give — see
+    // `.inline-select` in style.css.
+    className: "inline-select",
     options: toTaskOptions(available),
     selected: readTasks(available),
     placeholder: "Add task",
@@ -198,7 +201,7 @@ function buildTaskSelect(available) {
 /**
  * The control over which tasks a board is ranked.
  *
- * @param container the element the boxes and the chips are drawn into, as two columns. The
+ * @param container the element the boxes and the chips are drawn into, as two rows. The
  *                  select and the chips are two halves of one control, so both listeners are
  *                  delegated to it and a pin is looked up inside it — see pinFromEvent.
  * @param available every task id, in board order.
@@ -209,19 +212,17 @@ function buildTaskSelect(available) {
 function createTaskSelection({ container, available, onChange }) {
   const bySuite = toSuites(available);
 
-  // What it is for, and the select that adds one, over two columns: the boxes in the narrow
-  // one and the chips in the wide one. The chips' span is written empty and filled by
-  // renderChips, which is also where every later change is made.
+  // The suites and the select that adds one task on the first line, the chips under the whole
+  // of it. The chips' span is written empty and filled by renderChips, which is also where
+  // every later change is made.
   const html = `
-   <div class="column gap-lg">
-      <div class="section-row ratio-4">
-        <span class="column left gap-md">
-          ${buildSuites(bySuite)}
-          ${buildTaskSelect(available)}
-        </span>
-        <span data-role="task-pins"></span>
+    <div class="column gap-md">
+      <div class="row left gap-lg">
+        ${buildSuites(bySuite)}
+        ${buildTaskSelect(available)}
       </div>
-  </div>
+      <span data-role="task-pins"></span>
+    </div>
   `;
   let chosen = readTasks(available);
 

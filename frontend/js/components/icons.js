@@ -53,6 +53,8 @@ const ICONS = {
   info: "info",
 
   // Actions
+  signIn: "log-in",
+  signOut: "log-out",
   add: "plus",
   edit: "pencil",
   save: "check",

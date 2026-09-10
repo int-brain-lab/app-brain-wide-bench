@@ -215,7 +215,7 @@ function buildDashboardButton(noun, dashboard) {
 // The record exists; these are the ways on from it.
 function buildCreatedActions(noun, next, dashboard) {
   const create = next
-    ? buildCreateButton({ href: next.href, label: next.label, className: "primary" })
+    ? buildCreateButton({ href: next.href, label: next.label })
     : "";
 
   return (dashboard ? buildDashboardButton(noun, dashboard) : "") + create;
@@ -330,14 +330,4 @@ function renderRecordDetailsView({
   return { attachEditor };
 }
 
-// ─── DASHBOARD EDIT LINK ─────────────────────────────────────────────────────
-
-// The dashboard does not contain the editor itself. Its Edit button navigates to the
-// details view and asks that view to enter edit mode.
-function attachEditLink(router, view = "details") {
-  getEditButtons().edit?.addEventListener("click", () => {
-    router.goTo(view, { edit: true });
-  });
-}
-
-export { attachEditLink, attachRecordEditor, renderRecordDetailsView };
+export { attachRecordEditor, renderRecordDetailsView };

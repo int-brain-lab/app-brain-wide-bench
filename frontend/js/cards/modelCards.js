@@ -25,14 +25,14 @@ function buildModelCard(model, { showMine = false, showTeam = true } = {}) {
       href="${hrefForRecord(MODEL_PAGE, model.id, { mine: model.is_mine })}"
     >
       <div class="column left">
-        <p class="title">${escapeHtml(model.name)}</p>
+        <p class="label">${escapeHtml(model.name)}</p>
         ${showTeam ? `<p class="metadata">${escapeHtml(model.team_name || "—")}</p>` : ""}
       </div>
 
       <div class="row left gap-lg">
         ${buildSuiteBadgeList(model.suites ?? [], "sm")}
-        ${buildPretrainedBadge(model.is_pretrained, "sm")}
-        ${showMine ? buildMineBadge(model.is_mine, "sm") : ""}
+        ${buildPretrainedBadge(model.is_pretrained)}
+        ${showMine ? buildMineBadge(model.is_mine) : ""}
       </div>
 
       <p class="metadata">

@@ -14,6 +14,7 @@
 // Columns and the mount only. The rows and the ranking over them are
 // utils/leaderboardUtils.js, as every other table's are.
 
+import { suiteFromTask } from "../core/suites.js";
 import { createTable } from "./table.js";
 import {
   buildMeanSem,
@@ -40,18 +41,17 @@ import {
 // a layout that changed as the window moved would re-flow the header under the reader's hand.
 const COLUMNS_THAT_FIT = 12;
 
-// And how few it takes for a stretched column to be wide enough to head with two badges on one
-// line. A lower number than the one above, because "fits" and "has room to spare" are
-// different questions: eight columns fit, at about the width of "0.641 ± 0.025" each, which is
-// no room for a task name and a metric side by side.
+// And how few it takes for a stretched column to be wide enough to head with the task and its
+// metric on one line. A lower number than the one above, because "fits" and "has room to
+// spare" are different questions: eight columns fit, at about the width of "0.641 ± 0.025"
+// each, which is no room for a task name and a metric side by side.
 const COLUMNS_WITH_ROOM = 4;
 
 // The narrowest a task column may be drawn, stretched or sized to fit. Set by the *header*
-// rather than by the numbers under it: a stacked heading is a task badge over a metric badge,
-// and the metric is the wider of the two — "Poisson D²" at badge padding runs to about 76px,
-// on top of the 22px the header spends on its own padding and the room it reserves for the
-// sort arrow. Below this the badges are cut off, a badge being unable to wrap.
-const TASK_WIDTH = 96;
+// rather than by the numbers under it: a stacked heading is a task name over its metric, and
+// the metric is the wider of the two — "Poisson D²" at --font-xs runs to about 62px, on top of
+// the 16px the header spends on its own padding and the 14px it reserves for the sort arrow.
+const TASK_WIDTH = 92;
 
 // Whether the board can be stretched to fill the page, and whether its columns are then wide
 // enough to head across rather than down. Both off the one count, so the layout and the
@@ -99,11 +99,12 @@ function getColumns(taskIds, metrics) {
       // Held while the tasks scroll: which model a row belongs to is what makes a number
       // readable, and a dozen tasks are wider than the page.
       frozen: true,
-      minWidth: 150,
-      // More of what is left over on a stretched board comes here than to any one task — a
-      // name is as long as it is — but not three times as much: a board of a dozen has better
-      // uses for the width. Inert under fitData, where the name sizes its own column.
-      widthGrow: 2,
+      minWidth: 120,
+      // No more of a stretched board than a task column takes, and capped either way: a name
+      // wider than this wraps onto another line rather than spending the width the scores
+      // want. Without the cap a long name sizes the column itself under fitData.
+      maxWidth: 200,
+      widthGrow: 1,
       // The name over its team, both allowed to run onto another line rather than being cut
       // — see `.wrap-cell` in style.css. `variableHeight` is what lets the row grow to what
       // wrapping needs; without it the second line is drawn outside the row.
@@ -115,6 +116,9 @@ function getColumns(taskIds, metrics) {
       // The header is markup, so Tabulator has to be told not to escape it.
       titleFormatter: "html",
       field: taskId,
+      // Which suite the column came from, for the wash behind its heading. Tabulator puts a
+      // column's cssClass on its cells as well, so .col-tsN in style.css names the header.
+      cssClass: `col-${suiteFromTask(taskId)}`,
       formatter: scoreFormatter,
       sorter: meanSorter,
       // Both, because only one applies at a time: `widthGrow` shares out a stretched board,

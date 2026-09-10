@@ -81,6 +81,12 @@ a {
   --pending-dark: #185fa5;
   --pending-light: #e6f1fb;
 
+  /* Mine — the reader's own, which is a fact about them rather than about the record. The one
+     hue no suite and no status carries. */
+  --mine: #c05a9b;
+  --mine-dark: #a3417f;
+  --mine-light: #fbecf5;
+
   /* Border radius */
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -89,7 +95,7 @@ a {
 
   /* Font sizes */
   font-size: 16px;
-  --font-xxs: 0.7em;
+  --font-xxs: 0.6875rem;
   --font-xs: 0.75rem;
   --font-sm: 0.875rem;
   --font-md: 1rem;
@@ -174,7 +180,7 @@ MAIN SHELLS ETC
   background: transparent;
   justify-content: center;
   margin: 40px auto 0px;
-  max-width: 1340px;
+  max-width: 1440px;
 }
 
 .content.landing {
@@ -367,8 +373,14 @@ FOOTER
 
    `margin-top: auto` puts it on the bottom edge of a shell taller than its content, and
    resolves to nothing once the content fills it — or outside a flex column altogether. The
-   gap above the band belongs to the shell: see `.main-landing > .content`. */
+   gap above the band belongs to the shell: see `.main-landing > .content`.
+
+   Sticky against the window's bottom edge while the page scrolls, and back in the flow at the
+   foot of it. It is the last child of `.main-landing`, whose box is the whole document, so it
+   stays put the length of the scroll. */
 .page-footer {
+  position: sticky;
+  bottom: 0;
   margin-top: auto;
   padding: 14px 40px;
   border-top: 1px solid var(--border-color);
@@ -455,9 +467,31 @@ BUTTONS
   border-color: var(--danger);
 }
 
-.btn.danger:hover {
+/* One step of the same colour under the pointer, per variant. `:not(:disabled)` so a button
+   waiting on something else stays as still as it looks. */
+.btn:not(:disabled):hover {
+  background: color-mix(in srgb, var(--text-color) 6%, var(--surface-secondary));
+}
+
+.btn.primary:not(:disabled):hover {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
+
+.btn.primary-inv:not(:disabled):hover {
+  background: var(--primary-light);
+}
+
+.btn.danger:not(:disabled):hover {
   background: var(--danger-dark);
   border-color: var(--danger-dark);
+}
+
+/* The keyboard's answer to hover. Offset, so the ring reads as around the button rather than
+   as a second border on it. */
+.btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .btn:disabled {
@@ -470,10 +504,20 @@ BUTTONS
   cursor: not-allowed;
 }
 
+/* A button that is a link and currently unusable. An <a> ignores `disabled`, so buildButton
+   marks it with this instead and the pointer is taken off it — without that the link is as
+   clickable as ever and only looks spent. */
+.btn.disabled-link {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 /* A button beside the thing it acts on rather than at the head of the page: a view switch,
-   a filter bar's Clear and Apply. The label alone is smaller — the box keeps `.btn`'s
-   padding, so a row of them still reads as buttons. `.btn.lg` is the other direction. */
+   a filter bar's Clear and Apply. The box shrinks with the label, as `.btn.lg`'s grows with
+   it — the two are one scale, and a `sm` at full padding read as a full button with small
+   text in it. */
 .btn.sm {
+  padding: 5px 12px;
   font-size: var(--font-xs);
 }
 
@@ -497,26 +541,21 @@ BUTTONS
 SECTIONS
 --------------------------------------------------------------------------------------*/
 
-/* The landing page's opening block, and the only user of this class. The title takes two
-   thirds of the column with the figures beside it in the last third — the same split as the
-   panel further down the page.
+/* The landing page's opening block, and the only user of this class. The title, description
+   and buttons take two thirds of the width; the figures sit under the whole of it.
 
    Flush with the sections below it, with no side padding or margin of its own, so the title
    starts at the same edge as "Task suites" and the cards. */
 .page-hero {
   display: flex;
-  gap: var(--gap-xl);
   padding: var(--gap-xl) 0 var(--gap-xxl);
   text-align: left;
 }
 
-/* The title, description and buttons. `> .column` and not `:first-child`: the figures beside
-   them are a grid rather than a column, so this reaches only the half it means.
-
-   No `align-items` on the row above, so both halves take its full height by default — which
-   is what runs the figures' rules down past the buttons. */
+/* Two thirds, and nothing beside it: the description sets its own line length, and across the
+   full width it runs to a single line. */
 .page-hero > .column {
-  flex: 2;
+  flex: 0 0 66%;
 }
 
 .page-section {
@@ -1421,6 +1460,13 @@ BADGES
   font-size: var(--font-sm);
 }
 
+/* A step under `sm`, for a badge that marks rather than states — "Yours" beside the badges
+   saying what a record is. */
+.badge.xs {
+  padding: 1px 5px;
+  font-size: var(--font-xxs);
+}
+
 /* Task badges */
 .badge.ts1 {
   background: var(--ts1-light);
@@ -1441,34 +1487,57 @@ BADGES
 }
 
 /* Status badges */
-.badge.neutral {
+
+/* `ts-neutral` is the same badge with the task family's corners — a task or suite badge with
+   no suite to take a colour from: an overflow count, a suite a record has nothing in, a rank
+   card's "Overall". It sits in a row of `.badge.tsN`, where the pill would read as a different
+   kind of thing. */
+.badge.neutral,
+.badge.ts-neutral {
   background: var(--surface-secondary);
   color: var(--text-muted);
   border-color: var(--border-color);
 }
 
+.badge.ts-neutral {
+  border-radius: var(--radius-sm);
+}
+
+/* A submission's status, in one of three: blue while it is still on its way, red for the ways
+   it ends badly, green for done — see statusBadgeClass in components/badges.js. No edge, as
+   the chips have none: the wash and the ink say it. `.badge`'s own border stays transparent
+   rather than being dropped, so a status badge is the size of a `.badge.neutral` beside it. */
 .badge.success {
   background: var(--success-light);
   color: var(--success-dark);
-  border-color: var(--success-dark);
 }
 
 .badge.error {
   background: var(--danger-light);
-  border-color: var(--danger);
   color: var(--danger);
 }
 
 .badge.pending {
   background: var(--pending-light);
-  border-color: var(--pending);
   color: var(--pending);
 }
 
+/* The reader's own — a model of theirs on a board of everyone's, the team they own. The one
+   badge about *who is reading* rather than about the record, so it takes a hue of its own
+   instead of the green it used to share with `done` and with a TS1 badge beside it. */
+.badge.mine {
+  background: var(--mine-light);
+  color: var(--mine-dark);
+}
+
+/* A metric's name. A step darker than `.badge.neutral`, which is barely off the page: these
+   sit beside a task badge that has a colour of its own, and want to read as their own thing.
+   No edge at rest — the fill is the border's own grey, and `.on` below is what an edge means
+   here. `--font-xs` outright, so a metric reads at one size whether or not its caller asked
+   for `.sm`. */
 .badge.metric {
-  background: var(--surface-secondary);
+  background: var(--border-color);
   color: var(--text-muted);
-  border-color: var(--border-color);
   font-size: var(--font-xs);
 }
 
@@ -1567,6 +1636,14 @@ button.badge {
 COMPARISONS
 --------------------------------------------------------------------------------------*/
 
+/* What the board comes to, in the lead of its own section — see renderSummary in
+   pages/leaderboard.js. At the size the table's headings are, and muted as they are: it says
+   what the rows under it add up to rather than anything about one of them. */
+.board-summary {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
 /* The row naming what a comparison holds, above the panels reading it — see buildPicks in
    components/comparisonGrid.js. Collapsed while nothing is picked, so an empty comparison
    leaves no gap under its heading; `:has(*)` and not `:empty` for the reason `.pins` gives. */
@@ -1651,6 +1728,42 @@ table {
   text-overflow: clip;
 }
 
+/* A task column's heading, over the wash that says which suite it came from. It carries
+   `.label` as well, which is the font a model's name is set in down the column beside it; this
+   is the colour alone, the header strip around it being muted. */
+.col-task {
+  color: var(--text-color);
+}
+
+.col-metric {
+  font-size: var(--font-xs);
+  font-weight: normal;
+}
+
+/* Which suite a task column came from. Held as an ink, as `.chip` further down holds it, so
+   the wash below is the one dial for how much of it a column carries. Named `col-tsN` rather
+   than the bare `tsN`, which sets a colour every cell in the column would inherit. */
+.tabulator .tabulator-header .tabulator-col.col-ts1 {
+  --suite-ink: var(--ts1);
+}
+
+.tabulator .tabulator-header .tabulator-col.col-ts2 {
+  --suite-ink: var(--ts2);
+}
+
+.tabulator .tabulator-header .tabulator-col.col-ts3 {
+  --suite-ink: var(--ts3);
+}
+
+/* The heading washed in its suite's colour, the badge that used to say so having gone from it.
+   Under `.tabulator-header` only: Tabulator puts a column's cssClass on its cells too, and the
+   board's rows are white. Adjacent columns of one suite come out as a single band. */
+.tabulator .tabulator-header .tabulator-col.col-ts1,
+.tabulator .tabulator-header .tabulator-col.col-ts2,
+.tabulator .tabulator-header .tabulator-col.col-ts3 {
+  background: color-mix(in srgb, var(--suite-ink) 8%, var(--surface));
+}
+
 /* Tabulator parks the sort arrow absolutely at the right edge of .tabulator-col-content,
    where it lands on top of a right-aligned header. Reserving the room here costs nothing
    on a centred or left-aligned column — the text is elsewhere in the cell.
@@ -1663,9 +1776,22 @@ table {
 
 /* A cell whose text may run onto more lines. Tabulator's own rule is nowrap with an ellipsis,
    which cuts a long name in a column narrower than it — see the model column in
-   tables/leaderboardTable.js, which asks for `variableHeight` so its row grows to fit. */
+   tables/leaderboardTable.js, which asks for `variableHeight` so its row grows to fit.
+
+   `overflow-wrap` for the name with no space in it to break at, which the column is capped
+   too narrow to hold whole. */
 .tabulator .tabulator-cell.wrap-cell {
   white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* A grid with nothing in it, in the type an empty card carries — `.state-note.quiet`, which is
+   what buildEmptyMessage renders wherever a list has no rows. Tabulator's own is 20px bold
+   #ccc, which reads as a heading rather than as a note. */
+.tabulator .tabulator-tableholder .tabulator-placeholder .tabulator-placeholder-contents {
+  color: var(--text-muted);
+  font-size: var(--font-md);
+  font-weight: 400;
 }
 
 /* Table cells */
@@ -2420,6 +2546,12 @@ COMPARISON
   width: 280px;
 }
 
+/* The one that adds a record to the comparison — see buildAddSelect in templates/comparePage.js.
+   At the size a button's label is, where `.input-select` is sized for a bar of filters. */
+.add-select .input-select {
+  font-size: var(--font-sm);
+}
+
 /* One thing that has been picked and stays picked — a model chosen to compare against, a
    value pinned under a select, a comparison grid's own column heading. `flex: none` so a long
    name is never squashed by the others beside it: the row wraps instead. The padding is
@@ -2454,25 +2586,37 @@ COMPARISON
   --suite-ink: var(--ts3);
 }
 
-/* A wash and an edge rather than the hue itself, and the name in muted text: a dozen chosen
-   tasks sit in one row above the board, where three saturated colours at full strength read
-   as the loudest thing on the page. The suite is still legible — it is the only thing
-   separating them — but it is a mark on the chip rather than the chip. */
+/* A wash behind the suite's own ink, as `.badge.tsN` is: a chip and the badge of the thing it
+   stands for read as one colour, and the suite is what separates a row of a dozen of them.
+
+   Transparent and not `border: none`: `.chip` sizes itself with a 1px edge, and dropping it
+   would shift the chip 2px against the ones beside it that keep theirs. */
 .chip.ts1,
 .chip.ts2,
 .chip.ts3 {
   background: color-mix(in srgb, var(--suite-ink) 8%, var(--surface));
-  border-color: color-mix(in srgb, var(--suite-ink) 40%, var(--border-color));
+  border-color: transparent;
+  color: var(--suite-ink);
+}
+
+/* A pinned metric, in `.badge.metric`'s own fill and ink — the two name the same thing, one
+   picked and one read. Its ✕ keeps `.chip-remove`'s grey either way. */
+.chip.metric {
+  background: var(--border-color);
+  border-color: transparent;
   color: var(--text-muted);
 }
 
 /* A chip standing for one of the things being compared — see buildPicks in
-   components/comparisonGrid.js. Tinted with the colour that thing is drawn in everywhere else,
+   components/comparisonGrid.js. Washed in the colour that thing is drawn in everywhere else,
    at the weight a picked card and a picked table row carry, so the row above the tabs reads as
    a key to the panels under them. */
 .chip.pick {
   background: color-mix(in srgb, var(--pick-ink, var(--primary)) 12%, var(--surface));
-  border-color: var(--pick-ink, var(--border-color));
+
+  /* Transparent and not `border: none`, as the task chips above are: `.chip` sizes itself with
+     a 1px edge, and dropping it would shift the chip against the ones that keep theirs. */
+  border-color: transparent;
 
   /* A step up from the chip's own size: these name what the panels below are of, where a
      pinned filter value is read once and put out of mind. Muted all the same, as the task
@@ -2553,38 +2697,56 @@ COMPARISON
 LANDING PAGE
 ----------------------------------------------------------------------------------------*/
 
-/* The figures beside the title, two by two across the whole height of the row — the rows are
-   `1fr` each, so the four cards divide whatever the title and buttons come to. `.hero-title`
-   and `.hero-description` are up in GENERIC TEXT with the rest of the type; these are layout. */
+/* The figures under the hero, one row of equal columns however many the page named in its
+   `data-figures`. `.hero-title` and `.hero-description` are up in GENERIC TEXT with the rest
+   of the type; these are layout.
+
+   The same `--gap-xxl` as `.page-hero`'s bottom padding, which sets the space above: the strip
+   sits midway between the hero and "Task suites". */
 .hero-stats {
   display: grid;
-  flex: 1;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(2, 1fr);
-  gap: var(--gap-md);
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  margin-bottom: var(--gap-xxl);
 }
 
-/* A filled block with no edge, as .how-panel is further down: `.card.secondary`'s own fill is
-   --surface, which is the same white as this page's ground, so a borderless card in it would
-   have nothing to show. The shade back is what separates the four here. */
+/* A figure, unboxed: the icon and the number on one line, the label under them. The columns
+   are `1fr` each, so a rule at a column's edge is evenly spaced across the row. */
 .hero-stat {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--gap-md);
-  border-color: transparent;
-  background: var(--surface-secondary);
+  gap: var(--gap-sm);
+  padding: 0 var(--gap-xl);
+  text-align: center;
+}
+
+.hero-stat + .hero-stat {
+  border-left: 1px solid var(--border-color);
+}
+
+/* The outer two sit flush with the hero above and the sections below, which have no side
+   padding of their own. */
+.hero-stat:first-child {
+  padding-left: 0;
+}
+
+.hero-stat:last-child {
+  padding-right: 0;
 }
 
 /* A figure's own icon: quieter than the number beside it, which is what a reader is here to
-   read. Muted rather than the app's colour for the same reason. */
+   read. Muted rather than the app's colour for the same reason. A little under the number's
+   --font-hd, so the glyph does not overhang the line they share. */
 .hero-stat .field-icon {
   width: 28px;
   height: 28px;
   color: var(--text-muted);
 }
 
+/* The figure itself, the largest type on the page after `.hero-title`'s 40px. */
 .hero-stat-value {
-  font-size: var(--font-xl);
+  font-size: var(--font-hd);
   font-weight: var(--bold);
 }
 
@@ -2593,13 +2755,10 @@ LANDING PAGE
   color: var(--text-muted);
 }
 
-/* The label over a card's chips — "TASKS", "METRICS". Lettered out so a one-word group still
-   reads as a label rather than as a chip that lost its box. */
+/* The label over a card's chips — "Tasks", "Metrics". The same muted --font-sm as
+   `.hero-stat-label`, which captions the figures under the hero. */
 .chip-label {
-  font-size: var(--font-xxs);
-  font-weight: var(--bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: var(--font-sm);
   color: var(--text-muted);
 }
 
@@ -2640,53 +2799,55 @@ LANDING PAGE
   justify-self: end;
 }
 
-/* A suite card's own subject, opposite its badge. The suite is named on the icon as well as
-   on the card, which carries only the fill. */
-.suite-icon .field-icon {
-  width: 22px;
-  height: 22px;
+/* A row of the panel: equal columns whatever it holds, three steps or the two ways on from
+   them. */
+.how-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
 }
 
-.suite-icon.ts1 .field-icon {
-  color: var(--ts1);
+.how-item {
+  padding: 0 var(--gap-lg);
 }
 
-.suite-icon.ts2 .field-icon {
-  color: var(--ts2);
+/* Ruled between its items, for a row whose items are alternatives. The steps run 1-2-3 and
+   are spaced rather than divided. The columns are `1fr` each, so a rule at a column's edge is
+   evenly spaced across the row. */
+.how-row.divided > .how-item + .how-item {
+  border-left: 1px solid var(--border-color);
 }
 
-.suite-icon.ts3 .field-icon {
-  color: var(--ts3);
+/* The outer two sit flush with the panel's own padding. */
+.how-item:first-child {
+  padding-left: 0;
 }
 
-/* Train, Submit, Compare. The arrows between them are their own items rather than pseudo-
-   elements on the steps, so they take a gap of the row's own and wrap out with it. */
-.how-steps {
+.how-item:last-child {
+  padding-right: 0;
+}
+
+/* The number and the icon lead, with the title and its text beside them. `flex-start`, so the
+   two glyphs stay level with the title rather than with the middle of the step. */
+.how-step {
   display: flex;
   align-items: flex-start;
-  gap: var(--gap-lg);
-}
-
-.how-step {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
   gap: var(--gap-md);
 }
 
-/* What each step is, at the size that makes it the thing a reader sees first — `.field-icon`
-   is 13px, sized for sitting inside a line of text. Muted at that size, as the hero's figures
-   are: at 40px the text colour reads as heavier than the words under it. */
-.step-icon .field-icon {
-  width: 40px;
-  height: 40px;
-  color: var(--text-muted);
+/* What a step is, and what a suite card is about, at the size that makes it the thing a reader
+   sees first — `.field-icon` is 13px, sized for sitting inside a line of text. Colour is each
+   one's own: a suite icon takes its suite's from the `.tsN` on the span, which the glyph
+   inherits. */
+.step-icon .field-icon,
+.suite-icon .field-icon {
+  width: 25px;
+  height: 25px;
 }
 
-/* Level with the row of numbers above the text rather than with the middle of the step. */
-.how-arrow {
-  flex: none;
-  margin-top: 4px;
+/* Muted at that size, as the hero's figures are: at 25px the text colour reads as heavier than
+   the words beside it. */
+.step-icon .field-icon {
   color: var(--text-muted);
 }
 
@@ -2710,8 +2871,8 @@ LANDING PAGE
   background: color-mix(in srgb, var(--ts3) 5%, transparent);
 }
 
-/* One panel holding the three steps and the ways on from them. A shade back from the page, as
-   .nav is: it reads as a block of the page rather than as a card on it. */
+/* One panel holding the three steps and, under them, the ways on from them. A shade back from
+   the page, as .nav is: it reads as a block of the page rather than as a card on it. */
 .how-panel {
   align-items: stretch;
   padding: 32px;
@@ -2719,15 +2880,25 @@ LANDING PAGE
   background: var(--surface-secondary);
 }
 
-/* The steps take twice the width of the block beside them. `:first-child` and not `.column`:
-   the block beside them is a `.column` too, and this would out-specify its own `flex: 1`. */
-.how-panel > .column:first-child {
-  flex: 2;
+/* Both blocks of cards, one step down the type scale. Three suite cards and the panel under
+   them are read at a glance across a page, where the sizes these classes carry are set for a
+   record page read one at a time.
+
+   Only the type with no size of its own: the badges and buttons inside them take `sm`, which
+   is the same step — see index.html and pages/landing.js. */
+.suite-card .card-title,
+.how-panel .card-title {
+  font-size: var(--font-md);
 }
 
-/* The leaderboard and the invitation, stacked and ruled off from the steps beside them. */
-.how-explore {
-  flex: 1;
-  padding-left: var(--gap-xl);
-  border-left: 1px solid var(--border-color);
+.suite-card .card-description,
+.how-panel .card-description {
+  font-size: var(--font-sm);
 }
+
+.suite-card .chip-label,
+.suite-card .link,
+.how-panel .step-number {
+  font-size: var(--font-xs);
+}
+

@@ -52,6 +52,8 @@ export function setButtonLabel(button, { label, icon }) {
  * @param href   where it goes. Without one it is a `<button>`.
  * @param view   a view of the page it is already on: the router picks it up by data-view
  *               and switches in place — see core/router.js.
+ * @param data   extra data attributes — `{ "user-id": id }` becomes `data-user-id`. For a
+ *               button a delegated listener reads its subject off.
  * @param className  extra classes beside `btn with-icon`.
  * @param hidden start hidden, for a control another one reveals.
  * @param disabled start disabled, for one something else has to enable.
@@ -63,17 +65,26 @@ export function buildButton({
   icon,
   href = null,
   view = null,
+  data = {},
   className = "",
   hidden = false,
   disabled = false,
 }) {
-  const classes = ["btn", className, "with-icon"].filter(Boolean).join(" ");
+  // A link is not a form control: `disabled` on an <a> is ignored by the browser and by
+  // `.btn:disabled`, so the state is a class the stylesheet takes the pointer off — see
+  // `.btn.disabled-link` in style.css.
+  const link = Boolean(view || href);
+
+  const classes = ["btn", className, "with-icon", link && disabled ? "disabled-link" : ""]
+    .filter(Boolean)
+    .join(" ");
 
   const attributes = [
     `class="${classes}"`,
     id ? `id="${escapeHtml(id)}"` : "",
     hidden ? "hidden" : "",
-    disabled ? "disabled" : "",
+    disabled ? (link ? `aria-disabled="true" tabindex="-1"` : "disabled") : "",
+    ...Object.entries(data).map(([key, value]) => `data-${key}="${escapeHtml(String(value))}"`),
   ]
     .filter(Boolean)
     .join(" ");
@@ -89,6 +100,18 @@ export function buildButton({
   }
 
   return `<button type="button" ${attributes}>${body}</button>`;
+}
+
+// The way in and the way out, wherever they are offered: the nav, a private page's gate, and
+// the card a page shows a signed-out reader in place of its content.
+export function buildSignInButton({ id = null, data = {}, label = "Sign in" } = {}) {
+  return buildButton({ id, label, data, icon: getIcon("signIn"), className: "primary" });
+}
+
+// Plain, where Sign in is filled: signing out is a way off the page rather than the thing the
+// page is for.
+export function buildSignOutButton({ id = null, data = {}, label = "Sign out" } = {}) {
+  return buildButton({ id, label, data, icon: getIcon("signOut") });
 }
 
 export function buildCompareButton({
@@ -108,13 +131,14 @@ export function buildCompareButton({
   });
 }
 
-// `className` is the caller's, for a create button beside others it should read with rather
-// than lead — an empty string leaves `.btn`'s own fill.
+// Filled: making a new thing is what a list page is for, and the one thing a note saying you
+// have none offers. `className` is still the caller's, for a create button that should read
+// with the ones beside it rather than lead them — "" leaves `.btn`'s own fill.
 export function buildCreateButton({
   id = CREATE_BUTTON_ID,
   href = null,
   label = "New",
-  className = "",
+  className = "primary",
 } = {}) {
   return buildButton({
     id,
@@ -206,15 +230,31 @@ export function buildViewAllButton(noun, viewAll, { count = null } = {}) {
 
 // The record's own fields, from a section showing something else about it — "all details"
 // would promise a longer version of what is on screen, which is not what it opens.
-export function buildDetailsButton({ href = null, view = null } = {}) {
+//
+// `sm` for the section footer it usually closes; pass "" for a page header, where it sits
+// beside buttons of the header's own size.
+export function buildDetailsButton({
+  href = null,
+  view = null,
+  label = "View details",
+  className = "sm",
+} = {}) {
   return buildButton({
-    label: "View details",
+    label,
     icon: getIcon("details"),
     href,
     view,
-    className: "sm",
+    className,
   });
 }
+
+// The same trip, named for why someone who may change the record makes it. It opens the
+// details view and stops there: the Edit button on that view is what starts the editor.
+export const EDIT_DETAILS_BUTTON = buildDetailsButton({
+  view: "details",
+  label: "Edit details",
+  className: "",
+});
 
 export function buildMembersButton({
   id = MEMBERS_BUTTON_ID,

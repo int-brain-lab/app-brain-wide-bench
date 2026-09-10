@@ -16,7 +16,7 @@ function getTeamColumns() {
     {
       title: "Team",
       field: "name",
-      formatter: buildLinkFormatter("/html/teams/teams.html", "name"),
+      formatter: buildLinkFormatter("/html/teams/teams.html", "name", "id", "label"),
       widthGrow: 2,
     },
     {

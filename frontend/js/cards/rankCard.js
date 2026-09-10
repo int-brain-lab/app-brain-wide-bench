@@ -19,10 +19,10 @@ import { buildIcon } from "../components/icons.js";
 
 // ─── FIGURES ─────────────────────────────────────────────────────────────────
 
-// Overall is not a suite, so it takes the badges' neutral grey — as does a suite the model
-// has never entered.
+// Overall is not a suite, so it takes the grey of the task family rather than a suite's
+// colour — as does a suite the model has never entered.
 function variantOf(figure, placed) {
-  return !placed || figure === "overall" ? "neutral" : figure;
+  return !placed || figure === "overall" ? "ts-neutral" : figure;
 }
 
 function isPlaced({ publicSide, privateSide }) {
@@ -81,7 +81,7 @@ function buildSuiteRow(row, showPrivate) {
 
   if (!placed) {
     return `
-      <span><span class="badge md neutral">${escapeHtml(row.label)}</span></span>
+      <span><span class="badge md ts-neutral">${escapeHtml(row.label)}</span></span>
       <span class="rank-value muted">—</span>
     `;
   }

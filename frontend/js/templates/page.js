@@ -13,7 +13,8 @@ import { isAuthenticated, login } from "../api/client.js";
 import { escapeHtml } from "../core/html.js";
 import { readMineHint } from "../core/links.js";
 import { pluralise } from "../core/utils.js";
-import { getElement } from "../core/render.js";
+import { getElement, renderHtml } from "../core/render.js";
+import { buildSignInButton } from "../components/buttons.js";
 import { CONTAINER_ID, renderPageError } from "./pageChrome.js";
 
 // ─── SHELL ───────────────────────────────────────────────────────────────────
@@ -46,6 +47,9 @@ function applyShell(mine) {
 
 // ─── GATE ────────────────────────────────────────────────────────────────────
 
+// The slot every gate leaves for it — see the `#gate` card in each private page's markup.
+const SIGN_IN_SLOT = "[data-role='gate-login']";
+
 function wireLoginButton(button) {
   if (!button || button.dataset.wired) return;
 
@@ -55,6 +59,15 @@ function wireLoginButton(button) {
   // `login` reads its first argument as the page to return to. Its default — the page the
   // gate is on — is what a gate wants.
   button.addEventListener("click", () => login());
+}
+
+// Built here rather than written into all eight private pages, which had a copy each.
+function renderSignIn(slot) {
+  if (!slot) return;
+
+  renderHtml(slot, buildSignInButton());
+
+  wireLoginButton(slot.querySelector("button"));
 }
 
 function showGate(signedIn) {
@@ -71,7 +84,7 @@ function showGate(signedIn) {
   }
 
   if (!signedIn) {
-    wireLoginButton(gate.querySelector("#gate-login"));
+    renderSignIn(gate.querySelector(SIGN_IN_SLOT));
   }
 }
 
@@ -80,12 +93,12 @@ function showSignInPrompt(container, message) {
     <div class="card sign-in-card">
       <div class="column gap-lg">
         <p>${escapeHtml(message)}</p>
-        <button class="btn primary" data-role="login">Sign in</button>
+        <span data-role="gate-login"></span>
       </div>
     </div>
   `;
 
-  wireLoginButton(container.querySelector("[data-role='login']"));
+  renderSignIn(container.querySelector(SIGN_IN_SLOT));
 }
 
 // ─── URL ─────────────────────────────────────────────────────────────────────

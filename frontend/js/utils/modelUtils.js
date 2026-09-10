@@ -242,11 +242,18 @@ function getModelSubtitle(model) {
   ].filter((entry) => entry.text);
 }
 
+// Whether anything of the model can be seen from outside its team: one public submission is
+// enough. A model has no visibility of its own — see ModelSubmissionOut in
+// app/schemas/models.py, which is where the field lives.
+function isModelPublic(model) {
+  return (model.submissions ?? []).some((submission) => submission.is_public);
+}
+
 function getModelBadges(model) {
   return [
     buildSuiteBadgeList(suitesFromModel(model)),
     buildPretrainedBadge(model.is_pretrained),
-    buildVisibleBadge(model.is_mine),
+    buildVisibleBadge(isModelPublic(model)),
   ];
 }
 

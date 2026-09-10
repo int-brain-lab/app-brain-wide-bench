@@ -19,17 +19,15 @@ import { buildIcon } from "../components/icons.js";
 // concept is drawn with.
 const ICON_ATTRIBUTE = "data-icon";
 
-
 // A suite card, and the two chip slots in it this fills.
 const SUITE_ATTRIBUTE = "data-suite";
 
 // A count the API has not answered with yet.
 const UNKNOWN = "—";
 
-
-// Chips beyond this many are counted rather than named: TS1 has eight tasks, and a card
-// naming all of them sets its own height by the list.
-const MAX_TASK_CHIPS = 4;
+// Chips beyond this many are counted rather than named. Three and the overflow chip are one
+// line of a suite card; a fourth wraps, and the wrap lengthens the tasks row of all three.
+const MAX_TASK_CHIPS = 3;
 
 // Every task the benchmark holds, one of the four figures. Off the suites rather than written
 // here, so a task added to TASK_NAMES is in this total.
@@ -52,12 +50,12 @@ function renderIcons() {
 
 function buildHeroStat({ icon, value, label }) {
   return `
-    <span class="card hero-stat">
-      ${buildIcon(icon)}
-      <span class="column left">
+    <span class="hero-stat">
+      <span class="row centre gap-md">
+        ${buildIcon(icon)}
         <span class="hero-stat-value">${value}</span>
-        <span class="hero-stat-label">${label}</span>
       </span>
+      <span class="hero-stat-label">${label}</span>
     </span>
   `;
 }
@@ -103,10 +101,10 @@ function buildTaskChips(suite) {
   const tasks = tasksForSuite(suite);
   const shown = tasks.slice(0, MAX_TASK_CHIPS);
 
-  const chips = shown.map((taskId) => buildTaskBadge(taskLabel(taskId), suite));
+  const chips = shown.map((taskId) => buildTaskBadge(taskLabel(taskId), suite, "sm"));
 
   if (tasks.length > shown.length) {
-    chips.push(buildTaskBadge(`+${tasks.length - shown.length}`, "neutral"));
+    chips.push(buildTaskBadge(`+${tasks.length - shown.length}`, "ts-neutral", "sm"));
   }
 
   return `<span class="row left gap-sm">${chips.join("")}</span>`;
@@ -121,7 +119,7 @@ function renderSuiteCards() {
     renderHtml(card.querySelector('[data-slot="tasks"]'), buildTaskChips(suite));
     renderHtml(
       card.querySelector('[data-slot="metrics"]'),
-      buildMetricBadgeList(metricsForSuite(suite)),
+      buildMetricBadgeList(metricsForSuite(suite), "sm"),
     );
   }
 }

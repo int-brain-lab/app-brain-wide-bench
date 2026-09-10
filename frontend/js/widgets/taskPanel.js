@@ -21,6 +21,8 @@ import {
 import { TASK_FIELDS, trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
 import { suiteLabel, SUITES, taskLabel } from "../core/suites.js";
 import { buildSuiteBadgeList, buildTaskBadge } from "../components/badges.js";
+import { buildButton } from "../components/buttons.js";
+import { getIcon } from "../components/icons.js";
 
 // TODO move out build from controller
 const PANEL_ID = "task-panel";
@@ -124,7 +126,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     const suite = getSuite(taskId);
     const label = suite ? `${suiteLabel(suite)} ${taskLabel(taskId)}` : taskLabel(taskId);
 
-    return buildTaskBadge(label, suite ?? "neutral", size);
+    return buildTaskBadge(label, suite ?? "ts-neutral", size);
   }
 
   function buildTaskStatus(task) {
@@ -261,13 +263,13 @@ function createTaskSection({ taskSuites, onChange } = {}) {
                so there is nothing for the user to untick. Disabled once saved, which is
                also the only feedback the click gives — the tick in the picker is the
                lasting record. -->
-          <button
-            type="button"
-            class="btn primary task-confirm"
-            data-task="${taskId}"
-            ${task.confirmed ? "disabled" : ""}>
-            ${task.confirmed ? "Saved" : "Save selection"}
-          </button>
+          ${buildButton({
+            label: task.confirmed ? "Saved" : "Save selection",
+            icon: getIcon(task.confirmed ? "tick" : "save"),
+            className: "primary task-confirm",
+            data: { task: taskId },
+            disabled: task.confirmed,
+          })}
         </div>
       </div>
     `;

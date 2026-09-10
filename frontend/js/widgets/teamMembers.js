@@ -15,6 +15,8 @@
 import { addTeamMember, removeTeamMember, updateTeamMember } from "../api/teamApi.js";
 import { searchUsers } from "../api/userApi.js";
 import { buildRoleBadge } from "../components/badges.js";
+import { buildButton } from "../components/buttons.js";
+import { getIcon } from "../components/icons.js";
 import { buildTableCount } from "../components/count.js";
 import { initials } from "../core/utils.js";
 import { escapeHtml } from "../core/html.js";
@@ -59,9 +61,9 @@ function buildMemberTable(members) {
     .map(
       (member) => `
         <tr>
-          <td>${escapeHtml(member.name || "—")}</td>
-          <td>${escapeHtml(member.email)}</td>
-          <td>${buildRoleBadge(member.role)}</td>
+          <td><span class="label">${escapeHtml(member.name || "—")}</span></td>
+          <td><span class="metadata">${escapeHtml(member.email)}</span></td>
+          <td>${buildRoleBadge(member.role, "sm")}</td>
         </tr>
       `,
     )
@@ -179,21 +181,21 @@ function createMembersSection({ getTeam, canRemove = () => true }) {
   function buildMemberRow(member) {
     return `
       <tr>
-        <td>${escapeHtml(member.name || "—")}</td>
-        <td>${escapeHtml(member.email)}</td>
+        <td><span class="label">${escapeHtml(member.name || "—")}</span></td>
+        <td><span class="metadata">${escapeHtml(member.email)}</span></td>
         <td>${buildRoleCell(member)}</td>
         <td>
           <div class="row right">
             ${
               editing && canRemove(member)
-                ? `<button
-                    type="button"
-                    class="btn member-remove"
-                    data-user-id="${escapeHtml(member.id)}"
-                    data-email="${escapeHtml(member.email)}"
-                  >
-                    Remove
-                  </button>`
+                ? buildButton({
+                    label: "Remove",
+                    // The app's bin, as the delete buttons carry: taking a member off the
+                    // team is the same kind of act, not the ✕ that clears a field.
+                    icon: getIcon("delete"),
+                    className: "sm primary member-remove",
+                    data: { "user-id": member.id, email: member.email },
+                  })
                 : ""
             }
           </div>
@@ -257,15 +259,12 @@ function createMembersSection({ getTeam, canRemove = () => true }) {
           </div>
         </div>
 
-        <button
-          type="button"
-          class="btn primary add-member"
-          data-id="${escapeHtml(user.id)}"
-          data-email="${escapeHtml(user.email)}"
-          data-name="${escapeHtml(user.name ?? "")}"
-        >
-          + Add
-        </button>
+        ${buildButton({
+          label: "Add",
+          icon: getIcon("add"),
+          className: "primary add-member",
+          data: { id: user.id, email: user.email, name: user.name ?? "" },
+        })}
       </div>
     `;
   }

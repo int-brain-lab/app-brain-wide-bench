@@ -2,13 +2,13 @@
 //
 // The panel a score row opens is SCORE_PANEL in comparisons/taskScoreComparison.js.
 
-import { metricLabel, suiteFromTask, taskFullLabel, taskLabel } from "../core/suites.js";
+import { metricLabel, SUITES, suiteFromTask, taskFullLabel, taskLabel } from "../core/suites.js";
 import {
   TASK_FIELDS,
   toMethodologyValues,
   trainingFieldKeys,
 } from "../schemas/taskSubmissionSchema.js";
-import { buildSuiteCoverageBadges } from "../components/badges.js";
+import { buildSuiteBadgeList } from "../components/badges.js";
 import {
   matchEquals,
   matchInArray,
@@ -119,6 +119,16 @@ function taskOptions(rows) {
   }));
 }
 
+// The scorers' own names as the values, since that is what the rows carry, written the way
+// they read everywhere else. `metric` as the class, so a pinned one wears what a metric badge
+// wears — see `.chip.metric` in style.css.
+function metricOptions(rows) {
+  return optionsFromRows(rows, "metric", metricLabel).map((option) => ({
+    ...option,
+    className: "metric",
+  }));
+}
+
 // Typed text against a task, matched on both the name the reader sees and the id it is
 // stored as — "TS1 Choice" and "ts1-choice" are the same task, and either is a fair thing to
 // type. The pinned Task control beside this one is for picking whole tasks out; this is for
@@ -200,9 +210,7 @@ function getTaskScoreFilters(rows, { showModel = false } = {}) {
       type: "pinned",
       name: "metric",
       label: "Metric",
-      // The scorers' own names as the values, since that is what the rows carry, written the
-      // way they read everywhere else.
-      options: optionsFromRows(rows, "metric", metricLabel),
+      options: metricOptions(rows),
       match: matchEquals("metric"),
     },
     ...getMethodologyFilters(),
@@ -215,17 +223,25 @@ function getTaskScoreFilters(rows, { showModel = false } = {}) {
 /**
  * Which suites a run of score rows covers, for the header of whoever the rows belong to.
  *
- * All three either way — the ones that are missing are the point, and grey is what says so.
- * See buildSuiteCoverageBadges, which the model listings badge coverage with too.
+ * Only the ones there are: a suite the reader has never entered is not a gap worth pointing
+ * at. Nothing at all where they have entered none, which buildTitleBadges drops.
  *
  * @param scoreRows from toScoreRows / toScoreResultRows.
  *
  * @returns the badges, as renderHeader takes them.
  */
-function getCoverageBadges(scoreRows) {
+function getSuiteBadges(scoreRows) {
   const covered = new Set(scoreRows.map((row) => row.suite).filter(Boolean));
 
-  return [buildSuiteCoverageBadges([...covered])];
+  // In SUITES order rather than the order the rows happen to run in, so two headers never
+  // list the same suites differently.
+  return [buildSuiteBadgeList(SUITES.filter((suite) => covered.has(suite)))];
 }
 
-export { getCoverageBadges, getTaskScoreFilters, toBestScoreRows, toScoreResultRows, toScoreRows };
+export {
+  getSuiteBadges,
+  getTaskScoreFilters,
+  toBestScoreRows,
+  toScoreResultRows,
+  toScoreRows,
+};

@@ -29,8 +29,8 @@ import {
   buildCompareButton,
   buildCreateButton,
   buildDetailsButton,
-  buildEditButton,
   buildViewAllButton,
+  EDIT_DETAILS_BUTTON,
 } from "../components/buttons.js";
 import {
   buildHeader,
@@ -41,7 +41,7 @@ import {
   getSectionBody,
 } from "../components/sections.js";
 import { createDeleteControl } from "../widgets/deleteRecord.js";
-import { attachEditLink, renderRecordDetailsView } from "../templates/recordDetails.js";
+import { renderRecordDetailsView } from "../templates/recordDetails.js";
 import { loadRecordPage } from "../templates/recordPage.js";
 import { renderRecordListView } from "../templates/recordList.js";
 import { renderHeader, renderPage } from "../templates/pageChrome.js";
@@ -210,21 +210,20 @@ function renderDashboardView(context, router) {
   // private column would repeat the public one down the card.
   const heldBack = hasPrivateOnlyScores(scoreRows);
 
+  // `primary-inv` as every other Compare is — the leaderboard's and the lists' — so the one
+  // button that opens a comparison is one colour wherever it is offered.
   const compare = buildCompareButton({
     href: getCompareHref(model),
-    className: "primary",
+    className: "primary-inv",
   });
 
   const actions = canEdit
     ? [
         [
-          buildEditButton(),
+          EDIT_DETAILS_BUTTON,
           buildCreateButton({
             href: getSubmitHref(model),
             label: "New submission",
-            // Plain, as Edit beside it is: the two are one pair, and Compare below them is
-            // the button this header leads with.
-            className: "",
           }),
         ],
         [compare],
@@ -246,7 +245,6 @@ function renderDashboardView(context, router) {
   renderDetailsSection(model, fields);
   renderSubmissionsSection(model);
 
-  if (canEdit) attachEditLink(router);
 }
 
 // ─── DETAILS VIEW ────────────────────────────────────────────────────────────

@@ -187,7 +187,7 @@ function buildMeanBadges(group, metric) {
   return `
     <span class="row gap-sm">
       ${buildMetricBadge(metric, "sm")}
-      ${buildTaskBadge(name, suite ?? "", "sm")}
+      ${buildTaskBadge(name, suite ?? "ts-neutral", "sm")}
     </span>
   `;
 }

@@ -20,7 +20,7 @@ function buildSubmissionCard(submission, { showTeam = true } = {}) {
       href="${hrefForRecord(SUBMISSION_PAGE, submission.id, { mine: submission.is_mine })}"
     >
       <div class="column left">
-        <p class="title">${escapeHtml(submission.label)}</p>
+        <p class="label">${escapeHtml(submission.label)}</p>
         <p class="metadata">
           ${escapeHtml(submission.model_name || "—")}
           ${showTeam ? `· ${escapeHtml(submission.team_name || "—")}` : ""}

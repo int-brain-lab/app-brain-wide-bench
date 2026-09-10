@@ -158,7 +158,6 @@ async function loadSubmissionContext() {
       actions: buildCreateButton({
         href: MODEL_CREATE_HREF,
         label: "New model",
-        className: "primary",
       }),
     });
 
