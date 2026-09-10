@@ -1,12 +1,9 @@
-"""Load fixture data into an already-migrated database. For use on the server.
+"""Load fixture data into an already-migrated database, on a server or locally.
 
-The counterpart to ``load_fixtures.py``, which can also build the schema itself from
-``SQLModel.metadata``. That is useful locally and wrong here: a server database is built
-by ``alembic upgrade head``, and a schema built from metadata instead would silently
-diverge from the migrations — which is exactly the class of bug that put enum columns in
-production where the ORM expected JSON. This script therefore only ever inserts rows.
-
-Nothing here creates a table or seeds the ``tasks`` lookup; the migration owns both.
+Rows only: the schema is ``alembic upgrade head``'s to build, and nothing here creates a
+table or seeds the ``tasks`` lookup. Building it from ``SQLModel.metadata`` instead — as a
+local script here once did — silently diverges from the migrations, which is exactly the
+class of bug that put enum columns in production where the ORM expected JSON.
 
     docker compose exec -T web uv run python scripts/load_fixture_data.py
 
