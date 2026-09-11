@@ -42,12 +42,9 @@ you want the current cleanup or refactor work for that area.
   kept for the reasoning, not as work outstanding
 - `docs/leaderboard_optimisation_plan_todo.md` — where the 55 ms in `GET /api/leaderboard` goes,
   and the Redis response-cache design the measurements point to
-- `docs/submission_validation_plan_todo.md` — wiring `app/validation/validate_submission.py`
-  into the submission flow: S3 multipart upload, validation in a Celery job overlapping with
-  panel 4, and the client-side Group A pre-flight
 - `docs/upload_lifecycle_todo.md` — every way a submission's file can stall, fail or be
   abandoned: the state it leaves behind, what the code does about it now, and the eleven
-  decisions outstanding. Audits the plan above rather than restating it
+  decisions outstanding, plus the open points carried over from the validation plan
 - `docs/worker_disk_plan_todo.md` — what a 10 GB submission costs the worker's scratch space,
   why that space currently shares a filesystem with Postgres, and the fixes in order of value
 

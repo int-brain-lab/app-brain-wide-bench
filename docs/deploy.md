@@ -45,9 +45,9 @@ The parts of an upload that is never completed or aborted are stored and billed,
 appear in a normal bucket listing. A submitter who closes the tab mid-upload leaves them
 behind, and at 10 GB a submission that adds up.
 
-**Not enabled yet, and it needs a code change first** — see item 12 of
-`submission_validation_plan_todo.md`. The rule discards an upload S3 is still holding for a
-row that says `uploading`, and three endpoints raise `NoSuchUpload` on that today.
+**Not enabled yet, and it needs a code change first** — see "Carried over" in
+`upload_lifecycle_todo.md`. The rule discards an upload S3 is still holding for a row that
+says `uploading`, and three endpoints raise `NoSuchUpload` on that today.
 
 What is already there is visible only through `ListMultipartUploads`:
 

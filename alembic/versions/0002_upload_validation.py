@@ -1,7 +1,7 @@
 """submission upload + validation state
 
 Adds ``upload_id``, ``file_size``, ``validation``, and the four statuses preceding
-``pending``. See ``docs/submission_validation_plan_todo.md``.
+``pending``. See ``docs/upload_lifecycle_todo.md``.
 
 ``--autogenerate`` does not detect enum value additions, and ``compare_metadata`` in
 ``tests/test_migrations.py`` does not compare enum members — the ``ALTER TYPE`` calls below

@@ -22,16 +22,16 @@ Usage
 submission. The fixture is rewritten after each submission, so an interrupt keeps what has
 already scored.
 
-Every row is owned by one user, identified by its ``auth0_sub``. The default is the dev stub
-from ``app/auth.py``, which dev mode signs every request in as and no real account can ever
-hold. For a deployment, pass the sub a real account got at its first sign-in:
+Every row is owned by one user. By default the fixture writes that user itself, as the dev
+stub from ``app/auth.py`` — self-contained, and loadable into an empty database. For a
+deployment, own the rows as an account that has already signed in:
 
-    uv run python scripts/make_baselines.py --public \\
-        --owner-sub 'google-oauth2|1234…' --owner-email benchmark@internationalbrainlab.org
+    uv run python scripts/make_baselines.py --public --owner-id <uuid from the users table>
 
-Load it with:
+That writes no user row, only references one, so nothing can collide with the account Auth0
+already created. Load it with ``--append``, since a signed-in account is data already:
 
-    uv run python scripts/load_fixture_data.py tests/fixtures/2026_09_baselines.json
+    uv run python scripts/load_fixture_data.py tests/fixtures/2026_09_baselines.json --append
 
 Scoring needs the ``scoring`` extra (torch, safetensors); discovery does not.
 """
@@ -416,19 +416,27 @@ def owner_row(sub: str, email: str) -> dict:
     }
 
 
-def build(available: list[Entry], scored: dict[str, dict], snapshot: Path, owner: dict) -> dict:
+def build(
+    available: list[Entry],
+    scored: dict[str, dict],
+    snapshot: Path,
+    user_id: str,
+    owner: dict | None,
+) -> dict:
     """The whole fixture, tables in the order ``tests/fixtures/load.py`` inserts them.
+
+    ``owner`` is None when ``user_id`` names a user the database already holds: the link rows
+    reference it and no ``users`` row is written.
 
     An entry absent from ``scored`` keeps its task rows, unscored, and marks its submission
     failed; so does one whose scorer covered only part of the tasks it enters.
     """
     team_id = _id("team", TEAM_NAME.lower())
-    user_id = owner["id"]
 
     data: dict = {
         "_readme": _readme(snapshot),
         "teams": [{"id": str(team_id), "name": TEAM_NAME}],
-        "users": [owner],
+        "users": [owner] if owner else [],
         "user_teams": [{"user_id": user_id, "team_id": str(team_id), "role": "owner"}],
         "models": [],
         "submissions": [],
@@ -532,8 +540,12 @@ def main(args: argparse.Namespace) -> int:
         for entry in entries:
             entry.submission["is_public"] = True
 
-    owner = owner_row(args.owner_sub, args.owner_email)
-    print(f"Owner: {owner['email']}  {owner['auth0_sub']}  (provider {owner['provider']})")
+    owner = None if args.owner_id else owner_row(args.owner_sub, args.owner_email)
+    user_id = args.owner_id or owner["id"]
+    if owner is None:
+        print(f"Owner: {user_id}, a user the database is expected to hold already")
+    else:
+        print(f"Owner: {owner['email']}  {owner['auth0_sub']}  (provider {owner['provider']})")
     print(f"{len(entries)} submission(s) in {metadata.name}; looking under {pred_root}\n")
     discover(entries, pred_root)
     available = report(entries, pred_root)
@@ -574,9 +586,9 @@ def main(args: argparse.Namespace) -> int:
             else:
                 failed += 1
             # After every submission, so an interrupt hours in keeps what already scored.
-            write(args.snapshot, build(available, scored, args.snapshot, owner))
+            write(args.snapshot, build(available, scored, args.snapshot, user_id, owner))
 
-    write(args.snapshot, build(available, scored, args.snapshot, owner))
+    write(args.snapshot, build(available, scored, args.snapshot, user_id, owner))
     print(f"\nscored={len(scored)} failed={failed} in {(time.monotonic() - started) / 60:.1f} min")
     if not any(entry.submission.get("is_public") for entry in available):
         print("Every submission is private — pass --public to show them to signed-out visitors.")
@@ -602,13 +614,29 @@ def parse() -> argparse.Namespace:
                         help="Keep the scores already in the fixture; score only what is new.")
     parser.add_argument("--public", action="store_true",
                         help="Publish every submission, whatever the metadata says.")
+    parser.add_argument("--owner-id", metavar="UUID",
+                        help="Own the rows as this existing user, writing no user row. The id "
+                             "of an account that has signed in; needs --append to load.")
     parser.add_argument("--owner-sub", default=DEV_SUB, metavar="SUB",
-                        help="Auth0 sub the owner row carries. The default is the dev stub, "
-                             "which no real account can ever sign in as.")
+                        help="Auth0 sub of the user row the fixture writes. The default is the "
+                             "dev stub, which no real account can ever sign in as.")
     parser.add_argument("--owner-email", default=DEFAULT_OWNER_EMAIL, metavar="EMAIL",
-                        help="Email on the owner row. Must be the one that sub signs in with.")
+                        help="Email on that row. Must be the one that sub signs in with.")
     parser.add_argument("--dry-run", action="store_true", help="Report and write nothing.")
-    return parser.parse_args()
+
+    args = parser.parse_args()
+    # Two ways to name the same owner: --owner-id points at a row, the other two describe
+    # one. Taking both would mean silently dropping a flag that was passed on purpose.
+    if args.owner_id:
+        given = [f for f in ("--owner-sub", "--owner-email") if f in sys.argv]
+        if given:
+            parser.error(f"--owner-id writes no user row, so {' and '.join(given)} cannot apply")
+        try:
+            args.owner_id = str(uuid.UUID(args.owner_id))
+        except ValueError:
+            parser.error(f"--owner-id is not a uuid: {args.owner_id!r}")
+
+    return args
 
 
 if __name__ == "__main__":

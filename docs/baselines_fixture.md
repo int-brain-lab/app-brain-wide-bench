@@ -34,39 +34,51 @@ four ts3 probe variants.
 
 ## Who owns the rows
 
-One user owns the team, every model and every submission. Which user is decided by
-`--owner-sub`: identity is the `auth0_sub`, and `app.auth._upsert_user` finds a row by that
-and nothing else. `provider` and `orcid_id` are derived from it the way `parse_sub` derives
-them at sign-in, so the row a real account signs in to already matches.
+One user owns the team, every model and every submission. There are two ways to say which,
+and they differ in whether the fixture writes that user or only points at one.
 
-The default is the dev stub `app.auth.DEV_SUB`, which dev mode authenticates every request
-as and Auth0 will never issue — useful locally, and a user nobody can be in a deployment.
-To make it a real account instead:
+### A real account: `--owner-id`
+
+For a deployment. The account signs in first — that is how it comes to have an id at all —
+and the fixture references it:
 
 ```bash
-# 1. sign in once with the service account, then read the sub it was given
-psql -c "select auth0_sub, email, provider from users where email = 'benchmark@…'"
+# 1. sign in with the service account, then read the id it was given
+psql -c "select id, auth0_sub from users where email = 'benchmark@...'"
 
-# 2. build the fixture against it
-uv run python scripts/make_baselines.py --public \
-    --owner-sub 'google-oauth2|1234…' --owner-email benchmark@internationalbrainlab.org
+# 2. build against it, and load with --append
+uv run python scripts/make_baselines.py --public --owner-id <that uuid>
+uv run python scripts/load_fixture_data.py tests/fixtures/2026_09_baselines.json --append
 ```
 
-**Order matters, and getting it wrong locks the account out.** A sign-in whose sub matches no
-row falls back to an email lookup, and an existing row with that email is a `409` — "an
-account already exists for … sign in with that provider instead". So load a fixture carrying
-the placeholder sub and that email, and the real account can never sign in afterwards. Sign
-in first and pin the sub it got, or pin the sub before the first sign-in; never the reverse.
+The fixture's `users` table comes out empty; only `user_teams` and `submission_users`
+reference the id, and both are plain foreign keys. Nothing can collide with the row Auth0
+already created, and the team and submissions belong to the account the person actually signs
+in as. `--append` is needed because a signed-in account is already data, which the loader
+otherwise refuses.
 
-`--owner-email` must be the address that account actually signs in with. Email is the one
-field a sign-in keeps re-syncing from the token, so a mismatch is silently overwritten on the
-first request. The display name is not — `_upsert_user` seeds `name` on insert only, so
-`Brain Wide Bench` survives.
+A wrong or deleted id is the only failure, and it surfaces as a foreign-key violation with
+nothing written.
 
-The owner is close to invisible in the API: submissions expose `team_id` and `team_name`,
-`submission_users` is written at submit and never read back, and a member's email is shown
-only to other members of their team. What the account buys is the ability to sign in and
-edit these submissions through the UI without the admin bypass.
+### A self-contained fixture: the default
+
+With no `--owner-id` the fixture writes the user itself, as `app.auth.DEV_SUB` — the stub dev
+mode authenticates every request as, which Auth0 will never issue. That is what makes the
+committed fixture loadable into an empty database and usable in Mode A, where the stub user
+then owns everything it holds.
+
+`--owner-sub` and `--owner-email` change that written row; `provider` and `orcid_id` follow
+the sub the way `parse_sub` derives them at sign-in. They are only useful for a fixture meant
+to stand alone, and pinning a real account's sub this way has a trap: if the row lands before
+that account's first sign-in and carries its email, `_upsert_user` finds no matching sub,
+falls back to the email, and answers `409 "an account already exists for ... sign in with
+that provider instead"` — locking the account out of its own row. `--owner-id` has no such
+failure mode, which is why it is the one to use for a real identity.
+
+Either way the owner is close to invisible in the API: submissions expose `team_id` and
+`team_name`, `submission_users` is written at submit and never read back, and a member's
+email is shown only to others on their team. What a real account buys is the ability to sign
+in and edit these submissions through the UI without the admin bypass.
 
 ## Reruns
 

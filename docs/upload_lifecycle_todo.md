@@ -4,9 +4,10 @@ Every way a submission's file can stall, fail or be abandoned, what the code doe
 now, and what is wrong with that. Written as a walkthrough to decide from; nothing here is
 built yet.
 
-Read `submission_validation_plan_todo.md` first for the design this audits. Numbered items
-are the order to decide them in — each is useful alone, and the later ones get cheaper if
-the earlier ones land.
+The flow it audits is the one in the code: panels 1-2 create the row, panel 3 uploads the
+file to S3 in parts, a Celery task validates it while panel 4 is filled in, and `submit`
+carries the tasks. Numbered items are the order to decide them in — each is useful alone, and
+the later ones get cheaper if the earlier ones land.
 
 ## The state table
 
@@ -334,6 +335,38 @@ answer rather than deletion. A re-score endpoint, mirroring item 3's revalidate,
 `failed` recoverable instead of merely deletable — the file is intact and it is our failure,
 the same argument as `unchecked`.
 
+## Carried over
+
+Open points from the validation plan that these eleven items do not otherwise cover. The plan
+itself is gone: phase 1 is built, and what follows is its residue.
+
+- **May a submitter configure only some of the tasks in their file?** `submit` refuses tasks
+  validation did not find; nothing says whether every task it *did* find must be submitted.
+  Settled across suites — a submission may span them and all of them score. Within a suite it
+  is open, and allowing a subset is the recommendation: the leaderboard is per-task, so seven
+  of eight ts1 tasks ranks on seven.
+- **`abort_multipart` must tolerate `NoSuchUpload`.** If `complete_multipart` succeeds and the
+  commit after it fails, the row keeps an `upload_id` for an upload S3 has already finished,
+  and the restart path then tries to abort it. Today that is a lost race; a bucket lifecycle
+  rule makes it weekly.
+- **Bucket lifecycle rules** — `AbortIncompleteMultipartUpload`, and an IA transition for
+  scored submissions. One bucket call (`docs/deploy.md` carries it), but it creates a state
+  the endpoints do not handle: an `uploading` row whose upload S3 has already discarded. It
+  needs `list_parts` returning `dict | None` — `{}` reads as "no parts yet" and would sign
+  URLs for a dead upload — `abort_multipart` tolerating `NoSuchUpload` as above, and 409
+  rather than 500 from `get_upload`, `complete_upload` and the resuming branch of
+  `_restart_upload`. Both tests are a one-line monkeypatch; `tests/api/test_submissions.py`
+  already stubs `list_parts` on the router.
+- **No rate limiting anywhere.** Pre-flight accepts up to `MAX_PREFLIGHT_ENTRIES` strings and
+  does real work per call; every create reserves a billable multipart upload. Neither is
+  bounded per caller.
+- **Delete racing submit can 500 the submit.** The reverse order is handled, this one is not.
+  Wants row locking, or database-level cascades so a conditional delete becomes possible.
+- **A label collision between two team members races.** `_check_valid_submission_label` checks
+  then acts, so simultaneous creates surface an `IntegrityError` rather than a clean 409.
+- **The reaper needs no new column.** `updated_at` already follows every write, including a
+  restart, so "stuck in `uploading` since" is answerable without an `upload_started_at`.
+
 ## Fine as built
 
 Checked and needing nothing.
@@ -346,7 +379,7 @@ Checked and needing nothing.
   — instance credentials rotate roughly every six hours — and the best-built part of the
   driver.
 - **A different file of a different size.** `_restart_upload` aborts the old multipart and
-  starts a fresh one. Its only residual is gap 7 in the plan doc (`abort_multipart` must
-  tolerate `NoSuchUpload`).
+  starts a fresh one. Its only residual is `abort_multipart` tolerating `NoSuchUpload` —
+  see Carried over, below.
 - **A worker that is down before receiving the message.** It waits in Redis and runs on
   restart. Only a worker dying *while running* loses the task (item 1).
