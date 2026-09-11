@@ -234,6 +234,48 @@ docker compose restart nginx
 
 Worth it for a busy site; the shorter form is fine for a test deploy.
 
+## Seeding the baselines
+
+The baselines arrive as a fixture, not through the submission flow. `docs/baselines_fixture.md`
+is the whole story; the part that is a deploy step is the order, because the fixture has to
+name an account that already exists:
+
+1. Sign in once as the account the baselines should belong to. That is what creates its `User`
+   row, and its id cannot be known before.
+2. Read the id:
+
+   ```bash
+   docker compose exec -T db psql -U "$POSTGRES_USER" brainwidebench \
+     -c "select id, auth0_sub, email from users"
+   ```
+
+3. Build the fixture against that id, on a machine holding the prediction files:
+
+   ```bash
+   uv run python scripts/make_baselines.py --public --owner-id <that uuid>
+   ```
+
+4. Get the file into the container. `web` has no volume mount — the tree is baked in at build
+   time — so either commit the fixture and deploy, or copy it into the running container:
+
+   ```bash
+   docker compose cp tests/fixtures/2026_09_baselines.json \
+       web:/app/app-brain-wide-bench/tests/fixtures/
+   ```
+
+5. Load it. `--append` is required: the sign-in in step 1 already put a row in the database,
+   and the loader otherwise insists on an empty one.
+
+   ```bash
+   docker compose exec -T web uv run python scripts/load_fixture_data.py \
+       tests/fixtures/2026_09_baselines.json --append
+   ```
+
+The fixture writes no `users` row, so nothing can collide with the account Auth0 created. Skip
+step 1 and the fixture is built with its default owner — the dev stub, which no real account
+can sign in as — and the baselines end up belonging to a user nobody is, with the real account
+owning nothing.
+
 ## After deploying
 
 - **The worker must be running.** Validation is a Celery task, and the submission form waits
