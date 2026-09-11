@@ -7,14 +7,14 @@ import { getModels, getMyModels } from "../api/modelApi.js";
 import { getModelFilters, toModelRows } from "../utils/modelUtils.js";
 import { createModelsTable } from "../tables/modelTable.js";
 import { createModelCardGrid } from "../cards/modelCards.js";
-import { MAX_MODELS } from "../comparisons/modelComparison.js";
+import { MAX_MODELS } from "../comparisons/limits.js";
 import { SERIES_COLOURS } from "../plots/palette.js";
 import { loadListPage } from "../templates/listPage.js";
 
 const MINE = document.body.dataset.scope === "mine";
 
 // Where Compare goes, and under what name. `with` is the compare page's own parameter for the
-// models a comparison holds — see pages/compare.js.
+// models a comparison holds — see pages/modelCompare.js.
 const COMPARE_PAGE = "/html/models/compare.html";
 const WITH_PARAM = "with";
 
@@ -52,9 +52,7 @@ loadListPage({
     // order, so the two agree without either page knowing the other's colours.
     palette: SERIES_COLOURS,
 
-    label: "Compare",
-
-    toEntry: (row) => ({ key: row.id }),
+    toPick: (row) => ({ key: row.id }),
 
     onCompare: (ids) => {
       location.href = `${COMPARE_PAGE}?${WITH_PARAM}=${encodeURIComponent(ids.join(","))}`;

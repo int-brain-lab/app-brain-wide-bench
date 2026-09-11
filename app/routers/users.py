@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.auth import get_current_user, member_team_ids
 from app.database import get_session
-from app.models import Model, Team, User, UserTeam, Submission, TaskSubmission
+from app.models import Model, Team, TeamRole, User, UserRole, UserTeam, Submission, TaskSubmission
 
 from app.routers.models import submission_count_per_model, suites_per_model
 from app.routers.submissions import submissions_of_teams, suites_per_submission
@@ -210,20 +210,27 @@ async def my_teams(
     )
     teams = result.scalars().all()
 
+    # Every team here is one the caller is in, and its members are already loaded for the
+    # count, so their role is in hand without a second query.
+    my_roles = {
+        team.id: next(
+            (member.role for member in team.members if member.user_id == user.id), None
+        )
+        for team in teams
+    }
+
+    admin = user.role is UserRole.admin
+
     return [
         TeamResponse.from_team(
             team,
             n_members=len(team.members),
             n_models=len(team.models),
             n_submissions=sum(len(model.submissions) for model in team.models),
-            # Every team here is one the caller is in, and its members are already
-            # loaded for the count — so their role is in hand, no second query.
-            role=next(
-                (member.role for member in team.members if member.user_id == user.id),
-                None,
-            ),
+            role=my_roles[team.id],
             # Unconditional, as in ``my_models``: the join is on the caller's memberships.
             is_mine=True,
+            can_manage_members=admin or my_roles[team.id] is TeamRole.owner,
         )
         for team in teams
     ]
@@ -237,8 +244,9 @@ async def update_me(
 ) -> UserDetail:
     """Update the authenticated user's name and/or affiliation.
 
-    Raises: 422 - Unprocessable Entity if the body carries a field that is not the
-    caller's to set — ``email`` and ``provider`` come from the identity provider.
+    Raises 422 if the body carries a field that is not the caller's to set — ``email`` and
+    ``provider`` come from the identity provider, and ``role`` is granted only in the
+    database (``scripts/set_user_role.py``).
     """
 
     updates = body.model_dump(exclude_unset=True)

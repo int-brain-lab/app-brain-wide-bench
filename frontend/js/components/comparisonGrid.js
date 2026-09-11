@@ -5,18 +5,15 @@
 // and the attribute columns stay put; or across the columns, for a set of attributes long
 // enough that reading them as a column is easier than reading them as a header.
 //
-// Either way an attribute every thing answers the same way is muted, label included.
-// Agreement is the background against which the differences are the finding, and with six
-// near-identical sets of metadata it is the only thing that makes the differences visible.
-//
 // Plain markup, not Tabulator: a handful of cells that never sort or filter, with the odd
 // control living in one of them.
 //
 // Two scales of one thing, so they live together: the grid, and the row of chips naming what
 // is being compared.
 //
-// One chip shape for both. The row above a comparison names the picks with a ✕ on each, and
-// the grid heads its own columns with the same chip and no ✕ — so a column says what it is
+// One chip shape for both. The row above a comparison names the picks with a ✕ on each that
+// can be taken out, and the grid heads its own columns with the same chip and no ✕ — so a
+// column says what it is
 // where a reader is reading it, while taking one out stays the one thing the row above does.
 // Neither has to be matched to the other by colour alone, which is what the colour is for
 // everywhere it *is* alone: a plot's series, a picked row in the table it came from.
@@ -52,21 +49,8 @@ function buildChip(label, ink, inside = "") {
     </span>`;
 }
 
-/**
- * What is being compared, as a chip each with an ✕ to take it out again.
- *
- * @param picks [{ key, label, ink }] — `key` is what the ✕ hands back, `ink` the colour the
- *              thing is drawn in everywhere else, which tints its chip.
- * @returns the markup, or nothing at all for an empty comparison: the row is the caller's and
- *          an empty one should collapse rather than hold a blank chip.
- */
-function buildPicks(picks) {
-  return picks
-    .map(({ key, label, ink }) =>
-      buildChip(
-        label,
-        ink,
-        `
+function buildDrop(key, label) {
+  return `
       <button
         type="button"
         class="chip-remove"
@@ -76,8 +60,22 @@ function buildPicks(picks) {
         aria-label="Remove ${escapeHtml(label)}"
       >
         <i class="field-icon" data-lucide="${escapeHtml(getIcon("remove"))}"></i>
-      </button>`,
-      ),
+      </button>`;
+}
+
+/**
+ * What is being compared, as a chip each with an ✕ to take it out again.
+ *
+ * @param picks [{ key, label, ink, fixed }] — `key` is what the ✕ hands back, `ink` the colour
+ *              the thing is drawn in everywhere else, which tints its chip, and `fixed` marks
+ *              one that is held for the life of the page, drawn without a ✕.
+ * @returns the markup, or nothing at all for an empty comparison: the row is the caller's and
+ *          an empty one should collapse rather than hold a blank chip.
+ */
+function buildPicks(picks) {
+  return picks
+    .map(({ key, label, ink, fixed = false }) =>
+      buildChip(label, ink, fixed ? "" : buildDrop(key, label)),
     )
     .join("");
 }
@@ -86,9 +84,7 @@ function buildPicks(picks) {
  * The key a click asked to drop, or null if it landed anywhere else.
  */
 function dropFromClick(event) {
-  return (
-    event.target.closest(`[data-role='${DROP_ROLE}']`)?.dataset.key ?? null
-  );
+  return event.target.closest(`[data-role='${DROP_ROLE}']`)?.dataset.key ?? null;
 }
 
 // ─── GRID ────────────────────────────────────────────────────────────────────
@@ -99,38 +95,30 @@ function inkStyle(ink) {
 
 // The ink rides on the cell in the turned layout: a column cannot inherit a custom property
 // from the header above it, where a row's cells inherit it from the row.
-const CELL = (state, html, ink = "") =>
-  `<td class="${state}"${ink}>${html}</td>`;
+const CELL = (html, ink = "") => `<td${ink}>${html}</td>`;
 
-// A cell is a value to compare and, optionally, the markup to show instead of it — a
-// select, a badge. The value is what decides whether the column agrees, so a control still
-// counts as its current setting.
+// A cell is the value to show and, optionally, the markup to show instead of it — a select,
+// a badge.
 function cellHtml(cell) {
   if (cell?.html) return cell.html;
 
-  return cell?.value == null || cell.value === ""
-    ? "—"
-    : escapeHtml(cell.value);
-}
-
-// Whether every thing being compared answers this attribute the same way — which is what
-// decides whether it recedes. Read off `value` and not the markup, so a cell holding a
-// control still counts as its current setting.
-function attributeAgrees(key, entities) {
-  return new Set(entities.map((entity) => entity.cells[key]?.value ?? "")).size <= 1;
+  return cell?.value == null || cell.value === "" ? "—" : escapeHtml(cell.value);
 }
 
 /**
  * @param entities   [{ label, ink, cells: { [attributeKey]: { value, html } } }] — the things
- *                   being compared, in order. `label` heads the column or the row, as a chip
- *                   in `ink` — the colour that thing is drawn in everywhere else, and the same
- *                   chip the row above the grid names it with. Omit `label` for a grid whose
- *                   caller names its entities somewhere else, which leaves the colour to.
- * @param attributes [{ key, label }] — what they are compared on, fixed and in order.
+ *                   being compared, in order. `label` heads the row; `ink` is the colour that
+ *                   thing is drawn in everywhere else, carried as an edge rather than as a
+ *                   word. Turned, neither is drawn — the caller names its columns above.
+ * @param attributes [{ key, label, html }] — what they are compared on, fixed and in order.
+ *                   `html` heads the column with markup instead of the label — badges, where
+ *                   the heading names a task rather than a field.
  * @param layout     "rows" puts an entity per row and an attribute per column — for a few
  *                   attributes read across. "columns" turns it: an entity per column and an
  *                   attribute per row, for a long set of attributes, where a header of nine
  *                   of them is unreadable and a column of nine is a list.
+ * @param corner     markup for the cell over the row heads, which is otherwise empty — what
+ *                   the rows are, where the columns say what is measured of them.
  * @param className  extra classes on the wrapper, for a caller with its own widths.
  * @returns the markup.
  */
@@ -138,34 +126,25 @@ function buildComparisonGrid({
   entities,
   attributes,
   layout = "rows",
-  className = "",
+  corner = "",
+  className = "metadata",
 }) {
-  const state = new Map(
-    attributes.map((attribute) => [
-      attribute.key,
-      attributeAgrees(attribute.key, entities) ? "agrees" : "differs",
-    ]),
-  );
-
   const label = (attribute, scope) =>
-    `<th scope="${scope}" class="${state.get(attribute.key)}">${escapeHtml(attribute.label)}</th>`;
+    `<th scope="${scope}">${attribute.html ?? escapeHtml(attribute.label)}</th>`;
 
-  // The ink goes on whichever element heads the entity, since that is what it identifies —
-  // the row in one layout, the column header in the other.
-  // A chip per entity, or an empty cell holding only the ink where the caller named them
-  // elsewhere.
-  const name = (entity) =>
-    entity.label ? buildChip(entity.label, entity.ink) : "";
-
+  // Turned, the columns are headed by the things themselves, as plain names: the colour is
+  // the edge over each name, which is what ties a column to its chip above the grid.
   const head =
     layout === "columns"
-      ? entities
+      ? `<thead><tr><th>${corner}</th>${entities
           .map(
             (entity) =>
-              `<th scope="col"${inkStyle(entity.ink)}>${name(entity)}</th>`,
+              `<th scope="col"${inkStyle(entity.ink)}>${escapeHtml(entity.label ?? "")}</th>`,
           )
-          .join("")
-      : attributes.map((attribute) => label(attribute, "col")).join("");
+          .join("")}</tr></thead>`
+      : `<thead><tr><th>${corner}</th>${attributes
+          .map((attribute) => label(attribute, "col"))
+          .join("")}</tr></thead>`;
 
   const body =
     layout === "columns"
@@ -175,13 +154,7 @@ function buildComparisonGrid({
       <tr>
         ${label(attribute, "row")}
         ${entities
-          .map((entity) =>
-            CELL(
-              state.get(attribute.key),
-              cellHtml(entity.cells[attribute.key]),
-              inkStyle(entity.ink),
-            ),
-          )
+          .map((entity) => CELL(cellHtml(entity.cells[attribute.key]), inkStyle(entity.ink)))
           .join("")}
       </tr>`,
           )
@@ -190,15 +163,10 @@ function buildComparisonGrid({
           .map(
             (entity) => `
       <tr${inkStyle(entity.ink)}>
-        <th scope="row">${name(entity)}</th>
-        ${attributes
-          .map((attribute) =>
-            CELL(
-              state.get(attribute.key),
-              cellHtml(entity.cells[attribute.key]),
-            ),
-          )
-          .join("")}
+        <th scope="row" title="${escapeHtml(entity.label ?? "")}">${escapeHtml(
+          entity.label ?? "",
+        )}</th>
+        ${attributes.map((attribute) => CELL(cellHtml(entity.cells[attribute.key]))).join("")}
       </tr>`,
           )
           .join("");
@@ -210,7 +178,7 @@ function buildComparisonGrid({
   return `
     <div class="${escapeHtml(classes)}">
       <table>
-        <thead><tr><th></th>${head}</tr></thead>
+        ${head}
         <tbody>${body}</tbody>
       </table>
     </div>`;

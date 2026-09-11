@@ -7,7 +7,10 @@
 // with what that column needs, and returns one.
 
 import { escapeHtml } from "../core/html.js";
-import {suiteFromTask, SUITES, taskLabel} from "../core/suites.js";
+import { hrefForRecord } from "../core/links.js";
+import { buildScoreBar } from "../components/bars.js";
+import { buildButton } from "../components/buttons.js";
+import { metricLabel, suiteFromTask, taskFullLabel, taskLabel } from "../core/suites.js";
 import { formatDate, score } from "../core/utils.js";
 import {
   buildMetricBadge,
@@ -16,13 +19,17 @@ import {
   buildPretrainedBadge,
   buildRoleBadge,
   buildStatusBadge,
-  buildSuiteBadgeList, buildTaskBadge,
+  buildSuiteBadgeList,
+  buildTaskBadge,
 } from "../components/badges.js";
 import { buildIcon, getIcon } from "../components/icons.js";
 
 // ─── VALUES ──────────────────────────────────────────────────────────────────
 
 const EMPTY_VALUE = "—";
+
+// modelFormatter builds its own link rather than taking the page, as the buildLink* ones do.
+const MODEL_PAGE = "/html/models/models.html";
 
 function emptyMetadata() {
   return `<span class="metadata">${EMPTY_VALUE}</span>`;
@@ -39,9 +46,7 @@ function rankBadge(rank) {
 
   const medalClass = MEDAL_CLASSES[rank];
 
-  return medalClass
-    ? `<span class="${medalClass}">${escapeHtml(rank)}</span>`
-    : String(rank);
+  return medalClass ? `<span class="${medalClass}">${escapeHtml(rank)}</span>` : String(rank);
 }
 
 /**
@@ -57,9 +62,9 @@ function buildMeanSem(mean, sem, { stacked = false } = {}) {
 
   const spread = `<span class="metadata">± ${escapeHtml(score(sem))}</span>`;
 
-  return stacked
-    ? `<span class="column gap-xs right">${value}${spread}</span>`
-    : `${value} ${spread}`;
+  // No alignment of its own: the two lines stretch, so the column they are in decides where
+  // they sit — a mean with no spread is a bare value and follows it either way.
+  return stacked ? `<span class="column gap-xs">${value}${spread}</span>` : `${value} ${spread}`;
 }
 
 function taskLinkAttributes(row) {
@@ -111,10 +116,7 @@ const rankSorter = valueSorter(ascending, { emptyLast: true });
 
 // A `{ mean, sem }` cell — the score tables and the comparison grids hold the whole object so
 // that both halves print from one field.
-const meanSorter = valueSorter(
-  (a, b) => a.mean - b.mean,
-  { emptyLast: true },
-);
+const meanSorter = valueSorter((a, b) => a.mean - b.mean, { emptyLast: true });
 
 function dateSorter(a, b) {
   if (!a && !b) return 0;
@@ -124,10 +126,6 @@ function dateSorter(a, b) {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-function sortSuites(suites = []) {
-  return SUITES.filter((suite) => suites.includes(suite));
-}
-
 // ─── BUILDERS ────────────────────────────────────────────────────────────────
 
 /**
@@ -135,16 +133,24 @@ function sortSuites(suites = []) {
  *
  * @param page       the page the link goes to; the row id becomes its `?id=`.
  * @param labelField the row field the link text comes from.
- * @param idField    the row field holding the id. Defaults to "id".
+ * @param idField    the row field holding the id. Defaults to "id". A row carrying
+ *                   `is_mine` links with the shell hint — see core/links.js; one that does
+ *                   not links without it, and the record page settles the question a round
+ *                   trip later.
+ * @param className  classes on the link — "metadata" for a column that says where a row came
+ *                   from rather than what it is. Omit for the text colour and size.
  *
  * @returns a Tabulator formatter.
  */
-function buildLinkFormatter(page, labelField, idField = "id") {
+function buildLinkFormatter(page, labelField, idField = "id", className = "") {
   return (cell) => {
     const row = cell.getData();
 
     return `
-      <a href="${page}?id=${encodeURIComponent(row[idField])}">
+      <a
+        href="${hrefForRecord(page, row[idField], { mine: row.is_mine })}"
+        class="${escapeHtml(className)}"
+      >
         ${escapeHtml(row[labelField] ?? EMPTY_VALUE)}
       </a>
     `;
@@ -161,14 +167,14 @@ function buildLinkFormatter(page, labelField, idField = "id") {
  * @returns a Tabulator formatter.
  */
 function buildModelNameFormatter(page, { showMine = false } = {}) {
-  const link = buildLinkFormatter(page, "name");
+  const link = buildLinkFormatter(page, "name", "id", "label");
 
   return (cell) => {
     const row = cell.getData();
 
     const badges = [
-      buildPretrainedBadge(row.is_pretrained, "sm"),
-      showMine ? buildMineBadge(row.is_mine, "sm") : "",
+      buildPretrainedBadge(row.is_pretrained),
+      showMine ? buildMineBadge(row.is_mine) : "",
     ].join("");
 
     return `<span class="row left gap-sm">${link(cell)}${badges}</span>`;
@@ -215,7 +221,7 @@ function buildTaskSuiteFormatter(inner) {
     const suite = cell.getData().suite;
 
     return `
-      <span class="row left gap-md">
+      <span class="row left gap-lg">
         ${suite ? buildSuiteBadgeList([suite], "sm") : ""}
         ${inner(cell)}
       </span>
@@ -236,14 +242,11 @@ function dateFormatter(cell) {
 function modelFormatter(cell) {
   const row = cell.getData();
 
-  const badges = [
-    buildPretrainedBadge(row.isPretrained, "sm"),
-    buildMineBadge(row.isMine, "sm"),
-  ].join("");
+  const badges = [buildPretrainedBadge(row.isPretrained), buildMineBadge(row.isMine)].join("");
 
   return `
     <a
-      href="/html/models/models.html?id=${encodeURIComponent(row.modelId)}"
+      href="${hrefForRecord(MODEL_PAGE, row.modelId, { mine: row.isMine })}"
       class="column"
     >
       <span class="label">${escapeHtml(row.model_name)}</span>
@@ -264,6 +267,59 @@ function suiteBadgesFormatter(cell) {
     : EMPTY_VALUE;
 }
 
+// The score again, as a mark. Read on 0 to 1 like every primary metric, and in the colour
+// of the suite the task belongs to.
+function scoreBarFormatter(cell) {
+  const row = cell.getData();
+
+  return buildScoreBar(cell.getValue(), row.suite ?? "");
+}
+
+// One metric on its own, for a table that badges it in a column rather than beside the
+// number — see metricsBadgeFormatter for the list.
+function metricBadgeFormatter(cell) {
+  const value = cell.getValue();
+
+  return value ? buildMetricBadge(value, "sm") : EMPTY_VALUE;
+}
+
+// Whether the public ranking is standing on this score, and where it isn't, whether that is
+// because the run behind it has not been published. The two are one column: a reader
+// scanning it wants to know what counts, and an eye is the answer to why something doesn't.
+function rankingFlagFormatter(cell) {
+  const row = cell.getData();
+
+  if (row.ranked?.public) {
+    return buildIcon("tick", {
+      className: "tick-icon",
+      title: "Counted in the public ranking",
+    });
+  }
+
+  if (row.is_public === false) {
+    return buildIcon("private", {
+      title: "Not published, so not counted in the public ranking",
+    });
+  }
+
+  return emptyMetadata();
+}
+
+// Where the score places on its own task, against the models scored on that task — a
+// narrower field than the suite around it. Empty for an entry the ranking did not place.
+function taskRankFormatter(cell) {
+  const row = cell.getData();
+
+  if (row.rank == null) return emptyMetadata();
+
+  return `
+    <span class="row left gap-sm">
+      <span class="bold">#${escapeHtml(String(row.rank))}</span>
+      <span class="metadata">of ${escapeHtml(String(row.nRanked))}</span>
+    </span>
+  `;
+}
+
 function metricsBadgeFormatter(cell) {
   const value = cell.getValue();
   const metrics = Array.isArray(value) ? value : value == null ? [] : [value];
@@ -271,14 +327,16 @@ function metricsBadgeFormatter(cell) {
   return metrics.length ? buildMetricBadgeList(metrics) : EMPTY_VALUE;
 }
 
+// The suite in front of the short name — "TS1 Choice". On a list spanning every suite the
+// short names alone are ambiguous, and the badge's colour says the suite to a reader who
+// already knows the palette rather than to one meeting it.
 function taskNameFormatter(cell) {
   const value = cell.getValue();
-  const suite = suiteFromTask(value);
-  return value
-    ? `<span>${buildTaskBadge(taskLabel(value), suite, "sm")}</span>`
-    : EMPTY_VALUE;
-}
 
+  if (!value) return EMPTY_VALUE;
+
+  return `<span>${buildTaskBadge(taskFullLabel(value), suiteFromTask(value), "sm")}</span>`;
+}
 
 function statusFormatter(cell) {
   return buildStatusBadge(cell.getValue(), "sm");
@@ -300,12 +358,17 @@ function taskLinkFormatter(cell) {
 }
 
 function editFormatter(cell) {
-  return `
-    <a class="btn with-icon" ${taskLinkAttributes(cell.getData())}>
-      <i class="btn-icon" data-lucide="${getIcon("edit")}"></i>
-      Edit
-    </a>
-  `;
+  return buildButton({
+    label: "Edit",
+    icon: getIcon("edit"),
+    // The row's own task, routed in place — the same trip taskLinkAttributes writes for the
+    // task name beside it. See core/router.js.
+    view: "task",
+    data: { task: cell.getData().id },
+    // A cell's own button, at the size the table's type is rather than a header's. Plain: it
+    // navigates to the task, where the editing is.
+    className: "sm",
+  });
 }
 
 function parameterFormatter(cell) {
@@ -326,107 +389,79 @@ function rankFormatter(cell) {
   return rankBadge(cell.getValue());
 }
 
-function rankUsageFormatter(cell) {
-  const used = cell.getValue();
-
-  const icons = [
-    used?.public &&
-      buildIcon("public", {
-        className: "rank-icon public",
-        title: "Counted in the public ranking",
-      }),
-
-    used?.private &&
-      buildIcon("private", {
-        className: "rank-icon private",
-        title: "Counted in the private ranking",
-      }),
-  ].filter(Boolean);
-
-  if (!icons.length) return emptyMetadata();
-
-  return `
-    <span class="row left gap-sm">
-      ${icons.join(`<span class="metadata">and</span>`)}
-    </span>
-  `;
+/**
+ * A formatter for a column that answers yes or no: a tick where it holds, a dash where it
+ * does not.
+ *
+ * @param read  (row) => whether this row is one of them.
+ * @param title hover text on the tick, for a column whose heading is read once and then
+ *              scrolled away from.
+ *
+ * @returns a Tabulator formatter.
+ */
+function buildFlagFormatter(read, title) {
+  return (cell) =>
+    read(cell.getData()) ? buildIcon("tick", { className: "tick-icon", title }) : emptyMetadata();
 }
 
-// The compare grid's cells, where a task holds an eighth of the page: the spread goes under
-// the value rather than beside it.
-function meanSemFormatter(cell) {
-  const value = cell.getValue();
-
-  return buildMeanSem(value?.mean ?? null, value?.sem ?? null, {
-    stacked: true,
-  });
-}
-
-function diffFormatter(cell) {
-  const diff = cell.getValue()?.mean;
-
+// Signed and coloured by which way it went — see .diff-up in style.css.
+function buildDiff(diff) {
   if (diff == null) return emptyMetadata();
 
   const direction = diff > 0 ? "diff-up" : diff < 0 ? "diff-down" : "diff-flat";
 
   const sign = diff > 0 ? "+" : "";
 
-  return `
-    <span class="${direction}">
-      ${sign}${escapeHtml(score(diff))}
-    </span>
-  `;
+  return `<span class="${direction}">${sign}${escapeHtml(score(diff))}</span>`;
 }
 
 /**
- * One task's column heading: what it is, in its suite's colour, and what it is measured in.
+ * One task's column heading: what it is, over what it is measured in. The suite it came from
+ * is the wash behind the whole cell — see .col-tsN in style.css.
  *
- * @param stacked the metric under the task rather than beside it. For a column sized to what
+ * @param stacked the metric under the task rather than beside it, for a column sized to what
  *                it holds, where a heading laid out across would set the width instead — a
  *                task name and a metric side by side are wider than "0.641 ± 0.025". Side by
- *                side where the layout stretches the columns anyway, since two badges on one
- *                line keep the header row shallow. See getColumns in leaderboardTable.js.
+ *                side where the layout stretches the columns anyway, since one line keeps the
+ *                header row shallow. See getColumns in leaderboardTable.js.
+ * @param align   how the two sit in it — `left`, `centre` or `right`. The wrapper is a flex
+ *                box, so this places them where text alignment would not.
  */
-function taskHeader(taskId, metric, { stacked = true } = {}) {
-  const suite = suiteFromTask(taskId);
-
-  const badges = [
-    suite ? buildTaskBadge(taskLabel(taskId), suite, "sm") : "",
-    metric ? buildMetricBadge(metric, "sm") : "",
-  ].join("");
+function taskHeader(taskId, metric, { stacked = true, align = "left" } = {}) {
+  const unit = metric ? `<span class="col-metric">${escapeHtml(metricLabel(metric))}</span>` : "";
 
   return `
-    <span class="${stacked ? "column" : "row"} left gap-xs">
-      ${badges}
+    <span class="${stacked ? "column" : "row"} ${escapeHtml(align)} gap-xs">
+      <span class="label col-task">${escapeHtml(taskLabel(taskId))}</span>
+      ${unit}
     </span>`;
 }
 
-
-
-
 export {
+  buildDiff,
   buildLinkFormatter,
   buildMeanSem,
   buildModelNameFormatter,
+  buildFlagFormatter,
   buildScoreSemFormatter,
   buildTaskSuiteFormatter,
   dateFormatter,
   dateSorter,
-  diffFormatter,
   editFormatter,
-  meanSemFormatter,
   meanSorter,
   metadataFormatter,
+  metricBadgeFormatter,
   metricsBadgeFormatter,
   modelFormatter,
   numericSorter,
   parameterFormatter,
   rankBadge,
   rankFormatter,
+  rankingFlagFormatter,
+  scoreBarFormatter,
+  taskRankFormatter,
   rankSorter,
-  rankUsageFormatter,
   roleBadgeFormatter,
-  sortSuites,
   statusFormatter,
   valueSorter,
   suiteBadgesFormatter,

@@ -53,9 +53,7 @@ function toLeaderboardRow(standing, myTeamIds) {
  * @returns one row per model, in position order.
  */
 function toLeaderboardRows(standings, taskIds, myTeamIds = new Set()) {
-  const rows = (standings ?? []).map((standing) =>
-    toLeaderboardRow(standing, myTeamIds),
-  );
+  const rows = (standings ?? []).map((standing) => toLeaderboardRow(standing, myTeamIds));
 
   assignMeanRank(rows, taskIds);
   assignPositions(rows);
@@ -82,16 +80,11 @@ const EPSILON = 1e-10;
  */
 function assignMeanRank(rows, taskIds) {
   for (const row of rows) {
-    const ranks = taskIds
-      .map((taskId) => row.taskRanks[taskId])
-      .filter((rank) => rank != null);
+    const ranks = taskIds.map((taskId) => row.taskRanks[taskId]).filter((rank) => rank != null);
 
     row.tasksScored = taskIds.filter((taskId) => row[taskId] != null).length;
     row.partialRank = mean(ranks);
-    row.meanRank =
-      taskIds.length && row.tasksScored === taskIds.length
-        ? row.partialRank
-        : null;
+    row.meanRank = taskIds.length && row.tasksScored === taskIds.length ? row.partialRank : null;
   }
 }
 
@@ -109,8 +102,7 @@ function assignPositions(rows) {
 
   ranked.forEach((row, index) => {
     const previous = ranked[index - 1];
-    const tied =
-      previous && Math.abs(row.meanRank - previous.meanRank) < EPSILON;
+    const tied = previous && Math.abs(row.meanRank - previous.meanRank) < EPSILON;
 
     positions.set(row, tied ? positions.get(previous) : index + 1);
   });

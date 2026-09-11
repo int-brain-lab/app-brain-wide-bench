@@ -17,19 +17,12 @@ const CARDS_PER_PAGE = 8;
 function getPageNumbers(currentPage, pageCount) {
   const count = Math.min(MAX_PAGE_BUTTONS, pageCount);
 
-  const first = Math.min(
-    Math.max(1, currentPage - Math.floor(count / 2)),
-    pageCount - count + 1,
-  );
+  const first = Math.min(Math.max(1, currentPage - Math.floor(count / 2)), pageCount - count + 1);
 
   return Array.from({ length: count }, (_, index) => first + index);
 }
 
-function buildPageButton(
-  label,
-  page,
-  { active = false, disabled = false } = {},
-) {
+function buildPageButton(label, page, { active = false, disabled = false } = {}) {
   return `
     <button
       type="button"
@@ -92,10 +85,7 @@ function highlightSelectedCards(root, keys, inkOf = () => null) {
     const picked = keys.has(card.dataset.key);
 
     card.classList.toggle("selected", picked);
-    card.style.setProperty(
-      "--pick-ink",
-      (picked && inkOf(card.dataset.key)) || "",
-    );
+    card.style.setProperty("--pick-ink", (picked && inkOf(card.dataset.key)) || "");
   });
 }
 
@@ -120,21 +110,14 @@ function toRowMap(rows, getKey) {
 // ─── MARKUP ──────────────────────────────────────────────────────────────────
 
 // `total` is the count before filtering.
-function buildGridHtml({
-  visibleRows,
-  buildCards,
-  total,
-  noun,
-  page,
-  pageCount,
-}) {
+function buildGridHtml({ visibleRows, buildCards, total, noun, page, pageCount }) {
   return `
     <div class="grid-2" data-role="cards">
       ${buildCards(visibleRows)}
     </div>
 
     <div class="table-footer cards-footer">
-      <span>
+      <span class="metadata">
         ${buildTableCount(visibleRows.length, total, noun)}
       </span>
 
@@ -164,13 +147,13 @@ function createCardGrid({
 }) {
   const element = document.createElement("div");
 
-  element.className = "column gap-md";
+  element.className = "column gap-lg";
 
   let allRows = [];
   let activeFilter = null;
   let page = 1;
 
-  // `{ keys, onToggle }`, or null when nothing is pickable.
+  // `{ keys, inkOf, onToggle }`, or null when nothing is pickable.
   let activeSelection = null;
 
   // Key => row, for the page on screen.
@@ -186,10 +169,7 @@ function createCardGrid({
     clearContent(element);
 
     if (!matching.length) {
-      renderHtml(
-        element,
-        buildEmptyMessage(`No ${noun}s match these filters.`),
-      );
+      renderHtml(element, buildEmptyMessage(`No ${noun}s match these filters`));
       rowMap = new Map();
 
       return;
@@ -225,7 +205,9 @@ function createCardGrid({
 
     setSelectable(grid, Boolean(activeSelection));
 
-    if (activeSelection) highlightSelectedCards(grid, activeSelection.keys);
+    if (activeSelection) {
+      highlightSelectedCards(grid, activeSelection.keys(), activeSelection.inkOf);
+    }
 
     refreshIcons();
   }
@@ -272,7 +254,10 @@ function createCardGrid({
     render();
   }
 
-  /** @param selection `{ keys, onToggle }` to make the cards pickable, or null to stop. */
+  /**
+   * @param selection `{ keys, inkOf, onToggle }` to make the cards pickable, or null to stop.
+   *                  `keys()` and `inkOf(key)` are read at each render — see createCardBinding.
+   */
   function setSelection(selection) {
     activeSelection = selection ?? null;
 

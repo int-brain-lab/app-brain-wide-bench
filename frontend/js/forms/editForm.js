@@ -20,10 +20,7 @@ function sameValue(a, b) {
     const left = [...(a ?? [])].sort();
     const right = [...(b ?? [])].sort();
 
-    return (
-      left.length === right.length &&
-      left.every((value, index) => value === right[index])
-    );
+    return left.length === right.length && left.every((value, index) => value === right[index]);
   }
 
   return (a ?? null) === (b ?? null);
@@ -58,7 +55,8 @@ function getChanges(draft, record, fields) {
  * @param onEditingChange (editing) => void, as edit mode opens and closes. Omit for a
  *                        caller with no controls to update.
  * @param onSaved         async (record) => void, after a successful save. Omit for none.
- * @param onCleared       (labels) => void, when a change invalidates other fields. Omit for
+ * @param onCleared       (labels) => void, after every change — the labels that change
+ *                        invalidated, or "" where it invalidated none. Omit for
  *                        no notice.
  * @param onError         (error) => void, when saving fails. Omit to fail silently.
  * @param onEdit          () => void, when edit mode opens. Omit for none.
@@ -118,10 +116,11 @@ function createEditForm({
       },
     ],
 
+    // Reported on every change, not only on the ones that clear something: a notice about
+    // fields a *previous* change invalidated has to be taken back when the next one does
+    // not. Same contract as createForm's.
     onChange: (key, value, cleared) => {
-      if (cleared.length) {
-        onCleared?.(clearedLabels(fields, cleared));
-      }
+      onCleared?.(clearedLabels(fields, cleared));
     },
   });
 

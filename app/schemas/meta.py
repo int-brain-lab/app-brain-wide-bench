@@ -37,3 +37,14 @@ class MetaResponse(BaseModel):
     fields: dict[str, dict[str, str]]
     tasks: list[TaskResponse]
     suites: dict[TaskSuite, SuiteInfo]
+
+
+class MetaStats(BaseModel):
+    """The two headline counts on the public landing page.
+
+    Finished public work only, and no notion of a caller — the same footing as the
+    leaderboard, so the figures describe what a signed-out visitor can go and read.
+    """
+
+    n_models: int
+    n_submissions: int

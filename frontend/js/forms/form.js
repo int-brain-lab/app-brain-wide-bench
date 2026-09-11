@@ -13,7 +13,7 @@ import { refreshIcons, renderHtml } from "../core/render.js";
 // ─── SCHEMA RULES ────────────────────────────────────────────────────────────
 
 const CLEARED_MESSAGE =
-  "That change ruled out choices you had already made, so they have been cleared.";
+  "That change ruled out choices you had already made, so they have been cleared";
 
 function clearedLabels(fields, cleared) {
   return cleared.map((key) => fields[key].label).join(", ");
@@ -23,17 +23,23 @@ function isDisabled(field, state) {
   return typeof field.disabledWhen === "function" && field.disabledWhen(state);
 }
 
+// A locked field keeps its value: only `disabledWhen` clears one.
+function isLocked(field, state) {
+  return typeof field.lockedWhen === "function" && field.lockedWhen(state);
+}
+
+// What the markup asks: both rules render the control off.
+function isInactive(field, state) {
+  return isDisabled(field, state) || isLocked(field, state);
+}
+
 // Disabled options remain visible but cannot be selected.
 function disabledOptionValues(field, state) {
-  return typeof field.disabledOptionsWhen === "function"
-    ? field.disabledOptionsWhen(state)
-    : [];
+  return typeof field.disabledOptionsWhen === "function" ? field.disabledOptionsWhen(state) : [];
 }
 
 function hasDependentFields(fields) {
-  return Object.values(fields).some(
-    (field) => field.disabledWhen || field.disabledOptionsWhen,
-  );
+  return Object.values(fields).some((field) => field.disabledWhen || field.disabledOptionsWhen);
 }
 
 // ─── HELP TEXT ───────────────────────────────────────────────────────────────
@@ -88,9 +94,9 @@ function parseFieldValue(field, value) {
 function getFieldValue(field, key, input, container) {
   switch (field.input) {
     case "checkbox-list":
-      return Array.from(
-        container.querySelectorAll(`[data-field="${key}"]:checked`),
-      ).map((box) => box.value);
+      return Array.from(container.querySelectorAll(`[data-field="${key}"]:checked`)).map(
+        (box) => box.value,
+      );
 
     case "checkbox":
       return input.checked;
@@ -123,9 +129,7 @@ function revalidateFields(state, fields) {
     const disabledOptions = field.disabledOptionsWhen(state);
 
     if (Array.isArray(value)) {
-      const validValues = value.filter(
-        (item) => !disabledOptions.includes(item),
-      );
+      const validValues = value.filter((item) => !disabledOptions.includes(item));
 
       if (validValues.length !== value.length) {
         cleared.push(key);
@@ -149,9 +153,7 @@ function revalidateFields(state, fields) {
 function setFieldValue(state, fields, key, value) {
   state[key] = value;
 
-  return revalidateFields(state, fields).filter(
-    (clearedKey) => clearedKey !== key,
-  );
+  return revalidateFields(state, fields).filter((clearedKey) => clearedKey !== key);
 }
 
 // ─── RENDERING ───────────────────────────────────────────────────────────────
@@ -232,8 +234,9 @@ function attachFieldEvents(container, getState, fields, onChange) {
 /**
  * A live form over one or more field containers.
  *
- * @param fields   the field definitions. Schema rules such as `disabledWhen` and
- *                 `disabledOptionsWhen` are evaluated against the current state.
+ * @param fields   the field definitions. Schema rules such as `disabledWhen`,
+ *                 `disabledOptionsWhen` and `lockedWhen` are evaluated against the current
+ *                 state.
  * @param getState () => state | null. The object that receives changes; null makes the
  *                 form inactive without removing its listeners.
  * @param sections [{ container, draw }] — the containers whose fields share one state.
@@ -291,6 +294,8 @@ export {
   disabledOptionValues,
   isDisabled,
   isHelpPinned,
+  isInactive,
+  isLocked,
   renderPreservingFocus,
   revalidateFields,
   setFieldValue,

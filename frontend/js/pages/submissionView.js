@@ -1,9 +1,11 @@
 // Submission record page — dashboard, details, tasks and scores for one submission.
 
+import { hrefForRecord } from "../core/links.js";
 import { renderHtml } from "../core/render.js";
 import { suiteFromTask, suiteLabel } from "../core/suites.js";
 import { escapeHtml } from "../core/html.js";
-import { loadSubmission, updateSubmission } from "../api/submissionApi.js";
+import { loadModelBreakdown } from "../api/modelApi.js";
+import { deleteSubmission, loadSubmission, updateSubmission } from "../api/submissionApi.js";
 import { updateTaskSubmissions } from "../api/taskSubmissionApi.js";
 import {
   loadSubmissionFields,
@@ -15,172 +17,190 @@ import {
   TASK_PANELS,
   toMethodologyValues,
 } from "../schemas/taskSubmissionSchema.js";
-import {
-  getSubmissionBadges,
-  getSubmissionStatistics,
-  getSubmissionSubtitle,
-} from "../utils/submissionUtils.js";
+import { getSubmissionDeleteItems } from "../utils/deleteUtils.js";
+import { getSubmissionBadges, getSubmissionSubtitle } from "../utils/submissionUtils.js";
 import {
   getTaskSubmissionFilters,
+  markStandingRows,
   mergeUpdated,
   suiteSiblings,
   toTaskSubmissionRows,
 } from "../utils/taskSubmissionUtils.js";
 import {
   buildStaticTaskSubmissionsTable,
+  buildSubmissionScoresTable,
   createTaskSubmissionsTable,
 } from "../tables/taskSubmissionTable.js";
-import { SCORE_MODES } from "../comparisons/scoreModes.js";
-import { buildDetailsCard } from "../cards/detailsCard.js";
-import { buildStatCards } from "../cards/statCards.js";
+import { SCORE_PANEL } from "../comparisons/taskScoreComparison.js";
 import {
+  buildButton,
   buildCancelButton,
+  buildDetailsButton,
   buildEditButton,
   buildSaveButton,
+  buildViewAllButton,
+  EDIT_DETAILS_BUTTON,
 } from "../components/buttons.js";
-import { buildCount } from "../components/count.js";
-import {
-  buildEmptyMessage,
-  buildFailureMessage,
-  buildSuccessMessage,
-} from "../components/messages.js";
+import { getIcon } from "../components/icons.js";
+import { buildEmptyMessage, buildFailureMessage } from "../components/messages.js";
 import {
   buildHeader,
   buildPage,
   buildSection,
+  buildSectionFooter,
   buildSections,
+  getSection,
   getSectionBody,
 } from "../components/sections.js";
-import {
-  attachEditLink,
-  renderRecordDetailsView,
-} from "../templates/recordDetails.js";
+import { createDeleteControl } from "../widgets/deleteRecord.js";
+import { renderRecordDetailsView } from "../templates/recordDetails.js";
 import { loadRecordPage } from "../templates/recordPage.js";
 import { renderRecordListView } from "../templates/recordList.js";
-import {
-  renderHeader,
-  renderMessage,
-  renderPage,
-} from "../templates/pageChrome.js";
+import { renderHeader, renderPage } from "../templates/pageChrome.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
-const MAX_TASKS = 5;
+// Where the model a submission is of lives — see the button beside Edit details.
+const MODEL_PAGE = "/html/models/models.html";
 
-const SUMMARY_KEYS = [
-  "label",
-  "status",
-  "is_public",
-  "created_at",
-  "updated_at",
-];
-
-const BACK = {
-  text: "← Back to dashboard",
-  view: "dashboard",
-};
-
-const TASKS_BACK = {
-  text: "← Back to tasks",
-  view: "tasks",
-};
+// Three rows. The rest are behind the section's "view all".
+const MAX_TASKS = 3;
 
 // The render functions are declarations, so they are defined by the time this is read.
 const VIEWS = {
   dashboard: renderDashboardView,
   details: renderDetailsView,
   tasks: renderTasksView,
+  scores: renderScoresView,
   task: renderTaskView,
 };
 
+// Where each section's "view all" goes, by the id of the section it closes. The button
+// itself is built at render — see buildFooter — because the number it names is data.
+const VIEW_ALL = {
+  methodology: { noun: "task", view: "tasks" },
+  scores: { noun: "score", view: "scores" },
+};
+
+// The foot of the details view, for a member. The widget draws into it — see
+// widgets/deleteRecord.js.
+// Where a deleted submission leaves the reader.
+const SUBMISSION_LIST_HREF = "/html/submissions/submission_list.html";
+
+// The record's own fields have no count to name: the button opens one page, not a list.
+const DETAILS_FOOTER = buildSectionFooter(buildDetailsButton({ view: "details" }));
+
 const DASHBOARD_SECTIONS = [
   {
-    id: "stats",
-    className: "stats-grid",
-  },
-  {
+    ratio: 3,
     sections: [
-      {
-        id: "narrative",
-        title: "Narrative",
-        // One card per narrative, stacked — the section body is a plain block otherwise.
-        className: "column gap-md",
-      },
-      {
-        id: "details",
-        title: "Submission Details",
-      },
+      { id: "narrative", title: "Narrative" },
+      { id: "methodology", title: "Task submissions" },
     ],
   },
   {
-    id: "tasks",
-    title: "Task Submissions",
+    id: "scores",
+    title: "Scores",
+    description:
+      "What this submission scored on each task, and whether the model still stands on it.",
   },
 ];
 
-// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+// The way from a section's preview to the whole of it, under the content — see
+// buildSectionFooter.
+function buildFooter(id, count) {
+  const { noun, ...target } = VIEW_ALL[id];
 
-function renderStatsSection(statistics) {
-  renderHtml(getSectionBody("stats"), buildStatCards(statistics));
+  return buildSectionFooter(buildViewAllButton(noun, target, { count }));
 }
 
-function buildNarrativeCard(label, narrative) {
+// What the section shows, with the way to the rest of it underneath.
+function renderSection(id, content, footer) {
+  renderHtml(getSectionBody(id), content + footer, { refresh: true });
+}
+
+// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+
+// One narrative, set as a display field is: the label above, the text below, in the same
+// two classes a details card reads in — see buildDisplayField in forms/fields.js.
+function buildNarrative(label, narrative) {
   return `
-    <div class="card column left gap-sm">
-      <p class="field-value">${escapeHtml(label)}</p>
-      <p class="field-label scroll-y">${narrative ? escapeHtml(narrative) : "—"}</p>
+    <div class="column left gap-xs">
+      <label class="field-label">${escapeHtml(label)}</label>
+      <p class="field-value">${narrative ? escapeHtml(narrative) : "—"}</p>
     </div>
   `;
 }
 
-// The private narrative only for a member: the API blanks it for everyone else — see
-// withhold_private in app/schemas/submissions.py.
+// One card either way. A member sees both narratives in it, a row each under its own
+// heading; everyone else sees the public one, which is the only one there is — the API
+// blanks the other, see withhold_private in app/schemas/submissions.py.
 function renderNarrativeSection(submission, canEdit) {
-  renderHtml(
-    getSectionBody("narrative"),
-    buildNarrativeCard("Public narrative", submission.narrative_public) +
-      (canEdit
-        ? buildNarrativeCard("Private narrative", submission.narrative_private)
-        : ""),
+  const rows = canEdit
+    ? buildNarrative("Public", submission.narrative_public) +
+      buildNarrative("Private", submission.narrative_private)
+    : buildNarrative("Narrative", submission.narrative_public);
+
+  renderSection(
+    "narrative",
+    // The scroll is the card's and not the text's inside it: one scrollbar for the pair,
+    // and the headings scroll with what they head.
+    `<div class="card secondary column gap-lg narrative-card">${rows}</div>`,
+    DETAILS_FOOTER,
   );
 }
 
-function renderDetailsSection(submission, fields) {
-  renderHtml(
-    getSectionBody("details"),
-    buildDetailsCard({
-      record: submission,
-      fields,
-      keys: SUMMARY_KEYS,
-      columns: 2,
-    }),
-  );
-}
+// A table rather than cards: every task carries the same five fields, so the labels belong
+// in a header read once instead of on every row. The rest are behind the section's "view
+// all", where the same table holds all of them.
+function renderMethodologySection(submission, canEdit) {
+  const container = getSectionBody("methodology");
+  const rows = toTaskSubmissionRows(submission);
 
-function renderTasksSection(submission) {
-  const container = getSectionBody("tasks");
-
-  if (!submission.task_submissions?.length) {
-    renderHtml(container, buildEmptyMessage("No tasks yet."));
+  if (!rows.length) {
+    renderHtml(container, buildEmptyMessage("No tasks yet"));
     return;
   }
 
-  renderHtml(
-    container,
+  renderSection(
+    "methodology",
     buildStaticTaskSubmissionsTable({
-      rows: toTaskSubmissionRows(submission),
+      rows,
+      showEdit: canEdit,
+      showScore: false,
       limit: MAX_TASKS,
-      viewAll: { view: "tasks" },
     }),
+    buildFooter("methodology", rows.length),
   );
 }
 
-function renderDashboardView(context, router) {
-  const { submission, fields, canEdit } = context;
+// Hidden rather than emptied for a submission with nothing scored: the tasks table below
+// already says what it holds.
+function renderScoresSection(rows) {
+  if (!rows.some((row) => row.mean_score != null)) {
+    getSection("scores").hidden = true;
+    return;
+  }
+
+  renderSection("scores", buildSubmissionScoresTable({ rows }), buildFooter("scores", rows.length));
+}
+
+function renderDashboardView(context) {
+  const { submission, breakdown, canEdit } = context;
+
+  // The model this is a submission of. The subtitle names it; this is the way to it, and it
+  // is offered to every reader — a public submission's model is public too. `mine` off the
+  // same answer: whoever may edit this is on the team that owns both.
+  const model = buildButton({
+    label: "View model",
+    icon: getIcon("model"),
+    href: hrefForRecord(MODEL_PAGE, submission.model_id, { mine: canEdit }),
+    className: "primary",
+  });
 
   renderPage(
     buildPage({
-      header: buildHeader(canEdit ? [buildEditButton()] : []),
+      header: buildHeader(canEdit ? [EDIT_DETAILS_BUTTON, model] : [model]),
       body: buildSections(DASHBOARD_SECTIONS),
     }),
   );
@@ -191,12 +211,9 @@ function renderDashboardView(context, router) {
     getSubmissionBadges(submission),
   );
 
-  renderStatsSection(getSubmissionStatistics(submission));
   renderNarrativeSection(submission, canEdit);
-  renderDetailsSection(submission, fields);
-  renderTasksSection(submission);
-
-  if (canEdit) attachEditLink(router);
+  renderMethodologySection(submission, canEdit);
+  renderScoresSection(markStandingRows(toTaskSubmissionRows(submission), breakdown));
 }
 
 // ─── DETAILS VIEW ────────────────────────────────────────────────────────────
@@ -207,30 +224,45 @@ function renderDetailsView({ submission, fields, canEdit, edit, created }) {
     record: submission,
     fields,
     panels: SUBMISSION_PANELS,
-    back: BACK,
     canEdit,
     edit,
     created,
+    dashboard: true,
 
-    renderTitle: (shown) =>
-      renderHeader(shown.label, getSubmissionSubtitle(shown)),
+    // Any member may delete a submission, which is the rule that gates editing it.
+    deletable: true,
+
+    renderTitle: (shown) => renderHeader(shown.label, getSubmissionSubtitle(shown)),
   });
 
   if (!page) return null;
 
-  return page.attachEditor({
-    save: (draft) => updateSubmission(submission.id, draft),
-  });
+  createDeleteControl({
+    noun: "submission",
+    name: () => submission.label,
+    items: () => getSubmissionDeleteItems(submission),
+
+    // `force`, so a submitted or scored submission goes too. The create form's Remove
+    // button is the caller that wants the narrower rule.
+    remove: () => deleteSubmission(submission.id, { force: true }),
+    onDeleted: () => window.location.assign(SUBMISSION_LIST_HREF),
+  }).attach();
+
+  return page.attachEditor({ save: (draft) => updateSubmission(submission.id, draft) });
 }
 
 // ─── TASKS VIEW ──────────────────────────────────────────────────────────────
 
+// What the dashboard's methodology cards show, for every task rather than the first few:
+// the task, how it was produced, and the way in to change it.
+//
+// Neither `panel` nor `picking`, which is what leaves the rows unpickable — see
+// templates/listView.js, where the two together are what make a list comparable. This one
+// is only ever read and edited.
 function renderTasksView({ submission, canEdit }) {
   return renderRecordListView({
     noun: "task",
-    back: BACK,
-    renderTitle: () =>
-      renderHeader(submission.label, getSubmissionSubtitle(submission)),
+    renderTitle: () => renderHeader(submission.label, getSubmissionSubtitle(submission)),
     empty: "No tasks yet.",
 
     rows: toTaskSubmissionRows(submission),
@@ -240,12 +272,38 @@ function renderTasksView({ submission, canEdit }) {
         rows,
         selection,
         showEdit: canEdit,
+        showScore: false,
+        showFilters: false,
+      }),
+  });
+}
+
+// ─── SCORES VIEW ─────────────────────────────────────────────────────────────
+
+// The same tasks read as scores: the numbers and the methodology behind them, narrowed by
+// the filter bar and compared in the panel underneath.
+//
+// No Edit column. A reader here is picking rows apart, and changing one is the tasks view's
+// own job.
+function renderScoresView({ submission }) {
+  return renderRecordListView({
+    noun: "task",
+    renderTitle: () => renderHeader(submission.label, getSubmissionSubtitle(submission)),
+    empty: "No tasks yet.",
+
+    rows: toTaskSubmissionRows(submission),
+
+    createTable: ({ rows, selection }) =>
+      createTaskSubmissionsTable({
+        rows,
+        selection,
+        showEdit: false,
         showFilters: false,
       }),
 
     filterControls: getTaskSubmissionFilters,
 
-    modes: SCORE_MODES,
+    panel: SCORE_PANEL,
   });
 }
 
@@ -261,32 +319,19 @@ function buildApplyToSuite() {
 }
 
 function getTaskSubtitle(submission, taskSubmission) {
-  return [
-    suiteLabel(suiteFromTask(taskSubmission.task_id)),
-    submission.label,
-    submission.team_name,
-  ]
+  return [suiteLabel(suiteFromTask(taskSubmission.task_id)), submission.label, submission.team_name]
     .filter(Boolean)
     .join(" · ");
 }
 
-function renderTaskView({
-  submission,
-  taskFields,
-  task,
-  canEdit,
-  edit = false,
-}) {
-  const taskSubmission = (submission.task_submissions ?? []).find(
-    (row) => row.id === task,
-  );
+function renderTaskView({ submission, taskFields, task, canEdit, edit = false }) {
+  const taskSubmission = (submission.task_submissions ?? []).find((row) => row.id === task);
 
   // `task` is a durable param, so this view is entered from the URL as well as from the
   // table — a deep link, a refresh or a Back can name a task this submission hasn't got.
   if (!taskSubmission) {
     renderPage(
       buildPage({
-        back: TASKS_BACK,
         header: buildHeader(),
         body: buildSection({ id: "task" }),
       }),
@@ -295,7 +340,7 @@ function renderTaskView({
     renderHeader(submission.label, submission.team_name ?? "");
     renderHtml(
       getSectionBody("task"),
-      buildFailureMessage("That task is not part of this submission."),
+      buildFailureMessage("That task is not part of this submission"),
     );
 
     return null;
@@ -317,12 +362,11 @@ function renderTaskView({
       buildSaveButton({ hidden: true }),
     ],
 
-    back: TASKS_BACK,
     canEdit,
     edit,
+    dashboard: "Go back to dashboard",
 
-    renderTitle: (shown) =>
-      renderHeader(shown.task_id, getTaskSubtitle(submission, shown)),
+    renderTitle: (shown) => renderHeader(shown.task_id, getTaskSubtitle(submission, shown)),
   });
 
   if (!page) return null;
@@ -368,20 +412,19 @@ function renderTaskView({
       return updated.find((row) => row.id === taskSubmission.id) ?? updated[0];
     },
 
+    // Names what the server reported it changed, not what the page asked for. Read before
+    // `onSaved` empties it — see attachRecordEditor, which reports the update first.
+    savedNote: () => ({
+      line: `Task ${updated.length === 1 ? "submission" : "submissions"} successfully updated`,
+      detail: updated
+        .map((row) => row.task_id)
+        .sort()
+        .join(", "),
+    }),
+
     onSaved: () => {
       mergeUpdated(submission, updated);
       showApplyToSuite(false);
-
-      // Names what the server reported it changed, not what the page asked for.
-      const names = updated.map((row) => row.task_id).sort();
-
-      renderMessage(
-        buildSuccessMessage(
-          names.length === 1
-            ? `Updated ${names[0]}.`
-            : `Updated ${buildCount(names.length, "task")}: ${names.join(", ")}.`,
-        ),
-      );
 
       updated = [];
     },
@@ -406,6 +449,10 @@ loadRecordPage({
   // withholds the team-only fields rather than the whole record.
   requiresAuth: false,
 
+  // Their own submission sits inside the app, with the sidebar; anyone else's is a public
+  // page and keeps the top nav.
+  privateShell: (context) => context.canEdit,
+
   load: async (submissionId, { signedIn }) => {
     const [submission, fields, taskFields] = await Promise.all([
       loadSubmission(submissionId),
@@ -420,8 +467,14 @@ loadRecordPage({
       return null;
     }
 
+    // After the three above rather than beside them: the model is named by the submission,
+    // so there is nothing to ask for until it has arrived. Undefined on failure, which
+    // leaves the scores table without a standing rather than the page without scores.
+    const breakdown = await loadModelBreakdown(submission.model_id).catch(() => undefined);
+
     return {
       submission,
+      breakdown,
       fields,
       taskFields,
       // `signedIn` as well as `is_mine`: a dev-mode API answers every request as its stub user.

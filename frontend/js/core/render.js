@@ -33,7 +33,10 @@ function renderHtml(container, html, { show = false, refresh = false } = {}) {
     element.hidden = false;
   }
 
-  if (refresh) {
+  // An `<i data-lucide>` is invisible until createIcons() replaces it, so markup carrying
+  // one is refreshed whether or not the caller asked. `refresh` remains for a caller whose
+  // icons arrived by another route.
+  if (refresh || html.includes("data-lucide")) {
     refreshIcons();
   }
 

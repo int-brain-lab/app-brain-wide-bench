@@ -8,6 +8,6 @@ celery_app = Celery(
     "brain_wide_bench",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.tasks.score"],
+    include=["app.tasks.score", "app.tasks.validate"],
 )
 celery_app.conf.task_track_started = True

@@ -1,5 +1,8 @@
-// A form whose fields are grouped into panels, where each panel is locked until all
-// preceding panels are complete.
+// A form whose fields are grouped into panels, where each panel is locked until the ones
+// before it are done with.
+//
+// "Done with" and "complete" are usually the same thing, and a panel that needs them apart
+// says so with `unlocks()`.
 //
 // The form only owns the supplied container. It does not know about the page, buttons,
 // or messages. Changes and completeness are reported through callbacks.
@@ -7,6 +10,9 @@
 // Field-driven panels are rendered by one createFieldForm. Component-driven panels
 // provide their own markup through `build()` and are not re-rendered after mounting,
 // allowing them to keep their own state and listeners.
+//
+// A component panel may still hold schema fields, in a slot its own markup marks with
+// `[data-panel-fields]`. Only that slot is redrawn, so the component's DOM is untouched.
 
 import { toPanelGroup } from "../schemas/schemaPanels.js";
 import { buildFields, buildPanelCard } from "./fields.js";
@@ -37,7 +43,11 @@ function isFilled(value) {
  *                    "fields" or "component" — and a `title`. A "fields" panel is filled
  *                    from the schema and is complete when its required fields are; a
  *                    "component" panel declares `build()` for markup drawn once and never
- *                    redrawn, and `complete()`, which only it can answer.
+ *                    redrawn, and `complete()`, which only it can answer — and may hold
+ *                    schema fields as well, in a `[data-panel-fields]` slot of its own
+ *                    markup. A panel may also declare `unlocks()` where opening the next
+ *                    panel is a different question from being complete. Omit for the two to
+ *                    be the same.
  * @param fields      field definitions, keyed by field name — the schema the "fields"
  *                    panels are built from.
  * @param submit      async (state) => result. Run by `submit()`, with the form locked until
@@ -73,11 +83,6 @@ function createForm({
   // Object declaration order determines both display order and unlock order.
   const panelNames = Object.keys(panels);
 
-  // Only schema-driven panels are managed by createFieldForm.
-  const fieldPanelNames = panelNames.filter(
-    (name) => panels[name].type === "fields",
-  );
-
   // Required fields never change, so calculate them once. A component panel has none,
   // which is why it declares `complete()` instead.
   const requiredFields = new Map(
@@ -104,10 +109,18 @@ function createForm({
     );
   }
 
-  // A panel opens when every preceding panel is complete, so one pass down the panels
-  // carries the answer: `open` after the last one is every panel complete.
+  // Whether a panel lets the next one open. Not always the same question as whether it is
+  // complete: the upload panel opens the tasks panel once the file is on its way, and stays
+  // incomplete until the server has finished checking it.
+  function canOpenNext(name) {
+    return panels[name].unlocks?.() ?? isPanelComplete(name);
+  }
+
+  // One pass answers both: which panels open, and whether every one of them is complete,
+  // which is what the form may be submitted on.
   function updatePanelState() {
     let open = true;
+    let complete = true;
 
     for (const name of panelNames) {
       const element = panelElements.get(name);
@@ -116,10 +129,11 @@ function createForm({
         element.disabled = !open;
       }
 
-      open = open && isPanelComplete(name);
+      complete = complete && isPanelComplete(name);
+      open = open && canOpenNext(name);
     }
 
-    onRefresh?.(open);
+    onRefresh?.(complete);
   }
 
   // ─── SUBMITTING ────────────────────────────────────────────────────────────
@@ -143,10 +157,9 @@ function createForm({
 
   // ─── FIELD PANELS ──────────────────────────────────────────────────────────
 
-  // The group for one panel, without its title — the fieldset carries that, so that every
-  // panel wears it the same way.
+  // The group for one panel, without its title: the fieldset renders that.
   function groupForPanel(name) {
-    const { title, ...layout } = panels[name];
+    const { title: _title, ...layout } = panels[name];
 
     return toPanelGroup(fields, name, layout, {
       editableOnly: true,
@@ -163,7 +176,7 @@ function createForm({
 
         return `
           <fieldset
-            class="form-panel column gap-md"
+            class="form-panel column gap-lg"
             data-panel="${name}"
           >
             ${title ? `<p class="title muted">${escapeHtml(title)}</p>` : ""}
@@ -174,13 +187,29 @@ function createForm({
       .join("");
   }
 
-  function getFieldSections() {
-    return fieldPanelNames.map((name) => ({
-      container: panelElements.get(name).querySelector("[data-panel-body]"),
+  // Where one panel's fields are drawn, and how. A component panel may carry schema fields
+  // too — it says where with `[data-panel-fields]`, and the card around them is its own, so
+  // the fields go in bare.
+  function getFieldSection(name) {
+    const slot = panelElements.get(name).querySelector("[data-panel-fields]");
 
-      draw: (values) =>
-        buildPanelCard(groupForPanel(name), values, fields, buildFields),
-    }));
+    if (slot) {
+      return {
+        container: slot,
+        draw: (values) => buildFields(groupForPanel(name)?.keys ?? [], values, fields),
+      };
+    }
+
+    if (panels[name].type !== "fields") return null;
+
+    return {
+      container: panelElements.get(name).querySelector("[data-panel-body]"),
+      draw: (values) => buildPanelCard(groupForPanel(name), values, fields, buildFields),
+    };
+  }
+
+  function getFieldSections() {
+    return panelNames.map(getFieldSection).filter(Boolean);
   }
 
   // ─── LIFECYCLE ─────────────────────────────────────────────────────────────

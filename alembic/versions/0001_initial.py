@@ -4,7 +4,7 @@ Generated from ``SQLModel.metadata``, deliberately, and squashed from the three
 migrations that preceded it. Those had drifted from the ORM in four columns — the
 multi-valued modality and finetuning fields were declared as a scalar enum or varchar
 while ``app.models`` mapped them as JSON — which no local database ever revealed,
-because ``scripts/load_fixtures.py`` builds its schema from the same metadata rather
+because the local loader of the time built its schema from the same metadata rather
 than from migrations. Only a migrated database carried the mismatch.
 
 The four multi-valued columns are ``JSONB``, matching the ORM: the leaderboard filters on

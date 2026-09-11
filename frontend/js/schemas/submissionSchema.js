@@ -61,6 +61,9 @@ const SUBMISSION_FIELDS = {
     required: true,
   },
 
+  // Set when a submission is created and fixed afterwards: validation reaches its verdict
+  // under this flag, and PATCH does not accept it. submissionCreate.js re-enables it for
+  // the one form that sets it.
   is_deterministic: {
     label: "Deterministic",
     input: "select",
@@ -68,6 +71,7 @@ const SUBMISSION_FIELDS = {
     options: [true, false],
     panel: "information",
     required: true,
+    editable: false,
   },
 
   // `s3_key`, not `s3_url` — matches SubmissionDetail and the mock fixture.
@@ -117,11 +121,11 @@ async function loadSubmissionMeta() {
 // The above plus the Model select, whose options are the caller's own models — per-user
 // data, so a separate fetch rather than part of the meta document.
 async function loadSubmissionFields() {
-  await loadSubmissionMeta();
+  const needsModels = SUBMISSION_FIELDS.model_id.options === null;
 
-  if (SUBMISSION_FIELDS.model_id.options === null) {
-    const models = await getMyModels();
+  const [, models] = await Promise.all([loadSubmissionMeta(), needsModels ? getMyModels() : null]);
 
+  if (models) {
     SUBMISSION_FIELDS.model_id.options = models.map((model) => ({
       value: model.id,
       label: model.name,
@@ -131,9 +135,4 @@ async function loadSubmissionFields() {
   return SUBMISSION_FIELDS;
 }
 
-export {
-  SUBMISSION_FIELDS,
-  SUBMISSION_PANELS,
-  loadSubmissionFields,
-  loadSubmissionMeta,
-};
+export { SUBMISSION_FIELDS, SUBMISSION_PANELS, loadSubmissionFields, loadSubmissionMeta };

@@ -13,7 +13,7 @@
 import { installFieldHelp } from "../components/fieldHelp.js";
 import { formatDate } from "../core/utils.js";
 import { escapeHtml } from "../core/html.js";
-import { disabledOptionValues, isDisabled, isHelpPinned } from "./form.js";
+import { disabledOptionValues, isHelpPinned, isInactive, isLocked } from "./form.js";
 
 // Positioning a help popover so it stays on screen needs measurements, so it is document
 // work and lives in its own module. Asked for here because this is the module that emits the
@@ -105,9 +105,7 @@ function withHelp(labelHtml, helpHtml) {
 // checkbox-list could have had one per row, and did, but a column of "?"s beside the boxes
 // is noise where a single pinned block reads as one explanation.
 function optionsHelpText(field) {
-  const described = (field.options ?? []).filter(
-    (option) => option?.description,
-  );
+  const described = (field.options ?? []).filter((option) => option?.description);
 
   if (!described.length) return field.description ?? "";
 
@@ -143,10 +141,7 @@ function buildFieldLabel(key, field) {
   const help = buildHelp(key, field.description, { label: field.label });
 
   if (!field.icon) {
-    return withHelp(
-      `<label class="field-label">${escapeHtml(field.label)}</label>`,
-      help,
-    );
+    return withHelp(`<label class="field-label">${escapeHtml(field.label)}</label>`, help);
   }
 
   return withHelp(
@@ -193,11 +188,7 @@ const REQUIRED_MARKER = `<span class="required-marker" aria-hidden="true">*</spa
 // Returns the label row *and* the pinned help block, in that order, because every caller
 // puts the result immediately before its control — which is exactly where the pinned text
 // belongs, with no caller needing to place it.
-function buildInputLabel(
-  key,
-  field,
-  { htmlFor = true, help = field.description } = {},
-) {
+function buildInputLabel(key, field, { htmlFor = true, help = field.description } = {}) {
   const labelRow = withHelp(
     `
     <label class="field-label"${htmlFor ? ` for="${escapeHtml(key)}"` : ""}>
@@ -226,7 +217,7 @@ function buildTextareaField(key, state, fields) {
         placeholder="${escapeHtml(field.placeholder)}"
         data-field="${escapeHtml(key)}"
         ${field.required ? "required" : ""}
-        ${isDisabled(field, state) ? "disabled" : ""}
+        ${isInactive(field, state) ? "disabled" : ""}
       >${escapeHtml(value)}</textarea>
     </div>
   `;
@@ -247,7 +238,7 @@ function buildInputField(key, state, fields) {
         placeholder="${escapeHtml(field.placeholder)}"
         data-field="${escapeHtml(key)}"
         ${field.required ? "required" : ""}
-        ${isDisabled(field, state) ? "disabled" : ""}
+        ${isInactive(field, state) ? "disabled" : ""}
         value="${escapeHtml(value)}">
     </div>
   `;
@@ -275,7 +266,7 @@ function buildSelectField(key, state, fields) {
         class="input-select"
         data-field="${escapeHtml(key)}"
         ${field.required ? "required" : ""}
-        ${isDisabled(field, state) ? "disabled" : ""}>
+        ${isInactive(field, state) ? "disabled" : ""}>
 
         <option value="" disabled ${value == null ? "selected" : ""}>
           ${escapeHtml(field.placeholder ?? "Select an option...")}
@@ -310,7 +301,7 @@ function buildCheckboxListField(key, state, fields) {
   const field = fields[key];
   const options = field.options.map(normalizeOption);
   const disabledOptions = disabledOptionValues(field, state);
-  const fieldDisabled = isDisabled(field, state);
+  const fieldDisabled = isInactive(field, state);
 
   return `
     <div class="column gap-xs">
@@ -320,7 +311,7 @@ function buildCheckboxListField(key, state, fields) {
         ${options
           .map(
             ({ value: optionValue, label: optionLabel }) => `
-          <label class="value row left gap-sm">
+          <label class="field-option row left gap-sm">
             <input
               class="field-checkbox"
               type="checkbox"
@@ -351,20 +342,14 @@ function buildCheckboxField(key, state, fields) {
         class="field-checkbox"
         type="checkbox"
         data-field="${escapeHtml(key)}"
-        ${isDisabled(field, state) ? "disabled" : ""}
+        ${isInactive(field, state) ? "disabled" : ""}
         ${value ? "checked" : ""}>
     </div>
   `;
 }
 
-function buildField(key, state, fields) {
-  const field = fields[key];
-
-  if (field.editable === false) {
-    return buildDisplayField(key, state, fields);
-  }
-
-  switch (field.input) {
+function buildControl(key, state, fields) {
+  switch (fields[key].input) {
     case "checkbox-list":
       return buildCheckboxListField(key, state, fields);
 
@@ -382,6 +367,26 @@ function buildField(key, state, fields) {
   }
 }
 
+// Why a locked control is off. A `lockedWhen` with no `lockedNote` just switches the control
+// off, which is the right shape where the reason is obvious from the page.
+function lockedNoteOf(field, state) {
+  return isLocked(field, state) ? (field.lockedNote ?? "") : "";
+}
+
+function buildField(key, state, fields) {
+  const field = fields[key];
+
+  if (field.editable === false) {
+    return buildDisplayField(key, state, fields);
+  }
+
+  const control = buildControl(key, state, fields);
+  const note = lockedNoteOf(field, state);
+
+  // A disabled control takes no pointer events, so its hover text hangs on a wrapper.
+  return note ? `<div class="locked-field" title="${escapeHtml(note)}">${control}</div>` : control;
+}
+
 // ─── RUNS OF FIELDS ──────────────────────────────────────────────────────────
 
 // Both take (keys, values, fields, inline), so either can be buildPanelCards' builder.
@@ -391,9 +396,7 @@ function buildFields(keys, state, fields) {
 }
 
 function buildDisplayFields(keys, state, fields, inline = false) {
-  return keys
-    .map((key) => buildDisplayField(key, state, fields, inline))
-    .join("");
+  return keys.map((key) => buildDisplayField(key, state, fields, inline)).join("");
 }
 
 // ─── CARDS AND GRIDS ─────────────────────────────────────────────────────────
@@ -424,7 +427,7 @@ function buildPanelCard(panelGroup, values, fields, buildRun) {
   const { title, keys, inline, columns } = panelGroup;
 
   return `
-    <div class="card column gap-md">
+    <div class="card secondary column gap-lg">
       ${title ? `<p class="title muted">${escapeHtml(title)}</p>` : ""}
       ${wrapColumns(buildRun(keys, values, fields, inline), columns)}
     </div>
@@ -434,11 +437,9 @@ function buildPanelCard(panelGroup, values, fields, buildRun) {
 // One card per panel, which is how a read-only view and its edit form share one layout.
 function buildPanelCards(panelGroups, values, fields, buildRun) {
   return `
-    <div class="column gap-lg">
+    <div class="column gap-xl">
       ${panelGroups
-        .map((panelGroup) =>
-          buildPanelCard(panelGroup, values, fields, buildRun),
-        )
+        .map((panelGroup) => buildPanelCard(panelGroup, values, fields, buildRun))
         .join("")}
     </div>
   `;

@@ -20,10 +20,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_session
-from app.models import TeamRole, UserTeam, User
+from app.models import TeamRole, UserRole, UserTeam, User
 
-# _DEV_SUB = "dev|local-user"
-_DEV_SUB = "google-oauth2|000000000000000000001"
+# The stub user dev mode authenticates every request as. Read by the seed scripts too.
+DEV_SUB = "google-oauth2|000000000000000000001"
+DEV_EMAIL = "dev@brainwidebench.org"
+DEV_NAME = "Dev User"
+
 _jwks_cache: dict | None = None
 
 
@@ -153,7 +156,7 @@ async def get_current_user(
     user. In dev mode a stub user is returned without any token.
     """
     if settings.dev_mode:
-        claims = {"sub": _DEV_SUB, "email": "dev@brainwidebench.org", "name": "Dev User"}
+        claims = {"sub": DEV_SUB, "email": DEV_EMAIL, "name": DEV_NAME}
         return await _upsert_user(session, claims)
 
     if not authorization or not authorization.lower().startswith("bearer "):
@@ -183,14 +186,29 @@ async def get_current_user_optional(
         return None
 
 
+async def is_admin(user_id: uuid.UUID | None, session: AsyncSession) -> bool:
+    """Whether ``user_id`` holds the ``admin`` role, which passes every team check below.
+
+    ``session.get`` rather than a select: ``get_current_user`` has already loaded this row
+    into the same request-scoped session, so this is an identity-map hit issuing no SQL.
+    """
+    if user_id is None:
+        return False
+
+    user = await session.get(User, user_id)
+
+    return user is not None and user.role is UserRole.admin
+
+
 async def member_team_roles(
     user_id: uuid.UUID | None, session: AsyncSession
 ) -> dict[uuid.UUID, TeamRole]:
     """``user_id``'s role in each team they belong to, fetched in one query.
 
-    The single definition of what team membership means, and now of what it grants:
-    everything below is a thin wrapper over it, so a future ``accepted_at`` filter or a
-    superuser bypass has exactly one place to be added rather than five.
+    The single definition of what team membership means, so a future ``accepted_at`` filter
+    has one place to be added rather than five. Deliberately not where the ``admin`` bypass
+    lives: this stays the record of the teams a user is actually in, which is what keeps
+    ``/api/users/me/*`` answering "what is mine" for an admin too.
 
     A team the user isn't in is simply absent, so callers use ``.get(team_id)``.
     """
@@ -216,7 +234,7 @@ async def member_team_ids(user_id: uuid.UUID | None, session: AsyncSession) -> s
 async def is_team_member(
     user_id: uuid.UUID | None, team_id: uuid.UUID, session: AsyncSession
 ) -> bool:
-    """Whether ``user_id`` belongs to ``team_id``.
+    """Whether ``user_id`` belongs to ``team_id``, or holds the ``admin`` role.
 
     For deciding what to *show* rather than whether to allow: it returns False for
     an anonymous caller instead of raising, which is what a public endpoint
@@ -224,19 +242,25 @@ async def is_team_member(
 
     Note a non-existent team is also False, so a caller that relies on this alone
     will refuse a missing team rather than 404 it — look the resource up first if
-    that distinction matters.
+    that distinction matters. An admin is True even so.
     """
+    if await is_admin(user_id, session):
+        return True
+
     return team_id in await member_team_roles(user_id, session)
 
 
 async def is_team_owner(
     user_id: uuid.UUID | None, team_id: uuid.UUID, session: AsyncSession
 ) -> bool:
-    """Whether ``user_id`` owns ``team_id``.
+    """Whether ``user_id`` owns ``team_id``, or holds the ``admin`` role.
 
     For deciding what to *show* — whether to offer the controls that manage a team's
     membership — as ``is_team_member`` is for deciding what to show a member.
     """
+    if await is_admin(user_id, session):
+        return True
+
     return (await member_team_roles(user_id, session)).get(team_id) == TeamRole.owner
 
 
@@ -252,6 +276,8 @@ async def require_team_owner(
     The stricter sibling of ``require_team_member``. Membership decides what you may see
     and submit; ownership decides who else gets in — otherwise anyone admitted to a team
     could admit anyone else, or remove the person who admitted them.
+
+    Passes for an admin, through ``is_team_owner``.
     """
     if not await is_team_owner(user_id, team_id, session):
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail)
@@ -272,6 +298,8 @@ async def require_team_member(
 
     Pass ``detail`` where the generic message would be ambiguous — an endpoint
     touching two teams should say which one the caller was refused on.
+
+    Passes for an admin, through ``is_team_member``.
     """
     if not await is_team_member(user_id, team_id, session):
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail)

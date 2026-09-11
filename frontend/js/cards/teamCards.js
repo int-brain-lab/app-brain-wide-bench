@@ -4,9 +4,12 @@
 // above them and the table beside them read one shape.
 
 import { escapeHtml } from "../core/html.js";
+import { hrefForRecord } from "../core/links.js";
 import { buildRoleBadge } from "../components/badges.js";
 import { buildCount } from "../components/count.js";
 import { createCardGrid } from "./cardGrid.js";
+
+const TEAM_PAGE = "/html/teams/teams.html";
 
 // `role` is the caller's own, and only the listings scoped to them carry one.
 // buildRoleBadge renders nothing when it's absent.
@@ -15,14 +18,14 @@ function buildTeamCard(team) {
 
   return `
     <a
-      class="card column left gap-md"
-      href="/html/teams/teams.html?id=${encodeURIComponent(team.id)}"
+      class="card column left gap-lg"
+      href="${hrefForRecord(TEAM_PAGE, team.id, { mine: team.is_mine })}"
     >
       <div class="column left">
-        <p class="title">${escapeHtml(team.name)}</p>
+        <p class="label">${escapeHtml(team.name)}</p>
       </div>
 
-      ${role ? `<div class="row left gap-md">${role}</div>` : ""}
+      ${role ? `<div class="row left gap-lg">${role}</div>` : ""}
 
       <p class="metadata">
         ${buildCount(team.n_members, "member")}
@@ -52,4 +55,4 @@ function createTeamCardGrid(options = {}) {
   });
 }
 
-export { createTeamCardGrid };
+export { buildTeamCards, createTeamCardGrid };

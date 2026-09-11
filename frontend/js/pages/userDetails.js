@@ -6,11 +6,10 @@
 import { refreshIcons } from "../core/render.js";
 import { loadMe, updateMe } from "../api/userApi.js";
 import { USER_FIELDS, USER_PANELS } from "../schemas/userSchema.js";
-import { buildSuccessMessage } from "../components/messages.js";
 import { fillSidebarUser } from "../nav/navSide.js";
 import { renderRecordDetailsView } from "../templates/recordDetails.js";
 import { loadPage } from "../templates/page.js";
-import { renderHeader, renderMessage } from "../templates/pageChrome.js";
+import { renderHeader } from "../templates/pageChrome.js";
 
 // ─── DETAILS VIEW ────────────────────────────────────────────────────────────
 
@@ -34,9 +33,8 @@ function renderDetailsView(user) {
   return page.attachEditor({
     save: (draft) => updateMe(draft),
 
+    // No message of its own: attachRecordEditor has already reported the update.
     onSaved: async () => {
-      renderMessage(buildSuccessMessage("Details successfully saved."));
-
       // The sidebar shows the name that was just edited.
       await fillSidebarUser();
     },

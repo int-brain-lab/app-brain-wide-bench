@@ -1,14 +1,16 @@
-import { initials } from "../core/utils.js";
 import { escapeHtml } from "../core/html.js";
-import { apiFetch, isAuthenticated, login, logout } from "../api/client.js";
 import { renderHtml } from "../core/render.js";
+import { initials } from "../core/utils.js";
+import { login, logout } from "../api/client.js";
+import { getCurrentUser } from "../api/userApi.js";
+import { buildSignInButton, buildSignOutButton } from "../components/buttons.js";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 // The public surface, in the order a reader meets it — the scores, then what produced
-// them — with the way into the signed-in half last. Models and Submissions are the
-// unscoped lists; the sidebar's "My models" and "My submissions" are the same pages at
-// data-scope="mine".
+// them — with the way into the signed-in half last. Models is the unscoped list, the same
+// page the sidebar's "My models" is at data-scope="mine"; Tasks is every scored task, which
+// is the sidebar's "All tasks".
 // Where signing in lands, and the nav item that names it — one constant, so the button and
 // the link can't drift apart.
 const DASHBOARD_HREF = "/html/dashboard/dashboard.html";
@@ -18,28 +20,10 @@ const HOME_HREF = "/index.html";
 const NAV_ITEMS = [
   { label: "Leaderboard", href: "/html/leaderboard/leaderboard.html" },
   { label: "Models", href: "/html/models/model_list_public.html" },
-  {
-    label: "Submissions",
-    href: "/html/submissions/submission_list_public.html",
-  },
+  { label: "Tasks", href: "/html/tasks/task_list_public.html" },
   { label: "Teams", href: "/html/teams/team_list_public.html" },
   { label: "My dashboard", href: DASHBOARD_HREF },
 ];
-
-// ─── API ─────────────────────────────────────────────────────────────────────
-
-async function loadCurrentUser() {
-  try {
-    if (!(await isAuthenticated())) {
-      return null;
-    }
-
-    return await apiFetch("/api/users/me");
-  } catch (err) {
-    console.error(err);
-    return null;
-  }
-}
 
 // ─── DOM ─────────────────────────────────────────────────────────────────────
 
@@ -104,12 +88,12 @@ function renderNavLinks(page) {
   `;
 }
 
+// Both are looked up by id once the nav is written — see attachNavEvents.
+const LOGIN_ID = "login-btn";
+const LOGOUT_ID = "logout-btn";
+
 function renderLoginButton() {
-  return `
-    <button type="button" class="btn primary" id="login-btn">
-      Sign in
-    </button>
-  `;
+  return buildSignInButton({ id: LOGIN_ID });
 }
 
 // `initials` takes the leading character of each word, so a display name
@@ -119,18 +103,16 @@ function renderUserMenu(user) {
   const name = user.name || user.email;
 
   return `
-    <span class="user-logo large">
+    <span class="user-logo">
       ${escapeHtml(initials(name))}
     </span>
 
-    <button type="button" class="btn" id="logout-btn">
-      Sign out
-    </button>
+    ${buildSignOutButton({ id: LOGOUT_ID })}
   `;
 }
 
 async function renderAuthSection() {
-  const user = await loadCurrentUser();
+  const user = await getCurrentUser();
 
   return `
     <div class="nav-auth">
@@ -144,13 +126,9 @@ async function renderAuthSection() {
 function attachNavEvents() {
   // Arrows, not the bare functions: a listener is called with the click event, and `login`
   // now reads its first argument as the page to return to.
-  document
-    .getElementById("login-btn")
-    ?.addEventListener("click", () => login(DASHBOARD_HREF));
+  document.getElementById(LOGIN_ID)?.addEventListener("click", () => login(DASHBOARD_HREF));
 
-  document
-    .getElementById("logout-btn")
-    ?.addEventListener("click", () => logout());
+  document.getElementById(LOGOUT_ID)?.addEventListener("click", () => logout());
 }
 
 // ─── INITIALISATION ──────────────────────────────────────────────────────────

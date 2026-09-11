@@ -54,9 +54,7 @@ function createRecordRouter({
     const current = new URLSearchParams(location.search);
 
     return Object.fromEntries(
-      viewParams
-        .filter((param) => current.has(param))
-        .map((param) => [param, current.get(param)]),
+      viewParams.filter((param) => current.has(param)).map((param) => [param, current.get(param)]),
     );
   }
 
@@ -66,10 +64,7 @@ function createRecordRouter({
     // Optional call, not a bare one: `.destroy()` comes from Tabulator 6 docs and has never
     // been run here. A wrong name should leak, not throw and kill navigation.
     if (typeof mounted.destroy !== "function") {
-      console.warn(
-        "Record view returned a handle with no destroy(); it will leak.",
-        mounted,
-      );
+      console.warn("Record view returned a handle with no destroy(); it will leak.", mounted);
     }
 
     dispose(mounted);
@@ -131,9 +126,7 @@ function createRecordRouter({
 
     // No pushState here — pushing on a popstate adds an entry per press and the page
     // becomes impossible to leave.
-    addEventListener("popstate", () =>
-      showView(viewFromUrl(), paramsFromUrl()),
-    );
+    addEventListener("popstate", () => showView(viewFromUrl(), paramsFromUrl()));
   }
 
   // Read once at boot and deleted from the URL, so a flag can't ride along to a later view

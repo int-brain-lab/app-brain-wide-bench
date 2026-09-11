@@ -16,18 +16,6 @@ import { createFilterState } from "../components/filterState.js";
 
 // Plain `.table` markup from the column definitions the Tabulator grids use.
 
-// `href` leaves the page, `view` is a router view. A `view` keeps `href="#"` beside it: the
-// router falls through to the href on a page that doesn't own the view.
-function buildViewAllLink(noun, viewAll) {
-  if (!viewAll) return "";
-
-  const target = viewAll.view
-    ? `href="#" data-view="${escapeHtml(viewAll.view)}"`
-    : `href="${escapeHtml(viewAll.href)}"`;
-
-  return `<a class="link" data-role="view-all" ${target}>View all ${escapeHtml(noun)}s →</a>`;
-}
-
 // Formatters are handed a Tabulator cell object; this presents the same shape.
 function staticCell(row, field) {
   return {
@@ -61,17 +49,10 @@ function previewRows(rows, compare, limit) {
  * @param rows    already mapped, ordered and sliced — see previewRows.
  * @param noun    *singular* noun — the footer adds the "s". Omit for no footer.
  * @param total   rows before the slice, for "3 out of 12". Defaults to `rows.length`.
- * @param viewAll {href} or {view} for the footer's "View all" link. Omit for no link.
  *
  * @returns the markup.
  */
-function buildStaticTable({
-  columns,
-  rows,
-  noun,
-  total = rows.length,
-  viewAll,
-}) {
+function buildStaticTable({ columns, rows, noun, total = rows.length }) {
   return `
     <div class="table">
       <table>
@@ -92,8 +73,7 @@ function buildStaticTable({
         noun
           ? `
         <div class="table-footer">
-          <span>${buildTableCount(rows.length, total, noun)}</span>
-          ${buildViewAllLink(noun, viewAll)}
+          <span class="metadata">${buildTableCount(rows.length, total, noun)}</span>
         </div>
       `
           : ""
@@ -120,19 +100,23 @@ function buildStaticTable({
  *                       later selects or deselects one by value. Defaults to "id".
  * @param onRowClick     (rowData, {event, element}) => void, on every row click. The
  *                       element is the row's own. Omit for no click handling.
- * @param selection      {max, onChange, claimLinks, rolling} — makes rows pickable by
+ * @param selection      {max, onChange, rolling, enabled} — makes rows pickable by
  *                       clicking them, at most `max` at a time, and calls
  *                       `onChange(rows, {selected, deselected})` with the selected row data
  *                       and the row components that changed. A pick shows as an edge down
  *                       the row's left — see `.tabulator-selected` in style.css.
- *                       `claimLinks` says what a click on a link inside a row does: `true`
- *                       picks the row instead of following it, which is what a table
- *                       building a selection wants; `false` follows the link and leaves the
- *                       selection alone, for a table whose rows both open something beside
- *                       them and link somewhere else.
+ *                       `claimLinks` is () => whether a link inside a row is part of the row
+ *                       rather than a way out of it: where it holds, a click on one picks the
+ *                       row and the navigation is cancelled. Defaults to "whenever the row
+ *                       may be picked"; a list that is only ever picking passes its own, since
+ *                       there the links are the one way out.
  *                       `rolling: true` lets a pick past the cap push the oldest out, which
  *                       is what a panel showing one row at a time wants — clicking another
- *                       row plainly means "that one". Omit for a table nothing selects.
+ *                       row plainly means "that one".
+ *                       `enabled` is () => whether a click may pick at all, read live: a
+ *                       board that only becomes pickable on demand cannot rebuild its rows
+ *                       to say so — see canPick. Omit for rows that are always pickable.
+ *                       Omit `selection` itself for a table nothing selects.
  * @param header         markup above the grid, inside the same root — see
  *                       createFilterableTable, which puts the filter bar there.
  *
@@ -153,16 +137,12 @@ function createTable({
   layout = "fitColumns",
 }) {
   if (typeof Tabulator === "undefined") {
-    throw new Error(
-      `Tabulator is not loaded — add its <script> and <link> to the page.`,
-    );
+    throw new Error(`Tabulator is not loaded — add its <script> and <link> to the page.`);
   }
 
-  const root = container
-    ? resolveContainer(container)
-    : document.createElement("div");
+  const root = container ? resolveContainer(container) : document.createElement("div");
 
-  root.className = "column gap-md";
+  root.className = "column gap-lg";
 
   renderHtml(
     root,
@@ -178,10 +158,7 @@ function createTable({
     const count = root.querySelector("[data-role='count']");
     if (!count) return;
 
-    setText(
-      count,
-      buildTableCount(table.getDataCount("display"), rows.length, noun),
-    );
+    setText(count, buildTableCount(table.getDataCount("display"), rows.length, noun));
   }
 
   const table = new Tabulator(root.querySelector("[data-role='grid']"), {
@@ -199,7 +176,7 @@ function createTable({
     // Tabulator lays its footer out as a flex row and gives the paginator
     // `flex: 1; text-align: right`, so this sits left of the page buttons. Setting
     // footerElement also keeps the footer when pagination is off.
-    footerElement: `<span data-role="count"></span>`,
+    footerElement: `<span class="metadata" data-role="count"></span>`,
 
     placeholder: `No ${noun}s match these filters.`,
 
@@ -221,8 +198,16 @@ function createTable({
       : {}),
   });
 
-  // The row cursor keys off this — see `[data-rows-selectable]` in style.css.
-  root.dataset.rowsSelectable = selection ? "true" : "false";
+  // Whether a click may pick, read live so a caller can turn picking on and off without
+  // rebuilding the rows — see selectableRows, which is fixed at row-init.
+  const canPick = selection?.enabled ?? (() => true);
+
+  // And whether a link inside a row is the row's rather than a way out of it.
+  const claimsLinks = selection?.claimLinks ?? canPick;
+
+  // The row cursor keys off this — see `[data-rows-selectable]` in style.css. Written again by
+  // a caller that turns picking on or off.
+  root.dataset.rowsSelectable = String(Boolean(selection) && canPick());
 
   // Tabulator 6 dropped callbacks-as-options: a `renderComplete:` key in the constructor is
   // discarded in silence. The event fires after the display rows have settled, which
@@ -237,24 +222,27 @@ function createTable({
       selection.onChange(data, { selected, deselected }),
     );
 
-    // Tabulator's own row-click selection runs either way, so both branches are about a
-    // click that lands on a link: one cancels the navigation, the other cancels the pick.
-    if (selection.claimLinks) {
-      table.on("rowClick", (event) => {
-        if (event.target.closest("a")) event.preventDefault();
-      });
-    } else {
-      // Captured on the root, so it runs before the listener Tabulator put on the row and
-      // stops the event reaching it — which is what keeps the row from being picked.
-      // `stopPropagation` leaves the default action alone, so the link still navigates.
-      root.addEventListener(
-        "click",
-        (event) => {
-          if (event.target.closest("a")) event.stopPropagation();
-        },
-        true,
-      );
-    }
+    // Where the row is the control, a link inside it goes nowhere: the pick wins and the
+    // navigation is cancelled.
+    table.on("rowClick", (event) => {
+      if (claimsLinks() && event.target.closest("a")) event.preventDefault();
+    });
+
+    // Captured on the root, so it runs before the listener Tabulator put on the row and stops
+    // the event reaching it — which is what keeps a row from being picked while picking is
+    // off. `stopPropagation` leaves the default action alone, so the links still navigate.
+    //
+    // Rows only. The header sorts and the footer pages through the same root, and stopping
+    // every click here left both of them dead whenever picking was off.
+    root.addEventListener(
+      "click",
+      (event) => {
+        if (!canPick() && event.target.closest(".tabulator-row")) {
+          event.stopPropagation();
+        }
+      },
+      true,
+    );
   }
 
   if (onRowClick) {
@@ -291,4 +279,4 @@ function createFilterableTable({ controls = [], ...rest }) {
   return { element, table };
 }
 
-export { previewRows, buildStaticTable, createTable, createFilterableTable };
+export { buildStaticTable, createFilterableTable, createTable, previewRows };

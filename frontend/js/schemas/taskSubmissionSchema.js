@@ -68,8 +68,7 @@ const TASK_FIELDS = {
       const outputModality = suiteOutputModality[suite];
       const inputMatches = model.pretrained_in_modalities?.includes("spikes");
       const outputMatches =
-        outputModality &&
-        model.pretrained_out_modalities?.includes(outputModality);
+        outputModality && model.pretrained_out_modalities?.includes(outputModality);
       if (!inputMatches || !outputMatches) {
         disabled.push("TSS");
       }
@@ -111,8 +110,7 @@ const TASK_FIELDS = {
     panel: "methodology",
     enum: "calibration",
     // Single-session models are always transductive (trained from scratch).
-    disabledOptionsWhen: (state) =>
-      state.model?.is_pretrained ? [] : ["inductive"],
+    disabledOptionsWhen: (state) => (state.model?.is_pretrained ? [] : ["inductive"]),
   },
 
   finetuning_strategy: {
@@ -140,10 +138,7 @@ async function loadTaskFields() {
   const meta = await getMeta();
 
   suiteOutputModality = Object.fromEntries(
-    Object.entries(meta.suites).map(([suite, { output_modality }]) => [
-      suite,
-      output_modality,
-    ]),
+    Object.entries(meta.suites).map(([suite, { output_modality }]) => [suite, output_modality]),
   );
 
   return applyFieldMeta(TASK_FIELDS, meta, "task_submission");
@@ -158,15 +153,7 @@ function trainingFieldKeys() {
 // The methodology keys, and only those, read off a form's state. Here rather than in the
 // API module: which keys the server takes is schema knowledge, and api/ sits below this.
 function toMethodologyValues(state) {
-  return Object.fromEntries(
-    trainingFieldKeys().map((key) => [key, state[key]]),
-  );
+  return Object.fromEntries(trainingFieldKeys().map((key) => [key, state[key]]));
 }
 
-export {
-  TASK_FIELDS,
-  TASK_PANELS,
-  loadTaskFields,
-  toMethodologyValues,
-  trainingFieldKeys,
-};
+export { TASK_FIELDS, TASK_PANELS, loadTaskFields, toMethodologyValues, trainingFieldKeys };

@@ -1,321 +1,314 @@
-// Compare several task scores side by side.
+// Compare several task scores side by side, in two panels:
 //
-// A score is identified by `entry.key` and may provide:
-//   - means:     one bar per score for each metric
-//   - methodology: one score per column and training field per row
-//   - recordings: the recordings behind each score
+//   means        one bar per score, for the metric its task type is read in
+//   recordings   the categories behind each score, as plots or a heatmap
 //
-// Scores are grouped by their complete set of metrics. A metric selector is
-// shown for each group, so every score in that plot is measured in the same way.
+// Scores are grouped by task type, so every score in one plot is measured the same way and
+// can be offered the same metrics.
 //
-// `createComparison` owns score selection, loading and colours. This component
-// owns how those scores are displayed.
+// `createComparison` owns the picks and the detail behind each. This component owns how
+// those scores are drawn.
 
 import { disposeAll } from "../core/disposable.js";
-import {
-  clearContent,
-  getElement,
-  renderHtml,
-} from "../core/render.js";
+import { resolveContainer } from "../core/dom.js";
 import { escapeHtml } from "../core/html.js";
-import { taskLabel } from "../core/suites.js";
-
+import { clearContent, getElement, refreshIcons, renderHtml } from "../core/render.js";
 import {
-  buildComparisonGrid,
-  buildPicks,
-  dropFromClick,
-} from "../components/comparisonGrid.js";
-
-import {
-  buildRecordingHeatmaps,
-  createMeanBars,
-  createRecordingBars,
-  createRecordingPlots,
-  toMeanSeries,
-  toScoreSeries,
-} from "../plots/recordingScorePlots.js";
-
-import { CATEGORIES_PER_LINE, SHARED_HEIGHT } from "../plots/figure.js";
-import { SERIES_COLOURS } from "../plots/palette.js";
-
+  metricLabel,
+  suiteFromTask,
+  suiteLabel,
+  taskFullLabel,
+  taskTypeLabel,
+  taskTypeOf,
+} from "../core/suites.js";
 import { loadTaskSubmission } from "../api/taskSubmissionApi.js";
-import { TASK_FIELDS } from "../schemas/taskSubmissionSchema.js";
-
+import { REGION_TASK_TYPE, toScoreDetail } from "../utils/recordingScoreUtils.js";
+import { SERIES_COLOURS } from "../plots/palette.js";
 import {
-  methodologyCells,
-  methodologyColumns,
-} from "../components/methodologyGrid.js";
-
-import {
-  EMPTY_STORE,
-  toRecordingStore,
-} from "../utils/recordingScoreUtils.js";
-
-import { createComparison } from "./comparison.js";
-
-import {
-  buildSections,
-  getSection,
-  getSectionBody,
-} from "../components/sections.js";
-
+  SCORE_RANGE,
+  buildScoreHeatmaps,
+  createCategoryPlot,
+  createMeanPlot,
+} from "../plots/taskScorePlots.js";
+import { createTaskPlot } from "../plots/recordPlots.js";
+import { buildMetricBadge, buildTaskBadge } from "../components/badges.js";
 import { buildToggle } from "../components/buttons.js";
-import { createTabDock } from "../components/tabDock.js";
-import { buildSelect } from "../components/filters.js";
-
+import { buildPicks, dropFromClick } from "../components/comparisonGrid.js";
+import { buildEmptyMessage } from "../components/messages.js";
+import { buildSections, getSection, getSectionBody } from "../components/sections.js";
+import { createComparison } from "./comparison.js";
+import { MAX_COMPARED } from "./limits.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
-const MAX_COMPARED = 6;
+// One section holds the whole reading: a row per task type, its mean beside its recordings.
+const SCORES_SECTION = "scores";
 
-const MEANS_SECTION = "means";
-const METHODOLOGY_SECTION = "methodology";
-const RECORDINGS_SECTION = "recordings";
-
-const SCORES_PANEL = "score-panel";
-const METHODOLOGY_PANEL = "methodology-panel";
-
-const TABS = [
-  { value: SCORES_PANEL, label: "Scores" },
-  { value: METHODOLOGY_PANEL, label: "Methodology" },
-];
-
-const ANCHOR = SCORES_PANEL;
+// A row is one task type, and the two cells in it are found under it — see renderGroupRows.
+const GROUP_ROW = "group";
+const MEANS_SLOT = "[data-role='means']";
+const PLOTS_SLOT = "[data-role='plots']";
 
 const PICKS_ID = "score-picks";
 const PROMPT_ID = "score-prompt";
 
-const METRIC = "metric";
-const GROUP = "group";
+const EMPTY_PROMPT = `Select up to ${MAX_COMPARED} task scores to compare them`;
 
-const SEPARATE_VIEW = "separate-view";
+const METRIC = "metric";
+
+// The data attribute a group's cell carries its task type in, which is what `selectedMetrics`
+// is keyed on.
+const METRIC_GROUP = "metrics";
+
 const BARS_VIEW = "bars-view";
 const HEATMAP_VIEW = "heatmap-view";
 
 const VIEWS = [
-  { id: SEPARATE_VIEW, label: "Separate", icon: "cards" },
   { id: BARS_VIEW, label: "Bars", icon: "score" },
   { id: HEATMAP_VIEW, label: "Heatmap", icon: "suite" },
 ];
 
-
 // ─── SCORE DATA ──────────────────────────────────────────────────────────────
 
-// The recording store is cached against the fetched detail object.
-// Re-selecting a score therefore reuses its already-loaded recording data.
-const stores = new WeakMap();
+// The metrics a task type reports, learned from the first score of that type to land, and
+// kept for the life of the page.
+const metricsByTaskType = new Map();
 
-function storeOf(entry) {
-  const detail = entry.detail;
+function rememberMetrics({ taskType, metrics }) {
+  if (metricsByTaskType.has(taskType)) return;
 
-  if (!detail) return EMPTY_STORE;
+  const names = Object.keys(metrics);
 
-  let store = stores.get(detail);
+  if (names.length) metricsByTaskType.set(taskType, names);
+}
 
-  if (!store) {
-    store = toRecordingStore(detail.score?.metrics?.recordings);
-    stores.set(detail, store);
+function metricsFor(taskType) {
+  return metricsByTaskType.get(taskType) ?? [];
+}
+
+function colourFor(pick, comparison) {
+  return pick.colour ?? comparison.colourFor(pick.key);
+}
+
+// The task always, not only where several are in play: a pick is one model's score on one
+// task, and a chip that named only the model would stand for something narrower than it is.
+function labelOf(pick) {
+  const task = taskFullLabel(pick.taskId);
+  const name = pick.modelName ?? pick.submissionLabel;
+
+  return name ? `${name} · ${task}` : task;
+}
+
+// ─── SERIES ──────────────────────────────────────────────────────────────────
+
+// The categories the scores were measured over, in two buckets: a region is not a recording,
+// so the two never share an axis.
+function toCategories(scores) {
+  const recordings = new Set();
+  const regions = new Set();
+
+  for (const score of scores) {
+    const held = score.taskType === REGION_TASK_TYPE ? regions : recordings;
+
+    for (const key of score.detail?.index.keys() ?? []) held.add(key);
   }
 
-  return store;
+  return { recordings: sorted(recordings), regions: sorted(regions) };
 }
 
-function colourOf(entry, comparison) {
-  return entry.colour ?? comparison.colourOf(entry.key);
+// `numeric` so a key ending in 10 follows one ending in 2.
+function sorted(keys) {
+  return [...keys].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
 }
 
-function labelOf(entry, entries) {
-  const name = entry.modelName ?? entry.submissionLabel;
-  const multipleTasks = new Set(entries.map(({ taskId }) => taskId)).size > 1;
+// A metric the score never recorded, or a detail that has not landed: a series of gaps
+// rather than a missing series.
+const NO_VALUES = { mean: [], sem: [] };
 
-  if (!name) return entry.taskId;
-  if (!multipleTasks) return name;
-
-  return `${name} · ${entry.taskId}`;
+// One series per score, each over its own categories.
+function toScoreSeries(scores, metric) {
+  return scores.map(({ detail, taskType, colour, label }) => ({
+    colour,
+    label,
+    metric,
+    taskType,
+    index: detail?.index ?? new Map(),
+    values: detail?.metrics[metric] ?? NO_VALUES,
+  }));
 }
 
-
-// ─── METRIC GROUPS ────────────────────────────────────────────────────────────
-
-function metricsOf(entry) {
-  return Object.keys(storeOf(entry).metrics);
+// A group's means as one plot series: a category per score, so a bar each.
+function toMeanSeries(scores, metric) {
+  return {
+    label: null,
+    colours: scores.map((score) => score.colour),
+    metric,
+    index: new Map(scores.map((score, at) => [score.key, at])),
+    values: {
+      mean: scores.map((score) => score.detail?.means[metric]?.mean ?? null),
+      sem: scores.map((score) => score.detail?.means[metric]?.sem ?? null),
+    },
+  };
 }
 
-function combinationOf(entry) {
-  return metricsOf(entry).slice().sort().join("|");
-}
-
-function toMetricGroups(entries) {
+// Grouped by task type, which is what decides the metrics on offer and the axis drawn.
+function toTaskTypeGroups(scores) {
   const groups = new Map();
 
-  for (const entry of entries) {
-    const metrics = metricsOf(entry);
+  for (const score of scores) {
+    const key = score.taskType;
 
-    // The score has not loaded yet.
-    if (!metrics.length) continue;
+    // No score of this type has loaded yet.
+    if (!metricsFor(key).length) continue;
 
-    const key = combinationOf(entry);
+    if (!groups.has(key)) groups.set(key, { key, scores: [] });
 
-    if (!groups.has(key)) {
-      groups.set(key, {
-        key,
-        metrics,
-        entries: [],
-      });
-    }
-
-    groups.get(key).entries.push(entry);
+    groups.get(key).scores.push(score);
   }
 
   return [...groups.values()];
 }
 
-function tasksIn(group) {
-  return [...new Set(
-    group.entries
-      .map(({ taskId }) => taskLabel(taskId))
-      .filter(Boolean),
-  )].join(" · ");
-}
-
-
 // ─── MEANS ───────────────────────────────────────────────────────────────────
 
-function buildMetricSelect(group, metric) {
+// What a mean card is of: the metric it is drawn in, then the suite and task type it belongs
+// to — "BAcc  TS1 Categorical". The suite comes off the scores rather than from the type,
+// which is a fact about the numbers and not about which suite asked for them.
+function buildMeanBadges(group, metric) {
+  const suite = suiteFromTask(group.scores[0]?.taskId ?? "");
+
+  const name = [suiteLabel(suite), taskTypeLabel(group.key)].filter(Boolean).join(" ");
+
+  // Not `left`: the two say different things — what is drawn, and what it is of — so they
+  // read as the card's two ends rather than as a pair.
   return `
-    <span class="row left gap-md">
-      <span class="metadata">Metric</span>
-      <span class="inline-select">
-        ${buildSelect({
-          name: METRIC,
-          hook: "role",
-          options: group.metrics.map((name) => ({
-            value: name,
-            label: name,
-          })),
-          selected: metric,
-        })}
+    <span class="row gap-sm">
+      ${buildMetricBadge(metric, "sm")}
+      ${buildTaskBadge(name, suite ?? "ts-neutral", "sm")}
+    </span>
+  `;
+}
+
+// One badge per metric the task type reports, the one the plot above is read in lit. A row
+// of them rather than a select: there are two or three, and which is being read is then on
+// screen rather than behind a placeholder.
+function buildMetricBadges(taskType, metric) {
+  return `
+    <span class="row left gap-lg">
+      <span class="metadata">Metric:</span>
+      <span class="row left gap-sm">
+        ${metricsFor(taskType)
+          .map(
+            (name) => `
+              <button
+                type="button"
+                class="badge metric${name === metric ? " on" : ""}"
+                data-role="${METRIC}"
+                value="${escapeHtml(name)}"
+              >${escapeHtml(metricLabel(name))}</button>`,
+          )
+          .join("")}
       </span>
     </span>
   `;
 }
 
-
-// ─── METHODOLOGY ─────────────────────────────────────────────────────────────
-
-function buildMethodologyGrid(entries, fields, comparison, nameOf) {
-  return buildComparisonGrid({
-    attributes: methodologyColumns(fields),
-    entities: entries.map((entry) => ({
-      label: nameOf(entry),
-      ink: colourOf(entry, comparison),
-      cells: methodologyCells({
-        record: entry.detail ?? null,
-        fields,
-      }),
-    })),
-  });
+/**
+ * How the recordings are drawn, for a host placing it away from them — the buttons are found
+ * by id, so it may sit anywhere on the page.
+ *
+ * @returns the markup.
+ */
+function buildRecordingsToggle() {
+  return buildToggle(VIEWS);
 }
-
 
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
 
 /**
- * Create a comparison of task scores.
+ * A comparison of task scores, drawn into `container`.
  *
- * `options.toEntry` must return:
- *
- *   {
- *     key,
- *     taskId,
- *     submissionId,
- *     submissionLabel,
- *     modelName,
- *     colour?
- *   }
- *
- * `picks` controls whether the component owns the score-selection row.
- *
- * `methodology` controls whether the methodology panel is shown.
- *
- * `layout: "rows"` places means beside recordings.
+ * @param container   element, or the id of one. Its contents are replaced.
+ * @param nested      the narrower layout, for sitting beside a record comparison's plots.
+ *                    Without the mean scores, which those plots already are — one bar per
+ *                    record on the task this panel is open on.
+ * @param showPicks   whether this owns the row of picked scores. Omit for a host that draws
+ *                    its own.
+ * @param meansContainer where the mean of each score is drawn, for a host with a place of its
+ *                    own for it. The metric it is read in is chosen inside that card either
+ *                    way. Omit for the panel's own section.
+ * @param options     as createComparison. `toPick` makes a pick of
+ *                    `{ key, taskId, submissionId, submissionLabel, modelName, colour? }`;
+ *                    a host handing picks to `setPicks` makes them itself.
+ * @returns the comparison — see createComparison.
  */
 function createTaskComparison({
   container,
-  layout = "",
-  picks = true,
-  methodology = true,
+  nested = false,
+  showPicks = true,
+  meansContainer = null,
   ...options
 }) {
-  const beside = layout === "rows";
-
-  const panels = methodology
-    ? TABS
-    : TABS.filter(({ value }) => value === ANCHOR);
-
-  const hasTabs = panels.length > 1;
-
-  const dock = createTabDock({
-    noun: "scores",
-    tabs: panels,
-    container,
-    hasContent: (value) =>
-      value === METHODOLOGY_PANEL || entries().length > 0,
-    onChange: render,
-  });
-
-  const meanHeight = hasTabs ? null : SHARED_HEIGHT;
-
-  let view = SEPARATE_VIEW;
+  let view = BARS_VIEW;
   let comparison = null;
 
-  // Metric choice is stored per metric combination rather than per plot index.
+  // Keyed by task type.
   const selectedMetrics = new Map();
+
+  let taskTypeGroups = [];
+
+  let uniqueRecordings = [];
+  let uniqueRegions = [];
 
   let meanCharts = [];
   let plotCharts = [];
 
+  // ─── STATE ─────────────────────────────────────────────────────────────────
 
-  // ─── STATE ────────────────────────────────────────────────────────────────
-
-  function entries() {
-    return comparison?.entries() ?? [];
+  function picks() {
+    return comparison?.picks() ?? [];
   }
 
-  function groups() {
-    return toMetricGroups(entries());
+  // A pick as the panels read it: its colour off the palette, its label off the whole set.
+  function toScore(pick) {
+    return {
+      key: pick.key,
+      taskId: pick.taskId,
+      taskType: taskTypeOf(pick.taskId),
+      detail: pick.detail,
+      colour: colourFor(pick, comparison),
+      label: labelOf(pick),
+    };
   }
 
-  function metricFor(group) {
-    const selected = selectedMetrics.get(group.key);
-
-    if (selected && group.metrics.includes(selected)) {
-      return selected;
-    }
-
-    return group.metrics[0] ?? "";
+  function allScores() {
+    return picks().map(toScore);
   }
 
-  function metricsByScore() {
-    const result = new Map();
+  // What both panels walk every score for. Only on a pick or a fetch: a view or metric change
+  // moves neither the picks nor their details.
+  function updateGroups() {
+    const scores = picks().map(toScore);
 
-    for (const group of groups()) {
-      const metric = metricFor(group);
+    taskTypeGroups = toTaskTypeGroups(scores);
 
-      for (const entry of group.entries) {
-        result.set(entry.key, metric);
-      }
-    }
-
-    return result;
+    ({ recordings: uniqueRecordings, regions: uniqueRegions } = toCategories(scores));
   }
 
-  function nameOf(entry) {
-    return labelOf(entry, entries());
+  function categoriesFor(taskType) {
+    return taskType === REGION_TASK_TYPE ? uniqueRegions : uniqueRecordings;
   }
 
+  // The metric a task type is currently read in: the reader's choice while it is still one
+  // this type reports, and its first otherwise.
+  function metricFor(taskType) {
+    const metrics = metricsFor(taskType);
+    const selected = selectedMetrics.get(taskType);
 
-  // ─── CLEANUP ──────────────────────────────────────────────────────────────
+    return selected && metrics.includes(selected) ? selected : (metrics[0] ?? "");
+  }
+
+  // ─── CLEANUP ───────────────────────────────────────────────────────────────
 
   function clearMeans() {
     disposeAll(meanCharts);
@@ -327,24 +320,22 @@ function createTaskComparison({
     plotCharts = [];
   }
 
-  function clearUp() {
+  function teardown() {
     clearMeans();
     clearPlots();
 
+    taskTypeGroups = [];
+    uniqueRecordings = [];
+    uniqueRegions = [];
+
     renderPicks();
 
-    getSection(MEANS_SECTION).hidden = true;
-    getSection(RECORDINGS_SECTION).hidden = true;
+    getSection(SCORES_SECTION).hidden = true;
 
-    if (!methodology) {
-      clearContent(getElement(PROMPT_ID));
-    }
-
-    dock.render();
+    clearContent(getElement(PROMPT_ID));
   }
 
-
-  // ─── RENDERING ────────────────────────────────────────────────────────────
+  // ─── RENDERING ─────────────────────────────────────────────────────────────
 
   function renderPicks() {
     const row = getElement(PICKS_ID);
@@ -354,167 +345,242 @@ function createTaskComparison({
     renderHtml(
       row,
       buildPicks(
-        entries().map((entry) => ({
-          key: entry.key,
-          label: nameOf(entry),
-          ink: colourOf(entry, comparison),
+        allScores().map((score) => ({
+          key: score.key,
+          label: score.label,
+          ink: score.colour,
         })),
       ),
       { refresh: true },
     );
   }
 
-  function renderMeans() {
-    const section = getSectionBody(MEANS_SECTION);
-    const metricGroups = groups();
-
-    clearMeans();
-
-    getSection(MEANS_SECTION).hidden = metricGroups.length === 0;
-
-    if (!metricGroups.length) {
-      renderHtml(section, "");
-      return;
-    }
+  // A row per task type, its mean on the left and its own recordings to the right of it —
+  // a fifth of the row against four, see `.section-row.ratio-5`. Split by type rather than
+  // pooled: a behavioural readout and a
+  // neural reconstruction share neither a metric nor a scale, so the plots of one are not
+  // read against the plots of the other.
+  //
+  // Written whenever the groups move, since a row *is* a group. Nested there are no rows: the
+  // host draws the mean itself and the recordings stack in the one column it gave us.
+  function renderGroupRows() {
+    if (nested) return;
 
     renderHtml(
-      section,
+      getSectionBody(SCORES_SECTION),
       `
-        <div
-          class="chart-weighted"
-          style="--plot-tracks:${beside ? 1 : CATEGORIES_PER_LINE}"
-        >
-          ${metricGroups.map((group, index) => `
+        <div class="column gap-lg">
+          ${taskTypeGroups
+            .map(
+              (group) => `
             <div
-              class="column gap-sm"
-              data-${GROUP}="${index}"
+              class="section-row ratio-5"
+              data-${GROUP_ROW}="${escapeHtml(group.key)}"
             >
-              ${buildMetricSelect(group, metricFor(group))}
-            </div>
-          `).join("")}
+              <div data-role="means"></div>
+              <div data-role="plots"></div>
+            </div>`,
+            )
+            .join("")}
         </div>
       `,
     );
+  }
 
-    for (const [index, group] of metricGroups.entries()) {
-      const metric = metricFor(group);
+  // The row of badges that says what the plot above it is read in.
+  function buildMetricChoice(taskType, metric) {
+    const choice = document.createElement("div");
 
-      const plots = createMeanBars({
-        entries: group.entries.map((entry) =>
-          toMeanSeries(
-            storeOf(entry),
-            metric,
-            {
-              colour: colourOf(entry, comparison),
-              label: nameOf(entry),
-            },
-            group.key,
-          ),
-        ),
-        label: tasksIn(group),
-        height: meanHeight,
+    renderHtml(choice, buildMetricBadges(taskType, metric));
+
+    return choice;
+  }
+
+  function getGroupSlot(key, slot) {
+    return getSectionBody(SCORES_SECTION)?.querySelector(`[data-${GROUP_ROW}="${key}"] ${slot}`);
+  }
+
+  // One task type's mean, a bar per pick, and under it the choice of what to read it in.
+  // Nested the card is the one the breakdown draws — the task and the metric named inside it
+  // — where standalone it is this panel's own, headed by buildMeanBadges.
+  function buildMeanCell(group) {
+    const metric = metricFor(group.key);
+
+    const labels = new Map(group.scores.map((score) => [score.key, score.label]));
+
+    const series = toMeanSeries(group.scores, metric);
+    const categories = group.scores.map((score) => score.key);
+    const categoryLabel = (key) => labels.get(key);
+
+    if (nested) {
+      const plot = createTaskPlot({
+        series,
+        categories,
+        categoryLabel,
+        task: group.scores[0]?.taskId ?? "",
+        yRange: SCORE_RANGE,
+        height: 150,
       });
 
-      section
-        .querySelector(`[data-${GROUP}="${index}"]`)
-        ?.appendChild(plots.element);
+      plot.element.dataset[METRIC_GROUP] = group.key;
+      plot.element.appendChild(buildMetricChoice(group.key, metric));
 
-      meanCharts.push(...plots.charts);
+      meanCharts.push(plot.chart);
+
+      return plot.element;
     }
+
+    const plot = createMeanPlot({
+      series,
+      categories,
+      categoryLabel,
+      height: 150,
+    });
+
+    // What is drawn, the plot of it, and the choice of what to draw — one card, in that
+    // order. `METRIC_GROUP` on it is what the badge listener reads the task type off.
+    const cell = document.createElement("div");
+
+    cell.className = "card column gap-lg";
+    cell.dataset[METRIC_GROUP] = group.key;
+
+    renderHtml(cell, buildMeanBadges(group, metric));
+    cell.appendChild(plot.element);
+
+    cell.appendChild(buildMetricChoice(group.key, metric));
+
+    meanCharts.push(plot.chart);
+
+    return cell;
   }
 
-  function renderMethodology() {
-    renderHtml(
-      getSectionBody(METHODOLOGY_SECTION),
-      buildMethodologyGrid(
-        entries(),
-        TASK_FIELDS,
-        comparison,
-        nameOf,
-      ),
-      { refresh: true },
-    );
-  }
+  function renderMeans() {
+    clearMeans();
 
-  function renderRecordings() {
-    const section = getSectionBody(RECORDINGS_SECTION);
+    if (!taskTypeGroups.length) return;
 
-    clearPlots();
+    // Nested, every mean goes in the one container the host gave us — and there is only ever
+    // the one task there, so it is one card in practice.
+    if (meansContainer) {
+      const grid = document.createElement("div");
 
-    const metricByScore = metricsByScore();
+      grid.className = "column gap-lg";
 
-    const plotEntries = entries().map((entry) =>
-      toScoreSeries(
-        storeOf(entry),
-        metricByScore.get(entry.key),
-        {
-          colour: colourOf(entry, comparison),
-          label: nameOf(entry),
-        },
-      ),
-    );
+      for (const group of taskTypeGroups) {
+        grid.appendChild(buildMeanCell(group));
+      }
 
-    if (view === HEATMAP_VIEW) {
-      renderHtml(
-        section,
-        buildRecordingHeatmaps({ entries: plotEntries }),
-      );
+      resolveContainer(meansContainer).replaceChildren(grid);
+
       return;
     }
 
-    const draw =
-      view === BARS_VIEW
-        ? createRecordingBars
-        : createRecordingPlots;
-
-    const layout = hasTabs
-      ? plotEntries.length < 4
-        ? "stack"
-        : "pair"
-      : "grid";
-
-    const plots = draw({
-      entries: plotEntries,
-      facet: "score",
-      layout,
-    });
-
-    section.replaceChildren(plots.element);
-    plotCharts = plots.charts;
+    for (const group of taskTypeGroups) {
+      getGroupSlot(group.key, MEANS_SLOT)?.replaceChildren(buildMeanCell(group));
+    }
   }
 
-  function render() {
+  // By group, so comparable plots sit together. A score whose type has not loaded is in no
+  // group and is left out.
+  // One task type's recordings, a plot per score over the categories that type is measured
+  // on. Three across standalone, one per row nested, where the column sits beside the task.
+  function buildPlotCells(group) {
+    const element = document.createElement("div");
+
+    element.className = nested ? "column gap-lg" : "grid-3 gap-xs";
+
+    const categories = categoriesFor(group.key);
+
+    for (const series of toScoreSeries(group.scores, metricFor(group.key))) {
+      const plot = createCategoryPlot({ series, categories, height: 100 });
+
+      // A card each, as the mean plots and the task plots are, and nothing in it but the
+      // plot: every one of these is the metric named on the mean beside them, so a badge per
+      // card would say the same thing a dozen times.
+      const cell = document.createElement("div");
+
+      cell.className = "card column gap-xs";
+
+      cell.appendChild(plot.element);
+
+      plotCharts.push(plot.chart);
+      element.appendChild(cell);
+    }
+
+    return element;
+  }
+
+  function renderRecordings() {
+    clearPlots();
+
+    // Nested, the whole section is the recordings: no rows to fill and no heatmap, the host
+    // having given this panel one narrow column beside the task it is of.
+    if (nested) {
+      const wrapper = document.createElement("div");
+
+      wrapper.className = "column gap-lg";
+
+      for (const group of taskTypeGroups) {
+        wrapper.appendChild(buildPlotCells(group));
+      }
+
+      getSectionBody(SCORES_SECTION).replaceChildren(wrapper);
+
+      return;
+    }
+
+    for (const group of taskTypeGroups) {
+      const slot = getGroupSlot(group.key, PLOTS_SLOT);
+
+      if (!slot) continue;
+
+      // A block per way of measuring, and a row is one of those — so a task type's heatmap
+      // sits where its plots would.
+      if (view === HEATMAP_VIEW) {
+        renderHtml(
+          slot,
+          buildScoreHeatmaps({
+            allSeries: toScoreSeries(group.scores, metricFor(group.key)),
+            categoriesFor,
+          }),
+        );
+
+        continue;
+      }
+
+      slot.replaceChildren(buildPlotCells(group));
+    }
+  }
+
+  function render(held) {
+    if (!held.length) {
+      renderHtml(getElement(PROMPT_ID), buildEmptyMessage(EMPTY_PROMPT));
+      refreshIcons();
+
+      return;
+    }
+
+    updateGroups();
+
     setActiveView(view);
     renderPicks();
 
-    dock.render();
-    renderPanel();
+    clearContent(getElement(PROMPT_ID));
+
+    getSection(SCORES_SECTION).hidden = false;
+
+    renderGroupRows();
+    renderMeans();
+    renderRecordings();
+
+    refreshIcons();
   }
 
-  function renderPanel() {
-    const visible = dock.getVisibleTabs();
-
-    if (visible.has(SCORES_PANEL)) {
-      getSection(RECORDINGS_SECTION).hidden = false;
-
-      renderMeans();
-      renderRecordings();
-    }
-
-    if (visible.has(METHODOLOGY_PANEL)) {
-      renderMethodology();
-    }
-  }
-
-
-  // ─── VIEW CONTROLS ────────────────────────────────────────────────────────
+  // ─── VIEW CONTROLS ─────────────────────────────────────────────────────────
 
   function setActiveView(selected) {
     for (const { id } of VIEWS) {
-      getElement(id)?.classList.toggle(
-        "primary-inv",
-        id === selected,
-      );
+      getElement(id)?.classList.toggle("primary-inv", id === selected);
     }
   }
 
@@ -526,8 +592,7 @@ function createTaskComparison({
     renderRecordings();
   }
 
-
-  // ─── EVENTS ───────────────────────────────────────────────────────────────
+  // ─── EVENTS ────────────────────────────────────────────────────────────────
 
   function attachEvents() {
     getElement(PICKS_ID)?.addEventListener("click", (event) => {
@@ -544,116 +609,83 @@ function createTaskComparison({
       });
     }
 
-    dock.attachTabEvents();
+    for (const root of [
+      getSectionBody(SCORES_SECTION),
+      meansContainer ? resolveContainer(meansContainer) : null,
+    ]) {
+      root?.addEventListener("click", (event) => {
+        const badge = event.target.closest(`[data-role="${METRIC}"]`);
 
-    getSectionBody(MEANS_SECTION).addEventListener(
-      "change",
-      (event) => {
-        const select = event.target.closest(
-          `[data-role="${METRIC}"]`,
-        );
+        if (!badge) return;
 
-        if (!select) return;
+        const key = badge.closest(`[data-${METRIC_GROUP}]`)?.dataset[METRIC_GROUP];
 
-        const index = Number(
-          select.closest(`[data-${GROUP}]`)?.dataset[GROUP],
-        );
+        // The lit one: clicking it would tear the plots down and build them again the same.
+        if (!key || badge.value === metricFor(key)) return;
 
-        const group = groups()[index];
-
-        if (!group) return;
-
-        selectedMetrics.set(group.key, select.value);
+        selectedMetrics.set(key, badge.value);
 
         renderMeans();
         renderRecordings();
-      },
-    );
+      });
+    }
   }
 
-
-  // ─── SETUP ────────────────────────────────────────────────────────────────
+  // ─── SETUP ─────────────────────────────────────────────────────────────────
 
   function setup() {
-    const means = {
-      id: MEANS_SECTION,
-      title: "Mean scores",
-    };
-
-    const grid = {
-      id: METHODOLOGY_SECTION,
-      title: "Methodology",
-    };
-
-    const recordings = {
-      id: RECORDINGS_SECTION,
-      title: "Recordings",
-      actions: [buildToggle(VIEWS)],
+    // Untitled — a plot of scores says what it is, and the panel is opened by the rows above
+    // it rather than found by its heading. Nested, the toggle is the host's too — see
+    // buildRecordingsToggle.
+    const scores = {
+      id: SCORES_SECTION,
+      actions: nested ? [] : [buildToggle(VIEWS)],
     };
 
     renderHtml(
       container,
       `
-        ${picks
-          ? `<span
-               class="row left gap-sm compare-picks"
+        ${
+          showPicks
+            ? `<span
+               class="row left gap-sm compare-picks push-down"
                id="${PICKS_ID}"
              ></span>`
-          : ""
+            : ""
         }
 
-        ${hasTabs ? dock.buildTabs() : ""}
+        ${buildSections([scores])}
 
-        <div id="${SCORES_PANEL}">
-          ${buildSections(
-            beside
-              ? [
-                  {
-                    sections: [means, recordings],
-                    ratio: 4,
-                  },
-                ]
-              : [means, recordings],
-          )}
-        </div>
-
-        ${
-          methodology
-            ? `
-              <div id="${METHODOLOGY_PANEL}">
-                ${buildSections([grid])}
-              </div>
-            `
-            : `<div id="${PROMPT_ID}"></div>`
-        }
+        <div id="${PROMPT_ID}"></div>
       `,
     );
 
     attachEvents();
 
     comparison = createComparison({
-      container: methodology
-        ? getSectionBody(METHODOLOGY_SECTION)
-        : getElement(PROMPT_ID),
-
       max: MAX_COMPARED,
-
-      prompt:
-        `Select up to ${MAX_COMPARED} task scores to compare them.`,
 
       palette: SERIES_COLOURS,
 
-      loadDetail: (entry) =>
-        loadTaskSubmission(
-          entry.submissionId,
-          entry.key,
-        ),
+      loadDetail: async (pick) => {
+        const detail = toScoreDetail(
+          await loadTaskSubmission(pick.submissionId, pick.key),
+          taskTypeOf(pick.taskId),
+        );
+
+        rememberMetrics(detail);
+
+        return detail;
+      },
 
       render,
-      clearUp,
+      teardown,
 
       ...options,
     });
+
+    // The empty prompt. After the assignment above, which `render` reaches back through.
+    comparison.refresh();
 
     return comparison;
   }
@@ -661,8 +693,30 @@ function createTaskComparison({
   return setup();
 }
 
-export {
-  MAX_COMPARED,
-  createTaskComparison,
+// ─── LIST PANEL ──────────────────────────────────────────────────────────────
+//
+// This comparison mounted under a task-scores list — see templates/listView.js for the shape.
+// Shared because four pages show that list; modelView.js writes its own.
+
+// What the panel needs to start on a row. The per-recording breakdown it
+// fetches for itself.
+function toScorePick(row) {
+  return {
+    key: row.id,
+    taskId: row.task_id,
+    submissionId: row.submission_id,
+    submissionLabel: row.submission_label,
+    modelName: row.model_name,
+  };
+}
+
+// `always`: a scores list is read by picking rows off it, so there is no button to press
+// first and none to press to stop. The panel appears under the list as soon as one row is
+// ticked, and it is untitled — the plots say what they are.
+const SCORE_PANEL = {
+  always: true,
+
+  create: (container) => createTaskComparison({ container, toPick: toScorePick }),
 };
 
+export { SCORE_PANEL, buildRecordingsToggle, createTaskComparison };

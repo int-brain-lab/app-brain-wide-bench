@@ -13,21 +13,13 @@
 // exist before the form performs its first completeness check.
 
 import { getElement } from "../core/render.js";
-import {
-  buildFailureMessage,
-  buildWarningMessage,
-} from "../components/messages.js";
+import { buildFailureMessage, buildWarningMessage } from "../components/messages.js";
 import { buildHeader, buildPage } from "../components/sections.js";
 import { buildFormFooter, SUBMIT_BUTTON_ID } from "../components/buttons.js";
 import { CLEARED_MESSAGE } from "../forms/form.js";
 import { createForm } from "../forms/createForm.js";
 import { loadPage } from "./page.js";
-import {
-  clearMessage,
-  renderHeader,
-  renderMessage,
-  renderPage,
-} from "./pageChrome.js";
+import { clearMessage, renderHeader, renderMessage, renderPage } from "./pageChrome.js";
 
 const PANELS_ID = "panels";
 
@@ -40,8 +32,7 @@ const PANELS_ID = "panels";
  *                    failure message.
  * @param title       page heading. Null falls back to "Create new <noun>".
  * @param description page subheading.
- * @param back        `{ text, href }` for the page's back link and Cancel button. An href
- *                    rather than a view: Cancel leaves the page.
+ * @param cancelHref  where Cancel goes — the listing the page was reached from.
  * @param fields      field definitions, or (context) => fields when they depend on loaded
  *                    data.
  * @param panels      panel definitions, or (context) => panels when they depend on loaded
@@ -62,7 +53,7 @@ async function loadCreatePage({
   noun,
   title,
   description = "",
-  back,
+  cancelHref = "",
 
   fields,
   panels,
@@ -78,11 +69,11 @@ async function loadCreatePage({
 
   function buildBody() {
     return `
-      <div class="column gap-lg">
-        <div class="column gap-lg" id="${PANELS_ID}"></div>
+      <div class="column gap-xl">
+        <div class="column gap-xl" id="${PANELS_ID}"></div>
 
         ${buildFormFooter({
-          cancelHref: back.href ?? "",
+          cancelHref,
           submitLabel: `Create ${noun}`,
         })}
       </div>
@@ -106,7 +97,6 @@ async function loadCreatePage({
 
       renderPage(
         buildPage({
-          back,
           header: buildHeader(),
           body: buildBody(),
         }),
@@ -116,11 +106,9 @@ async function loadCreatePage({
 
       const container = getElement(PANELS_ID);
 
-      const resolvedFields =
-        typeof fields === "function" ? await fields(context) : fields;
+      const resolvedFields = typeof fields === "function" ? await fields(context) : fields;
 
-      const resolvedPanels =
-        typeof panels === "function" ? await panels(context) : panels;
+      const resolvedPanels = typeof panels === "function" ? await panels(context) : panels;
 
       form = createForm({
         container,
@@ -130,8 +118,7 @@ async function loadCreatePage({
         submit: (state) => submit(state, context),
 
         onChange: onChange
-          ? (key, value, cleared) =>
-              onChange(key, value, cleared, { form, context })
+          ? (key, value, cleared) => onChange(key, value, cleared, { form, context })
           : undefined,
 
         onCleared: (labels) => {
@@ -153,7 +140,7 @@ async function loadCreatePage({
         },
 
         onError: (error) => {
-          renderMessage(buildFailureMessage(`Creating ${noun} failed.`, error));
+          renderMessage(buildFailureMessage(`Creating ${noun} failed`, error));
         },
       });
 

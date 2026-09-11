@@ -6,11 +6,7 @@
 // infrastructure in table.js.
 
 import { getTeamFilters } from "../utils/teamUtils.js";
-import {
-  buildStaticTable,
-  createFilterableTable,
-  previewRows,
-} from "./table.js";
+import { buildStaticTable, createFilterableTable, previewRows } from "./table.js";
 import { buildLinkFormatter, roleBadgeFormatter } from "./formatters.js";
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
@@ -20,7 +16,7 @@ function getTeamColumns() {
     {
       title: "Team",
       field: "name",
-      formatter: buildLinkFormatter("/html/teams/teams.html", "name"),
+      formatter: buildLinkFormatter("/html/teams/teams.html", "name", "id", "label"),
       widthGrow: 2,
     },
     {
@@ -76,23 +72,17 @@ function createTeamsTable({ rows, showFilters = true }) {
  *
  * @param rows    as createTeamsTable.
  * @param limit   how many rows to show. Omit for all of them.
- * @param viewAll as buildStaticTable — where the footer's "View all" link goes.
  *
  * @returns the markup.
  */
-function buildStaticTeamsTable({ rows, limit, viewAll }) {
-  const shown = previewRows(
-    rows,
-    (a, b) => String(a.name).localeCompare(b.name),
-    limit,
-  );
+function buildStaticTeamsTable({ rows, limit }) {
+  const shown = previewRows(rows, (a, b) => String(a.name).localeCompare(b.name), limit);
 
   return buildStaticTable({
     columns: getTeamColumns(),
     rows: shown,
     noun: "team",
     total: rows.length,
-    viewAll,
   });
 }
 

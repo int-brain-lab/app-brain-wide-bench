@@ -1,32 +1,12 @@
-// The shape of a task score's breakdown, and the one pass that reads it.
+// A task score's breakdown, as the panels read it.
 //
 // `score.metrics.recordings` is written by the scorers in app/scoring: one entry per
-// (label, task, recording), each carrying `{metric: {mean, sem, n}}` where `n` is the seed
-// count it was aggregated from. What a *row* of that is depends on the suite, so the
-// dimension is read off the data rather than passed in — see `rowMode`.
-//
-// Everything that has to know which suite it is holding is here. The table below it builds
-// rows, the charts build series, and neither asks again.
+// (label, task, recording), each carrying `{metric: {mean, sem, n}}`.
 
-// ts3 names its metrics `<brain region>/<metric>` — "TH/f1-score", "macro/precision".
-const REGION_SEPARATOR = "/";
+import { REGION_SEPARATOR } from "../core/suites.js";
+import { mean, sem } from "../core/utils.js";
 
-// ─── SHAPE ───────────────────────────────────────────────────────────────────
-
-// First-seen order across every entry rather than the keys of the first one: the scorers
-// emit metrics in ReadoutSpec order, which puts the task's primary metric first, and an
-// entry that lost a metric can't hide it from the union.
-function metricNames(recordings) {
-  const names = [];
-
-  for (const recording of recordings ?? []) {
-    for (const name of Object.keys(recording.metrics ?? {})) {
-      if (!names.includes(name)) names.push(name);
-    }
-  }
-
-  return names;
-}
+const REGION_TASK_TYPE = "brain_region";
 
 function splitMetric(name) {
   const at = name.indexOf(REGION_SEPARATOR);
@@ -34,45 +14,19 @@ function splitMetric(name) {
   return [name.slice(0, at), name.slice(at + 1)];
 }
 
-/**
- * Which dimension the rows run down:
- *
- *   "recording"  ts1 and ts2 score each recording separately — a row is a recording, a
- *                column pair is a metric.
- *   "region"     ts3 classifies the whole held-out population at once, so there is no
- *                recording. Its metric names carry the dimension instead: a row is a brain
- *                region and a column pair is the metric suffix.
- *   "metric"     neither — a row per metric, for a score whose metric names follow no
- *                convention.
- */
-function rowMode(recordings) {
-  if ((recordings ?? []).some((recording) => recording.recording_id))
-    return "recording";
-
-  const names = metricNames(recordings);
-
-  return names.length && names.every((name) => name.includes(REGION_SEPARATOR))
-    ? "region"
-    : "metric";
-}
-
-// ─── STORE ───────────────────────────────────────────────────────────────────
-
-// `[category key, metric name, stats]` for every measurement, whichever dimension the score
-// has. In the metric layout a category *is* a metric, so each one holds a single cell.
-function toCells(recordings, mode) {
+// `[category key, metric name, stats]` for every measurement. A brain-region score has no
+// recording of its own; its metric names carry the region instead.
+function toCells(recordings, taskType) {
   const cells = [];
 
   for (const recording of recordings) {
     for (const [name, stats] of Object.entries(recording.metrics ?? {})) {
-      if (mode === "region") {
+      if (taskType === REGION_TASK_TYPE) {
         const [region, metric] = splitMetric(name);
 
         cells.push([region, metric, stats]);
-      } else if (mode === "recording") {
-        cells.push([recording.recording_id ?? null, name, stats]);
       } else {
-        cells.push([name, name, stats]);
+        cells.push([recording.recording_id ?? null, name, stats]);
       }
     }
   }
@@ -80,23 +34,31 @@ function toCells(recordings, mode) {
   return cells;
 }
 
+// Each metric's mean over its categories, with the spread of it. Here rather than at the
+// panel, so it is done once per fetch.
+function toMeans(metrics) {
+  return Object.fromEntries(
+    Object.entries(metrics).map(([name, columns]) => {
+      const values = columns.mean.filter((value) => value != null);
+
+      return [name, { mean: mean(values), sem: sem(values) }];
+    }),
+  );
+}
+
 /**
- * One score's breakdown, column-wise: the categories it was measured over, and a pair of
- * arrays per metric in step with them.
+ * A fetched task submission, with its breakdown turned column-wise.
  *
- * @param recordings `score.metrics.recordings` from the API. Omit for an empty store.
- *
- * @returns `{ group, index, metrics, seeds, label }`. `group` is `rowMode`'s, and is what
- *          must not be mixed down one axis. `index` is category key → position, in the order
- *          the scorer emitted them. `metrics` is `{ [name]: { mean, sem } }` and `seeds` the
- *          largest `n` behind each category — all of them `index.size` long, and `null` where
- *          a category lacks the metric. `label` is the score's own, which a category with no
- *          key of its own is named by.
+ * @param detail   from loadTaskSubmission. Its own fields ride along, for the methodology
+ *                 grid to read. `score` does not: it holds the same numbers this transposes.
+ * @param taskType what the score's numbers mean — see taskTypeOf.
+ * @returns the detail, plus `taskType`, `index` as category key => position, `metrics` as
+ *          `{ [name]: { mean, sem } }` — each array `index.size` long, and null where a
+ *          category lacks that metric — and `means`, one pair per metric across all of them.
  */
-function toRecordingStore(recordings) {
-  const entries = recordings ?? [];
-  const group = rowMode(entries);
-  const cells = toCells(entries, group);
+function toScoreDetail(detail, taskType) {
+  const { score, ...rest } = detail ?? {};
+  const cells = toCells(score?.metrics?.recordings ?? [], taskType);
 
   const index = new Map();
   const metrics = {};
@@ -104,10 +66,6 @@ function toRecordingStore(recordings) {
   for (const [key] of cells) {
     if (!index.has(key)) index.set(key, index.size);
   }
-
-  // The largest `n` across a category's metrics: they agree in practice, and the max means a
-  // metric that failed on one seed reports the seeds the category actually has.
-  const seeds = Array(index.size).fill(null);
 
   for (const [, name] of cells) {
     metrics[name] ??= {
@@ -121,20 +79,9 @@ function toRecordingStore(recordings) {
 
     metrics[name].mean[at] = stats?.mean ?? null;
     metrics[name].sem[at] = stats?.sem ?? null;
-
-    if (stats?.n != null) seeds[at] = Math.max(seeds[at] ?? 0, stats.n);
   }
 
-  return {
-    group,
-    index,
-    metrics,
-    seeds,
-    label: entries.find((recording) => recording.label)?.label ?? null,
-  };
+  return { ...rest, taskType, index, metrics, means: toMeans(metrics) };
 }
 
-// What a caller renders before the fetch lands: no categories, no metrics, no series.
-const EMPTY_STORE = toRecordingStore([]);
-
-export { EMPTY_STORE, toRecordingStore };
+export { REGION_TASK_TYPE, toScoreDetail };

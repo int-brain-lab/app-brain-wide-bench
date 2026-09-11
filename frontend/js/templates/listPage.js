@@ -34,9 +34,9 @@ const LIST_ID = "list";
  * @param createLink     href for the create action. Omit for no create button.
  * @param filterControls (rows) => controls for the bar — see components/filters.js. Omit
  *                       for no filter bar.
- * @param modes          `{ base, active }` panel definitions. Omit for a list whose rows
- *                       open nothing beside them.
- * @param picking        `{ max, label, toEntry, onCompare }` for a list whose rows are picked
+ * @param panel          the comparison drawn from the list's picks — see createListView.
+ *                       Omit for a list whose rows open nothing beside them.
+ * @param picking        `{ max, label, toPick, onCompare }` for a list whose rows are picked
  *                       and then acted on elsewhere — see createListView, which this is
  *                       passed straight through to.
  * @param maxCards       rows at or below which the page opens on the cards rather than the
@@ -58,7 +58,7 @@ function loadListPage({
 
   createLink = null,
   filterControls = null,
-  modes = {},
+  panel = null,
   picking = null,
 
   maxCards = 6,
@@ -77,13 +77,13 @@ function loadListPage({
       });
     }
 
-    return buildMessageCard(`No public ${pluralise(noun)} yet.`, "empty-msg");
+    return buildMessageCard(`No public ${pluralise(noun)} yet`, "empty-msg");
   }
 
   function buildBody() {
     if (!rows.length) {
       return `
-        <div class="column gap-md">
+        <div class="column gap-lg">
           ${buildEmptyState()}
         </div>
       `;
@@ -130,10 +130,11 @@ function loadListPage({
       createListView({
         container: getElement(LIST_ID),
         rows,
+        noun,
         createCards,
         createTable,
         filterControls,
-        modes,
+        panel,
         picking,
         maxCards,
       });

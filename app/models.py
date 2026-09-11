@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from typing import Any, ClassVar, Optional
 
-from sqlalchemy import Column, DateTime, Enum as SAEnum, Index, JSON, func, select, text
+from sqlalchemy import BigInteger, Column, DateTime, Enum as SAEnum, Index, JSON, func, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import column_property
 from sqlmodel import Field, Relationship, SQLModel
@@ -44,12 +44,36 @@ class DescribedEnum(str, enum.Enum):
         return member
 
 
+class UserRole(str, enum.Enum):
+    """A user's standing in the application, independent of any team.
+
+    ``admin`` passes every team membership and ownership check — see ``app.auth``.
+    """
+
+    user = "user"
+    admin = "admin"
+
+
 class TeamRole(str, enum.Enum):
     owner = "owner"
     collaborator = "collaborator"
 
 
 class SubmissionStatus(str, enum.Enum):
+    """Lifecycle order.
+
+    ``pending`` means uploaded and validated, waiting on the submitter.
+
+    The two ways validation can end badly are separate because they mean different things
+    and the file fares differently. ``invalid`` is the submitter's: the file was checked and
+    is wrong, and it has been deleted. ``unchecked`` is ours: the check could not be run at
+    all, and the file is kept so it can be checked again.
+    """
+
+    uploading = "uploading"
+    validating = "validating"
+    invalid = "invalid"
+    unchecked = "unchecked"
     pending = "pending"
     scoring = "scoring"
     done = "done"
@@ -264,8 +288,14 @@ class Team(SQLModel, table=True):
     id: uuid.UUID = _uuid()
     name: str
 
-    members: list["UserTeam"] = Relationship(back_populates="team")
-    models: list["Model"] = Relationship(back_populates="team")
+    members: list["UserTeam"] = Relationship(
+        back_populates="team",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    models: list["Model"] = Relationship(
+        back_populates="team",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
 
 class User(SQLModel, table=True):
@@ -279,6 +309,8 @@ class User(SQLModel, table=True):
     name: str | None = None
     affiliation: str | None = None
     provider: str
+    # Least privilege by default. Every fixture file creates a user without one.
+    role: UserRole = Field(default=UserRole.user)
     orcid_id: str | None = Field(default=None, unique=True)
     created_at: datetime | None = _ts()
 
@@ -326,7 +358,7 @@ class Model(SQLModel, table=True):
     publication_doi: str | None = None
     # Architecture
     n_parameters: int | None = None
-    temporal_context_s: float = 1.0
+    temporal_context_s: float | None = None
     # Pretraining — all nullable for single-session baselines
     is_pretrained: bool | None = None
     pretrained_in_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON_LIST))
@@ -335,7 +367,10 @@ class Model(SQLModel, table=True):
     created_at: datetime | None = _ts()
 
     team: Team | None = Relationship(back_populates="models")
-    submissions: list["Submission"] = Relationship(back_populates="model")
+    submissions: list["Submission"] = Relationship(
+        back_populates="model",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
     # Help text for the create and edit forms, keyed by field name and served by
     # /api/meta. Here rather than on the response schemas so the wording sits with the
@@ -389,7 +424,20 @@ class Submission(SQLModel, table=True):
     model_id: uuid.UUID = Field(foreign_key="models.id")
     label: str  # human-readable run name, e.g. "mlp-ts1-baseline"
     s3_key: str
+    # The default is load-bearing: fixture rows are created without a status.
     status: SubmissionStatus = Field(default=SubmissionStatus.pending)
+
+    # The S3 multipart upload the file arrives through. Null once it completes.
+    upload_id: str | None = None
+
+    # Size the client declared at create. Sets the part count, and tells a returning
+    # submitter's resume from a replacement. BigInteger: a 10 GB file overflows int4.
+    file_size: int | None = Field(default=None, sa_column=Column(BigInteger, nullable=True))
+
+    # Last validation run: capped codes, the task ids found, and the ``is_deterministic``
+    # it ran under. Never ``Finding.detail``, which can reveal ground-truth structure.
+    validation: dict | None = Field(default=None, sa_column=Column(JSON, nullable=True))
+
     narrative_public: str | None = None
     narrative_private: str | None = None
     is_public: bool = Field(default=False)
@@ -421,6 +469,11 @@ class Submission(SQLModel, table=True):
             "administrators."
         ),
         "is_public": "Is this submission ready to be published on the leaderboard?",
+        "is_deterministic": (
+            "Select Yes if the model has no stochastic component (e.g., closed-form linear "
+            "regression). Deterministic models produce identical output for a given input "
+            "regardless of random seed."
+        ),
     }
 
 
@@ -539,6 +592,10 @@ class TaskScore(SQLModel, table=True):
 
     ``primary_metric_*`` are scalar columns for fast leaderboard ORDER BY;
     all metrics live in ``metrics`` JSON: ``{"r2": {"mean": 0.42, "sem": 0.03}, ...}``.
+
+    ``r2`` and ``poisson_d2`` are floored at 0 per seed before aggregation, here and in the
+    scalar columns; ``bps`` is not, and can be negative. Rows written before that floor was
+    applied hold unclipped means.
     """
 
     __tablename__ = "task_scores"

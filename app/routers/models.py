@@ -3,7 +3,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import ColumnElement, func, or_, select
+from sqlalchemy import ColumnElement, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from typing import Annotated, Any, Sequence
@@ -16,8 +16,8 @@ from app.auth import (
     require_team_member,
 )
 from app.database import get_session
-from app.ranking.rank import Standing, latest_entries, place_standings, standings
-from app.routers.submissions import visible_submissions
+from app.ranking.rank import Placings, Standing, latest_entries, place_standings, standings
+from app.routers.submissions import arrived, delete_and_release, has_arrived, visible_submissions
 from app.models import (
     Model,
     Submission,
@@ -27,6 +27,7 @@ from app.models import (
     TaskSubmission,
     TaskSuite,
     User,
+    UserRole,
 )
 from app.schemas.models import (
     ModelBreakdown,
@@ -49,16 +50,23 @@ async def visible_models(
     user: User | None,
     session: AsyncSession,
 ) -> ColumnElement[bool]:
-    """Return a SQLAlchemy expression that evaluates to True for models visible to the user."""
+    """Return a SQLAlchemy expression that evaluates to True for models visible to the user.
+
+    An admin sees every model.
+    """
 
     has_public_submission = (
         select(Submission.id)
-        .where(Submission.model_id == Model.id, Submission.is_public.is_(True))
+        .where(Submission.model_id == Model.id, Submission.is_public.is_(True), arrived())
         .exists()
     )
 
     if user is None:
         return has_public_submission
+
+    # A tautology rather than every team id — see ``visible_submissions``.
+    if user.role is UserRole.admin:
+        return true()
 
     my_team_ids = await member_team_ids(user.id, session)
 
@@ -227,7 +235,7 @@ async def _load_model_detail(
     if member:
         submissions = model.submissions
     else:
-        submissions = [s for s in model.submissions if s.is_public]
+        submissions = [s for s in model.submissions if s.is_public and has_arrived(s)]
 
         if not submissions:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Model not found")
@@ -247,7 +255,7 @@ async def list_models(
     Anonymous callers see only models with at least one public submission
 
     An authenticated user additionally sees every model on a team they belong
-    to, whether or not it has a public submission.
+    to, whether or not it has a public submission. An admin sees all of them.
 
     ``team_id`` narrows the list to one team, for a team page listing what it has
     registered. It narrows what is *shown*, never what is visible: a team the caller isn't
@@ -275,12 +283,15 @@ async def list_models(
     # One query for the whole listing rather than a membership check per row.
     my_team_ids = await member_team_ids(user.id if user else None, session)
 
+    # An admin may edit every row, which is what ``is_mine`` reports.
+    admin = user is not None and user.role is UserRole.admin
+
     return [
         ModelResponse.from_model(
             model,
             n_submissions=n_submissions.get(model.id, 0),
             task_suites=suites.get(model.id, []),
-            is_mine=model.team_id in my_team_ids,
+            is_mine=admin or model.team_id in my_team_ids,
         )
         for model in models
     ]
@@ -364,7 +375,9 @@ async def get_model_ranking(
 
     # The same rule as the model detail: a model with nothing public is not readable by a
     # non-member at all, rather than readable with an empty ranking.
-    if not member and not any(submission.is_public for submission in model.submissions):
+    if not member and not any(
+        submission.is_public and has_arrived(submission) for submission in model.submissions
+    ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Model not found")
 
     mine = [s for s in model.submissions if s.status == SubmissionStatus.done]
@@ -388,25 +401,52 @@ async def get_model_ranking(
     field = standings(others)
     tasks = (await session.execute(select(Task))).scalars().all()
 
-    def side(label: str, submissions: list[Submission]) -> tuple[RankingSide, dict[str, TaskSubmission]]:
+    def side(
+        label: str, submissions: list[Submission]
+    ) -> tuple[RankingSide, dict[str, TaskSubmission], Placings]:
         """Place ``submissions`` as one standing against the shared field.
 
         ``label`` is only how the standing's own result is found again in what
         ``place_standings`` returns. A word rather than the model id: the field labels its
         standings by model, and two entries sharing a label would silently merge their
         scores rather than raise.
+
+        The placings come back whole and not just the side built from them: the per-task
+        positions are read below, beside the entries they were earned by, and the two have
+        to be the same side's.
         """
         standing = Standing(label=label, entries=latest_entries(submissions))
         placings = place_standings([*field, standing], tasks)[label]
 
-        return RankingSide.from_placings(placings), standing.entries
+        return RankingSide.from_placings(placings), standing.entries, placings
 
-    public, public_entries = side("public", [s for s in mine if s.is_public])
-    private, private_entries = side("private", mine) if member else (None, {})
+    public, public_entries, public_placings = side("public", [s for s in mine if s.is_public])
+    private, private_entries, private_placings = (
+        side("private", mine) if member else (None, {}, None)
+    )
 
-    def entry(entries: dict[str, TaskSubmission], task_id: str) -> TaskEntryRef | None:
-        """The entry that side used for ``task_id``, or nothing where it has no score for it."""
-        return TaskEntryRef.model_validate(entries[task_id]) if task_id in entries else None
+    def entry(
+        entries: dict[str, TaskSubmission], placings: Placings | None, task_id: str
+    ) -> TaskEntryRef | None:
+        """The entry that side used for ``task_id``, and where it placed.
+
+        Nothing where the side has no score for the task — which is the whole of the
+        private side for a reader who was not given one.
+        """
+        if task_id not in entries:
+            return None
+
+        # A scored entry the ranking could not place — its stored metrics carry nothing
+        # under the task's primary metric, so no model was ranked on that task at all. The
+        # entry still stands as this side's current result for it.
+        placing = placings.tasks.get(task_id) if placings else None
+
+        return TaskEntryRef(
+            id=entries[task_id].id,
+            submission_id=entries[task_id].submission_id,
+            rank=placing.rank if placing else None,
+            n_ranked=placing.n_ranked if placing else 0,
+        )
 
     return ModelRanking(
         model_id=model.id,
@@ -414,8 +454,8 @@ async def get_model_ranking(
         private=private,
         tasks={
             task_id: TaskEntrySides(
-                public=entry(public_entries, task_id),
-                private=entry(private_entries, task_id),
+                public=entry(public_entries, public_placings, task_id),
+                private=entry(private_entries, private_placings, task_id),
             )
             for task_id in sorted({*public_entries, *private_entries})
         },
@@ -465,7 +505,7 @@ async def get_model_breakdown(
 
     member = user is not None and await is_team_member(user.id, model.team_id, session)
 
-    visible = [s for s in model.submissions if member or s.is_public]
+    visible = [s for s in model.submissions if member or (s.is_public and has_arrived(s))]
 
     # The same rule as the model detail: a model with nothing public is not readable by a
     # non-member at all, rather than readable with an empty breakdown.
@@ -557,3 +597,37 @@ async def update_model(
     await session.commit()
 
     return await _load_model_detail(model.id, user, session)
+
+
+@router.delete("/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_model(
+    model_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Delete a model, every submission of it, and their task entries, scores and files.
+
+    Any member of the model's team, whatever state its submissions are in: one being
+    validated or scored goes with the rest, and that worker's task ends ``"gone"``.
+
+    The loader options are the ORM cascade's rather than a response's — an async session
+    cannot lazy-load during a flush, so everything under the model is read before it goes.
+
+    Raises 404 if the model does not exist.
+    Raises 403 if the caller is not a member of the model's team.
+    Raises 409 if a worker wrote a score under it between the read and the delete.
+    """
+    model = await _get_model_as_member(
+        model_id,
+        user.id,
+        session,
+        options=[
+            selectinload(Model.submissions).selectinload(Submission.user_links),
+            selectinload(Model.submissions)
+            .selectinload(Submission.task_submissions)
+            .selectinload(TaskSubmission.score),
+        ],
+        detail="Not a member of this model's team",
+    )
+
+    await delete_and_release(model, model.submissions, session)

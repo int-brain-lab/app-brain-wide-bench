@@ -23,13 +23,7 @@ import { loadPage } from "./page.js";
  *
  * @returns loadPage's promise, settled once the page has rendered or reported its failure.
  */
-function loadRecordPage({
-  views,
-  defaultView = "dashboard",
-  flags = [],
-  params = [],
-  ...page
-}) {
+function loadRecordPage({ views, defaultView = "dashboard", flags = [], params = [], ...page }) {
   return loadPage({
     ...page,
 

@@ -11,11 +11,12 @@ from typing import Any, Sequence
 from app.auth import (
     get_current_user,
     get_current_user_optional,
+    is_admin,
     member_team_roles,
     require_team_owner,
 )
 from app.database import get_session
-from app.models import Model, Submission, Team, TeamRole, User, UserTeam
+from app.models import Model, Submission, TaskSubmission, Team, TeamRole, User, UserRole, UserTeam
 from app.schemas.teams import (
     TeamCreate,
     TeamDetail,
@@ -27,7 +28,12 @@ from app.schemas.teams import (
 )
 
 from app.routers.models import visible_models
-from app.routers.submissions import submissions_of_teams, visible_submissions
+from app.routers.submissions import (
+    delete_and_release,
+    has_arrived,
+    submissions_of_teams,
+    visible_submissions,
+)
 
 router = APIRouter(prefix="/api/teams", tags=["teams"])
 
@@ -108,17 +114,18 @@ async def _get_team(
 async def _get_team_as_member(
     team_id: uuid.UUID, user_id: uuid.UUID, session: AsyncSession, *, options: Sequence[Any] = ()
 ) -> Team:
-    """Fetch a team by ``team_id`, enforcing that ``user_id`` is a member of it.
+    """Fetch a team by ``team_id``, enforcing that ``user_id`` is a member of it.
 
-    Raises: 404 - Not found if the team doesn't exist
-    Raises: 403 - Forbidden if the user is not a member of the team
+    Raises 404 if the team does not exist.
+    Raises 403 if the user is neither a member of the team nor an admin.
     """
 
     team = await _get_team(team_id, session, options=options)
 
-    # Check directly rather than using is_team_member as we already have the information loaded.
+    # Check directly rather than using is_team_member as we already have the information
+    # loaded; the admin bypass that helper carries has to be applied here by hand.
     is_member = any(member.user_id == user_id for member in team.members)
-    if not is_member:
+    if not is_member and not await is_admin(user_id, session):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "User is not a member of the team")
 
     return team
@@ -154,12 +161,11 @@ async def _load_team_detail(
 ) -> TeamDetail:
     """Return a team's details including number of members, models and submissions.
 
-    Anonymous viewers and non-team members see only public submissions and models with at least one public submission;
-    a member of the team's sees all of them, public or private.
+    Anonymous viewers and non-members see only public submissions and models with at least
+    one public submission; a member sees all of them, public or private, and is the only one
+    returned the member list. An admin reads it as a member does.
 
-    Only team members are returned the list of members.
-
-    Raises: 404 - Not found if the team doesn't exist
+    Raises 404 if the team does not exist.
     """
 
     team = await _get_team(
@@ -178,22 +184,30 @@ async def _load_team_detail(
         )
     ).scalar_one()
 
-    # The caller's own membership, captured rather than just tested: it answers both
-    # "may they see everything" and "what is their role".
+    # The caller's own membership, captured rather than just tested: ``role`` below is the
+    # role on it, not merely whether there is one.
     my_link = next(
         (member for member in team.members if user is not None and member.user_id == user.id),
         None,
     )
-    is_member = my_link is not None
 
-    # A member sees every model; anyone else sees only those with a public submission.
-    if is_member:
+    admin = user is not None and user.role is UserRole.admin
+
+    # An admin reads a team as a member does without holding a role in it, so this and
+    # ``my_link`` part company: ``role`` below stays null for them.
+    may_see_all = my_link is not None or admin
+
+    # A member sees every model; anyone else sees only those with a published submission.
+    if may_see_all:
         models = team.models
     else:
         models = [
             model
             for model in team.models
-            if any(submission.is_public for submission in model.submissions)
+            if any(
+                submission.is_public and has_arrived(submission)
+                for submission in model.submissions
+            )
         ]
 
     detail = TeamDetail.from_team(
@@ -204,10 +218,12 @@ async def _load_team_detail(
         # The caller's own role, so it is simply absent for a non-member rather than
         # something to withhold.
         role=my_link.role if my_link else None,
+        can_manage_members=admin or (my_link is not None and my_link.role is TeamRole.owner),
+        can_delete=admin or (my_link is not None and my_link.role is TeamRole.owner),
         members=[TeamMemberOut.from_member(member) for member in team.members],
     )
 
-    if is_member:
+    if may_see_all:
         return detail.model_copy(update={"is_mine": True})
 
     return detail.withhold_private()
@@ -225,7 +241,10 @@ async def list_teams(
 
     An authenticated user sees every model and submission on a team they belong to,
     whether or not it has a public submission. An anonymous user only sees public
-    submissions and models with at least one public submission.
+    submissions and models with at least one public submission. An admin sees everything.
+
+    ``role`` is the caller's own membership and stays null for an admin outside the team;
+    what they may *do* is ``is_mine``, ``can_manage_members`` and ``can_delete``.
     """
     teams = (await session.execute(select(Team).order_by(Team.name))).scalars().all()
 
@@ -239,6 +258,8 @@ async def list_teams(
 
     my_roles = await member_team_roles(user.id if user else None, session)
 
+    admin = user is not None and user.role is UserRole.admin
+
     return [
         TeamResponse.from_team(
             team,
@@ -246,7 +267,9 @@ async def list_teams(
             n_models=n_models.get(team.id, 0),
             n_submissions=n_submissions.get(team.id, 0),
             role=my_roles.get(team.id),
-            is_mine=team.id in my_roles,
+            is_mine=admin or team.id in my_roles,
+            can_manage_members=admin or my_roles.get(team.id) is TeamRole.owner,
+            can_delete=admin or my_roles.get(team.id) is TeamRole.owner,
         )
         for team in teams
     ]
@@ -481,3 +504,42 @@ async def remove_team_member(
         remaining[0].role = TeamRole.owner
 
     await session.commit()
+
+
+@router.delete("/{team_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_team(
+    team_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Delete a team, its memberships, and every model and submission it holds.
+
+    Owners only, like managing membership: a collaborator admitted to a team must not be able
+    to destroy the work of everyone already in it.
+
+    The loader options are the ORM cascade's rather than a response's — an async session
+    cannot lazy-load during a flush, so everything under the team is read before it goes.
+
+    Raises 403 if the caller does not own the team.
+    Raises 404 if the team does not exist.
+    Raises 409 if a worker wrote a score under it between the read and the delete.
+    """
+    await require_team_owner(user.id, team_id, session)
+
+    team = await _get_team(
+        team_id,
+        session,
+        options=[
+            selectinload(Team.models)
+            .selectinload(Model.submissions)
+            .selectinload(Submission.user_links),
+            selectinload(Team.models)
+            .selectinload(Model.submissions)
+            .selectinload(Submission.task_submissions)
+            .selectinload(TaskSubmission.score),
+        ],
+    )
+
+    submissions = [submission for model in team.models for submission in model.submissions]
+
+    await delete_and_release(team, submissions, session)

@@ -1,0 +1,19 @@
+# Ignore file for this Dockerfile, read by BuildKit as <dockerfile>.dockerignore. The context
+# is the parent directory, which is not a git repository, so a plain .dockerignore there could
+# not be committed. Patterns are still relative to that context root.
+#
+# Allowlisted: anything a COPY needs has to be named here.
+*
+!ibl-benchmark/
+!app-brain-wide-bench/
+
+# Local environments and build output inside those two trees. A host .venv copied over the
+# image's own leaves a venv whose paths point at the build machine.
+**/.venv/
+**/node_modules/
+**/dist/
+**/coverage/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.git/

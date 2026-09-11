@@ -4,25 +4,30 @@
 // cards, the filters above them and the table beside them read one shape.
 
 import { escapeHtml } from "../core/html.js";
+import { hrefForRecord } from "../core/links.js";
 import { formatDate } from "../core/utils.js";
 import { buildStatusBadge, buildSuiteBadgeList } from "../components/badges.js";
 import { createCardGrid } from "./cardGrid.js";
 
-function buildSubmissionCard(submission) {
+const SUBMISSION_PAGE = "/html/submissions/submissions.html";
+
+// `showTeam` off for a listing that is all one team's, where naming it on every card says
+// nothing. The model stays either way: a team has several.
+function buildSubmissionCard(submission, { showTeam = true } = {}) {
   return `
     <a
-      class="card column left gap-md"
-      href="/html/submissions/submissions.html?id=${encodeURIComponent(submission.id)}"
+      class="card column left gap-lg"
+      href="${hrefForRecord(SUBMISSION_PAGE, submission.id, { mine: submission.is_mine })}"
     >
       <div class="column left">
-        <p class="title">${escapeHtml(submission.label)}</p>
+        <p class="label">${escapeHtml(submission.label)}</p>
         <p class="metadata">
-          ${escapeHtml(submission.model_name || "—")} ·
-          ${escapeHtml(submission.team_name || "—")}
+          ${escapeHtml(submission.model_name || "—")}
+          ${showTeam ? `· ${escapeHtml(submission.team_name || "—")}` : ""}
         </p>
       </div>
 
-      <div class="row left gap-md">
+      <div class="row left gap-lg">
         ${buildSuiteBadgeList(submission.suites ?? [], "sm")}
         ${buildStatusBadge(submission.status, "sm")}
       </div>
@@ -34,24 +39,25 @@ function buildSubmissionCard(submission) {
   `;
 }
 
-function buildSubmissionCards(submissions) {
-  return submissions.map(buildSubmissionCard).join("");
+function buildSubmissionCards(submissions, options) {
+  return submissions.map((submission) => buildSubmissionCard(submission, options)).join("");
 }
 
 /**
  * The submission card grid, built once and kept.
  *
- * @param options as createCardGrid.
+ * @param showTeam as buildSubmissionCard.
+ * @param options  the rest, as createCardGrid.
  *
  * @returns as createCardGrid.
  */
-function createSubmissionCardGrid(options = {}) {
+function createSubmissionCardGrid({ showTeam = true, ...options } = {}) {
   return createCardGrid({
-    buildCards: buildSubmissionCards,
+    buildCards: (rows) => buildSubmissionCards(rows, { showTeam }),
     noun: "submission",
 
     ...options,
   });
 }
 
-export { createSubmissionCardGrid };
+export { buildSubmissionCards, createSubmissionCardGrid };

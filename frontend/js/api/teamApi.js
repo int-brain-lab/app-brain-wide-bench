@@ -35,6 +35,13 @@ async function updateTeam(teamId, patch) {
   });
 }
 
+// The team, its memberships, and every model and submission it holds. Owners only.
+async function deleteTeam(teamId) {
+  return await apiFetch(`/api/teams/${teamId}`, {
+    method: "DELETE",
+  });
+}
+
 // The role is sent rather than left to the server: only an owner can manage membership,
 // so which role a new member gets is a decision, not a default to inherit silently.
 async function addTeamMember(teamId, email, role) {
@@ -63,6 +70,7 @@ export {
   loadTeam,
   createTeam,
   updateTeam,
+  deleteTeam,
   addTeamMember,
   updateTeamMember,
   removeTeamMember,

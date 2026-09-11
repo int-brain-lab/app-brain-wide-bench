@@ -3,17 +3,8 @@
 
 import { suitesFromSubmission } from "../core/suites.js";
 import { formatDate } from "../core/utils.js";
-import {
-  buildStatusBadge,
-  buildSuiteBadgeList,
-  buildVisibleBadge,
-} from "../components/badges.js";
-import {
-  matchEquals,
-  matchInArray,
-  matchIncludes,
-  SUITE_OPTIONS,
-} from "../components/filters.js";
+import { buildStatusBadge, buildSuiteBadgeList, buildVisibleBadge } from "../components/badges.js";
+import { matchEquals, matchInArray, matchIncludes, SUITE_OPTIONS } from "../components/filters.js";
 import { getIcon } from "../components/icons.js";
 
 // ─── ROWS ────────────────────────────────────────────────────────────────────
@@ -31,6 +22,8 @@ function toSubmissionRow(submission) {
     // On the row rather than fetched with the detail: it is on every response a listing
     // returns, and the comparison's details panel is one of the things that reads it.
     is_public: submission.is_public ?? null,
+    // Whose it is, which a row's link carries as its shell hint — see core/links.js.
+    is_mine: submission.is_mine ?? false,
     suites: suitesFromSubmission(submission),
   };
 }
@@ -64,27 +57,27 @@ const STATUS_OPTIONS = STATUSES.map((status) => ({
   label: status,
 }));
 
-// `rows` is unused: every option here is fixed by the schema rather than by what the
-// rows happen to contain. Taken anyway, so all five filter builders share one shape.
-function getSubmissionFilters(rows) {
+// Options are fixed by the schema, not by the rows. The parameter is taken anyway: every
+// filter builder has the same signature.
+function getSubmissionFilters(_rows) {
   return [
     {
       type: "search",
       name: "label",
-      placeholder: "Search by label...",
+      placeholder: "Search submissions...",
       match: matchIncludes("label"),
     },
     {
-      type: "select",
+      type: "pinned",
       name: "suite",
-      placeholder: "All suites",
+      label: "Suite",
       options: SUITE_OPTIONS,
       match: matchInArray("suites"),
     },
     {
-      type: "select",
+      type: "pinned",
       name: "status",
-      placeholder: "All statuses",
+      label: "Status",
       options: STATUS_OPTIONS,
       match: matchEquals("status"),
     },
@@ -92,21 +85,6 @@ function getSubmissionFilters(rows) {
 }
 
 // ─── DISPLAY ─────────────────────────────────────────────────────────────────
-
-function getSubmissionStatistics(submission) {
-  const taskSubmissions = submission.task_submissions ?? [];
-
-  return [
-    ["tasks", taskSubmissions.length, getIcon("task")],
-    ["task suites", suitesFromSubmission(submission).length, getIcon("suite")],
-    // TODO PLACEHOLDER FOR NOW
-    [
-      "scored suites",
-      suitesFromSubmission(submission).length,
-      getIcon("score"),
-    ],
-  ];
-}
 
 function getSubmissionBadges(submission) {
   return [
@@ -121,18 +99,10 @@ function getSubmissionSubtitle(submission) {
     { text: submission.model_name, icon: getIcon("model") },
     { text: submission.team_name, icon: getIcon("team") },
     {
-      text: submission.created_at
-        ? `Created ${formatDate(submission.created_at)}`
-        : null,
+      text: submission.created_at ? `Created ${formatDate(submission.created_at)}` : null,
       icon: getIcon("created"),
     },
   ].filter((entry) => entry.text);
 }
 
-export {
-  getSubmissionBadges,
-  getSubmissionFilters,
-  getSubmissionStatistics,
-  getSubmissionSubtitle,
-  toSubmissionRows,
-};
+export { getSubmissionBadges, getSubmissionFilters, getSubmissionSubtitle, toSubmissionRows };

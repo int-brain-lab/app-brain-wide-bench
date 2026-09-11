@@ -12,13 +12,11 @@
 // The page provides #member-search, #member-results and #member-list; #member-add is
 // optional and wraps the lookup where a page needs to hide it outside edit mode.
 
-import {
-  addTeamMember,
-  removeTeamMember,
-  updateTeamMember,
-} from "../api/teamApi.js";
+import { addTeamMember, removeTeamMember, updateTeamMember } from "../api/teamApi.js";
 import { searchUsers } from "../api/userApi.js";
 import { buildRoleBadge } from "../components/badges.js";
+import { buildButton } from "../components/buttons.js";
+import { getIcon } from "../components/icons.js";
 import { buildTableCount } from "../components/count.js";
 import { initials } from "../core/utils.js";
 import { escapeHtml } from "../core/html.js";
@@ -35,7 +33,7 @@ const ROLES = ["owner", "collaborator"];
 // page in JS — which meant two copies of a contract only this module enforces.
 function buildMembersPanel() {
   return `
-    <div class="card column gap-md">
+    <div class="card secondary column gap-lg">
       <!-- Hidden outside edit mode by renderMembers: there is nothing to look someone up
            *for* until the surrounding form is editable. -->
       <div class="column gap-xs" id="member-add" hidden>
@@ -63,9 +61,9 @@ function buildMemberTable(members) {
     .map(
       (member) => `
         <tr>
-          <td>${escapeHtml(member.name || "—")}</td>
-          <td>${escapeHtml(member.email)}</td>
-          <td>${buildRoleBadge(member.role)}</td>
+          <td><span class="label">${escapeHtml(member.name || "—")}</span></td>
+          <td><span class="metadata">${escapeHtml(member.email)}</span></td>
+          <td>${buildRoleBadge(member.role, "sm")}</td>
         </tr>
       `,
     )
@@ -84,7 +82,9 @@ function buildMemberTable(members) {
         <tbody>${rows}</tbody>
       </table>
       <div class="table-footer">
-        ${buildTableCount(members.length, members.length, "member")}
+        <span class="metadata">
+          ${buildTableCount(members.length, members.length, "member")}
+        </span>
       </div>
     </div>
   `;
@@ -116,7 +116,7 @@ function getElements() {
  * team_members.html since folded into the details page. With no caller left it was two
  * unreachable branches and an `onChanged` hook nobody passed.
  */
-function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
+function createMembersSection({ getTeam, canRemove = () => true }) {
   const elements = getElements();
 
   const pendingAdds = new Map();
@@ -137,9 +137,7 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
   // ─── MEMBERS ───────────────────────────────────────────────────────────────
 
   function getEffectiveMembers() {
-    const current = (getTeam().members ?? []).filter(
-      (member) => !pendingRemoves.has(member.id),
-    );
+    const current = (getTeam().members ?? []).filter((member) => !pendingRemoves.has(member.id));
 
     return [...current, ...pendingAdds.values()];
   }
@@ -158,13 +156,10 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
     // there isn't one yet, and `canRemove` protects the creator there as it does for
     // removal.
     const settable =
-      editing &&
-      (pendingAdds.has(member.email) ||
-        (getTeam().id != null && canRemove(member)));
+      editing && (pendingAdds.has(member.email) || (getTeam().id != null && canRemove(member)));
 
     const options = ROLES.map(
-      (role) =>
-        `<option value="${role}"${role === selected ? " selected" : ""}>${role}</option>`,
+      (role) => `<option value="${role}"${role === selected ? " selected" : ""}>${role}</option>`,
     ).join("");
 
     return `
@@ -186,21 +181,21 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
   function buildMemberRow(member) {
     return `
       <tr>
-        <td>${escapeHtml(member.name || "—")}</td>
-        <td>${escapeHtml(member.email)}</td>
+        <td><span class="label">${escapeHtml(member.name || "—")}</span></td>
+        <td><span class="metadata">${escapeHtml(member.email)}</span></td>
         <td>${buildRoleCell(member)}</td>
         <td>
           <div class="row right">
             ${
               editing && canRemove(member)
-                ? `<button
-                    type="button"
-                    class="btn member-remove"
-                    data-user-id="${escapeHtml(member.id)}"
-                    data-email="${escapeHtml(member.email)}"
-                  >
-                    Remove
-                  </button>`
+                ? buildButton({
+                    label: "Remove",
+                    // The app's bin, as the delete buttons carry: taking a member off the
+                    // team is the same kind of act, not the ✕ that clears a field.
+                    icon: getIcon("delete"),
+                    className: "sm primary member-remove",
+                    data: { "user-id": member.id, email: member.email },
+                  })
                 : ""
             }
           </div>
@@ -220,7 +215,7 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
     }
 
     if (members.length === 0) {
-      renderHtml(elements.list, buildEmptyMessage("No members yet."));
+      renderHtml(elements.list, buildEmptyMessage("No members yet"));
       return;
     }
 
@@ -239,7 +234,11 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
             ${members.map(buildMemberRow).join("")}
           </tbody>
         </table>
-        <div class="table-footer">${buildTableCount(members.length, members.length, "member")}</div>
+        <div class="table-footer">
+          <span class="metadata">
+            ${buildTableCount(members.length, members.length, "member")}
+          </span>
+        </div>
       </div>
     `;
   }
@@ -249,7 +248,7 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
 
     return `
       <div class="row">
-        <div class="row left gap-md">
+        <div class="row left gap-lg">
           <div class="user-logo">
             ${escapeHtml(initials(label))}
           </div>
@@ -260,15 +259,12 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
           </div>
         </div>
 
-        <button
-          type="button"
-          class="btn primary add-member"
-          data-id="${escapeHtml(user.id)}"
-          data-email="${escapeHtml(user.email)}"
-          data-name="${escapeHtml(user.name ?? "")}"
-        >
-          + Add
-        </button>
+        ${buildButton({
+          label: "Add",
+          icon: getIcon("add"),
+          className: "primary add-member",
+          data: { id: user.id, email: user.email, name: user.name ?? "" },
+        })}
       </div>
     `;
   }
@@ -279,9 +275,7 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
   }
 
   function renderSearchResults(users) {
-    const existingIds = new Set(
-      getEffectiveMembers().map((member) => member.id),
-    );
+    const existingIds = new Set(getEffectiveMembers().map((member) => member.id));
 
     const available = users.filter((user) => !existingIds.has(user.id));
 
@@ -417,18 +411,24 @@ function createMembersSection({ getTeam, onMessage, canRemove = () => true }) {
     }
 
     if (users.length === 0) {
-      clearSearchResults();
-      // Second argument, not a class name: the host decides what a failure looks like, and
-      // both of them render it the same way.
-      onMessage(`No user with that email: ${query}`, true);
+      // Nothing failed — the search found nobody, which is an answer, and it belongs in the
+      // results region rather than in the page's own message.
+      renderHtml(elements.results, buildEmptyMessage(`No user with that email: ${query}`), {
+        show: true,
+      });
+
       return;
     }
 
-    onMessage("");
     renderSearchResults(users);
   }
 
   elements.search.addEventListener("change", handleSearch);
+
+  // Whatever the last search answered is about the last query: typing or deleting a
+  // character makes it stale, so it goes at the first keystroke rather than at the next
+  // `change`.
+  elements.search.addEventListener("input", clearSearchResults);
 
   elements.results.addEventListener("click", (event) => {
     const button = event.target.closest(".add-member");

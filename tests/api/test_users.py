@@ -113,6 +113,7 @@ async def test_me_returns_the_callers_profile(seeded_client, caller):
     assert body["id"] == caller["id"]
     assert body["email"] == "dev@brainwidebench.org"
     assert body["provider"] == "google"
+    assert body["role"] == "user"
     assert body["created_at"] is not None
 
 
@@ -355,6 +356,13 @@ async def test_my_task_submissions_as_member(seeded_client, add, me):
     assert reward["team_name"] == "Brain Wide Bench"
     assert reward["score"]["primary_metric_mean"] == 0.85
     assert reward["score"]["primary_metric"] == "bacc"
+
+    # How it was produced, off the row's own columns — so a client can say that without a
+    # request per score. The two the fixture fills in, and a null for one it doesn't: an
+    # unanswered field is its own answer here as everywhere else.
+    assert reward["training_paradigm"] == "TSS"
+    assert reward["calibration"] == "inductive"
+    assert reward["supervision_regime"] is None
 
 
 async def test_my_task_submissions_include_unscored_tasks(

@@ -6,11 +6,7 @@
 // infrastructure in table.js.
 
 import { getSubmissionFilters } from "../utils/submissionUtils.js";
-import {
-  buildStaticTable,
-  createFilterableTable,
-  previewRows,
-} from "./table.js";
+import { buildStaticTable, createFilterableTable, previewRows } from "./table.js";
 import {
   dateFormatter,
   dateSorter,
@@ -44,10 +40,7 @@ function getSubmissionColumns({ showModel = false } = {}) {
     {
       title: "Label",
       field: "label",
-      formatter: buildLinkFormatter(
-        "/html/submissions/submissions.html",
-        "label",
-      ),
+      formatter: buildLinkFormatter("/html/submissions/submissions.html", "label", "id", "label"),
       widthGrow: 2,
     },
     ...modelColumns,
@@ -80,17 +73,12 @@ function getSubmissionColumns({ showModel = false } = {}) {
  * @param showModel   add Model and Team columns. For a list spanning models.
  * @param showFilters keep the filter bar above the grid. False for a caller with a bar of
  *                    its own over both its views — see templates/listPage.js.
- * @param selection   from bindTableSelection, to make the rows pickable. Omit for a table
+ * @param selection   from createTableBinding, to make the rows pickable. Omit for a table
  *                    that is only read.
  *
  * @returns { element, table } — as createModelsTable; the caller mounts the element.
  */
-function createSubmissionsTable({
-  rows,
-  showModel = false,
-  showFilters = true,
-  selection,
-}) {
+function createSubmissionsTable({ rows, showModel = false, showFilters = true, selection }) {
   return createFilterableTable({
     rows,
     columns: getSubmissionColumns({ showModel }),
@@ -113,28 +101,17 @@ function createSubmissionsTable({
  * @param rows        as createSubmissionsTable.
  * @param showModel   as createSubmissionsTable.
  * @param limit       how many rows to show. Omit for all of them.
- * @param viewAll     as buildStaticTable — where the footer's "View all" link goes.
  *
  * @returns the markup. The caller writes it where it wants it.
  */
-function buildStaticSubmissionsTable({
-  rows,
-  showModel = false,
-  limit,
-  viewAll,
-}) {
-  const shown = previewRows(
-    rows,
-    (a, b) => dateSorter(b.updated_at, a.updated_at),
-    limit,
-  );
+function buildStaticSubmissionsTable({ rows, showModel = false, limit }) {
+  const shown = previewRows(rows, (a, b) => dateSorter(b.updated_at, a.updated_at), limit);
 
   return buildStaticTable({
     columns: getSubmissionColumns({ showModel }),
     rows: shown,
     noun: "submission",
     total: rows.length,
-    viewAll,
   });
 }
 

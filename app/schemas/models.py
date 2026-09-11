@@ -31,7 +31,7 @@ class ModelBase(ModelMetadata):
     id: uuid.UUID
     team_id: uuid.UUID
     name: str
-    temporal_context_s: float
+    temporal_context_s: float | None = None
     created_at: datetime | None = None
 
     # Optional here only because it lives on the ``team`` relationship rather than on
@@ -118,7 +118,7 @@ class ModelCreate(ModelMetadata):
 
     team_id: uuid.UUID
     name: str
-    temporal_context_s: float = 1.0
+    temporal_context_s: float | None = None
 
 
 class ModelUpdate(ModelMetadata):
@@ -176,6 +176,10 @@ class RankingSide(BaseModel):
 
         Not ``model_validate``: the coverage counts sit beside the overall figure there
         and inside it here, because they only ever explain that one.
+
+        The placings' per-task positions are deliberately not carried across. A side is the
+        summary figures; where each task placed rides on the entry that earned it, in
+        ``ModelRanking.tasks``, so a reader has the position and the entry in one place.
         """
         return cls(
             overall=OverallPosition(
@@ -191,12 +195,25 @@ class RankingSide(BaseModel):
 
 
 class TaskEntryRef(BaseModel):
-    """Which entry supplied a task's score — the task submission, and the submission it is in."""
+    """Which entry supplied a task's score, and where that score placed.
 
-    model_config = ConfigDict(from_attributes=True)
+    ``rank`` is the position on this one task, against ``n_ranked`` — the models that
+    entered the same task, which is a smaller field than the suite around it. It is a
+    position rather than the mean of per-recording ranks behind it: the mean is not a
+    place in the field, so a model last in it can still average halfway up.
+
+    Both belong to the side this ref hangs off, each side being placed as its own standing.
+    Where the two sides name the same entry they place it the same way — same score, same
+    competitors — so a difference between them is a newer private run, not a rescoring.
+
+    Built by hand rather than validated from the ORM: the position is not on the task
+    submission, and a ref made from one alone would report an unplaced score as unranked.
+    """
 
     id: uuid.UUID
     submission_id: uuid.UUID
+    rank: int | None = None
+    n_ranked: int = 0
 
 
 class TaskEntrySides(BaseModel):

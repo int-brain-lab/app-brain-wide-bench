@@ -1,56 +1,79 @@
-// A list view over one set of rows, with optional cards, table, filtering and a secondary
-// panel driven by selection.
+// A list view over one set of rows, with optional cards, table, filtering and a comparison
+// the rows are picked for.
 //
-// Cards and table share the same rows, filter state and selection. The optional panel has
-// two modes: `base` and `active`. Views are created lazily and kept alive so switching
-// between cards/table or modes does not lose the user's state.
+// Cards and table share the same rows, the same filter state and the same picks. Each view is
+// built when it is first shown and kept alive, so switching between them loses nothing.
+//
+// The rows are not pickable until the reader asks for it: Compare turns picking on, Go takes
+// the picks where they are read — the panel under the list, or a page of its own — and Done
+// gives them up again. The same three the leaderboard has, which is the other list in the app
+// whose rows are picked.
 
 import { buildFilterBar } from "../components/filters.js";
 import { createFilterState } from "../components/filterState.js";
 import { resolveContainer } from "../core/dom.js";
 import { buildSection } from "../components/sections.js";
 import {
+  buildButton,
   buildCardTableToggle,
   buildCompareButton,
+  setButtonLabel,
   CARD_TOGGLE_ID,
   COMPARE_BUTTON_ID,
+  DONE_LABEL,
+  GO_BUTTON_ID,
+  GO_COMPARE_LABEL,
   TABLE_TOGGLE_ID,
 } from "../components/buttons.js";
+import { getIcon } from "../components/icons.js";
 import { dispose } from "../core/disposable.js";
-import { refreshIcons, renderHtml } from "../core/render.js";
-import {
-  bindCardSelection,
-  bindTableSelection,
-  createPicker,
-} from "../comparisons/comparison.js";
+import { refreshIcons, renderHtml, setText } from "../core/render.js";
+import { pluralise } from "../core/utils.js";
+import { createCardBinding, createTableBinding } from "../comparisons/binding.js";
+import { createPicks } from "../comparisons/picks.js";
 
-const MODE_NAMES = ["base", "active"];
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
+// The section the comparison is drawn into, under the list.
+const PANEL_ID = "panel";
+
+// Where the chips naming what is picked are drawn — above the list, as every other comparison
+// in the app has them.
+const PICKS_ID = "list-picks";
+
+// The line beside the buttons saying what they are for — see getHint.
+const HINT_ID = "list-hint";
+
+// What Go reads once the panel is open, being the only way to fold it away again.
 // ─── LIST VIEW ───────────────────────────────────────────────────────────────
 
 /**
  * A list in its two views, cards and a table, over one set of rows and one filter bar.
  *
  * @param container      element, or the id of one. Its contents are replaced, and it is
- *                       written into before the panels are built rather than after — a panel
- *                       is a widget that looks its own controls up by document id the moment
- *                       it is created, and getElementById finds nothing in a detached tree.
+ *                       written into before the panel is built rather than after — a panel is
+ *                       a widget that looks its own controls up by document id the moment it
+ *                       is created, and getElementById finds nothing in a detached tree.
  * @param rows           every row, already mapped. The host handles an empty list.
+ * @param noun           *singular* — "model". What the hint calls the rows, and what the
+ *                       Compare button is named after.
  * @param createCards    () => a card grid — see cards/cardGrid.js. Omit for a table-only
  *                       list.
  * @param createTable    ({ rows, selection }) => { element, table } — see tables/table.js.
  * @param filterControls (rows) => controls for the bar, read once — see
  *                       components/filterState.js. Omit for no filter bar.
- * @param modes          `{ base, active }` panel definitions. Omit for a list whose rows
- *                       open nothing beside them.
- * @param picking        `{ max, palette, label, toEntry, onCompare }` for a list whose rows are
- *                       picked and then acted on elsewhere, rather than opening a panel beside
- *                       them: a click highlights a row, at most `max` are held, and the button
- *                       calls `onCompare(keys)` with what is picked. The record's own link
- *                       still navigates — the row is the pick, the name is the way to the
- *                       record. `palette` marks each pick in the colour it will be drawn in
- *                       wherever it is handed on. Takes the place of `modes`: a list cannot
- *                       both hand its picks on and draw a panel from them.
+ * @param panel          `{ title, label, always, create }` — the comparison drawn from the
+ *                       picks, in a section under the list that opens on the first pick.
+ *                       `create(container, { picksContainer })` returns the controller holding
+ *                       the picks, and draws the chips naming them into `picksContainer` where
+ *                       it takes one. `always: true` for a list that is only ever picking: no
+ *                       buttons, the rows live from the first render, and the chips stay with
+ *                       the panel. Omit `panel` for a list whose rows open nothing beside them.
+ * @param picking        `{ max, palette, label, toPick, onCompare }` for a list that hands its
+ *                       picks on instead of drawing them: `onCompare(keys)` is what Go calls,
+ *                       and `palette` marks each pick in the colour it will be drawn in
+ *                       wherever it lands. Takes the place of `panel`: a list cannot both hand
+ *                       its picks on and draw a panel from them.
  * @param maxCards       rows at or below which the list opens on the cards rather than the
  *                       table.
  *
@@ -60,19 +83,36 @@ const MODE_NAMES = ["base", "active"];
 function createListView({
   container,
   rows,
+  noun = "row",
   createCards = null,
   createTable,
   filterControls = null,
-  modes = {},
+  panel = null,
   picking = null,
   maxCards = 6,
 }) {
   const element = document.createElement("div");
 
-  element.className = "column gap-md";
+  element.className = "column gap-lg";
 
   let currentView = getInitialView();
-  let activeMode = modes.base ? "base" : null;
+
+  // A list that is only ever picking — a scores list, whose whole point is the comparison
+  // under it. No button to press first, and nothing to press to stop.
+  const alwaysPicking = Boolean(panel?.always);
+
+  // Whether a click on a row picks it. Off until the reader asks to compare: on a list they
+  // are reading, a click on a row means nothing.
+  let comparing = alwaysPicking;
+
+  // Whether the comparison under the list is on screen. A list that hands its picks to a page
+  // of its own has no panel and never shows one.
+  let showingPanel = false;
+
+  // Whether there is anything to compare at all, which is what puts the buttons on the page.
+  const comparable = Boolean(panel || picking);
+
+  const compareLabel = picking?.label ?? panel?.label ?? `Compare ${pluralise(noun)}`;
 
   // Once, not per use: the bar's markup and the state behind it read the same descriptors,
   // and a pinned control's options are what its chips are labelled from.
@@ -83,37 +123,15 @@ function createListView({
   let cardView = null;
   let tableView = null;
 
-  // Mode name -> { controller, table, cards }.
-  const panels = new Map();
-
-  // The picks, as the same shape a panel presents: a controller and the two bindings that keep
-  // the table and the cards showing what it holds. There is nothing to render from it, so it
-  // is not in `panels` and has no section — everything else about it is a panel, which is what
-  // lets the table, the cards and the filtering below stay as they are.
-  const picker = picking
-    ? (() => {
-        const controller = createPicker({
-          max: picking.max,
-          palette: picking.palette,
-          toEntry: picking.toEntry,
-        });
-
-        return {
-          controller,
-          // The row is the pick and the record's own name is the link out of the list, so a
-          // click on the name follows it and leaves the picks alone.
-          table: bindTableSelection(controller, { claimLinks: false }),
-          cards: createCards ? bindCardSelection(controller) : null,
-        };
-      })()
-    : null;
+  // The picks, and the bindings that keep the table and the cards showing what is held. The
+  // controller is the panel's own where there is one — a comparison holds its picks itself —
+  // and this view's where the list hands them on.
+  let picks = null;
 
   // ─── VIEW ──────────────────────────────────────────────────────────────────
 
   function getInitialView() {
-    return createCards && rows.length <= maxCards
-      ? CARD_TOGGLE_ID
-      : TABLE_TOGGLE_ID;
+    return createCards && rows.length <= maxCards ? CARD_TOGGLE_ID : TABLE_TOGGLE_ID;
   }
 
   function getSlot(selector) {
@@ -121,10 +139,7 @@ function createListView({
   }
 
   function setActiveView(view) {
-    for (const button of [
-      getSlot(`#${CARD_TOGGLE_ID}`),
-      getSlot(`#${TABLE_TOGGLE_ID}`),
-    ]) {
+    for (const button of [getSlot(`#${CARD_TOGGLE_ID}`), getSlot(`#${TABLE_TOGGLE_ID}`)]) {
       button?.classList.toggle("primary-inv", button.id === view);
     }
   }
@@ -143,77 +158,43 @@ function createListView({
     refreshIcons();
   }
 
-  // ─── MODES ─────────────────────────────────────────────────────────────────
+  // ─── PICKS ─────────────────────────────────────────────────────────────────
 
-  function panelId(mode) {
-    return `panel-${mode}`;
-  }
-
-  function ensurePanel(mode) {
-    if (!mode) return null;
-
-    const existing = panels.get(mode);
-    if (existing) return existing;
-
-    const {
-      create,
-      bindTable = bindTableSelection,
-      bindCards = bindCardSelection,
-    } = modes[mode];
-
-    const controller = create(getSlot(`#section-${panelId(mode)}-body`));
-
-    const panel = {
+  function createBindings(controller) {
+    return {
       controller,
-      table: bindTable(controller),
-      cards: createCards ? bindCards(controller) : null,
+
+      // `enabled` is read live, which is what lets picking be turned on and off without
+      // rebuilding the rows.
+      //
+      // `claimLinks` only where the reader turned picking on: there a row is a control and
+      // the links inside it go nowhere. A list that is always picking keeps them, since the
+      // model and submission a score belongs to have no other way out of that list.
+      table: createTableBinding(controller, {
+        enabled: () => comparing,
+        claimLinks: () => comparing && !alwaysPicking,
+      }),
+      cards: createCards ? createCardBinding(controller) : null,
     };
-
-    panels.set(mode, panel);
-
-    return panel;
   }
 
-  function activePanel() {
-    return picker ?? ensurePanel(activeMode);
+  function heldCount() {
+    return picks?.controller.size ?? 0;
   }
 
-  function showMode(mode) {
-    for (const name of MODE_NAMES) {
-      const pane = getSlot(`#section-${panelId(name)}`);
-
-      if (pane) {
-        pane.hidden = name !== mode;
-      }
-    }
-  }
-
-  function attachActiveCardSelection() {
-    for (const panel of panels.values()) {
-      panel.cards?.attach(null);
+  // Whether the views are picking, written onto them rather than rebuilt into them: a table's
+  // `selectableRows` is fixed when its rows are built, so the binding gates the clicks and
+  // this only marks what the reader can do — see `enabled` in tables/table.js.
+  function applyPicking() {
+    if (tableView) {
+      tableView.element.dataset.rowsSelectable = String(comparing);
     }
 
     if (!cardView) return;
 
-    const panel = activePanel();
+    picks?.cards?.attach(comparing ? cardView.element : null);
 
-    panel?.cards?.attach(cardView.element);
-    cardView.setSelection(panel?.cards?.selection() ?? null);
-  }
-
-  function setMode(mode) {
-    activeMode = mode;
-
-    showMode(mode);
-    activePanel()?.controller.clear();
-
-    attachActiveCardSelection();
-
-    // Table selection behaviour is fixed when the table is created. Recreate it when the
-    // active mode changes so the new mode gets the correct selection synchronisation.
-    destroyTable();
-
-    renderView(currentView);
+    cardView.setSelection(comparing ? (picks?.cards?.selectionOptions() ?? null) : null);
   }
 
   // ─── CARDS ─────────────────────────────────────────────────────────────────
@@ -229,10 +210,7 @@ function createListView({
       cardView.setFilter(filterState.matches);
     }
 
-    const panel = activePanel();
-
-    cardView.setSelection(panel?.cards?.selection() ?? null);
-    panel?.cards?.attach(cardView.element);
+    applyPicking();
 
     return cardView;
   }
@@ -246,16 +224,16 @@ function createListView({
   function ensureTableView() {
     if (tableView) return tableView;
 
-    const panel = activePanel();
-
     tableView = createTable({
       rows,
-      selection: panel?.table?.selection() ?? null,
+      selection: picks?.table?.selectionOptions() ?? null,
     });
 
-    panel?.table?.attach(tableView.table);
+    picks?.table?.attach(tableView.table);
 
     tableView.table?.on("tableBuilt", applyTableFilter);
+
+    applyPicking();
 
     return tableView;
   }
@@ -273,9 +251,7 @@ function createListView({
   }
 
   function destroyTable() {
-    for (const panel of panels.values()) {
-      panel.table?.attach(null);
-    }
+    picks?.table?.attach(null);
 
     dispose(tableView?.table);
     tableView = null;
@@ -295,83 +271,175 @@ function createListView({
       tableView.table.setFilter(filterState.matches);
     };
 
-    const tableSelection = activePanel()?.table;
-
-    if (tableSelection) {
-      tableSelection.apply(apply);
+    // Quietly, so the selection events a re-filter fires are not read as the reader's.
+    if (picks?.table) {
+      picks.table.quietly(apply);
     } else {
       apply();
     }
   }
 
-  // ─── EVENTS ────────────────────────────────────────────────────────────────
+  // ─── COMPARING ─────────────────────────────────────────────────────────────
 
-  // Nothing to hand on until something is picked. Judged from the picker rather than from the
-  // rows, since a filter that hides a picked row does not unpick it.
-  function updateCompareButton() {
-    const button = getSlot(`#${COMPARE_BUTTON_ID}`);
+  function getCompareButton() {
+    return getSlot(`#${COMPARE_BUTTON_ID}`);
+  }
 
-    if (button) button.disabled = picker.controller.size === 0;
+  function getGoButton() {
+    return getSlot(`#${GO_BUTTON_ID}`);
+  }
+
+  // What the buttons beside it are for: how to start comparing, and once the reader has, how
+  // many are in and where they are read.
+  function getHint() {
+    const max = picks?.controller.max ?? 0;
+    const room = `Select up to ${max} ${pluralise(noun)} to compare them`;
+    const selected = `Selected ${heldCount()} out of ${max}.`;
+
+    if (alwaysPicking) {
+      return heldCount() ? `${selected} The comparison is below.` : `${room}.`;
+    }
+
+    if (!comparing) {
+      return `Click ${compareLabel} and ${room[0].toLowerCase()}${room.slice(1)}.`;
+    }
+
+    // A panel is already below by the time there is anything to read; only a list handing its
+    // picks to a page of its own has a Go to name.
+    if (panel) {
+      return heldCount()
+        ? `${selected} The comparison is below. Click ${DONE_LABEL} to return to the list.`
+        : `${room}, or ${DONE_LABEL} to return to the list.`;
+    }
+
+    return `${selected} Click ${GO_COMPARE_LABEL} to see the comparison, or ${DONE_LABEL} to return to the list.`;
+  }
+
+  // The buttons, the hint and the rows all say the same thing.
+  function updateCompare() {
+    // A list with nothing to compare has none of them — no hint to write, and no picking to
+    // mark. `setText` resolves its element rather than tolerating a missing one, so this is
+    // an early return rather than a guard per write.
+    if (!comparable) return;
+
+    // The picks alone decide whether the comparison is on screen: there is nothing to press
+    // to see it, whether the list is always picking or the reader turned it on.
+    if (panel) {
+      showingPanel = comparing && heldCount() > 0;
+
+      showPanel();
+    }
+
+    const compare = getCompareButton();
+    const go = getGoButton();
+
+    if (compare) {
+      setButtonLabel(compare, {
+        label: comparing ? DONE_LABEL : compareLabel,
+        icon: getIcon(comparing ? "cancel" : "compare"),
+      });
+
+      // Lit until the reader is comparing, when Done becomes the way back out and stays plain.
+      compare.classList.toggle("primary-inv", !comparing);
+    }
+
+    if (go) {
+      go.hidden = !comparing;
+
+      // A pick is the fewest that is a comparison.
+      go.disabled = heldCount() < 1;
+
+      go.classList.toggle("primary", heldCount() > 0);
+    }
+
+    setText(getSlot(`#${HINT_ID}`), getHint());
+
+    applyPicking();
+    refreshIcons();
+  }
+
+  function showPanel() {
+    const section = getSlot(`#section-${PANEL_ID}`);
+
+    if (section) section.hidden = !showingPanel;
+  }
+
+  // The picks are given up on the way out, as the leaderboard's are: pressing Compare again
+  // starts on a clean list. updateCompare folds the panel away, the picks being gone.
+  function handleCompare() {
+    comparing = !comparing;
+
+    if (!comparing) picks?.controller.clear();
+
+    updateCompare();
+  }
+
+  // Where the picks are read for a list that hands them on: a page of its own. A panel needs
+  // no press — see updateCompare.
+  function handleGo() {
+    picking.onCompare(picks.controller.keys());
   }
 
   function attachEvents() {
-    getSlot(`#${CARD_TOGGLE_ID}`)?.addEventListener("click", () =>
-      renderView(CARD_TOGGLE_ID),
-    );
+    getSlot(`#${CARD_TOGGLE_ID}`)?.addEventListener("click", () => renderView(CARD_TOGGLE_ID));
 
-    getSlot(`#${TABLE_TOGGLE_ID}`)?.addEventListener("click", () =>
-      renderView(TABLE_TOGGLE_ID),
-    );
+    getSlot(`#${TABLE_TOGGLE_ID}`)?.addEventListener("click", () => renderView(TABLE_TOGGLE_ID));
 
-    // The same button, two jobs: it opens the comparison panel where there is one, and hands
-    // the picks to the caller where the list is a picker.
-    getSlot(`#${COMPARE_BUTTON_ID}`)?.addEventListener("click", () => {
-      if (picker) picking.onCompare(picker.controller.keys());
-      else toggleComparison();
-    });
-  }
-
-  function toggleComparison() {
-    const compareButton = getSlot(`#${COMPARE_BUTTON_ID}`);
-    const comparing = activeMode !== "active";
-    const nextMode = comparing ? "active" : modes.base ? "base" : null;
-
-    setMode(nextMode);
-    compareButton?.classList.toggle("primary", comparing);
+    getCompareButton()?.addEventListener("click", handleCompare);
+    getGoButton()?.addEventListener("click", handleGo);
   }
 
   // ─── MARKUP ────────────────────────────────────────────────────────────────
 
-  function buildToolbar() {
-    const toggle = createCards ? buildCardTableToggle() : "";
+  // What the picks are for, and — where there is anything to press — the two buttons that
+  // work them, at the far end of the toolbar.
+  function buildCompareControls() {
+    if (!comparable) return "";
 
-    const action = picking ?? modes.active;
-
-    const compare = action
-      ? buildCompareButton({
-          label: action.label,
-          // A picker starts with nothing picked, so its button starts with nothing to do.
-          disabled: Boolean(picking),
+    // Go only where the picks leave the page. A panel is the comparison itself, so it opens
+    // on the first pick rather than waiting to be asked for — see updateCompare.
+    const go = picking
+      ? buildButton({
+          id: GO_BUTTON_ID,
+          label: GO_COMPARE_LABEL,
+          icon: getIcon("compare"),
+          hidden: true,
+          disabled: true,
         })
       : "";
 
-    if (!toggle && !compare) return "";
+    const buttons = alwaysPicking
+      ? ""
+      : `${go}${buildCompareButton({ label: compareLabel, className: "primary-inv" })}`;
 
-    const alignment = toggle ? "row" : "row right";
-
-    return `<div class="${alignment} gap-sm">${toggle}${compare}</div>`;
+    return `
+      <div class="row right gap-lg">
+        <span class="card metadata bold action-hint" id="${HINT_ID}"></span>
+        ${buttons}
+      </div>
+    `;
   }
 
-  function buildPanes() {
-    return MODE_NAMES.filter((name) => modes[name])
-      .map((name) =>
-        buildSection({
-          id: panelId(name),
-          title: modes[name].title ?? "",
-          hidden: true,
-        }),
-      )
-      .join("");
+  function buildToolbar() {
+    const toggle = createCards ? buildCardTableToggle() : "";
+    const compare = buildCompareControls();
+
+    if (!toggle && !compare) return "";
+
+    // `right` where there is no toggle, since a row of one otherwise puts its only child at
+    // the near end.
+    return `<div class="row${toggle ? "" : " right"} gap-lg">${toggle}${compare}</div>`;
+  }
+
+  // Hidden until Go: the comparison is what the reader asked for, not what the list opens on.
+  function buildPanel() {
+    if (!panel) return "";
+
+    return buildSection({
+      id: PANEL_ID,
+      title: panel.title ?? "",
+      hidden: true,
+    });
   }
 
   function buildFilters() {
@@ -384,12 +452,23 @@ function createListView({
     `;
   }
 
+  // Under the list and over the comparison, which is what they name: a reader reads down from
+  // the rows they ticked to the panel those ticks opened. Drawn into by the panel's own
+  // comparison — see the `picksContainer` it is built with below. An always-picking list keeps
+  // its chips with the panel, which is that page's subject rather than a step in it.
+  function buildPicksRow() {
+    if (!panel || alwaysPicking) return "";
+
+    return `<span class="row left gap-sm compare-picks" id="${PICKS_ID}"></span>`;
+  }
+
   function buildViewBody() {
     return `
       ${buildToolbar()}
       ${buildFilters()}
       <div data-role="list"></div>
-      ${buildPanes()}
+      ${buildPicksRow()}
+      ${buildPanel()}
     `;
   }
 
@@ -397,9 +476,8 @@ function createListView({
 
   renderHtml(element, buildViewBody());
 
-  // Before anything below it runs: setMode builds the panel for the mode a list opens on, and
-  // a panel finds its own controls with getElementById — which answers nothing until this
-  // element is in the document. See the note on `container` above.
+  // Before anything below it runs: a panel finds its own controls with getElementById, which
+  // answers nothing until this element is in the document. See the note on `container` above.
   resolveContainer(container).replaceChildren(element);
 
   if (controls.length) {
@@ -410,20 +488,34 @@ function createListView({
     });
   }
 
-  attachEvents();
-  setMode(activeMode);
+  // The panel is built with the list rather than on the first press: it holds the picks, and
+  // the hint says how many it has room for before the reader has made one. Its section is
+  // hidden, which a widget looking up its own controls does not mind.
+  if (comparable) {
+    picks = createBindings(
+      panel
+        ? panel.create(getSlot(`#section-${PANEL_ID}-body`), {
+            picksContainer: getSlot(`#${PICKS_ID}`),
+          })
+        : createPicks({
+            max: picking.max,
+            palette: picking.palette,
+            toPick: picking.toPick,
+          }),
+    );
 
-  // After the toolbar exists, and for as long as the list does: the picks are the only thing
-  // that decides whether the button can be pressed.
-  picker?.controller.subscribe(updateCompareButton);
+    picks.controller.subscribe(updateCompare);
+  }
+
+  attachEvents();
+  renderView(currentView);
+  updateCompare();
 
   function destroy() {
     destroyTable();
     cardView?.destroy();
 
-    for (const panel of panels.values()) {
-      dispose(panel.controller);
-    }
+    dispose(picks?.controller);
   }
 
   return { element, destroy };

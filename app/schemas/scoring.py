@@ -4,6 +4,9 @@ The pure scoring module returns a dict keyed by ``(label, task, recording_id)``.
 ``TS1Scorer.score`` flattens that into the JSON-serialisable shape modelled here:
 a list of per-recording rows plus a per-task ``summary`` of the primary metric used
 to populate the public leaderboard.
+
+Every mean here is aggregated by ``ibl_bwb_eval.scoring.aggregation.aggregate``, which floors
+``r2`` and ``poisson_d2`` at 0 per seed first. The unclipped value is not kept anywhere.
 """
 
 from pydantic import BaseModel
@@ -18,7 +21,11 @@ class ScoreResultBase(BaseModel):
 
 
 class MetricSummary(BaseModel):
-    """Aggregated value of one metric across seeds."""
+    """Aggregated value of one metric across seeds.
+
+    ``r2`` and ``poisson_d2`` are clipped at 0 per seed before aggregation, so their ``mean``
+    and ``sem`` describe the clipped values.
+    """
 
     mean: float
     sem: float | None = None

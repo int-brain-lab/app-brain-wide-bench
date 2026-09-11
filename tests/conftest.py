@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel
@@ -46,7 +47,13 @@ async def session_factory(engine):
 
 
 @pytest_asyncio.fixture
-async def client(engine, session_factory, monkeypatch):
+def queued():
+    """What the endpoints handed to Celery, instead of a broker."""
+    return {"score": [], "validate": []}
+
+
+@pytest_asyncio.fixture
+async def client(engine, session_factory, monkeypatch, queued):
     """HTTP client against the ASGI app with DB, S3 and Celery stubbed."""
 
     async def override_get_session():
@@ -63,11 +70,17 @@ async def client(engine, session_factory, monkeypatch):
     # to every test after it.
     meta_router.reset_meta_document()
 
+    # The storage helpers already answer without an object store; that branch is the double.
+    monkeypatch.setattr(settings, "s3_stub", True)
+
     app.dependency_overrides[get_session] = override_get_session
+
     monkeypatch.setattr(
-        submissions_router, "presign_put", lambda key, content_type="application/zip": f"https://s3.test/{key}"
+        submissions_router.score_submission, "delay", lambda sid: queued["score"].append(sid)
     )
-    monkeypatch.setattr(submissions_router.score_submission, "delay", lambda *a, **k: None)
+    monkeypatch.setattr(
+        submissions_router.validate_submission, "delay", lambda sid: queued["validate"].append(sid)
+    )
 
     # Seed static task lookup (normally done by the Alembic migration).
     async with session_factory() as s:
@@ -211,3 +224,21 @@ async def add(session_factory):
             await session.commit()
 
     return _add
+
+
+@pytest_asyncio.fixture
+async def remaining(session_factory):
+    """Which of ``values`` are still in a column — ``await remaining(TaskSubmission.id, ids)``.
+
+    For what a cascade left behind. A column rather than a model, so the children of a
+    deleted row are asked for by the key that names their parent:
+    ``await remaining(TaskScore.task_submission_id, entries)``.
+    """
+
+    async def _remaining(column, values):
+        async with session_factory() as session:
+            rows = await session.execute(select(column).where(column.in_(list(values))))
+
+            return list(rows.scalars())
+
+    return _remaining

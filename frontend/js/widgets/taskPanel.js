@@ -9,8 +9,7 @@
 
 import { escapeHtml } from "../core/html.js";
 import { buildEmptyMessage, buildMessageCard } from "../components/messages.js";
-import { renderHtml } from "../core/render.js";
-import { buildCount } from "../components/count.js";
+import { refreshIcons, renderHtml } from "../core/render.js";
 import { CLEARED_MESSAGE, createFieldState } from "../forms/form.js";
 import { buildFields } from "../forms/fields.js";
 import {
@@ -19,12 +18,11 @@ import {
   setFieldValue,
   renderPreservingFocus,
 } from "../forms/form.js";
-import {
-  TASK_FIELDS,
-  trainingFieldKeys,
-} from "../schemas/taskSubmissionSchema.js";
-import { suiteLabel, SUITES } from "../core/suites.js";
-import { buildSuiteBadgeList } from "../components/badges.js";
+import { TASK_FIELDS, trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
+import { suiteLabel, SUITES, taskLabel } from "../core/suites.js";
+import { buildSuiteBadgeList, buildTaskBadge } from "../components/badges.js";
+import { buildButton } from "../components/buttons.js";
+import { getIcon } from "../components/icons.js";
 
 // TODO move out build from controller
 const PANEL_ID = "task-panel";
@@ -85,9 +83,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
 
   function valuesEqual(a, b) {
     if (Array.isArray(a) && Array.isArray(b)) {
-      return (
-        a.length === b.length && a.every((value, index) => value === b[index])
-      );
+      return a.length === b.length && a.every((value, index) => value === b[index]);
     }
 
     return a === b;
@@ -106,9 +102,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     // depend on more than one value.
     revalidateFields(target.state, TASK_FIELDS);
 
-    target.cleared = keys.filter(
-      (key) => !valuesEqual(source.state[key], target.state[key]),
-    );
+    target.cleared = keys.filter((key) => !valuesEqual(source.state[key], target.state[key]));
 
     // A copied confirmation is only valid if copying did not invalidate anything.
     target.confirmed = source.confirmed && target.cleared.length === 0;
@@ -126,6 +120,15 @@ function createTaskSection({ taskSuites, onChange } = {}) {
 
   // ─── RENDERING ─────────────────────────────────────────────────────────────
 
+  // A task as the rest of the site writes one — its suite's colour, its short name. With no
+  // catalogue there is no suite to name, so the badge is neutral and carries the name alone.
+  function buildTaskName(taskId, size = "sm") {
+    const suite = getSuite(taskId);
+    const label = suite ? `${suiteLabel(suite)} ${taskLabel(taskId)}` : taskLabel(taskId);
+
+    return buildTaskBadge(label, suite ?? "ts-neutral", size);
+  }
+
   function buildTaskStatus(task) {
     if (task.confirmed) {
       return `<span class="task-status ok">✓</span>`;
@@ -137,40 +140,29 @@ function createTaskSection({ taskSuites, onChange } = {}) {
   function buildTaskItem(task) {
     const id = escapeHtml(task.taskId);
 
-    const classes = [
-      "task-item",
-      task.taskId === selectedTaskId ? "selected" : "",
-    ]
+    const classes = ["task-item", task.taskId === selectedTaskId ? "selected" : ""]
       .filter(Boolean)
       .join(" ");
 
+    // The id on hover: the rows and the detail's badge both name the task the short way the
+    // rest of the site does, and the id is what the file and the payload carry.
     return `
       <button
         type="button"
         class="${classes}"
         data-task="${id}"
+        title="${id}"
       >
         ${buildTaskStatus(task)}
-        <span class="task-item-label">${id}</span>
+        <span class="task-item-label metadata">${escapeHtml(taskLabel(task.taskId))}</span>
       </button>
     `;
   }
 
   function buildTaskGroup(suite, suiteTasks) {
-    const count = suiteTasks.length;
-
     // A null suite is the no-catalogue case — one unlabelled group, because there is no
     // suite to name.
-    const header = suite
-      ? `
-        <div class="row left gap-sm">
-          ${buildSuiteBadgeList([suite])}
-          <span class="metadata">
-            ${buildCount(count, "task")}
-          </span>
-        </div>
-      `
-      : "";
+    const header = suite ? buildSuiteBadgeList([suite]) : "";
 
     return `
       <div class="column gap-xs">
@@ -196,7 +188,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
 
   function buildTaskPicker() {
     return `
-      <div class="task-picker column gap-md">
+      <div class="task-picker column gap-lg">
         ${buildTaskGroups()}
       </div>
     `;
@@ -214,6 +206,9 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     );
   }
 
+  // Beside the Save button it acts on, rather than in a card of its own: what it changes is
+  // what that button then writes. The input is inside its label, as a field's own options
+  // are, so the whole row is the hit area.
   function buildApplyToSuite(task) {
     const siblings = getSuiteSiblings(task);
 
@@ -224,19 +219,15 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     const suite = escapeHtml(suiteLabel(getSuite(task.taskId)));
 
     return `
-      <div class="card row left gap-sm">
-        <label class="label" for="task-apply-suite">
-          Apply to all ${suite} tasks (${siblings.length})
-        </label>
-
+      <label class="field-option row left gap-sm">
         <input
           class="input-checkbox task-apply-suite"
-          id="task-apply-suite"
           type="checkbox"
           data-task="${taskId}"
           ${task.applyToSuite ? "checked" : ""}
         />
-      </div>
+        Apply to all ${suite} tasks (${siblings.length})
+      </label>
     `;
   }
 
@@ -245,7 +236,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
 
     if (!task) {
       return `
-        <div class="card">
+        <div class="card secondary">
           <p class="info-msg">
             Select a task to describe how it was run.
           </p>
@@ -256,32 +247,30 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     const taskId = escapeHtml(task.taskId);
 
     return `
-      <div class="column gap-md">
-        <div class="card column gap-md">
-          <p class="title muted">${taskId}</p>
+      <div class="card secondary column gap-lg">
+        <span class="row left">${buildTaskName(task.taskId, "md")}</span>
 
-          ${buildClearedNotice(task)}
+        ${buildClearedNotice(task)}
 
-          <div class="column gap-md">
-            ${buildFields(trainingFieldKeys(), task.state, TASK_FIELDS)}
-          </div>
+        <div class="column gap-lg">
+          ${buildFields(trainingFieldKeys(), task.state, TASK_FIELDS)}
+        </div>
+
+        <div class="row right gap-lg">
+          ${buildApplyToSuite(task)}
 
           <!-- One way: editing any field clears the confirmation again (see updateField),
                so there is nothing for the user to untick. Disabled once saved, which is
                also the only feedback the click gives — the tick in the picker is the
                lasting record. -->
-          <div class="row right">
-            <button
-              type="button"
-              class="btn primary task-confirm"
-              data-task="${taskId}"
-              ${task.confirmed ? "disabled" : ""}>
-              ${task.confirmed ? "Saved" : "Save selection"}
-            </button>
-          </div>
+          ${buildButton({
+            label: task.confirmed ? "Saved" : "Save selection",
+            icon: getIcon(task.confirmed ? "tick" : "save"),
+            className: "primary task-confirm",
+            data: { task: taskId },
+            disabled: task.confirmed,
+          })}
         </div>
-
-        ${buildApplyToSuite(task)}
       </div>
     `;
   }
@@ -290,7 +279,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     if (!tasks.size) {
       renderHtml(
         container,
-        buildEmptyMessage("No tasks yet — upload a .zip on the panel above."),
+        buildEmptyMessage("No tasks yet — add your file above and we will read them from it"),
       );
       return;
     }
@@ -303,6 +292,10 @@ function createTaskSection({ taskSuites, onChange } = {}) {
         </div>
       `;
     });
+
+    // Written straight into the container rather than through renderHtml, which is what
+    // draws the icon placeholders a field row or a cleared-fields card carries.
+    refreshIcons();
   }
 
   // ─── STATE UPDATES ─────────────────────────────────────────────────────────
@@ -402,11 +395,8 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     // The methodology fields, on the same container: a second `change` listener, because
     // this half of the panel is an ordinary schema form and gets the shared handling —
     // one write through setFieldValue, revalidated, reporting what it cleared.
-    attachFieldEvents(
-      container,
-      selectedState,
-      TASK_FIELDS,
-      (key, value, cleared) => updateField(cleared),
+    attachFieldEvents(container, selectedState, TASK_FIELDS, (key, value, cleared) =>
+      updateField(cleared),
     );
 
     // Draws the "no tasks yet" placeholder; without it the panel is blank until a zip

@@ -6,11 +6,7 @@
 // infrastructure in table.js.
 
 import { getModelFilters } from "../utils/modelUtils.js";
-import {
-  buildStaticTable,
-  createFilterableTable,
-  previewRows,
-} from "./table.js";
+import { createFilterableTable } from "./table.js";
 import {
   dateFormatter,
   dateSorter,
@@ -21,22 +17,9 @@ import {
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
-// `showTeam` off drops the Team column, for a caller already scoped to one — a team's own
-// page, where it would repeat the page's heading down every row.
-//
 // `showMine` on marks the rows on the viewer's own teams, for the public listing that mixes
 // them with everyone else's. Off by default: on a listing that is all theirs it says nothing.
-function getModelColumns({ showTeam = true, showMine = false } = {}) {
-  const teamColumn = showTeam
-    ? [
-        {
-          title: "Team",
-          field: "team_name",
-          formatter: metadataFormatter,
-        },
-      ]
-    : [];
-
+function getModelColumns({ showMine = false } = {}) {
   return [
     {
       title: "Model",
@@ -46,7 +29,11 @@ function getModelColumns({ showTeam = true, showMine = false } = {}) {
       }),
       widthGrow: 2,
     },
-    ...teamColumn,
+    {
+      title: "Team",
+      field: "team_name",
+      formatter: metadataFormatter,
+    },
     {
       title: "Suites",
       field: "suites",
@@ -102,33 +89,4 @@ function createModelsTable({
   });
 }
 
-// ─── STATIC TABLE ────────────────────────────────────────────────────────────
-
-/**
- * Plain-markup counterpart to createModelsTable, for a fixed preview — no filters, no
- * paging, and no Tabulator needed on the page.
- *
- * @param rows     as createModelsTable.
- * @param showTeam keep the Team column. Pass false when every row is one team's.
- * @param limit    how many rows to show. Omit for all of them.
- * @param viewAll  as buildStaticTable — where the footer's "View all" link goes.
- *
- * @returns the markup. The caller writes it where it wants it.
- */
-function buildStaticModelsTable({ rows, showTeam = true, limit, viewAll }) {
-  const shown = previewRows(
-    rows,
-    (a, b) => dateSorter(b.created_at, a.created_at),
-    limit,
-  );
-
-  return buildStaticTable({
-    columns: getModelColumns({ showTeam }),
-    rows: shown,
-    noun: "model",
-    total: rows.length,
-    viewAll,
-  });
-}
-
-export { createModelsTable, buildStaticModelsTable };
+export { createModelsTable };

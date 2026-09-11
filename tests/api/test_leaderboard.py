@@ -189,6 +189,97 @@ async def test_an_unanswered_pretrained_flag_matches_neither_value(seeded_client
         assert "mystery-run" not in labels(response)
 
 
+# ── the numeric spans ────────────────────────────────────────────────────────
+#
+# The model grain again, read as bounds rather than as values: inclusive at both ends, either
+# half sendable on its own, and an unfilled field matching nothing.
+#
+# The one public+done fixture model is mlp-baseline, at 50,000 parameters and a 2 s window.
+
+
+async def test_a_span_keeps_a_model_inside_it(seeded_client):
+    response = await seeded_client.get(
+        LEADERBOARD_URL,
+        params={"n_parameters_min": 1000, "n_parameters_max": 1_000_000},
+    )
+
+    assert labels(response) == ["mlp-ts1-baseline"]
+
+
+async def test_a_span_drops_a_model_outside_it(seeded_client):
+    response = await seeded_client.get(
+        LEADERBOARD_URL,
+        params={"n_parameters_min": 1_000_000, "n_parameters_max": 200_000_000_000},
+    )
+
+    assert response.json() == []
+
+
+async def test_a_bound_is_inclusive(seeded_client):
+    """A reader who drags a thumb onto a value is asking for the models that have it."""
+    response = await seeded_client.get(
+        LEADERBOARD_URL,
+        params={"n_parameters_min": 50_000, "n_parameters_max": 50_000},
+    )
+
+    assert labels(response) == ["mlp-ts1-baseline"]
+
+
+async def test_one_bound_leaves_the_other_end_open(seeded_client):
+    """Half a span is "at least this", not "between this and nothing"."""
+    assert labels(
+        await seeded_client.get(LEADERBOARD_URL, params={"temporal_context_s_min": 1.5})
+    ) == ["mlp-ts1-baseline"]
+
+    assert (
+        await seeded_client.get(LEADERBOARD_URL, params={"temporal_context_s_max": 1.5})
+    ).json() == []
+
+
+async def test_an_unfilled_count_is_outside_every_span(seeded_client, add):
+    """The rule every other filter follows: an unanswered question is not a small answer."""
+    mystery = Submission(
+        model_id=MODELS["unsubmitted-net"],
+        label="mystery-run",
+        s3_key="submissions/mystery.zip",
+        status=SubmissionStatus.done,
+        is_public=True,
+    )
+    choice = TaskSubmission(submission_id=mystery.id, task_id="ts1-choice")
+
+    await add(
+        mystery,
+        choice,
+        TaskScore(task_submission_id=choice.id, n_seeds=3, primary_metric_mean=0.5),
+    )
+
+    assert "mystery-run" in labels(await seeded_client.get(LEADERBOARD_URL))
+
+    # unsubmitted-net has no parameter count, so the whole span excludes it — where its 1 s
+    # window, which it does have, is inside a span that covers it.
+    assert "mystery-run" not in labels(
+        await seeded_client.get(
+            LEADERBOARD_URL,
+            params={"n_parameters_min": 0, "n_parameters_max": 200_000_000_000},
+        )
+    )
+
+    assert "mystery-run" in labels(
+        await seeded_client.get(
+            LEADERBOARD_URL,
+            params={"temporal_context_s_min": 0, "temporal_context_s_max": 20},
+        )
+    )
+
+
+async def test_a_negative_bound_is_refused(seeded_client):
+    response = await seeded_client.get(
+        LEADERBOARD_URL, params={"n_parameters_min": -1}
+    )
+
+    assert response.status_code == 422
+
+
 async def test_membership_makes_no_difference(seeded_client, add, me):
     """It is the public view even for someone who can see the private rows elsewhere.
 
@@ -235,6 +326,51 @@ async def test_a_task_filter_drops_the_entries_that_do_not(seeded_client):
     )
 
     assert response.json() == []
+
+
+async def test_a_filter_does_not_fall_back_to_a_superseded_entry(seeded_client, add):
+    """A task re-run another way drops out rather than standing on the run that qualifies.
+
+    The board says where a model stands under the reader's question, so the entry judged is
+    the newest one for the task — not the newest one that happens to match. The two grains
+    combine here: the model stays in the field and loses the one task.
+    """
+    newer = Submission(
+        model_id=MODELS["mlp-baseline"],
+        label="mlp-ts1-v2",
+        s3_key="submissions/v2.zip",
+        status=SubmissionStatus.done,
+        is_public=True,
+        created_at=datetime(2026, 8, 1, 9, 0, 0),
+    )
+
+    # The one task re-entered, and done the other way round from the baseline's TSS.
+    choice = TaskSubmission(
+        submission_id=newer.id, task_id="ts1-choice", training_paradigm="TSU"
+    )
+
+    await add(
+        newer,
+        choice,
+        TaskScore(task_submission_id=choice.id, n_seeds=3, primary_metric_mean=0.91),
+    )
+
+    [row] = (await seeded_client.get(
+        LEADERBOARD_URL, params={"training_paradigm": "TSS"}
+    )).json()
+
+    # Seven of the eight: ts1-choice has no current result done that way, and the baseline's
+    # older TSS run of it is not offered in its place.
+    assert len(row["scores"]) == 7
+    assert "ts1-choice" not in row["scores"]
+
+    # Asked about the way it was actually last done, that one task is all there is.
+    [row] = (await seeded_client.get(
+        LEADERBOARD_URL, params={"training_paradigm": "TSU"}
+    )).json()
+
+    assert list(row["scores"]) == ["ts1-choice"]
+    assert row["scores"]["ts1-choice"]["submission_id"] == str(newer.id)
 
 
 async def test_several_values_match_any_of_them(seeded_client):

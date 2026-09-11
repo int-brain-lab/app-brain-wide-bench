@@ -5,6 +5,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+from app.models import UserRole
+
 
 class UserBase(BaseModel):
     """Fields common to user requests and responses.
@@ -33,12 +35,17 @@ class UserResponse(BaseModel):
 
 
 class UserDetail(UserBase):
-    """The caller's own record, for ``GET /api/users/me``."""
+    """The caller's own record, for ``GET /api/users/me``.
+
+    Carries ``role``; ``UserResponse`` does not. A search hit is somebody else's record, and
+    what they may do is not part of finding them.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     provider: str
+    role: UserRole
     orcid_id: str | None = None
     created_at: datetime
 

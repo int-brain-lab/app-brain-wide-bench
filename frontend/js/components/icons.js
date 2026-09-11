@@ -13,6 +13,7 @@ import { escapeHtml } from "../core/html.js";
 
 const ICONS = {
   // Records and their parts
+  file: "file-archive",
   model: "chart-column",
   submission: "layers",
   team: "users",
@@ -21,12 +22,22 @@ const ICONS = {
   suite: "grid-3x3",
   score: "chart-column",
 
+  // A neural model itself, where the invitation to submit one needs a mark of its own
+  neural: "network",
+
+  // What each task suite asks a model to predict
+  behavior: "rat",
+  dynamics: "activity",
+  anatomy: "brain",
+
   // Places
   dashboard: "layout-grid",
   leaderboard: "trophy",
   home: "house",
   settings: "settings",
   details: "book-open",
+  docs: "book-open",
+  help: "life-buoy",
 
   // Facts about a record
   created: "calendar",
@@ -35,14 +46,27 @@ const ICONS = {
   public: "eye",
   private: "eye-off",
 
+  // Answers
+  tick: "check",
+  alert: "triangle-alert",
+  error: "circle-x",
+  info: "info",
+
   // Actions
+  signIn: "log-in",
+  signOut: "log-out",
   add: "plus",
   edit: "pencil",
   save: "check",
   cancel: "x",
   remove: "x",
   create: "plus",
+  delete: "trash-2",
+  train: "database",
+  submit: "cloud-upload",
+  next: "arrow-right",
   filter: "funnel",
+  viewAll: "arrow-right",
   expand: "plus",
   collapse: "minus",
   down: "chevron-down",
@@ -70,9 +94,7 @@ const ICONS = {
  */
 function getIcon(name) {
   if (!(name in ICONS)) {
-    console.warn(
-      `No icon registered for "${name}" — using it as a Lucide name.`,
-    );
+    console.warn(`No icon registered for "${name}" — using it as a Lucide name.`);
   }
 
   return ICONS[name] ?? name;

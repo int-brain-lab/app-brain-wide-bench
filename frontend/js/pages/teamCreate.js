@@ -7,26 +7,21 @@
 // Panel 1 is schema-driven, panel 2 is component-driven and its markup and events are
 // built and controlled via teamMembers.js.
 
+import { hrefForRecord } from "../core/links.js";
 import { createTeam } from "../api/teamApi.js";
 import { loadMe } from "../api/userApi.js";
 import { TEAM_FIELDS } from "../schemas/teamSchema.js";
-import {
-  buildFailureMessage,
-  buildInfoMessage,
-} from "../components/messages.js";
-import {
-  buildMembersPanel,
-  createMembersSection,
-} from "../widgets/teamMembers.js";
+import { buildWarningMessage } from "../components/messages.js";
+import { buildMembersPanel, createMembersSection } from "../widgets/teamMembers.js";
 import { loadCreatePage } from "../templates/createPage.js";
-import {
-  clearMessage,
-  renderMessage,
-  renderPageError,
-} from "../templates/pageChrome.js";
+import { renderMessage, renderPageError } from "../templates/pageChrome.js";
 
 // Panel 2 has no `complete`: a team with only its creator is valid. `build` marks it as the
 // page's own, so its listeners survive a re-render of the team panel.
+// Where a created team is read, and the hint that it is the reader's own — see
+// core/links.js.
+const TEAM_PAGE = "/html/teams/teams.html";
+
 const TEAM_PANELS = {
   team: { type: "fields", title: "1. Choose a team name" },
   members: {
@@ -42,7 +37,7 @@ async function loadTeamContext() {
   const me = await loadMe();
 
   if (!me) {
-    renderPageError("Could not load your account.");
+    renderPageError("Could not load your account");
     return null;
   }
 
@@ -58,17 +53,6 @@ async function loadTeamContext() {
 function setupComponentPanels(form, context) {
   context.members = createMembersSection({
     getTeam: () => context.draft,
-
-    onMessage: (message, failed) => {
-      if (!message) {
-        clearMessage();
-      } else if (failed) {
-        renderMessage(buildFailureMessage(message));
-      } else {
-        renderMessage(buildInfoMessage(message));
-      }
-    },
-
     canRemove: (member) => member.id !== context.me.id,
   });
 
@@ -91,14 +75,13 @@ async function submitTeam(state, draft, members) {
   // `&created` is read by teamView.js. It travels in the URL because navigating discards
   // this document.
   if (failed.length === 0) {
-    return `/html/teams/teams.html?id=${encodeURIComponent(team.id)}&view=details&created`;
+    return `${hrefForRecord(TEAM_PAGE, team.id, { mine: true })}&view=details&created`;
   }
 
   renderMessage(
-    buildFailureMessage(
-      "Team created, but some members could not be added — they may not have signed in yet. " +
-        "Add them from the team page.",
-      new Error(failed.join("; ")),
+    buildWarningMessage(
+      "Team created, but some members could not be added",
+      `They may not have signed in yet — add them from the team page. ${failed.join("; ")}`,
     ),
   );
 
@@ -108,8 +91,7 @@ async function submitTeam(state, draft, members) {
 loadCreatePage({
   noun: "team",
   title: "Create a new team",
-  description: "Name it and add the people who will work in it.",
-  back: { text: "← Back to teams", href: "/html/teams/team_list.html" },
+  cancelHref: "/html/teams/team_list.html",
 
   fields: TEAM_FIELDS,
   panels: TEAM_PANELS,

@@ -35,9 +35,12 @@ a {
    across the whole site. */
 :root {
   /*!* Primary *!*/
-  --primary: #1d9e75;
-  --primary-dark: #0f6e56;
-  --primary-light: #e1f5ee;
+
+  /* A dark ink rather than a hue: every saturated colour on this page already belongs to a
+     suite or to a status, and a brand competing for one of them reads as that thing. */
+  --primary: #24343d;
+  --primary-dark: #16222a;
+  --primary-light: #eef2f3;
 
   /*!* Neutral *!*/
   --text-color: #1a1a1a;
@@ -58,8 +61,8 @@ a {
   --ts2-light: #e6f1fb;
 
   /*--ts3: #3C3489;*/
-  --ts3: #7f77dd;
-  --ts3-light: #eeedfe;
+  --ts3: #7b61a8;
+  --ts3-light: #f1ecf7;
 
   /* Danger */
   --danger: #d33333;
@@ -81,6 +84,12 @@ a {
   --pending-dark: #185fa5;
   --pending-light: #e6f1fb;
 
+  /* Mine — the reader's own, which is a fact about them rather than about the record. The one
+     hue no suite and no status carries. */
+  --mine: #c05a9b;
+  --mine-dark: #a3417f;
+  --mine-light: #fbecf5;
+
   /* Border radius */
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -89,7 +98,7 @@ a {
 
   /* Font sizes */
   font-size: 16px;
-  --font-xxs: 0.7em;
+  --font-xxs: 0.6875rem;
   --font-xs: 0.75rem;
   --font-sm: 0.875rem;
   --font-md: 1rem;
@@ -104,9 +113,10 @@ a {
   /* Spacing */
   --gap-xs: 2px;
   --gap-sm: 4px;
-  --gap-md: 1em;
-  --gap-lg: 32px;
-  --gap-xl: 64px;
+  --gap-md: 8px;
+  --gap-lg: 1em;
+  --gap-xl: 32px;
+  --gap-xxl: 64px;
 }
 
 .gap-xs {
@@ -115,6 +125,7 @@ a {
 .gap-sm {
   gap: var(--gap-sm);
 }
+
 .gap-md {
   gap: var(--gap-md);
 }
@@ -139,7 +150,7 @@ a {
 .step {
   display: flex;
   align-items: flex-start;
-  gap: var(--gap-md);
+  gap: var(--gap-lg);
 }
 
 .step-number {
@@ -158,36 +169,48 @@ a {
 /*----------------------------------------------------------------------------------------
 MAIN SHELLS ETC
 --------------------------------------------------------------------------------------*/
+/* Every shell with a top nav, which is every shell carrying the footer. It fills the window:
+   without a height to fill, the bar would sit partway up a page whose content is shorter than
+   the viewport, and `.page-footer`'s `margin-top: auto` needs a flex column to answer to. */
 .main {
-  height: auto;
-  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
 }
 
+/* Its natural height, at the top of the shell. The `flex: 1`, `min-height: 0` and
+   `overflow: hidden` this used to carry were written for the fixed-height private grid, which
+   is `.content-private` below and takes none of them: here they clipped the page's overflow
+   instead of growing the shell, and the centring dropped the content down the window.
+
+   The gap above the footer is here rather than on the footer, which is what leaves the
+   footer's own `margin-top: auto` free to push it down. */
 .content {
   display: flex;
   flex-direction: column;
-  flex: 1; /* take all height left under the top nav */
-  min-height: 0; /* allow the inner .main to scroll instead of growing the page */
-  overflow: hidden;
   background: transparent;
-  justify-content: center;
-  margin: 40px auto 0px;
-  max-width: 1340px;
+  margin: 40px auto var(--gap-xxl);
+
+  /* `width` as well as `max-width`: a flex item whose cross-axis margins are `auto` is not
+     stretched, so without this the column sizes to its content and a short page comes out
+     narrower than a long one. The auto margins still centre it under the cap. */
+  width: 100%;
+  max-width: 1440px;
 }
 
 .content.landing {
-  max-width: 800px;
+  max-width: 1040px;
 }
 
 .main-private {
   display: grid;
-  grid-template-columns: 220px 1fr; /* sidebar | content */
+  grid-template-columns: 200px 1fr; /* sidebar | content */
   grid-template-rows: auto minmax(0, 1fr); /* nav | body */
   grid-template-areas:
     "nav  nav"
     "sidebar content-private";
   height: 100dvh;
-  background: var(--surface-secondary);
+  background: var(--surface);
 }
 
 .content-private {
@@ -195,7 +218,10 @@ MAIN SHELLS ETC
   overflow-y: auto;
   padding: 24px;
   max-width: 1440px;
-  /*background: var(--surface-secondary);*/
+
+  /* The page itself, against the chrome around it: the sidebar beside it and the bar above
+     it are both a shade back — see .sidebar and .nav. */
+  background: var(--surface);
 }
 
 /*----------------------------------------------------------------------------------------
@@ -206,9 +232,15 @@ TOP NAVIGATION BAR
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding: 14px 40px;
+
+  /* 6px and not 14px: the links carry 8px of their own now that they are pills, so the bar
+     keeps the height it had. */
+  padding: 6px 40px;
   border-bottom: 1px solid var(--border-color);
-  background: var(--surface);
+
+  /* A shade back from the page, so the bar reads as chrome rather than as the top of the
+     content. The border stays: the two are close, and the line is what ends the bar. */
+  background: var(--surface-secondary);
 }
 
 .nav-logo {
@@ -236,7 +268,21 @@ TOP NAVIGATION BAR
   color: var(--text-muted);
 }
 
+/* Marked as the sidebar marks its own — see `.sidebar-item` below, which these follow. The
+   pill is `--surface` on a bar that is `--surface-secondary`, so the page's own white is what
+   says which item you are on, in both navs. */
+.nav-links a {
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+}
+
+.nav-links a:hover {
+  background: var(--surface);
+  color: var(--text-color);
+}
+
 .nav-links .active {
+  background: var(--primary-light);
   color: var(--primary);
   font-weight: var(--bold);
 }
@@ -310,7 +356,7 @@ SIDE NAVIGATION BAR
   color: var(--text-color);
 }
 .sidebar-item.active {
-  background: var(--surface);
+  background: var(--primary-light);
   color: var(--primary);
   font-weight: var(--bold);
 }
@@ -327,9 +373,44 @@ SIDE NAVIGATION BAR
   border-top: 1px solid var(--border-color);
 }
 
-.divider {
-  border: none;
-  border-top: 3px solid var(--border-color);
+/*----------------------------------------------------------------------------------------
+FOOTER
+----------------------------------------------------------------------------------------*/
+
+/* The bar at the foot of the page, mirroring .nav at the head of it: the full width of the
+   shell rather than the width of the content column, the same padding, and the same shade
+   back from the page. Its border is the top edge, where the nav's is the bottom one.
+
+   `margin-top: auto` puts it on the bottom edge of a shell taller than its content, and
+   resolves to nothing once the content fills it — or outside a flex column altogether. The
+   gap above the band belongs to the shell: see `.content`.
+
+   Sticky against the window's bottom edge while the page scrolls, and back in the flow at the
+   foot of it. It is the last child of `.main`, whose box is the whole document, so it
+   stays put the length of the scroll. */
+.page-footer {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  padding: 14px 40px;
+  border-top: 1px solid var(--border-color);
+  background: var(--surface-secondary);
+}
+
+/* Icon and label as one target, at .link's size and colour — the footer's three, and the
+   "View tasks" under each suite card. */
+.icon-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-md);
+}
+
+/* Sized to the label beside it, and never squashed before the row wraps — as .btn-icon is. */
+.icon-link .field-icon,
+.footer-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 /*----------------------------------------------------------------------------------------
@@ -350,12 +431,6 @@ USER LOGO
   flex-shrink: 0;
 }
 
-.user-logo.large {
-  width: 40px;
-  height: 40px;
-  font-size: var(--font-md);
-}
-
 /*----------------------------------------------------------------------------------------
 BUTTONS
 --------------------------------------------------------------------------------------*/
@@ -363,7 +438,7 @@ BUTTONS
   padding: 8px 18px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
-  background: transparent;
+  background: var(--surface-secondary);
   cursor: pointer;
   color: var(--text-color);
   display: inline-block;
@@ -371,7 +446,7 @@ BUTTONS
   font-weight: var(--bold);
 }
 
-.btn.large {
+.btn.lg {
   font-size: var(--font-md);
   padding: 11px 24px;
 }
@@ -388,6 +463,41 @@ BUTTONS
   border-color: var(--primary);
 }
 
+/* The one button that destroys something. Filled rather than outlined: it is the action a
+   reader has to mean, and an outline reads as the quieter of two choices beside Cancel. */
+.btn.danger {
+  background: var(--danger);
+  color: var(--surface);
+  border-color: var(--danger);
+}
+
+/* One step of the same colour under the pointer, per variant. `:not(:disabled)` so a button
+   waiting on something else stays as still as it looks. */
+.btn:not(:disabled):hover {
+  background: color-mix(in srgb, var(--text-color) 6%, var(--surface-secondary));
+}
+
+.btn.primary:not(:disabled):hover {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
+
+.btn.primary-inv:not(:disabled):hover {
+  background: var(--primary-light);
+}
+
+.btn.danger:not(:disabled):hover {
+  background: var(--danger-dark);
+  border-color: var(--danger-dark);
+}
+
+/* The keyboard's answer to hover. Offset, so the ring reads as around the button rather than
+   as a second border on it. */
+.btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -396,6 +506,23 @@ BUTTONS
 .disabled-link {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* A button that is a link and currently unusable. An <a> ignores `disabled`, so buildButton
+   marks it with this instead and the pointer is taken off it — without that the link is as
+   clickable as ever and only looks spent. */
+.btn.disabled-link {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* A button beside the thing it acts on rather than at the head of the page: a view switch,
+   a filter bar's Clear and Apply. The box shrinks with the label, as `.btn.lg`'s grows with
+   it — the two are one scale, and a `sm` at full padding read as a full button with small
+   text in it. */
+.btn.sm {
+  padding: 5px 12px;
+  font-size: var(--font-xs);
 }
 
 /* A button with a leading icon. Sets its own flex rather than borrowing `.row`,
@@ -418,55 +545,29 @@ BUTTONS
 SECTIONS
 --------------------------------------------------------------------------------------*/
 
+/* The landing page's opening block, and the only user of this class. The title, description
+   and buttons take two thirds of the width; the figures sit under the whole of it.
+
+   Flush with the sections below it, with no side padding or margin of its own, so the title
+   starts at the same edge as "Task suites" and the cards. */
 .page-hero {
   display: flex;
-  flex-direction: column;
-  gap: var(--gap-lg);
-  justify-content: space-between;
-  padding: 64px 40px 100px;
-  margin: 0 40px;
-  text-align: center;
+  padding: var(--gap-xl) 0 var(--gap-xxl);
+  text-align: left;
+}
+
+/* Two thirds, and nothing beside it: the description sets its own line length, and across the
+   full width it runs to a single line. */
+.page-hero > .column {
+  flex: 0 0 66%;
 }
 
 .page-section {
   display: flex;
   flex-direction: column;
-  gap: var(--gap-md);
+  gap: var(--gap-lg);
   justify-content: space-between;
   margin-bottom: 50px;
-}
-
-/*----------------------------------------------------------------------------------------
-MODEL OVERVIEW
---------------------------------------------------------------------------------------*/
-.model-overview {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  grid-template-rows: 3fr 1fr;
-  grid-template-areas:
-    "scores details"
-    "stats details";
-  gap: 2rem;
-  padding: 10px 30px;
-}
-
-.model-stats {
-  grid-area: stats;
-  display: flex;
-}
-.model-scores {
-  grid-area: scores;
-  display: grid;
-}
-.model-details {
-  grid-area: details;
-  display: flex;
-}
-
-.model-card {
-}
-
-.model-stats {
 }
 
 /*----------------------------------------------------------------------------------------
@@ -510,45 +611,40 @@ GRIDS, COLUMNS AND ROWS
   justify-content: flex-end;
 }
 
-.push-end {
-  margin-top: auto;
-}
-
 .grid-2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--gap-md);
+  gap: var(--gap-lg);
 }
 
 .grid-3 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--gap-md);
+  gap: var(--gap-lg);
 }
 
 .grid-4 {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--gap-lg);
 }
 
 /* Five is as narrow as a control can be and still read, so it takes the tighter gap. */
 .grid-5 {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--gap-md);
+  gap: var(--gap-lg);
 }
 
-.grid-row-4 {
+.grid-6 {
   display: grid;
-  grid-template-rows: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: var(--gap-lg);
 }
 
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 300px));
-  gap: var(--gap-xl);
+  gap: var(--gap-xxl);
   justify-content: center;
   align-items: center;
   margin-top: 10px;
@@ -564,7 +660,7 @@ GRIDS, COLUMNS AND ROWS
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(0, 1fr);
-  gap: var(--gap-md);
+  gap: var(--gap-lg);
 }
 
 /* One narrow column beside a wide one — a summary next to the table it summarises.
@@ -575,9 +671,35 @@ GRIDS, COLUMNS AND ROWS
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
 }
 
+/* Three columns — a stack of figures, a card of positions, and the record they belong to,
+   the last the widest. The `ratio-N` rows are pairs; this one names its shares because it
+   has three. */
+/* Three columns, widening left to right. The `ratio-N` rows are pairs; the ones that name
+   all their shares have three. */
+.section-row.ratio-1-2-3 {
+  grid-auto-flow: row;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 3fr);
+}
+
+/* Three columns, a card of positions beside the record itself and a stack of cards. */
+.section-row.ratio-1-2-2 {
+  grid-auto-flow: row;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 2fr);
+}
+
 .section-row.ratio-4 {
   grid-auto-flow: row;
   grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+}
+
+.section-row.ratio-5 {
+  grid-auto-flow: row;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 4fr);
+}
+
+.section-row.ratio-6 {
+  grid-auto-flow: row;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 5fr);
 }
 
 /* The chain that carries the row's height down to the card, so two sections sharing a row
@@ -594,13 +716,28 @@ GRIDS, COLUMNS AND ROWS
   min-width: 0;
 }
 
-.section-row > .page-section > .section-body > .card {
+.section-row > .page-section > .section-body > .card,
+.section-row > .page-section > .section-body > .stat-card {
   flex: 1;
 }
 
 /*----------------------------------------------------------------------------------------
 CREATE CARD
 --------------------------------------------------------------------------------------*/
+
+/* The two cards a dashboard section shows, one over the other and both the same size.
+
+   Rows of a fixed share rather than of their contents: the three sections sharing the row
+   are already the same height, so splitting each into equal rows makes every card on the
+   page one size — and a section with only one card leaves the other half empty rather than
+   drawing a card twice the size of its neighbours. Two, because that is MAX_CARDS in
+   pages/dashboard.js. */
+.card-stack {
+  display: grid;
+  grid-template-rows: repeat(2, 1fr);
+  gap: var(--gap-lg);
+  flex: 1;
+}
 
 /* The "new X" control on the list pages — js/utils/create-card.js.
    Dashed rather than solid, so it reads as a slot for something that doesn't exist yet
@@ -628,25 +765,12 @@ CREATE CARD
   color: var(--primary-dark);
 }
 
-/* Table view: a strip the width of the table rather than a card — shorter than the grid
-   variant, and rounded on all four corners.
-
-   It used to be square-topped and pulled up a pixel, to meet the table's bottom edge. That
-   was wrong about the layout: createFilterableTable renders the row count *below* its grid,
-   and the strip is a sibling of that whole block, so the edge it was butting against was
-   the count paragraph rather than the table. Rounded and spaced off it instead. */
-.create-card.as-row {
-  min-height: 0;
-  padding: 10px 16px;
-  margin-top: var(--gap-md);
-}
-
 /* The filter bar over a list page's two views — templates/list-page.js. It has a container
    of its own above the list, rather than the one inside the table root that used to hold it
    and space it, so the gap under it comes from here. Empty on a list with nothing to narrow,
    where it should take no room at all. */
 #filters:not(:empty) {
-  margin-bottom: var(--gap-md);
+  margin-bottom: var(--gap-lg);
 }
 
 /*----------------------------------------------------------------------------------------
@@ -660,22 +784,22 @@ CARDS
   overflow: hidden;
 }
 
-/* A narrative runs to paragraphs, and the card shares a row with the details card beside
-   it. Capped and scrolled so a long one doesn't set the height of the row. */
-.scroll-y {
-  max-height: 200px;
+/* A narrative runs to paragraphs, and the card shares a row with two others. `.card`'s own
+   `flex: 1` in a section row stretches it to whatever those two make the row, so a short
+   narrative sits level with them rather than ending early.
+
+   The cap is what stops a long one setting that height instead. It is a length and not a
+   share because a grid row is sized by its tallest item's content: nothing here can know
+   how tall the others are, so the card is told how tall it may get. */
+.narrative-card {
+  max-height: 360px;
   overflow-y: auto;
 }
 
 /* A card picked for a comparison, and the cards' answer to `.tabulator-selected`: the same
-   edge, and a wash as well — a card carries no hover state of its own for one to compete
-   with. The wash is the pick's own colour at the weight --primary-light sits at. */
+   edge in the same ink, and nothing else — a pick reads the same whichever view the reader
+   made it in. `--pick-ink` is set per card by the comparison that owns the picks. */
 .card.selected {
-  background: color-mix(
-    in srgb,
-    var(--pick-ink, var(--primary)) 12%,
-    var(--surface)
-  );
   box-shadow: inset 3px 0 0 var(--pick-ink, var(--primary));
 }
 
@@ -690,89 +814,47 @@ CARDS
   background: var(--surface-secondary);
 }
 
+/* A card holding a page's own content rather than a record picked out of a list: the panel a
+   details view and its edit form share, a dashboard's summary, a create page's step. Painted
+   rather than left transparent, which is what separates a run of them down a white page. The
+   border is `.card`'s own, kept: the fill is close enough to the page that the edge is still
+   what ends the card.
+
+   The plain `.card` stays transparent: a card in a grid of records, or one holding a plot,
+   sits on the page rather than standing off it. */
 .card.primary {
   border-color: transparent;
   background: var(--surface);
 }
 
 .card.secondary {
-  border-color: transparent;
-  background: var(--surface-secondary);
+  background: var(--surface);
 }
 
-/* A card whose "View all" link sits in the bottom-right corner, level with the last row of
-   fields instead of on a row of its own. The card's field columns are independent stacks,
-   so there is no shared last row for the link to join — taking it out of flow is what puts
-   it level with the bottom of both. The offsets are .card's own padding. */
-.card.corner-link {
-  position: relative;
-}
+/* The suites under a ranking card's own figure: a badge, and the standing beside it. Ruled
+   off from the figure above rather than boxed, so the card reads as one thing.
 
-.card.corner-link > .link {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-}
-
-/* The model page's ranking section. One row per figure — badge, the two standings, and
-   what publishing would do to them — divided rather than boxed, so four rows read as one
-   list. The card's own padding moves onto the rows, which is what lets a divider run the
-   full width. */
-.rank-list {
-  padding: 0;
-}
-
-.rank-row {
-  padding: 12px 16px;
-}
-
-.rank-row + .rank-row {
+   `align-self: stretch` because `.stat-card` centres its children, which would otherwise
+   leave the list as wide as its widest row and the badges adrift of the card's edge. */
+.rank-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  /* Rows apart, columns close: the three are read down, and a badge sits against its own
+     standing rather than needing room from it. */
+  gap: var(--gap-lg) var(--gap-md);
+  align-items: baseline;
+  align-self: stretch;
+  /* The rule sits clear of the caption above it, where the card's own gap is tight. */
+  margin-top: var(--gap-md);
+  padding-top: var(--gap-md);
   border-top: 1px solid var(--border-color);
 }
 
-/* Fixed at both ends, so every row's chips start and finish in the same place. */
-.rank-badge {
-  width: 72px;
-  flex: none;
-}
-
-.rank-chips {
-  flex: 1;
-}
-
-.rank-end {
-  flex: none;
+/* The standing itself, hard against the far edge so a column of them can be read down. */
+.rank-value {
+  font-size: var(--font-md);
+  font-weight: var(--bold);
   text-align: right;
-}
-
-/* The two standings. Both read as one line of text rather than as labels, so the weight
-   comes off .badge and the pair can be scanned across. */
-.rank-chip {
-  background: var(--surface-secondary);
-  color: var(--text-muted);
-  border-color: var(--border-color);
-  font-weight: normal;
-}
-
-/* The side that isn't public yet, in the one colour on the row that isn't a suite's. */
-.rank-chip.private {
-  background: var(--ts2-light);
-  color: var(--ts2);
-  border-color: transparent;
-}
-
-/* A card standing for one series on a chart: the colour is set inline, since it is the one
-   the palette handed that selection, and the card is only the place it is shown. */
-.series-card {
-  border-left: 4px solid var(--border-color);
-}
-
-.series-dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex: none;
 }
 
 /* A responsive canvas measures its parent, so the parent needs a height of its own —
@@ -782,56 +864,23 @@ CARDS
   width: 100%;
 }
 
-/* One panel of a faceted chart. The gap is small on purpose: the panels share an axis and
-   are read as one figure, and a wide gap would make them look like separate charts. */
-.chart-facet + .chart-facet {
-  margin-top: 8px;
+/*!* One panel of a faceted chart. The gap is small on purpose: the panels share an axis and*/
+/*   are read as one figure, and a wide gap would make them look like separate charts. *!*/
+/*.chart-facet + .chart-facet {*/
+/*  margin-top: 8px;*/
+/*}*/
+
+/* The recordings behind one task, in the columns its own plot leaves: the plot takes the
+   first, these take the rest, one to a row. */
+.scores-rest {
+  grid-column: 2 / -1;
 }
 
-/* Small multiples: one panel per score, three across. Fixed rather than `auto-fit` so the
-   six a comparison holds are always two even rows — a wrapping count leaves a row of one
-   at some widths, which reads as a panel that didn't belong with the others.
-
-   `minmax(0, 1fr)` and not `1fr`: a canvas measures its column, and an `auto` minimum lets
-   it measure itself instead and grow on every redraw. */
-.chart-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--gap-md);
-}
-
-/* Inside the grid the panels are separate figures, so the stacking margin would only
-   double the gap. */
-.chart-grid .chart-facet + .chart-facet {
-  margin-top: 0;
-}
-
-/* Each plot as wide as the categories it holds, in a grid of category-wide tracks — see
-   plots/modelPlots.js, where a plot is one task and so one track.
-
-   A grid rather than a flex row, and tracks rather than percentages: the gaps come out of the
-   grid's own accounting, so a line's spans add up to exactly the line. `--plot-tracks` is what
-   a full line holds, set by arrangePlots, so the busiest plots fill one line and the lighter
-   ones wrap under them at the same width per category rather than stretching to fill.
-
-   `minmax(0, 1fr)` and not `1fr`: a canvas measures its column, and an `auto` minimum lets it
-   measure itself instead and grow on every redraw.
-
-   Left-aligned, and the space arrangePlots' cap leaves over stays on the right: a plot is a
-   track wide wherever it is, so two of them start where a full line's worth would and the
-   figure grows rightwards as tasks are added rather than shuffling under the heading.
-   `width: 100%` is what the max-width is a cap on, where arrangePlots sets one; a caller
-   laying out its own tracks sets none and takes the whole line. */
-.chart-weighted {
-  display: grid;
-  grid-template-columns: repeat(var(--plot-tracks, 1), minmax(0, 1fr));
-  gap: var(--gap-md);
-  width: 100%;
-  margin-inline-end: auto;
-}
-
-.chart-weighted .chart-facet + .chart-facet {
-  margin-top: 0;
+/* A plot in a card sits at the foot of it. The cards across a row already stretch to the
+   tallest of them, so without this one whose header wraps to a second line draws its plot
+   lower than its neighbours', and the axes no longer line up across the row. */
+.card > .chart-facet {
+  margin-top: auto;
 }
 
 /* While the plots are a way into one task, each is a control rather than a picture — see the
@@ -846,47 +895,30 @@ CARDS
   background: var(--surface-secondary);
 }
 
-/* The plot the panel below is about: a wash like a picked card's, and the edge along the
-   bottom rather than the side, since what it is joined to is underneath it. No
-   `--pick-ink` — a plot here is a task, where that colour belongs to a model. */
-.chart-pickable .chart-facet.selected {
-  background: var(--primary-light);
-  box-shadow: inset 0 -2px 0 var(--primary);
+/* The table the panel below is about, where a task is read as one rather than drawn. Outside
+   the table rather than over it: the rows carry their model's colour along that same edge. */
+.chart-pickable .selected > .table {
+  outline: 2px solid var(--text-muted);
+  outline-offset: 1px;
 }
 
-/* Two across, for plots that are read closely: the overlaid comparison, where one plot
-   holds every selected score. Fixed at two rather than `auto-fit`, because the point is the
-   width each plot gets, not how many fit — and below the floor they wrap to one. */
-.chart-pair {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(320px, 1fr));
-  gap: var(--gap-md);
-}
+/* The plot the panel below is about. The plot is a card, so the mark is that card's own border
+   in the app's own colour — `.btn.primary-inv`'s edge, which is what a chosen-but-not-filled
+   control wears here — rather than the coloured edge a picked card takes, which stands for a
+   record's colour where this is a task.
 
-.chart-pair .chart-facet + .chart-facet {
-  margin-top: 0;
-}
-
-/* The row whose breakdown is open below the board. Outside compare mode nothing is
-   selected, so there is no highlight of Tabulator's own to borrow.
-
-   On the cells, because a Tabulator row is painted by them — see `.tabulator-selected`
-   further down, where the same rule applies for the same reason. */
-.tabulator .tabulator-row.row-open .tabulator-cell {
-  background: var(--surface-secondary);
+   An inset ring rather than a wider border: `border-width` would take 1px off the inside of
+   the card, and the canvas measures that. */
+.chart-pickable .card.selected {
+  box-shadow: inset 0 0 0 2px var(--primary);
 }
 
 /* A comparison's own rows, marked in the colour the thing is drawn in elsewhere: the same 3px
    edge the picked row carries in the table it came from. Transparent by default, so a grid
    whose caller passes no colour is unmarked rather than edged in black. The row's head says
    nothing beside it — see the note on the turned layout below. */
-.comparison-grid tbody th[scope="row"],
-.compare-model {
+.comparison-grid tbody th[scope="row"] {
   box-shadow: inset 3px 0 0 var(--row-ink, transparent);
-}
-
-.compare-model {
-  padding-left: var(--gap-sm);
 }
 
 /* The heatmap: one row per score, one cell per recording. A grid rather than a table so the
@@ -918,7 +950,7 @@ CARDS
 }
 
 .heat-label {
-  padding-right: var(--gap-md);
+  padding-right: var(--gap-lg);
   overflow: hidden;
 }
 
@@ -938,74 +970,86 @@ CARDS
 }
 
 .heatmap + .heatmap {
-  margin-top: var(--gap-lg);
+  margin-top: var(--gap-xl);
 }
 
-/* A comparison of attributes. An attribute every thing answers the same way recedes, so what
-   is left standing is the difference — the only thing that makes six near-identical sets of
-   metadata readable. Which axis the things go on is the caller's; the muting reads the same
-   either way, because the classes go on the attribute's own label and cells. */
-.comparison-grid th[scope="row"] {
-  text-align: left;
+/* Set apart from what it follows, where a section's own gap reads as too close — the control
+   under a grid it is not part of. */
+.push-down {
+  margin-top: var(--gap-xl);
+}
+
+/* A section that is still on screen but not the reader's to use — see `inert`, which does
+   the rest. */
+.page-section[inert] {
+  opacity: 0.5;
+}
+
+/* A comparison of attributes, read as metadata throughout: the grid states what each thing
+   is, beside the plots that state how it did. Which axis the things go on is the caller's.
+
+   Both classes, because the wrapper is a `.table` too and `.table th`/`.table td` set a size
+   and a weight of their own — at the same specificity as `.comparison-grid th` and later in
+   this file, so they win a tie. */
+.table.comparison-grid th,
+.table.comparison-grid td {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
   font-weight: normal;
 }
 
-.comparison-grid td.agrees,
-.comparison-grid th.agrees {
-  color: var(--text-muted);
-}
-
-.comparison-grid th.differs {
-  font-weight: var(--bold);
-}
-
-/* Turned: the things across the top, one attribute per row. Their headers hold a chip rather
-   than a word, so they align left and sit on the baseline of the shortest of them. The pick
-   colour is a top edge here, where a row's is a left one: it marks the near side of what it
-   identifies either way.
-
-   No wash on the cells. The chip says which column is which and carries the colour itself, so
-   tinting the column under it says the same thing a second time — over the numbers, which is
-   the one place on the grid that should be reading as plainly as it can. */
-.comparison-grid.by-column thead th[scope="col"] {
+.comparison-grid th[scope="row"] {
   text-align: left;
-  vertical-align: bottom;
+}
+
+/* The model down the side of a task's table.
+
+   Its colour goes along the table's own edge, beside the name.
+
+   One line, so every table in the grid has rows of one height and the scores read across them.
+   A name too long for its column is cut rather than wrapped; the whole of it is the `title`. */
+.task-scores tbody th[scope="row"] {
+  box-shadow: inset 3px 0 0 var(--row-ink, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A task's own table, one per card. Fixed, so the model column is the same width in every
+   card and the scores line up across them whatever a name is. */
+.task-scores table {
+  table-layout: fixed;
+}
+
+.task-scores th[scope="row"] {
+  width: 120px;
+}
+
+/* Turned: the things across the top, one attribute per row. The pick colour runs along the
+   table's own top edge, over the name of the thing it belongs to, where a row's is a left one:
+   it marks the near side of what it identifies either way.
+
+   No wash on the cells — the colour says which column is which once, over the numbers, which
+   is the one place on the grid that should be reading as plainly as it can. */
+.comparison-grid.by-column thead th[scope="col"] {
   box-shadow: inset 0 3px 0 var(--row-ink, transparent);
 }
 
-/* The score table's "used in ranking" cell: the same two sides as the chips above, in the
-   same two colours, at the size of the text they sit beside. */
-.rank-icon {
+/* A cell that answers yes: the score table's "used in public ranking" and "latest score" —
+   see buildFlagFormatter. At the size of the text it sits among, and in the app's own colour,
+   a tick being an answer rather than a warning. */
+.tick-icon {
   width: 16px;
   height: 16px;
-}
-
-.rank-icon.public {
-  color: var(--text-muted);
-}
-
-.rank-icon.private {
-  color: var(--ts2);
-}
-
-/* How far publishing would move the model, in places. Red for a fall, and the arrow is
-   what says which — the number alone is the same either way. */
-.rank-mover {
-  font-weight: var(--bold);
-}
-
-.rank-mover.up {
   color: var(--primary);
-}
-
-.rank-mover.down {
-  color: var(--danger);
 }
 
 .stat-card {
   display: flex;
   flex-direction: column;
-  padding: 32px;
+  /* Tight above and below, `.card`'s own to the sides: these are short cards in a column,
+     and the 32px they carried was sized for a tile with a row to itself. */
+  padding: 8px 16px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
   /*border-color: transparent;*/
@@ -1013,48 +1057,6 @@ CARDS
   overflow: hidden;
   align-items: center;
   justify-content: center;
-}
-
-/*.card.ts1 {*/
-/*  border-color: transparent;*/
-/*  background: var(--ts1-light);*/
-/*}*/
-
-/*.card.ts2 {*/
-/*  border-color: transparent;*/
-/*  background: var(--ts2-light);*/
-/*}*/
-
-/*.card.ts3 {*/
-/*  border-color: transparent;*/
-/*  background: var(--ts3-light);*/
-/*}*/
-
-/*----------------------------------------------------------------------------------------
-TEXT UTILS
---------------------------------------------------------------------------------------*/
-
-.details-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.details-row:last-child {
-  border-bottom: none;
-}
-
-.details-label {
-  /*color: var(--text-muted);*/
-  font-size: var(--font-sm);
-  font-weight: var(--bold);
-}
-
-.details-value {
-  font-size: var(--font-sm);
-  text-align: right;
 }
 
 /*----------------------------------------------------------------------------------------
@@ -1072,15 +1074,6 @@ HEADERS
 
 .page-header.side {
   margin-top: 10px;
-}
-
-.section-header {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--gap-sm);
-  margin-bottom: 20px;
 }
 
 /*----------------------------------------------------------------------------------------
@@ -1102,14 +1095,46 @@ GENERIC TEXT
   line-height: 1.2;
 }
 
-.page-description {
-  font-size: var(--font-lg);
-  color: var(--text-muted);
-}
-
 .section-title {
   font-size: var(--font-xl);
   font-weight: var(--xbold);
+}
+
+/* The heading and whatever control reads with it, opposite the actions. Given no width of
+   its own, so it takes what the actions leave and wraps inside that: a row of chips as long
+   as the page would otherwise be measured at its full width and push the buttons onto a line
+   of their own. `min-width: 0` because a flex item will not shrink past its contents without
+   it. */
+.section-lead {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* A title that turns its own section off and on. A button of its own making: no chrome, so
+   the row reads as the heading it is, with the arrow the only sign it can be pressed. */
+.section-toggle {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Turned to point along the closed section rather than down into it. On the svg lucide leaves
+   behind, which keeps the class it replaced. */
+.page-section.collapsed .section-toggle .field-icon {
+  transform: rotate(-90deg);
+}
+
+.page-section.collapsed > .section-body {
+  display: none;
+}
+
+/* Held in the layout but not shown — a heading whose space lines a row of sections up. */
+.invisible {
+  visibility: hidden;
 }
 
 .section-description {
@@ -1138,10 +1163,6 @@ GENERIC TEXT
   color: var(--text-muted);
 }
 
-.link.un {
-  border-bottom: 1px solid var(--primary);
-}
-
 .message {
   font-size: var(--font-lg);
   color: var(--text-muted);
@@ -1168,10 +1189,22 @@ GENERIC TEXT
   overflow-wrap: anywhere;
 }
 
+/* A record's value, read against the label above it: the same size, told apart by weight
+   and colour. `.value` stays unbolded — it is a table's score as well as a record's field,
+   and a score is not read that way. */
+.field-value {
+  font-weight: var(--bold);
+}
+
 .field-label,
 .metadata {
   font-size: var(--font-xs);
   color: var(--text-muted);
+}
+
+/* Level with the value under it, rather than a size below. */
+.field-label {
+  font-size: var(--font-sm);
 }
 
 /* The asterisk beside a required field's label. Inherits the label's size, so it stays in
@@ -1230,10 +1263,10 @@ GENERIC TEXT
 /* `left` and `top` are written by components/fieldHelp.js, which measures the trigger and
    the box and opens it away from the nearer edge of the viewport, so it is never cut off.
 
-   Fixed, not absolute: this sits inside a `.card` and inside `.content`, both of which hide
-   their overflow, and `.content`'s is load-bearing — it is what makes the inner region
-   scroll rather than the page grow. A fixed box is positioned against the viewport and
-   clipped by neither. Nothing in this stylesheet sets `transform`, `filter` or `contain`, so
+   Fixed, not absolute: this sits inside a `.card`, which hides its overflow, and on a private
+   page inside `.content-private`, whose `overflow-y: auto` is load-bearing — it is what makes
+   the inner region scroll rather than the page grow. A fixed box is positioned against the
+   viewport and clipped by neither. Nothing in this stylesheet sets `transform`, `filter` or `contain`, so
    no ancestor turns that back into containment.
 
    Hidden with `visibility` and not `display` so it keeps dimensions to measure before it is
@@ -1331,23 +1364,6 @@ GENERIC TEXT
   font-weight: var(--bold);
 }
 
-/*.ts1-bg { background: var(--ts1-light); border-color: transparent;}*/
-/*.ts2-bg { background: var(--ts2-light);  border-color: transparent; }*/
-/*.ts3-bg { background: var(--ts3-light);  border-color: transparent; }*/
-
-.ts1-bg {
-  border-color: var(--ts1-light);
-  border-width: 6px;
-}
-.ts2-bg {
-  border-color: var(--ts2-light);
-  border-width: 6px;
-}
-.ts3-bg {
-  border-color: var(--ts3-light);
-  border-width: 6px;
-}
-
 .info-msg {
   color: var(--text-muted);
   font-size: var(--font-md);
@@ -1358,106 +1374,44 @@ GENERIC TEXT
    follows it — hidden it collapses, so the gap only exists when there is something to
    read. */
 #page-message {
-  margin-bottom: var(--gap-lg);
+  margin-bottom: var(--gap-xl);
 }
 
-/* Message cards: one skeleton, four meanings. Each fills the slot the content it stands in
-   for would have taken, so none carries an outer margin — the section around it spaces it.
-   .info-msg and .error-msg below stay text-only, for a line inside a page rather than a
-   block standing in its place. */
-.empty-msg,
-.success-msg,
-.warn-msg,
-.failure-msg,
-.page-error {
-  margin: 0;
-  padding: 24px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  font-size: var(--font-md);
-  text-align: center;
+/* Every message card is a .state-note — see components/messages.js, which maps each kind of
+   news onto one of its tones. `.info-msg` above keeps its own rule for the other use: a
+   plain muted line inside a page, with no box around it.
+
+   A note standing in for a whole page — one that failed to load, or cannot be filled in yet
+   — is placed as well as toned: it is the content area rather than a line inside one. */
+.state-note.standalone {
+  max-width: 520px;
+  margin: 80px auto;
 }
 
-.info-msg p,
-.error-msg p,
-.empty-msg p,
-.success-msg p,
-.warn-msg p,
-.failure-msg p,
-.page-error p {
-  margin: 0;
-}
-
-/* Nothing here yet. */
-.empty-msg {
-  background: var(--surface-secondary);
-  color: var(--text-muted);
-}
-
-/* It worked. */
-.success-msg {
-  border-color: var(--success);
-  background: color-mix(in srgb, var(--success) 8%, transparent);
-  color: var(--success-dark);
-  font-weight: var(--bold);
-}
-
-/* It worked, but something went with it. */
-.warn-msg {
-  border-color: var(--warning);
-  background: color-mix(in srgb, var(--warning) 10%, transparent);
-  color: var(--warning-dark);
-  font-weight: var(--bold);
-}
-
-/* It didn't. */
-.failure-msg {
-  border-color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 8%, transparent);
-  color: var(--danger-dark);
-  font-weight: var(--bold);
-}
-
-/* What actually went wrong, under the sentence that says something did. Quieter, and
-   allowed to break mid-word: it carries whatever the server sent back, which can be one
-   long unbroken line. */
-.msg-detail {
-  margin-top: 10px;
-  font-size: var(--font-sm);
-  font-weight: 400;
-  overflow-wrap: anywhere;
-}
-
-.error-msg {
-  color: #b42318;
-  font-size: var(--font-md);
-  font-weight: var(--bold);
-  margin: 0;
-}
-
-/* A page that failed before it could render anything: this is the whole content area, not a
-   line inside a page, so it is sized and spaced to stand alone. The tint is the danger
-   colour at low opacity rather than --danger-light, so it reads the same on either shell's
-   ground. */
-/* The sign-in gate, and the in-page prompt for a record that isn't public. Placed like
-   .page-error below — a lone sentence spanning the full width reads as a mistake — but
-   green and a size up: this is an invitation, not a failure, and it is the only thing on
-   the page. */
+/* The sign-in gate, and the in-page prompt for a record that isn't public. Toned like a
+   .state-note in the green of an invitation rather than a failure, and placed like
+   .page-error: it is the only thing on the page. Not a state note itself — it holds the
+   button as well as the sentence. */
 #gate,
 .sign-in-card {
-  max-width: 560px;
+  max-width: 520px;
   margin: 80px auto;
-  padding: 40px;
+  padding: 14px 16px;
   border-color: var(--success);
   background: color-mix(in srgb, var(--success) 8%, transparent);
   color: var(--success-dark);
-  font-size: var(--font-lg);
+  font-size: var(--font-md);
   font-weight: var(--bold);
+}
+
+/* Centred on the card, which is centred on the page: this is the only thing on it, and a
+   sentence and two buttons ranged left in a 520px box read as the start of a form.
+   `align-items` rather than stretch, so the buttons keep their own width. */
+#gate,
+.sign-in-card {
   text-align: center;
 }
 
-/* Centres the button under the sentence rather than stretching it across the card, which is
-   what a .column's default `align-items: stretch` would do. */
 #gate .column,
 .sign-in-card .column {
   align-items: center;
@@ -1465,15 +1419,6 @@ GENERIC TEXT
 
 /* A page that failed before it could render anything: this is the whole content area, so
    unlike the others it is sized and placed rather than filling a slot. */
-.page-error {
-  max-width: 520px;
-  margin: 80px auto;
-  border-color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 8%, transparent);
-  color: var(--danger-dark);
-  font-weight: var(--bold);
-}
-
 /*----------------------------------------------------------------------------------------
 RANKS
 --------------------------------------------------------------------------------------*/
@@ -1519,8 +1464,15 @@ BADGES
   font-size: var(--font-xs);
 }
 
+.badge.md {
+  padding: 2px 6px;
+  font-size: var(--font-sm);
+}
+
+/* A step under `sm`, for a badge that marks rather than states — "Yours" beside the badges
+   saying what a record is. */
 .badge.xs {
-  padding: 1px 4px;
+  padding: 1px 5px;
   font-size: var(--font-xxs);
 }
 
@@ -1544,35 +1496,145 @@ BADGES
 }
 
 /* Status badges */
-.badge.neutral {
+
+/* `ts-neutral` is the same badge with the task family's corners — a task or suite badge with
+   no suite to take a colour from: an overflow count, a suite a record has nothing in, a rank
+   card's "Overall". It sits in a row of `.badge.tsN`, where the pill would read as a different
+   kind of thing. */
+.badge.neutral,
+.badge.ts-neutral {
   background: var(--surface-secondary);
   color: var(--text-muted);
   border-color: var(--border-color);
 }
 
+.badge.ts-neutral {
+  border-radius: var(--radius-sm);
+}
+
+/* A submission's status, in one of three: blue while it is still on its way, red for the ways
+   it ends badly, green for done — see statusBadgeClass in components/badges.js. No edge, as
+   the chips have none: the wash and the ink say it. `.badge`'s own border stays transparent
+   rather than being dropped, so a status badge is the size of a `.badge.neutral` beside it. */
 .badge.success {
   background: var(--success-light);
   color: var(--success-dark);
-  border-color: var(--success-dark);
 }
 
 .badge.error {
   background: var(--danger-light);
-  border-color: var(--danger);
   color: var(--danger);
 }
 
 .badge.pending {
   background: var(--pending-light);
-  border-color: var(--pending);
   color: var(--pending);
 }
 
+/* The reader's own — a model of theirs on a board of everyone's, the team they own. The one
+   badge about *who is reading* rather than about the record, so it takes a hue of its own
+   instead of the green it used to share with `done` and with a TS1 badge beside it. */
+.badge.mine {
+  background: var(--mine-light);
+  color: var(--mine-dark);
+}
+
+/* A metric's name. A step darker than `.badge.neutral`, which is barely off the page: these
+   sit beside a task badge that has a colour of its own, and want to read as their own thing.
+   No edge at rest — the fill is the border's own grey, and `.on` below is what an edge means
+   here. `--font-xs` outright, so a metric reads at one size whether or not its caller asked
+   for `.sm`. */
 .badge.metric {
-  background: var(--surface-secondary);
+  background: var(--border-color);
   color: var(--text-muted);
-  border-color: var(--border-color);
   font-size: var(--font-xs);
+}
+
+/* A badge that is a control — the metric a mean plot is read in. A button inherits neither
+   the page font nor a pointer, so both are set here. */
+button.badge {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* The one being read, marked the way a tab is. */
+.badge.metric.on {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* The filters and the button that folds them, three to a row with the button last: unfolded it
+   ends the last row of controls, folded it ends the only one. */
+.filter-flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--gap-lg);
+}
+
+/* A column of its own for the button, so the three lead controls keep the full width beside
+   it. */
+.filter-flow.compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+}
+
+/* A section's trailing control, clear of the content it follows. */
+.section-footer {
+  margin-top: var(--gap-md);
+}
+
+/* Inside a stack it is a row of the grid instead — the second when the stack holds one card,
+   an implicit third when it holds two — held at the top of that row so it reads as following
+   the last card. The grid's own gap separates them, so it needs no margin of its own. */
+.card-stack > .section-footer {
+  align-self: start;
+  margin-top: 0;
+}
+
+/* Folded controls keep their place in the DOM: a pinned value is read back off them. */
+.filter-flow > .folded {
+  display: none;
+}
+
+/* Its own width in either layout, rather than the third of a row its cell holds. */
+.filter-flow > .btn {
+  justify-self: start;
+}
+
+/* A pinned select shows its placeholder at rest — a pin resets it — so what it displays is
+   only ever the field's name, standing in for the label a filter would otherwise carry above
+   it. Muted in the list too, where it is the one entry that picks nothing; the values
+   themselves keep the text colour. */
+.input-select.pinned {
+  color: var(--text-muted);
+}
+
+.input-select.pinned option:not([value=""]) {
+  color: var(--text-color);
+}
+
+/* The baseline select while it is still asking: muted, so the row over the plots reads as an
+   offer to measure against one of them rather than as a value already set. A chosen model
+   keeps the text colour — the empty option is the placeholder, so it being the checked one is
+   what "nothing chosen yet" looks like in markup. */
+.baseline-select .input-select:has(option[value=""]:checked) {
+  color: var(--text-muted);
+}
+
+/* A badge standing for a set of things, pressed to take the whole set on or off — see
+   buildBadges. Faded while none of the set is chosen, solid once some of it is, and closed
+   with a border of its own colour once all of it is. */
+.badge.toggle {
+  opacity: 0.5;
+}
+
+.badge.toggle.on,
+.badge.toggle.partial {
+  opacity: 1;
+}
+
+.badge.toggle.on {
+  border-color: currentColor;
 }
 
 .badge.visible {
@@ -1580,86 +1642,57 @@ BADGES
 }
 
 /*----------------------------------------------------------------------------------------
-TABS
+COMPARISONS
 --------------------------------------------------------------------------------------*/
 
-/* The row naming what a comparison holds, above its tabs — see buildPicks in
+/* What the board comes to, in the lead of its own section — see renderSummary in
+   pages/leaderboard.js. At the size the table's headings are, and muted as they are: it says
+   what the rows under it add up to rather than anything about one of them. */
+.board-summary {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+/* The row naming what a comparison holds, above the panels reading it — see buildPicks in
    components/comparisonGrid.js. Collapsed while nothing is picked, so an empty comparison
    leaves no gap under its heading; `:has(*)` and not `:empty` for the reason `.pins` gives. */
 .compare-picks {
-  margin-bottom: var(--gap-md);
+  margin-bottom: var(--gap-lg);
 }
 
 .compare-picks:not(:has(*)) {
   display: none;
 }
 
-/* A strip of tabs over the sections they open — see components/tabs.js. The lit tab's
-   underline sits on the strip's own line, which is what joins it to the panel below.
+/* A line saying what the buttons beside it do — see getHint in pages/leaderboard.js and in
+   templates/listView.js. Capped rather than left to run: a sentence the width of the page
+   would take the whole first line of the action row and push the buttons onto their own.
 
-   `font: inherit` because these are <button>s, which browsers otherwise draw in their own
-   font at their own size. */
-.tabs {
-  display: flex;
-  gap: var(--gap-lg);
-  border-bottom: 1px solid var(--border-color);
+   Narrow by default, for the short ones — a hint beside the buttons rather than across from
+   them. `.lg` below is for the sentences that need the room.
 
-  /* The panels below are .page-section, which brings no top margin of its own. */
-  margin-bottom: var(--gap-lg);
+   A filled block with no edge, as `.how-panel` and `.hero-stat` are, in the type it always
+   had. `.card`'s own 16px padding would set the height of the row the buttons are in, so this
+   takes `.badge`'s instead — the app's measure for a small filled block. */
+.action-hint {
+  max-width: 38ch;
+  text-align: left;
+  padding: 3px 8px;
+  border-color: transparent;
+  background: var(--primary-light);
 }
 
-.tab {
-  font: inherit;
-  font-size: var(--font-md);
-  font-weight: var(--bold);
-
-  padding: 8px 2px;
-  /* Over the strip's border, so the lit tab's underline replaces it rather than doubling it. */
-  margin-bottom: -1px;
-
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: none;
-  color: var(--text-muted);
-  cursor: pointer;
+/* The long ones: the leaderboard's runs to about 104 characters, which needs 54 to a line to
+   break in two, and `ch` — the width of a digit — is a little wider than the average letter
+   here, so 58 of them leaves room for the ragged break. */
+.action-hint.lg {
+  max-width: 58ch;
 }
 
-.tab:hover:not(:disabled) {
-  color: var(--text-color);
-}
-
-/* A tab and whatever control belongs to it, as one item of the strip: the control is beside
-   the tab rather than inside it, since a button cannot hold a button — see buildTabs. */
-.tab-slot {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--gap-xs);
-}
-
-/* That control, sized to sit in a strip of tabs rather than in a row of buttons: the label
-   reads beside the arrow, a size down from the tab it belongs to. */
-.tab-control {
-  padding: 2px 6px;
-  border-radius: var(--radius-md);
-  font-size: var(--font-xs);
-  gap: var(--gap-xs);
-}
-
-.tab-control .btn-icon {
-  width: 14px;
-  height: 14px;
-}
-
-.tab.on {
-  color: var(--primary);
-  border-bottom-color: var(--primary);
-}
-
-/* A panel with nothing behind it yet — a breakdown of no models. Dimmed rather than dropped,
-   so the strip keeps its shape as a comparison fills up. */
-.tab:disabled {
-  opacity: 50%;
-  cursor: not-allowed;
+/* Written empty and filled once the row knows what to say — see updateComparing in
+   pages/leaderboard.js. Collapsed until then, so no bare box sits beside the buttons. */
+.action-hint:empty {
+  display: none;
 }
 
 /*----------------------------------------------------------------------------------------
@@ -1707,29 +1740,92 @@ table {
    column it labels — and a frozen column, which is positioned separately, further still.
    Wide fitColumns grids hid it; it is obvious the moment a column is narrow. */
 .tabulator .tabulator-header .tabulator-col .tabulator-col-content {
-  padding: 10px 16px;
+  padding: 10px 8px;
+}
+
+/* Headings wrap rather than being cut. Tabulator's own rule is nowrap with an ellipsis,
+   which on a narrow column shows a heading's first word and a "…" that says nothing: "Used
+   in public ranking" over a tick, or a task's metric over its scores. The header strip grows
+   to the tallest of them, so every column gets the same depth.
+
+   `.tabulator-col-content` is in the chain to match the specificity of the rule this is
+   overriding, which names it — four classes deep loses to five, whichever loads last. And
+   `text-overflow: clip` because the ellipsis is set separately and outlives the nowrap. */
+.tabulator .tabulator-header .tabulator-col .tabulator-col-content .tabulator-col-title {
+  white-space: normal;
+  text-overflow: clip;
+}
+
+/* A task column's heading, over the wash that says which suite it came from. It carries
+   `.label` as well, which is the font a model's name is set in down the column beside it; this
+   is the colour alone, the header strip around it being muted. */
+.col-task {
+  color: var(--text-color);
+}
+
+.col-metric {
+  font-size: var(--font-xs);
+  font-weight: normal;
+}
+
+/* Which suite a task column came from. Held as an ink, as `.chip` further down holds it, so
+   the wash below is the one dial for how much of it a column carries. Named `col-tsN` rather
+   than the bare `tsN`, which sets a colour every cell in the column would inherit. */
+.tabulator .tabulator-header .tabulator-col.col-ts1 {
+  --suite-ink: var(--ts1);
+}
+
+.tabulator .tabulator-header .tabulator-col.col-ts2 {
+  --suite-ink: var(--ts2);
+}
+
+.tabulator .tabulator-header .tabulator-col.col-ts3 {
+  --suite-ink: var(--ts3);
+}
+
+/* The heading washed in its suite's colour, the badge that used to say so having gone from it.
+   Under `.tabulator-header` only: Tabulator puts a column's cssClass on its cells too, and the
+   board's rows are white. Adjacent columns of one suite come out as a single band. */
+.tabulator .tabulator-header .tabulator-col.col-ts1,
+.tabulator .tabulator-header .tabulator-col.col-ts2,
+.tabulator .tabulator-header .tabulator-col.col-ts3 {
+  background: color-mix(in srgb, var(--suite-ink) 8%, var(--surface));
 }
 
 /* Tabulator parks the sort arrow absolutely at the right edge of .tabulator-col-content,
    where it lands on top of a right-aligned header. Reserving the room here costs nothing
-   on a left-aligned column — the text is at the other end — and .num-cell below puts the
-   matching space on the cells of the columns that are right-aligned, so the two still
-   line up. */
-.tabulator
-  .tabulator-header
-  .tabulator-col.tabulator-sortable
-  .tabulator-col-content {
-  padding-right: 28px;
+   on a centred or left-aligned column — the text is elsewhere in the cell.
+
+   Only the arrow's own width and a hair beside it: a board of a dozen tasks pays this
+   reserve twelve times over. */
+.tabulator .tabulator-header .tabulator-col.tabulator-sortable .tabulator-col-content {
+  padding-right: 14px;
 }
 
-.tabulator .tabulator-cell.num-cell {
-  padding-right: 28px;
+/* A cell whose text may run onto more lines. Tabulator's own rule is nowrap with an ellipsis,
+   which cuts a long name in a column narrower than it — see the model column in
+   tables/leaderboardTable.js, which asks for `variableHeight` so its row grows to fit.
+
+   `overflow-wrap` for the name with no space in it to break at, which the column is capped
+   too narrow to hold whole. */
+.tabulator .tabulator-cell.wrap-cell {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* A grid with nothing in it, in the type an empty card carries — `.state-note.quiet`, which is
+   what buildEmptyMessage renders wherever a list has no rows. Tabulator's own is 20px bold
+   #ccc, which reads as a heading rather than as a note. */
+.tabulator .tabulator-tableholder .tabulator-placeholder .tabulator-placeholder-contents {
+  color: var(--text-muted);
+  font-size: var(--font-md);
+  font-weight: 400;
 }
 
 /* Table cells */
 .table td,
 .tabulator .tabulator-cell {
-  padding: 10px 16px;
+  padding: 10px 8px;
   font-size: var(--font-sm);
   border-right: none;
   border-bottom: 1px solid var(--border-color);
@@ -1765,9 +1861,6 @@ table {
 /* Table columns */
 .table th.rank {
   width: 50px;
-}
-.table th.num {
-  width: 80px;
 }
 
 /* Table rows */
@@ -1826,7 +1919,10 @@ table {
 
 /* Table footer — the strip holding the row count, and the page buttons when a grid pages.
    Tabulator's own colour here is a hardcoded grey, so --text-muted is set explicitly
-   rather than left to whichever stylesheet loads last. */
+   rather than left to whichever stylesheet loads last.
+
+   The count itself is written as `.metadata`, which is a size smaller — see buildTableCount
+   and the footers that place it. */
 .table-footer,
 .tabulator .tabulator-footer {
   background: var(--surface-secondary);
@@ -1863,10 +1959,12 @@ table {
   border-top: 1px solid var(--border-color);
 }
 
-/* The card grid's footer sits under a gap rather than against a last row, so it has no
-   edge to separate itself from. */
+/* The card grid's footer sits under a gap rather than against a last row, so it has no edge
+   to separate itself from — and no strip either: cards stand on the page, where a table's
+   footer closes a box. */
 .table-footer.cards-footer {
   border-top: none;
+  background: var(--surface);
 }
 
 /* The card grid's pager, sharing the table paginator's rules below: the two footers say the
@@ -1891,9 +1989,15 @@ table {
 }
 
 /* A <button> doesn't inherit the footer's font — Tabulator sets one on its own paginator
-   buttons, and ours takes the footer's instead. */
+   buttons, and ours takes the footer's instead.
+
+   The three longhands and not the `font` shorthand, which also inherits line-height: at the
+   body's 1.6 that drew a button half a line taller than Tabulator's, which keeps a button's
+   own `normal`. */
 .pager-page {
-  font: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
 }
 
 /* Tabulator's own arrows go grey and unclickable at either end of the range; ours are
@@ -1905,30 +2009,6 @@ table {
 
 .pager-page:not(:disabled) {
   cursor: pointer;
-}
-
-/*----------------------------------------------------------------------------------------
-TABS
---------------------------------------------------------------------------------------*/
-.tab-row {
-  display: flex;
-  border-bottom: 1px solid var(--border-color);
-  margin-bottom: 20px;
-}
-
-.tab {
-  padding: 8px 20px;
-  font-size: var(--font-md);
-  cursor: pointer;
-  color: var(--text-muted);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px; /* pull the tab's 2px underline over the row's 1px border */
-}
-
-.tab.active {
-  color: var(--text-color);
-  font-weight: var(--bold);
-  border-bottom-color: var(--primary);
 }
 
 /*----------------------------------------------------------------------------------------
@@ -1950,13 +2030,6 @@ BARS
 
 .wide-bar {
   height: 6px;
-}
-
-/* The comparison overview, where the bars are the section rather than a detail beside a
-   suite badge. After .bar-track and .bar deliberately: same specificity, so source order
-   is what lets it win the height. */
-.thick-bar {
-  height: 12px;
 }
 
 .bar.ts1 {
@@ -1992,16 +2065,254 @@ BARS
   background: var(--primary-light);
 }
 .dropzone-label {
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   margin: 0;
 }
 
-/* ── Selected-file card ───────────────────────────────────────────────────── */
+/* The schema field the predictions panel hosts — `is_deterministic`, drawn there by the
+   form. Ruled off from the file below it, and gone entirely on a form that puts no field
+   in the slot. */
+.upload-fields:not(:empty) {
+  padding-bottom: var(--gap-lg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* ── Selected-file card ───────────────────────────────────────────────────────
+   One object holding everything true of the file: name, size, what state it is in, and
+   the transfer drawn on its own bottom edge. */
+
+.file-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.file-main {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-lg);
+  padding: 14px 16px;
+}
+
+.file-icon {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+}
+
+.file-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name {
+  font-size: var(--font-md);
+  font-weight: var(--bold);
+  overflow-wrap: anywhere;
+}
+
+.file-meta {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--gap-md);
+  flex: none;
+}
+
+/* Sits on the card's edge, so the bar has no radius of its own to disagree with. */
+.file-progress {
+  height: 3px;
+  background: var(--border-color);
+}
+
+.file-progress > i {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.4s ease;
+}
+
+/* A field held at its value. Only wraps a control that is actually locked, and carries the
+   reason as its `title` — a disabled control shows none of its own. */
+.locked-field {
+  cursor: not-allowed;
+}
+
+/* ── State notes ──────────────────────────────────────────────────────────────
+   Where something has got to, and what to do about it: a headline, its detail beneath, and a
+   tone. Every message card in the app is one of these — components/messages.js maps each
+   kind of news onto a tone below — as are the verdicts on the submission form's file.
+
+   The bare class is work in flight; the four tones are answers. */
+
+.state-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--gap-lg);
+  padding: 14px 16px;
+  border: 1px solid var(--pending);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--pending) 7%, transparent);
+  color: var(--pending-dark);
+  font-size: var(--font-md);
+  font-weight: var(--bold);
+}
+
+/* Only information: a wait with no instruction in it, an empty list, a note to the reader. */
+.state-note.quiet {
+  border-color: var(--border-color);
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* Through. */
+.state-note.done {
+  border-color: var(--success);
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+  color: var(--success-dark);
+}
+
+/* Through, but something went with it. */
+.state-note.warned {
+  border-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  color: var(--warning-dark);
+}
+
+/* Not through. A refusal with codes in it wears this too, and lists them in its body. */
+.state-note.failed {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  color: var(--danger-dark);
+}
+
+/* The leading mark — a spinner or an icon — sits on the first line of the text beside it.
+   Named rather than taken as the first child: a note with no mark would take the offset
+   onto its own text. */
+.state-note > .spinner,
+.state-note > .field-icon {
+  margin-top: 5px;
+}
+
+/* The words. A block rather than a span: a refusal enumerates its codes inside it, and a
+   list is not phrasing content. */
+.state-note > .note-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* What to do next, as controls rather than only as words. Pushed to the far end, and the
+   first thing to drop onto its own line when the note runs out of width. */
+.state-note > .note-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-md);
+  margin-left: auto;
+}
+
+.state-note .sub {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--font-sm);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* The one animation in the app. Two states of the upload panel are waits with no
+   progress to report, and a still ring reads as a control rather than as work. */
+.spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+    border-right-color: currentColor;
+    border-style: dotted;
+  }
+
+  .file-progress > i {
+    transition: none;
+  }
+}
+
+/* ── Validation codes ─────────────────────────────────────────────────────────
+   The body of a refusal note — one row per code. A code whose message is the shared generic
+   one shows no message of its own; that text stands once below, under `.what-to-do`. */
+
+.code-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+  margin-top: var(--gap-lg);
+}
+
+.code-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--gap-lg);
+  align-items: baseline;
+  font-size: var(--font-sm);
+}
+
+.code-list .no-detail {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* What a delete takes with it, listed inside its confirmation. The markers need their
+   indent back: the universal reset zeroes padding, which leaves a bare `ul` drawing them
+   over its own text. */
+.delete-list {
+  margin-top: var(--gap-sm);
+  padding-left: 1.2em;
+}
+
+.what-to-do {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+  margin-top: var(--gap-lg);
+  padding-top: var(--gap-lg);
+  border-top: 1px solid color-mix(in srgb, var(--danger) 25%, transparent);
+  font-size: var(--font-sm);
+  font-weight: 400;
+}
 
 .field-input,
 .input-select,
 .input-text {
-  font-size: var(--font-sm);
+  font-size: var(--font-xs);
   padding: 9px 12px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
@@ -2019,17 +2330,25 @@ BARS
   resize: vertical;
 }
 
+/* One option of a checkbox list, sized as the text inside a field's own input is rather than
+   as the larger .value a read-only row reads at: the two sit in the same form. */
+.field-option {
+  font-size: var(--font-xs);
+  overflow-wrap: anywhere;
+}
+
 /* An option the schema has ruled out — `disabledOptionsWhen`, or the whole field being
    disabled. Driven off the control's own :disabled, the same way .form-panel is, so the
    dimming cannot disagree with whether the box can actually be ticked. Without it only the
    small square greys out and the label beside it reads as available. */
-.value:has(.field-checkbox:disabled) {
+.field-option:has(.field-checkbox:disabled) {
   opacity: 50%;
   cursor: not-allowed;
 }
 
 .field-checkbox,
 .input-checkbox {
+  font-size: var(--font-xs);
   width: 16px;
   height: 16px;
   accent-color: var(--primary);
@@ -2146,18 +2465,6 @@ WIZARD
   align-items: start;
 }
 
-.wizard-panel {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: #fff;
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: var(--gap-lg);
-}
-
 /* A panel on the single-page create form (js/models/modelCreate.js), which shows every
    panel at once and locks the ones below the point the user has reached.
 
@@ -2181,73 +2488,9 @@ WIZARD
   opacity: 50%;
 }
 
-.wizard-step {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 0;
-  font-size: var(--font-md);
-  color: var(--text-muted);
-}
-
-.wizard-step-icon {
-  position: relative;
-
-  width: 26px;
-  height: 26px;
-  flex-shrink: 0;
-
-  display: grid;
-  place-items: center;
-
-  border: 1.5px solid var(--border-color);
-  border-radius: 50%;
-
-  background: #fff;
-  color: var(--text-muted);
-
-  font-size: var(--font-md);
-  font-weight: 600;
-}
-
-.wizard-step:not(:last-child) .wizard-step-icon::after {
-  content: "";
-  position: absolute;
-
-  top: calc(100% + 2px);
-  left: 50%;
-  transform: translateX(-50%);
-
-  width: 2px;
-  height: 22px;
-
-  background: var(--border-color);
-}
-
 /* ─── Current step ───────────────────────────────────────────── */
 
-.wizard-step.current {
-  color: var(--text-color);
-  font-weight: var(--bold);
-}
-
-.wizard-step.current .wizard-step-icon {
-  border-color: var(--primary);
-  color: var(--primary-dark);
-}
-
 /* ─── Completed step ─────────────────────────────────────────── */
-
-.wizard-step.done {
-  cursor: pointer;
-  color: var(--text-color);
-}
-
-.wizard-step.done .wizard-step-icon {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-}
 
 /* This is the round icon which can be reused */
 .task-status {
@@ -2257,7 +2500,9 @@ WIZARD
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: var(--font-md);
+  /* The tick is a glyph, not an icon: at the size around it, it fills the circle wall to
+     wall. */
+  font-size: var(--font-xs);
   line-height: 1;
 }
 .task-status.ok {
@@ -2281,14 +2526,14 @@ WIZARD
 .task-split {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
-  gap: var(--gap-lg);
+  gap: var(--gap-xl);
   align-items: start;
 }
 
 /* Sticky so the picker stays put while a long methodology form scrolls beside it. */
 .task-picker {
   position: sticky;
-  top: var(--gap-md);
+  top: var(--gap-lg);
 }
 
 .task-item {
@@ -2318,57 +2563,29 @@ WIZARD
   color: #d33;
 }
 
-/* Ids can be longer than the column; truncate rather than wrap, so every row is one
-   line high and the list stays scannable. The full id is in the detail pane's title. */
+/* Truncated rather than wrapped, so every row is one line high and the list stays
+   scannable. The row's `title` carries the full id. */
 .task-item-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* The modal backdrop (`.task-popup`/`.popup`), its `.popup-card`, and the `.match-list`
-   pair went with the submit wizard's add-task dialog — team creation is its own page
-   (html/teams/team_create.html), so nothing renders a modal any more.
-   `.modal-close` stays: teamCreate.js borrows it for the remove-member buttons on its
-   member chips, which is the only thing left using it. */
-.modal-close {
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 22px;
-  line-height: 1;
-  color: var(--text-muted);
-}
-
 /*----------------------------------------------------------------------------------------
 COMPARISON
 --------------------------------------------------------------------------------------*/
-
-/* A fixed width, not a flex share: it is what makes the bars beside it start at the same
-   x and so be readable as a chart rather than as five unrelated rows. The score gets the
-   same treatment at the other end, so they all finish level too. */
-.model-bar-label {
-  width: 220px;
-  flex: none;
-}
-
-.model-bar-score {
-  width: 80px;
-  flex: none;
-  text-align: right;
-}
-
-/* The rows share one card now, so a model with nothing scored dims by itself rather than
-   through .card.disabled. */
-.model-bar.disabled {
-  opacity: 60%;
-}
 
 /* .input-select is width:100%, which in a flex row beside its label would swallow the rest
    of the line. The wrapper is what gives it a size to be 100% of. */
 .inline-select {
   flex: none;
   width: 280px;
+}
+
+/* The one that adds a record to the comparison — see buildAddSelect in templates/comparePage.js.
+   At the size a button's label is, where `.input-select` is sized for a bar of filters. */
+.add-select .input-select {
+  font-size: var(--font-sm);
 }
 
 /* One thing that has been picked and stays picked — a model chosen to compare against, a
@@ -2379,48 +2596,70 @@ COMPARISON
   display: inline-flex;
   align-items: center;
   gap: var(--gap-sm);
-
   flex: none;
-  padding: 4px 6px 4px 12px;
+  padding: 1px 2px 1px 4px;
   border: 1px solid var(--border-color);
   border-radius: 999px;
   background: var(--surface);
   font-size: var(--font-xs);
+  font-weight: var(--bold);
   white-space: nowrap;
 }
 
 /* A chip coloured by what it stands for: the leaderboard's task chips, which are the only
    thing saying which suite each came from — the list they are picked from is flat and the
-   short names carry no prefix. Same palette as the suite badges above. */
+   short names carry no prefix. Same palette as the suite badges above, held here as an ink
+   so the two mixes below are the one dial for how much of it a chip carries. */
 .chip.ts1 {
-  background: var(--ts1-light);
-  border-color: var(--ts1);
-  color: var(--ts1);
+  --suite-ink: var(--ts1);
 }
 
 .chip.ts2 {
-  background: var(--ts2-light);
-  border-color: var(--ts2);
-  color: var(--ts2);
+  --suite-ink: var(--ts2);
 }
 
 .chip.ts3 {
-  background: var(--ts3-light);
-  border-color: var(--ts3);
-  color: var(--ts3);
+  --suite-ink: var(--ts3);
+}
+
+/* A wash behind the suite's own ink, as `.badge.tsN` is: a chip and the badge of the thing it
+   stands for read as one colour, and the suite is what separates a row of a dozen of them.
+
+   Transparent and not `border: none`: `.chip` sizes itself with a 1px edge, and dropping it
+   would shift the chip 2px against the ones beside it that keep theirs. */
+.chip.ts1,
+.chip.ts2,
+.chip.ts3 {
+  background: color-mix(in srgb, var(--suite-ink) 8%, var(--surface));
+  border-color: transparent;
+  color: var(--suite-ink);
+}
+
+/* A pinned metric, in `.badge.metric`'s own fill and ink — the two name the same thing, one
+   picked and one read. Its ✕ keeps `.chip-remove`'s grey either way. */
+.chip.metric {
+  background: var(--border-color);
+  border-color: transparent;
+  color: var(--text-muted);
 }
 
 /* A chip standing for one of the things being compared — see buildPicks in
-   components/comparisonGrid.js. Tinted with the colour that thing is drawn in everywhere else,
+   components/comparisonGrid.js. Washed in the colour that thing is drawn in everywhere else,
    at the weight a picked card and a picked table row carry, so the row above the tabs reads as
    a key to the panels under them. */
 .chip.pick {
-  background: color-mix(
-    in srgb,
-    var(--pick-ink, var(--primary)) 12%,
-    var(--surface)
-  );
-  border-color: var(--pick-ink, var(--border-color));
+  background: color-mix(in srgb, var(--pick-ink, var(--primary)) 12%, var(--surface));
+
+  /* Transparent and not `border: none`, as the task chips above are: `.chip` sizes itself with
+     a 1px edge, and dropping it would shift the chip against the ones that keep theirs. */
+  border-color: transparent;
+
+  /* A step up from the chip's own size: these name what the panels below are of, where a
+     pinned filter value is read once and put out of mind. Muted all the same, as the task
+     chips are — the colour is what ties a chip to what it stands for, and the name beside it
+     does not need the page's full weight of ink as well. */
+  font-size: var(--font-sm);
+  color: var(--text-muted);
 }
 
 /* Where a pinned select's chips go. Always in the markup, because it is what a new chip is
@@ -2429,6 +2668,23 @@ COMPARISON
    behind by an insertion would defeat. */
 .pins:not(:has(*)) {
   display: none;
+}
+
+/* The tasks a board is ranked over, beside the suites that tick them. It takes what the
+   suites leave and wraps within itself; without a floor of its own a flex item will not
+   shrink below its content, so a long row of chips would drop the whole column below the
+   suites instead. */
+.task-choice {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The chips and the select that adds one are one wrapping row. The slot the chips are written
+   into, and the row they are written as, have no box of their own here — otherwise the select
+   follows the whole block of chips onto a line of its own rather than the last of them. */
+.task-choice [data-role="task-pins"],
+.task-choice .pins {
+  display: contents;
 }
 
 /* A chip with nothing after its label — a grid heading, where taking the thing out belongs to
@@ -2461,17 +2717,6 @@ COMPARISON
   opacity: 60%;
 }
 
-/* A rank sits beside scores in the same row, and both are numbers to two or three places.
-   The weight is what stops the reader having to check the column heading to know which
-   kind of number they are looking at. */
-.rank-value {
-  font-weight: var(--bold);
-}
-
-.tabulator .tabulator-cell.rank-cell {
-  background: var(--surface-secondary);
-}
-
 /* Which way a difference went. Green is the primary green rather than a fresh one, so the
    page has one "better" colour; the red is the same as .task-item.invalid. */
 .diff-up {
@@ -2482,4 +2727,213 @@ COMPARISON
 }
 .diff-flat {
   color: var(--text-muted);
+}
+
+/*----------------------------------------------------------------------------------------
+LANDING PAGE
+----------------------------------------------------------------------------------------*/
+
+/* The figures under the hero, one row of equal columns however many the page named in its
+   `data-figures`. `.hero-title` and `.hero-description` are up in GENERIC TEXT with the rest
+   of the type; these are layout.
+
+   The same `--gap-xxl` as `.page-hero`'s bottom padding, which sets the space above: the strip
+   sits midway between the hero and "Task suites". */
+.hero-stats {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  margin-bottom: var(--gap-xxl);
+}
+
+/* A figure, unboxed: the icon and the number on one line, the label under them. The columns
+   are `1fr` each, so a rule at a column's edge is evenly spaced across the row. */
+.hero-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--gap-sm);
+  padding: 0 var(--gap-xl);
+  text-align: center;
+}
+
+.hero-stat + .hero-stat {
+  border-left: 1px solid var(--border-color);
+}
+
+/* The outer two sit flush with the hero above and the sections below, which have no side
+   padding of their own. */
+.hero-stat:first-child {
+  padding-left: 0;
+}
+
+.hero-stat:last-child {
+  padding-right: 0;
+}
+
+/* A figure's own icon: quieter than the number beside it, which is what a reader is here to
+   read. Muted rather than the app's colour for the same reason. A little under the number's
+   --font-hd, so the glyph does not overhang the line they share. */
+.hero-stat .field-icon {
+  width: 28px;
+  height: 28px;
+  color: var(--text-muted);
+}
+
+/* The figure itself, the largest type on the page after `.hero-title`'s 40px. */
+.hero-stat-value {
+  font-size: var(--font-hd);
+  font-weight: var(--bold);
+}
+
+.hero-stat-label {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+/* The label over a card's chips — "Tasks", "Metrics". The same muted --font-sm as
+   `.hero-stat-label`, which captions the figures under the hero. */
+.chip-label {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+/* A hairline inside a card, between what the card is and the detail under it. */
+.rule {
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--border-color);
+}
+
+/* The three cards share one grid, so each card's sections sit on the parent's rows rather
+   than on rows of its own: the tasks and metrics of all three line up, and a card whose
+   metrics wrap to a third line lengthens that row for every card instead of only for itself.
+   Six rows because a card has six sections — adding one means raising both counts.
+
+   Without `subgrid` a card is simply a grid of its own six rows, which is what these looked
+   like before: laid out correctly, just not aligned with each other. */
+.suite-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(6, auto);
+  gap: var(--gap-lg);
+}
+
+.suite-card {
+  display: grid;
+  grid-row: span 6;
+  grid-template-rows: subgrid;
+  gap: var(--gap-lg);
+
+  /* The fill is the suite's, below — the border goes with it, as .card.secondary's does. */
+  border-color: transparent;
+}
+
+/* Its own width at the card's right edge, under the chips it opens. `justify-self` rather
+   than a margin: a grid would otherwise stretch it, and the whole row would be clickable. */
+.suite-card > .icon-link {
+  justify-self: end;
+}
+
+/* A row of the panel: equal columns whatever it holds, three steps or the two ways on from
+   them. */
+.how-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+}
+
+.how-item {
+  padding: 0 var(--gap-lg);
+}
+
+/* Ruled between its items, for a row whose items are alternatives. The steps run 1-2-3 and
+   are spaced rather than divided. The columns are `1fr` each, so a rule at a column's edge is
+   evenly spaced across the row. */
+.how-row.divided > .how-item + .how-item {
+  border-left: 1px solid var(--border-color);
+}
+
+/* The outer two sit flush with the panel's own padding. */
+.how-item:first-child {
+  padding-left: 0;
+}
+
+.how-item:last-child {
+  padding-right: 0;
+}
+
+/* The number and the icon lead, with the title and its text beside them. `flex-start`, so the
+   two glyphs stay level with the title rather than with the middle of the step. */
+.how-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gap-md);
+}
+
+/* What a step is, and what a suite card is about, at the size that makes it the thing a reader
+   sees first — `.field-icon` is 13px, sized for sitting inside a line of text. Colour is each
+   one's own: a suite icon takes its suite's from the `.tsN` on the span, which the glyph
+   inherits. */
+.step-icon .field-icon,
+.suite-icon .field-icon {
+  width: 25px;
+  height: 25px;
+}
+
+/* Muted at that size, as the hero's figures are: at 25px the text colour reads as heavier than
+   the words beside it. */
+.step-icon .field-icon {
+  color: var(--text-muted);
+}
+
+/* A leading glyph in a button, at the size the button's own icons are drawn. */
+.btn .field-icon {
+  width: 15px;
+  height: 15px;
+}
+
+/* Tinted by suite, and lighter than the chips inside it: the chips are --tsN-light, and a card
+   painted that same colour would swallow them. */
+.suite-card[data-suite="ts1"] {
+  background: color-mix(in srgb, var(--ts1) 5%, transparent);
+}
+
+.suite-card[data-suite="ts2"] {
+  background: color-mix(in srgb, var(--ts2) 5%, transparent);
+}
+
+.suite-card[data-suite="ts3"] {
+  background: color-mix(in srgb, var(--ts3) 5%, transparent);
+}
+
+/* One panel holding the three steps and, under them, the ways on from them. A shade back from
+   the page, as .nav is: it reads as a block of the page rather than as a card on it. */
+.how-panel {
+  align-items: stretch;
+  padding: 32px;
+  border-color: transparent;
+  background: var(--surface-secondary);
+}
+
+/* Both blocks of cards, one step down the type scale. Three suite cards and the panel under
+   them are read at a glance across a page, where the sizes these classes carry are set for a
+   record page read one at a time.
+
+   Only the type with no size of its own: the badges and buttons inside them take `sm`, which
+   is the same step — see index.html and pages/landing.js. */
+.suite-card .card-title,
+.how-panel .card-title {
+  font-size: var(--font-md);
+}
+
+.suite-card .card-description,
+.how-panel .card-description {
+  font-size: var(--font-sm);
+}
+
+.suite-card .chip-label,
+.suite-card .link,
+.how-panel .step-number {
+  font-size: var(--font-xs);
 }

@@ -3,12 +3,7 @@
 
 import { suiteFromTask } from "../core/suites.js";
 import { trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
-import {
-  matchEquals,
-  matchIncludes,
-  optionsFromRows,
-  SUITE_OPTIONS,
-} from "../components/filters.js";
+import { getTaskScoreFilters } from "./taskScoreUtils.js";
 
 // ─── ROWS ────────────────────────────────────────────────────────────────────
 
@@ -40,42 +35,46 @@ function toTaskSubmissionRow(submission, taskSubmission) {
 
 // Plural counterpart. The submission is the same for every row — it carries the id the
 // edit link needs — so it stays outside the map rather than being repeated per task.
-function toTaskSubmissionRows(
-  submission,
-  taskSubmissions = submission.task_submissions ?? [],
-) {
-  return taskSubmissions.map((taskSubmission) =>
-    toTaskSubmissionRow(submission, taskSubmission),
-  );
+function toTaskSubmissionRows(submission, taskSubmissions = submission.task_submissions ?? []) {
+  return taskSubmissions.map((taskSubmission) => toTaskSubmissionRow(submission, taskSubmission));
+}
+
+// ─── STANDING ────────────────────────────────────────────────────────────────
+
+/**
+ * Stamp each row with whether the model is still standing on it.
+ *
+ * The breakdown names the entry the model currently stands on for each task — the newest
+ * scored one this reader may see, which counts private runs for a member and only public
+ * ones for anybody else. An entry that is not the named one has been overtaken.
+ *
+ * Not a ranking: no other model's scores are involved, and no position is reported.
+ *
+ * @param rows      from toTaskSubmissionRows.
+ * @param breakdown the GET /api/models/{id}/breakdown payload, or nothing.
+ *
+ * @returns copies, each with `latest` — true where the model stands on this entry, and null
+ *          where the breakdown is missing and there is nothing to say either way.
+ */
+function markStandingRows(rows, breakdown) {
+  const entries = breakdown?.tasks;
+
+  return rows.map((row) => ({
+    ...row,
+    latest: entries ? entries[row.task_id]?.task_submission_id === row.id : null,
+  }));
 }
 
 // ─── FILTERS ─────────────────────────────────────────────────────────────────
 
+// The score tables' own set: one submission's tasks are its scores read another way, so a
+// reader asks the same questions of both and the two bars look alike. The rows carry the
+// fields it matches on — `task_id`, `suite`, `metric` and the methodology — which is what
+// lets one builder serve either.
+//
+// No model control: every row here belongs to the submission the page is about.
 function getTaskSubmissionFilters(rows) {
-  return [
-    {
-      type: "search",
-      name: "task_id",
-      placeholder: "Search tasks...",
-      match: matchIncludes("task_id"),
-    },
-    {
-      type: "select",
-      name: "suite",
-      placeholder: "All suites",
-      options: SUITE_OPTIONS,
-      match: matchEquals("suite"),
-    },
-    {
-      // optionsFromRows drops nulls, and an unscored row carries no metric — so choosing
-      // one narrows to scored rows.
-      type: "select",
-      name: "metric",
-      placeholder: "All metrics",
-      options: optionsFromRows(rows, "metric"),
-      match: matchEquals("metric"),
-    },
-  ];
+  return getTaskScoreFilters(rows);
 }
 
 // ─── SUITES ──────────────────────────────────────────────────────────────────
@@ -93,9 +92,7 @@ function suiteSiblings(submission, taskSubmission) {
 // than only into the edited record.
 function mergeUpdated(submission, updated) {
   for (const row of updated) {
-    const existing = (submission.task_submissions ?? []).find(
-      (task) => task.id === row.id,
-    );
+    const existing = (submission.task_submissions ?? []).find((task) => task.id === row.id);
 
     if (existing) Object.assign(existing, row);
   }
@@ -103,6 +100,7 @@ function mergeUpdated(submission, updated) {
 
 export {
   getTaskSubmissionFilters,
+  markStandingRows,
   mergeUpdated,
   suiteSiblings,
   toTaskSubmissionRows,

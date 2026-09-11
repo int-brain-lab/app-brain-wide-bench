@@ -1,8 +1,11 @@
-import { initials } from "../core/utils.js";
 import { refreshIcons, renderHtml } from "../core/render.js";
+import { initials } from "../core/utils.js";
+import { logout } from "../api/client.js";
+import { getCurrentUser } from "../api/userApi.js";
+import { buildSignOutButton } from "../components/buttons.js";
 import { getIcon } from "../components/icons.js";
-import { apiFetch, isAuthenticated, logout } from "../api/client.js";
 import { renderLogo } from "./navTop.js";
+
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 // "My" throughout, because every one of these is scoped to the viewer, and the label is what
@@ -59,21 +62,6 @@ const PUBLIC_NAV_ITEMS = [
   { label: "Home", href: "/index.html", icon: getIcon("home") },
 ];
 
-// ─── API ─────────────────────────────────────────────────────────────────────
-
-async function loadCurrentUser() {
-  try {
-    if (!(await isAuthenticated())) {
-      return null;
-    }
-
-    return await apiFetch("/api/users/me");
-  } catch (err) {
-    console.error(err);
-    return null;
-  }
-}
-
 // ─── DOM ─────────────────────────────────────────────────────────────────────
 
 function sidebar() {
@@ -108,6 +96,9 @@ function renderSidebarItems(items, page) {
   return items.map((item) => renderSidebarItem(item, page)).join("");
 }
 
+// Looked up by id once the sidebar is written — see the listener below.
+const LOGOUT_ID = "sidebar-logout";
+
 function renderSidebar() {
   const page = currentPage();
 
@@ -127,9 +118,9 @@ function renderSidebar() {
     </div>
 
     <div class="sidebar-bottom">
-      <div class="row left gap-md">
+      <div class="row left gap-lg">
         <div class="user-logo" id="user-initials">—</div>
-        <button type="button" class="btn primary" id="sidebar-logout">Sign out</button>
+        ${buildSignOutButton({ id: LOGOUT_ID })}
       </div>
     </div>
   `;
@@ -141,7 +132,7 @@ function renderSidebar() {
 // the name, so they go stale with it. The lookup is optional because an external caller
 // can't assume renderSidebar() has run.
 async function fillSidebarUser() {
-  const user = await loadCurrentUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return;
@@ -166,9 +157,7 @@ async function initialiseSidebar() {
   renderHtml(nav, renderSidebar());
 
   // Straight back to the public home, which logout() is already pointed at.
-  document
-    .getElementById("sidebar-logout")
-    ?.addEventListener("click", () => logout());
+  document.getElementById(LOGOUT_ID)?.addEventListener("click", () => logout());
 
   await fillSidebarUser();
 

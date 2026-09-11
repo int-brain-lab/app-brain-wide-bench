@@ -1,13 +1,10 @@
-// The columns a methodology grid shows, and the cells under them.
+// The rows a record comparison's details grid ends with, and the cells under them.
 //
 // Only how a score was produced — the five training fields, and nothing about the numbers
-// themselves. The metric belongs to the reading rather than to the methodology, and it is one
-// choice for a whole comparison rather than one per score, so it lives on the control that
-// applies it: see buildMetricSelect in comparisons/taskScoreComparison.js.
+// themselves. The metric is one choice for a whole comparison rather than one per score, so
+// it lives on the control that applies it — see buildMetricBadges in taskScoreComparison.js.
 //
-// Shared with methodologyLines below, so a grid and a tooltip cannot disagree about which
-// fields methodology means, in what order, or under what names. The grid itself is
-// components/comparisonGrid.js.
+// The grid itself is components/comparisonGrid.js.
 
 import { displayValue } from "../forms/fields.js";
 import { trainingFieldKeys } from "../schemas/taskSubmissionSchema.js";
@@ -40,28 +37,8 @@ function fieldText(record, fields, key) {
  */
 function methodologyCells({ record, fields }) {
   return Object.fromEntries(
-    trainingFieldKeys().map((key) => [
-      key,
-      { value: fieldText(record, fields, key) },
-    ]),
+    trainingFieldKeys().map((key) => [key, { value: fieldText(record, fields, key) }]),
   );
 }
 
-/**
- * The same fields as labelled lines, for somewhere with no columns to put them in — a plot's
- * tooltip. Only the ones the record answers, so a record that says nothing about how it was
- * produced adds nothing rather than a run of dashes.
- *
- * @param record as methodologyCells. A score shape that carries no methodology at all — a
- *               leaderboard row's, a difference — yields an empty list.
- * @param fields as methodologyCells.
- * @returns ["Training paradigm: …", …].
- */
-function methodologyLines(record, fields) {
-  return trainingFieldKeys()
-    .map((key) => [fields[key]?.label ?? key, fieldText(record, fields, key)])
-    .filter(([, value]) => value != null)
-    .map(([label, value]) => `${label}: ${value}`);
-}
-
-export { methodologyCells, methodologyColumns, methodologyLines };
+export { methodologyCells, methodologyColumns };

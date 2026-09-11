@@ -6,21 +6,25 @@
 // The view also handles:
 // - edit/save/cancel button state
 // - save/cancel messages
-// - optional post-create content
+// - the message a just-created record wears, and the two ways on from it
 // - the dashboard's Edit → details navigation
 
 import {
   buildFailureMessage,
-  buildSuccessMessage,
+  buildStateNote,
   buildWarningMessage,
 } from "../components/messages.js";
 import {
+  buildButton,
+  buildCreateButton,
+  buildDeleteButton,
   CANCEL_BUTTON_ID,
+  DELETE_BUTTON_ID,
   EDIT_BUTTON_ID,
   EDIT_BUTTONS,
   SAVE_BUTTON_ID,
 } from "../components/buttons.js";
-import { appendCreateCard } from "../cards/createCard.js";
+import { getIcon } from "../components/icons.js";
 import { CLEARED_MESSAGE } from "../forms/form.js";
 import { buildDisplayFields, buildPanelCards } from "../forms/fields.js";
 import { createEditForm } from "../forms/editForm.js";
@@ -32,7 +36,6 @@ import {
   buildPage,
   buildSection,
   buildSections,
-  getSection,
   getSectionBody,
 } from "../components/sections.js";
 
@@ -57,12 +60,7 @@ function capitalise(text) {
 function renderDetails(section, values, fields, panels) {
   renderHtml(
     getSectionBody(section),
-    buildPanelCards(
-      toPanelGroups(fields, panels),
-      values,
-      fields,
-      buildDisplayFields,
-    ),
+    buildPanelCards(toPanelGroups(fields, panels), values, fields, buildDisplayFields),
   );
 }
 
@@ -84,9 +82,15 @@ function renderDetails(section, values, fields, panels) {
  * @param onEdit      () => void, when editing starts.
  * @param onSaved     async (saved) => void, after a successful save.
  * @param onCancel    () => void, after cancelling.
- * @param onCleared   (labels) => void, when dependent fields are cleared. Omit for the
- *                    standard warning message.
- * @param onDismiss   () => void, when an edit/save/cancel action clears the message.
+ * @param onCleared   (labels) => void, after every change — see createEditForm. Omit for the
+ *                    standard warning, which is taken back by the next change that clears
+ *                    nothing.
+ * @param savedNote   (saved) => `{ line, detail }` — what the saved message says, where the
+ *                    page can put it better than "{Noun} successfully updated". Omit for
+ *                    that.
+ * @param dashboard   true where this record's page has a `dashboard` view, which the saved
+ *                    message then offers a button to. A string labels that button instead of
+ *                    the default "Go to {noun} dashboard".
  * @param section     the section holding the editable fields.
  *
  * @returns the editor, already attached.
@@ -106,8 +110,9 @@ function attachRecordEditor({
   onSaved,
   onCancel,
   onCleared,
-  onDismiss,
+  savedNote,
 
+  dashboard = false,
   section = "record",
 }) {
   const buttons = getEditButtons();
@@ -125,16 +130,15 @@ function attachRecordEditor({
     buttons.edit?.toggleAttribute("hidden", editing);
     buttons.save?.toggleAttribute("hidden", !editing);
     buttons.cancel?.toggleAttribute("hidden", !editing);
-  }
 
-  function dismissMessage() {
-    clearMessage();
-    onDismiss?.();
+    // Deliberately not in `buttons`: every button there also clears the page's message,
+    // which is where the delete confirmation is drawn — it would wipe it as it opened.
+    getElement(DELETE_BUTTON_ID)?.toggleAttribute("hidden", editing);
   }
 
   // Starting any new editor action clears the message from the previous action.
   for (const button of Object.values(buttons)) {
-    button?.addEventListener("click", dismissMessage);
+    button?.addEventListener("click", clearMessage);
   }
 
   // ─── EDITOR ────────────────────────────────────────────────────────────────
@@ -155,13 +159,15 @@ function attachRecordEditor({
     onCleared:
       onCleared ??
       ((labels) => {
-        renderMessage(buildWarningMessage(CLEARED_MESSAGE, labels));
+        if (labels) {
+          renderMessage(buildWarningMessage(CLEARED_MESSAGE, labels));
+        } else {
+          clearMessage();
+        }
       }),
 
     onSaved: async (saved) => {
-      renderMessage(
-        buildSuccessMessage(`${capitalise(noun)} successfully saved.`),
-      );
+      renderSavedMessage(noun, dashboard, savedNote?.(saved));
 
       renderTitle?.(saved);
       renderRows();
@@ -175,7 +181,7 @@ function attachRecordEditor({
     },
 
     onError: (error) => {
-      renderMessage(buildFailureMessage(`Saving ${noun} failed.`, error));
+      renderMessage(buildFailureMessage(`Updating ${noun} failed`, error));
     },
   });
 
@@ -194,23 +200,47 @@ function attachRecordEditor({
   return editor;
 }
 
-// ─── POST-CREATE ─────────────────────────────────────────────────────────────
+// ─── ANSWERS ─────────────────────────────────────────────────────────────────
 
-// Adds optional content immediately after the details section, typically a "create another"
-// or related-action card shown after successfully creating a record.
-function renderCreateSection(section, createCard) {
-  const element = document.createElement("section");
-  const body = document.createElement("div");
+// `view` rather than an href, so the router switches in place — see core/router.js, whose
+// listener is delegated and so reaches a button rendered as late as a message.
+function buildDashboardButton(noun, dashboard) {
+  return buildButton({
+    label: typeof dashboard === "string" ? dashboard : `Go to ${noun} dashboard`,
+    view: "dashboard",
+    icon: getIcon("dashboard"),
+  });
+}
 
-  element.className = "page-section";
-  body.className = "section-body";
+// The record exists; these are the ways on from it.
+function buildCreatedActions(noun, next, dashboard) {
+  const create = next ? buildCreateButton({ href: next.href, label: next.label }) : "";
 
-  element.append(body);
-  getSection(section).after(element);
+  return (dashboard ? buildDashboardButton(noun, dashboard) : "") + create;
+}
 
-  appendCreateCard(body, createCard);
+function renderCreatedMessage(noun, next, dashboard) {
+  renderMessage(
+    buildStateNote({
+      tone: "done",
+      icon: "tick",
+      line: `${capitalise(noun)} successfully created`,
+      detail: next?.detail ?? "",
+      actions: buildCreatedActions(noun, next, dashboard),
+    }),
+  );
+}
 
-  return element;
+function renderSavedMessage(noun, dashboard, note) {
+  renderMessage(
+    buildStateNote({
+      tone: "done",
+      icon: "tick",
+      line: note?.line ?? `${capitalise(noun)} successfully updated`,
+      detail: note?.detail ?? "",
+      actions: dashboard ? buildDashboardButton(noun, dashboard) : "",
+    }),
+  );
 }
 
 // ─── DETAILS VIEW ────────────────────────────────────────────────────────────
@@ -223,12 +253,17 @@ function renderCreateSection(section, createCard) {
  * @param fields      field definitions for the record.
  * @param panels      panel definitions setting out the field layout.
  * @param actions     header actions, shown only when editing is allowed.
- * @param back        the back link — `{ text, view }`, or `{ text, href }` to leave the
- *                    page. Omit for no back link.
+ * @param deletable   add Delete to those actions, for a page that mounts a delete control
+ *                    over it — see widgets/deleteRecord.js. Omit for a record with none.
  * @param canEdit     whether the viewer may edit this record.
  * @param edit        open in edit mode straight away.
  * @param created     whether this record was just created.
- * @param createCard  the card shown after creation. Omit for none.
+ * @param createdNext `{ detail, href, label }` — the sentence and the create button the
+ *                    just-created message offers. Omit for a message with nothing beyond
+ *                    the news.
+ * @param dashboard   true where this record's page has a `dashboard` view. The created and
+ *                    saved messages then offer a button to it; a string labels that button
+ *                    instead of the default "Go to {noun} dashboard".
  * @param sections    further sections rendered below the record's own.
  * @param renderTitle (record) => void. Writes the page header.
  *
@@ -243,21 +278,23 @@ function renderRecordDetailsView({
   panels,
 
   actions = EDIT_BUTTONS,
-  back,
+  deletable = false,
 
   canEdit,
   edit = false,
 
   created = false,
-  createCard = null,
+  createdNext = null,
+  dashboard = false,
 
   sections = [],
   renderTitle,
 }) {
+  const headerActions = deletable ? [...actions, buildDeleteButton()] : actions;
+
   renderPage(
     buildPage({
-      back,
-      header: buildHeader(canEdit ? actions : []),
+      header: buildHeader(canEdit ? headerActions : []),
       body: buildSection({ id: noun }) + buildSections(sections),
     }),
   );
@@ -266,17 +303,12 @@ function renderRecordDetailsView({
   renderDetails(noun, record, fields, panels);
 
   if (created) {
-    renderMessage(
-      buildSuccessMessage(`${capitalise(noun)} successfully created.`),
-    );
+    renderCreatedMessage(noun, canEdit ? createdNext : null, dashboard);
   }
 
   if (!canEdit) {
     return null;
   }
-
-  const postCreateSection =
-    created && createCard ? renderCreateSection(noun, createCard) : null;
 
   function attachEditor(options) {
     return attachRecordEditor({
@@ -286,12 +318,8 @@ function renderRecordDetailsView({
       panels,
       edit,
       renderTitle,
+      dashboard,
       section: noun,
-
-      // The post-create card belongs only to the initial interaction.
-      onDismiss: () => {
-        postCreateSection?.remove();
-      },
 
       ...options,
     });
@@ -300,14 +328,4 @@ function renderRecordDetailsView({
   return { attachEditor };
 }
 
-// ─── DASHBOARD EDIT LINK ─────────────────────────────────────────────────────
-
-// The dashboard does not contain the editor itself. Its Edit button navigates to the
-// details view and asks that view to enter edit mode.
-function attachEditLink(router, view = "details") {
-  getEditButtons().edit?.addEventListener("click", () => {
-    router.goTo(view, { edit: true });
-  });
-}
-
-export { attachEditLink, attachRecordEditor, renderRecordDetailsView };
+export { attachRecordEditor, renderRecordDetailsView };

@@ -19,9 +19,7 @@ function hookOf(control) {
 }
 
 function elementIn(root, control) {
-  return root.querySelector(
-    `[data-${hookOf(control)}="${CSS.escape(control.name)}"]`,
-  );
+  return root.querySelector(`[data-${hookOf(control)}="${CSS.escape(control.name)}"]`);
 }
 
 // A select and a search hold one string and differ only in their markup. `input`, not
@@ -45,8 +43,7 @@ const KINDS = {
     empty: () => [],
     read: (root, control) => pinnedIn(root, control.name),
     key: (values) => values.join(","),
-    match: (control, row, values) =>
-      values.some((value) => control.match(row, value)),
+    match: (control, row, values) => values.some((value) => control.match(row, value)),
     changed: (event, root, control) => {
       if (!pinFromEvent(event, root, hookOf(control))) return false;
 
@@ -57,9 +54,7 @@ const KINDS = {
     fromUrl: (params, control) => {
       const known = control.options.map((option) => String(option.value));
 
-      return (params.get(control.name) ?? "")
-        .split(",")
-        .filter((value) => known.includes(value));
+      return (params.get(control.name) ?? "").split(",").filter((value) => known.includes(value));
     },
     toUrl: (params, control, values) => {
       if (values?.length) params.set(control.name, values.join(","));
@@ -86,19 +81,14 @@ const KINDS = {
     // is read as no filter; bounds outside the span the control offers have no thumb
     // position and are refused the same way.
     fromUrl: (params, control) => {
-      const written = [
-        params.get(`${control.name}_min`),
-        params.get(`${control.name}_max`),
-      ];
+      const written = [params.get(`${control.name}_min`), params.get(`${control.name}_max`)];
 
       if (written.some((bound) => bound == null || bound === "")) return null;
 
       const [from, to] = written.map(Number);
 
       const known = (bound) =>
-        Number.isFinite(bound) &&
-        bound >= control.range.min &&
-        bound <= control.range.max;
+        Number.isFinite(bound) && bound >= control.range.min && bound <= control.range.max;
 
       if (!known(from) || !known(to) || from > to) return null;
 
@@ -164,9 +154,7 @@ function createFilterState({ controls, root, onChange }) {
   }
 
   function empty() {
-    return Object.fromEntries(
-      controls.map((control) => [control.name, kindOf(control).empty()]),
-    );
+    return Object.fromEntries(controls.map((control) => [control.name, kindOf(control).empty()]));
   }
 
   function keyOf(control, value) {
@@ -175,9 +163,7 @@ function createFilterState({ controls, root, onChange }) {
 
   function same(left, right) {
     return controls.every(
-      (control) =>
-        keyOf(control, left[control.name]) ===
-        keyOf(control, right[control.name]),
+      (control) => keyOf(control, left[control.name]) === keyOf(control, right[control.name]),
     );
   }
 
@@ -207,10 +193,7 @@ function createFilterState({ controls, root, onChange }) {
       controls.map((control) => {
         const kind = kindOf(control);
 
-        return [
-          control.name,
-          kind.fromUrl ? kind.fromUrl(params, control) : kind.empty(),
-        ];
+        return [control.name, kind.fromUrl ? kind.fromUrl(params, control) : kind.empty()];
       }),
     );
   }

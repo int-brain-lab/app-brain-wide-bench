@@ -7,13 +7,16 @@ navigation, so a page that had to assemble its schema from three fetches would p
 three again on the next page.
 
 Served with an ``ETag``, and built once per process — see ``meta_document``.
+
+``/api/meta/stats`` shares the prefix but not the document: two counts of finished public
+work, which move with the data rather than with a deploy.
 """
 
 import hashlib
 import json
 
 from fastapi import APIRouter, Depends, Request, Response
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
@@ -25,12 +28,13 @@ from app.models import (
     Modality,
     Model,
     Submission,
+    SubmissionStatus,
     SupervisionRegime,
     Task,
     TaskSubmission,
     TrainingParadigm,
 )
-from app.schemas.meta import EnumOption, MetaResponse, SuiteInfo
+from app.schemas.meta import EnumOption, MetaResponse, MetaStats, SuiteInfo
 from app.schemas.tasks import TaskResponse
 
 router = APIRouter(prefix="/api/meta", tags=["meta"])
@@ -119,18 +123,61 @@ async def meta(request: Request, session: AsyncSession = Depends(get_session)) -
 
     ``public`` because the document is byte-identical for every caller, signed in or not —
     which is also why there is no ``Vary: Authorization``, even though ``apiFetch`` sends a
-    bearer token when there is one. ``no-cache`` means "stored, but revalidate before use":
-    a 304 is already cheap, and the alternative — ``max-age`` — buys a few saved round trips
-    at the cost of a reworded tooltip taking minutes to appear, which is a confusing thing
-    to debug.
+    bearer token when there is one.
+
+    ``max-age=300`` because the revalidation was a round trip on the critical path of every
+    page: the frontend reads this document on all of them, and a 304 saves the body but not
+    the wait. Five minutes is how long an edited description can still read as the old one.
+    See docs/backend_caching_plan_todo.md.
 
     Returned as a raw ``Response`` rather than through ``response_model`` because the body
     has to be the exact bytes the ETag was computed over.
     """
     body, etag = await meta_document(session)
-    headers = {"ETag": etag, "Cache-Control": "public, no-cache"}
+    headers = {"ETag": etag, "Cache-Control": "public, max-age=300"}
 
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers=headers)
 
     return Response(content=body, media_type="application/json", headers=headers)
+
+
+@router.get("/stats", response_model=MetaStats)
+async def stats(
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+) -> MetaStats:
+    """How much finished, public work the benchmark holds.
+
+    Counted over public submissions in ``done`` and the distinct models behind them, which
+    is the field the leaderboard ranks. It can read higher than the board's row count in one
+    case: the board drops a model whose submissions carry no scored task, and this does not
+    join scores to find out.
+
+    Its own endpoint rather than a read of ``/api/leaderboard``, which the landing page used
+    to sum: that one loads every public submission with all its task submissions and scores
+    and ranks the lot, to produce two integers.
+
+    No caller, so the answer is the same bytes for everyone — hence ``public`` and no
+    ``Vary``. See docs/backend_caching_plan_todo.md.
+
+    Not part of the meta document: that one is byte-identical for the life of the process,
+    and these two move whenever a submission finishes.
+    """
+    finished_and_public = (
+        Submission.is_public.is_(True),
+        Submission.status == SubmissionStatus.done,
+    )
+
+    # One row rather than a count each: the two aggregates read the same filtered set.
+    n_submissions, n_models = (
+        await session.execute(
+            select(func.count(), func.count(func.distinct(Submission.model_id)))
+            .select_from(Submission)
+            .where(*finished_and_public)
+        )
+    ).one()
+
+    response.headers["Cache-Control"] = "public, max-age=300"
+
+    return MetaStats(n_models=n_models, n_submissions=n_submissions)
