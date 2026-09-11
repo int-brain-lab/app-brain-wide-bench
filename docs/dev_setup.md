@@ -51,16 +51,25 @@ Storage settings go here too — see step 4.
 
 ```bash
 uv run --env-file .env.local alembic upgrade head
-uv run --env-file .env.local python scripts/load_fixture_data.py
-uv run --env-file .env.local python scripts/seed_dev_admin.py
+uv run --env-file .env.local python scripts/load_fixture_data.py tests/fixtures/2026_09_baselines.json
+uv run --env-file .env.local python scripts/set_user_role.py benchmark@internationalbrainlab.org admin
 ```
 
-`seed_dev_admin.py` makes the stub user an `admin` — every team's models, submissions and
-teams become readable and writable — and joins it to one team as a collaborator.
+The baselines fixtures own their rows as `app.auth.DEV_SUB` by default, the same identity dev
+mode resolves every request to, so what they load is already the stub user's own. A deployment
+pins a real account's sub instead — see `baselines_fixture.md`.
 
-The membership is what the submission form needs: `/me/models` answers from real team
-membership, not from the role, and the form refuses to load with nothing to choose. The
-team holding the most models is picked; pass a name to choose another.
+The load wants an empty database and stops if it finds one that is not — add `--append` to
+load a second fixture into it instead.
+
+`set_user_role.py` makes that user an `admin` — every team's models, submissions and teams
+become readable and writable. Its email is the fixture's `benchmark@internationalbrainlab.org`
+until the first dev-mode request rewrites it to `dev@brainwidebench.org`, which is the address
+to pass once the app has been opened.
+
+Team membership comes from the fixture, and is what the submission form needs: `/me/models`
+answers from real team membership, not from the role, and the form refuses to load with
+nothing to choose.
 
 ## 4. A submission to validate
 
@@ -186,7 +195,7 @@ error code, and where each failure surfaces.
 | Symptom | Cause |
 |---|---|
 | `401` on every request | API is not in dev mode. `AUTH0_DOMAIN=dev`. |
-| Form says "You have no models yet" | `seed_dev_admin.py` not run, or run before the fixture load so there was no team to join. |
+| Form says "You have no models yet" | The loaded fixture puts the stub user on no team. `2026_09_baselines.json` does. |
 | Status stuck at `validating` | No worker running. |
 | Status `unchecked` | Validation could not run — worker log has the traceback. In Simple mode, usually `STUB_SUBMISSION_DIR` unset or wrong. |
 | Every file fails with the same code | Ground truth missing or mismatched. Check `S3_GT_PREFIX` resolves to the generated `gt`. |

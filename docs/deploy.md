@@ -185,8 +185,8 @@ print('identity:', boto3.client('sts').get_caller_identity()['Arn'])
 
 `env` means the policy to widen belongs to the key in `.env`; `iam-role` means it belongs to
 the instance role. `NONE` means S3 has never worked here — which would have gone unnoticed,
-since the old flow only ever *signed* a URL (no network call) and the demo data was loaded by
-`scripts/load_baselines.py`, which bypasses S3 entirely.
+since the old flow only ever *signed* a URL (no network call) and the demo data was loaded
+from a fixture, which bypasses S3 entirely.
 
 An instance role has one gotcha: containers often cannot reach IMDSv2, because the default
 put-response hop limit of 1 does not survive Docker's NAT. Raising it to 2 on the instance's
@@ -229,6 +229,7 @@ it takes:
 docker compose build                                      # running site untouched
 docker compose run --rm web uv run alembic upgrade head   # new image, same network
 docker compose up -d                                      # swap the code in
+docker compose restart nginx
 ```
 
 Worth it for a busy site; the shorter form is fine for a test deploy.

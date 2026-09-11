@@ -12,7 +12,7 @@
 import { disposeAll } from "../core/disposable.js";
 import { resolveContainer } from "../core/dom.js";
 import { escapeHtml } from "../core/html.js";
-import { clearContent, getElement, refreshIcons, renderHtml, setText } from "../core/render.js";
+import { clearContent, getElement, refreshIcons, renderHtml } from "../core/render.js";
 import {
   metricLabel,
   suiteFromTask,
@@ -51,9 +51,6 @@ const PLOTS_SLOT = "[data-role='plots']";
 
 const PICKS_ID = "score-picks";
 const PROMPT_ID = "score-prompt";
-
-// The line beside the view toggle saying what the rows under it are — see renderHint.
-const HINT_ID = "score-hint";
 
 const EMPTY_PROMPT = `Select up to ${MAX_COMPARED} task scores to compare them`;
 
@@ -572,7 +569,6 @@ function createTaskComparison({
 
     getSection(SCORES_SECTION).hidden = false;
 
-    // renderHint();
     renderGroupRows();
     renderMeans();
     renderRecordings();
@@ -581,24 +577,6 @@ function createTaskComparison({
   }
 
   // ─── VIEW CONTROLS ─────────────────────────────────────────────────────────
-
-  // What the rows below are showing. Written beside the toggle that changes it, and rewritten
-  // when it does. Nothing to write nested: there the toggle is the host's, and so is the
-  // heading over it.
-  function renderHint() {
-    const hint = getElement(HINT_ID);
-
-    if (!hint) return;
-
-    const rows = "One row per task type: its mean score per pick on the left,";
-
-    setText(
-      hint,
-      view === HEATMAP_VIEW
-        ? `${rows} and a cell per recording on the right.`
-        : `${rows} and a plot per recording on the right.`,
-    );
-  }
 
   function setActiveView(selected) {
     for (const { id } of VIEWS) {
@@ -611,7 +589,6 @@ function createTaskComparison({
 
     view = selected;
     setActiveView(view);
-    // renderHint();
     renderRecordings();
   }
 
@@ -662,11 +639,6 @@ function createTaskComparison({
     // buildRecordingsToggle.
     const scores = {
       id: SCORES_SECTION,
-
-      // What is being shown, opposite the choice of how to show it.
-      controls: nested
-        ? ""
-        : `<span class="card metadata bold action-hint" id="${HINT_ID}"></span>`,
       actions: nested ? [] : [buildToggle(VIEWS)],
     };
 

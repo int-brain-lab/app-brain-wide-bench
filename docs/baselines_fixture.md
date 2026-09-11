@@ -32,6 +32,42 @@ merge cannot collide.
 A model has as many submissions as the metadata declares. POYO+ has one ts1 submission and
 four ts3 probe variants.
 
+## Who owns the rows
+
+One user owns the team, every model and every submission. Which user is decided by
+`--owner-sub`: identity is the `auth0_sub`, and `app.auth._upsert_user` finds a row by that
+and nothing else. `provider` and `orcid_id` are derived from it the way `parse_sub` derives
+them at sign-in, so the row a real account signs in to already matches.
+
+The default is the dev stub `app.auth.DEV_SUB`, which dev mode authenticates every request
+as and Auth0 will never issue — useful locally, and a user nobody can be in a deployment.
+To make it a real account instead:
+
+```bash
+# 1. sign in once with the service account, then read the sub it was given
+psql -c "select auth0_sub, email, provider from users where email = 'benchmark@…'"
+
+# 2. build the fixture against it
+uv run python scripts/make_baselines.py --public \
+    --owner-sub 'google-oauth2|1234…' --owner-email benchmark@internationalbrainlab.org
+```
+
+**Order matters, and getting it wrong locks the account out.** A sign-in whose sub matches no
+row falls back to an email lookup, and an existing row with that email is a `409` — "an
+account already exists for … sign in with that provider instead". So load a fixture carrying
+the placeholder sub and that email, and the real account can never sign in afterwards. Sign
+in first and pin the sub it got, or pin the sub before the first sign-in; never the reverse.
+
+`--owner-email` must be the address that account actually signs in with. Email is the one
+field a sign-in keeps re-syncing from the token, so a mismatch is silently overwritten on the
+first request. The display name is not — `_upsert_user` seeds `name` on insert only, so
+`Brain Wide Bench` survives.
+
+The owner is close to invisible in the API: submissions expose `team_id` and `team_name`,
+`submission_users` is written at submit and never read back, and a member's email is shown
+only to other members of their team. What the account buys is the ability to sign in and
+edit these submissions through the UI without the admin bypass.
+
 ## Reruns
 
 | | Scores | Keeps |

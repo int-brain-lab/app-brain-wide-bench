@@ -5,11 +5,14 @@ table or seeds the ``tasks`` lookup. Building it from ``SQLModel.metadata`` inst
 local script here once did — silently diverges from the migrations, which is exactly the
 class of bug that put enum columns in production where the ORM expected JSON.
 
-    docker compose exec -T web uv run python scripts/load_fixture_data.py
+    docker compose exec -T web uv run python scripts/load_fixture_data.py \\
+        tests/fixtures/2026_09_baselines.json
 
-Pass a fixture path to load something other than the 2026-07 baselines. Refuses rather
-than proceeding if the database is not at the migration head, or if it already holds
-data — see the two checks below for why.
+The fixture path is required. Refuses rather than proceeding if the database is not at the
+migration head, or if it already holds data — see the two checks below for why.
+
+``--append`` lifts the second check, for adding a fixture whose rows are not in the database
+yet. Every table loads in one transaction, so a collision writes nothing.
 """
 
 import asyncio
@@ -26,13 +29,12 @@ from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 
 import app.models  # noqa: F401 — registers tables on SQLModel.metadata
 from app.database import async_session_factory, engine
 from app.models import Model, Submission, Team, User
 from tests.fixtures.load import load_fixture
-
-DEFAULT_FIXTURE = ROOT / "tests" / "fixtures" / "2026_07_baselines.json"
 
 # Reported before and after so a run says what it actually changed, rather than only
 # that it finished.
@@ -63,7 +65,7 @@ async def _counts(session) -> dict[str, int]:
     }
 
 
-async def main(fixture: Path) -> int:
+async def main(fixture: Path, append: bool) -> int:
     if not fixture.is_file():
         print(f"error: no such fixture: {fixture}", file=sys.stderr)
         return 2
@@ -88,31 +90,47 @@ async def main(fixture: Path) -> int:
         #
         # The fixture carries fixed names, and the schema enforces case-insensitive
         # uniqueness on team name, model name per team, and submission label per model.
-        # A second run therefore dies on an IntegrityError partway through, having
-        # already committed some rows. Refusing up front keeps that from happening on a
-        # server, where recovering means restoring a dump.
+        # A second load of the same fixture therefore dies on an IntegrityError. Refusing
+        # up front says so in one line instead of a driver traceback; ``--append`` is for
+        # a fixture whose rows are known not to be there yet.
         before = await _counts(session)
-        if any(before.values()):
+        if any(before.values()) and not append:
             summary = ", ".join(f"{n}={c}" for n, c in before.items() if c)
             print(
                 f"error: database already holds data ({summary}).\n"
-                f"       this script only loads into an empty database. to start over:\n"
+                f"       pass --append to add this fixture to it, or to start over:\n"
                 f'       psql -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"'
                 f" && alembic upgrade head",
                 file=sys.stderr,
             )
             return 1
 
-        await load_fixture(session, fixture)
+        # One transaction for every table, so a collision leaves the database untouched.
+        try:
+            await load_fixture(session, fixture)
+        except IntegrityError as exc:
+            await session.rollback()
+            print(
+                f"error: {fixture.name} collides with rows already in the database, and "
+                f"nothing was written.\n       {exc.orig}",
+                file=sys.stderr,
+            )
+            return 1
+
         after = await _counts(session)
 
     print(f"Loaded {fixture.name} into {engine.url.database} at revision {head}")
     for name, count in after.items():
-        print(f"  {name:<12} {count}")
+        added = f"  (+{count - before[name]})" if append else ""
+        print(f"  {name:<12} {count}{added}")
     return 0
 
 
 if __name__ == "__main__":
-    args = sys.argv[1:]
-    path = Path(args[0]).resolve() if args else DEFAULT_FIXTURE
-    raise SystemExit(asyncio.run(main(path)))
+    args = [a for a in sys.argv[1:] if a != "--append"]
+    if len(args) != 1:
+        print(__doc__, file=sys.stderr)
+        raise SystemExit(2)
+
+    append = "--append" in sys.argv[1:]
+    raise SystemExit(asyncio.run(main(Path(args[0]).resolve(), append)))

@@ -20,7 +20,16 @@ Usage
 ``--resume`` keeps the scores already in the fixture and scores only what is new to it,
 ``--only <label>`` re-scores one submission and keeps the rest, ``--public`` publishes every
 submission. The fixture is rewritten after each submission, so an interrupt keeps what has
-already scored. Load it with:
+already scored.
+
+Every row is owned by one user, identified by its ``auth0_sub``. The default is the dev stub
+from ``app/auth.py``, which dev mode signs every request in as and no real account can ever
+hold. For a deployment, pass the sub a real account got at its first sign-in:
+
+    uv run python scripts/make_baselines.py --public \\
+        --owner-sub 'google-oauth2|1234…' --owner-email benchmark@internationalbrainlab.org
+
+Load it with:
 
     uv run python scripts/load_fixture_data.py tests/fixtures/2026_09_baselines.json
 
@@ -42,6 +51,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from app.auth import DEV_SUB, parse_sub  # noqa: E402 — after the path insert
 from app.models import (  # noqa: E402 — after the path insert
     Calibration,
     FinetuningStrategy,
@@ -59,19 +69,15 @@ DEFAULT_SNAPSHOT = ROOT / "tests" / "fixtures" / "2026_09_baselines.json"
 
 TEAM_NAME = "Brain Wide Bench"
 
-# The dev-mode identity from app/auth.py, so a local sign-in owns these rows.
-OWNER = {
-    "auth0_sub": "google-oauth2|000000000000000000001",
-    "email": "benchmark@internationalbrainlab.org",
-    "name": "Brain Wide Bench",
-    "provider": "google-oauth2",
-    "affiliation": TEAM_NAME,
-}
+# The owner row's display name, which a sign-in never overwrites — ``_upsert_user`` seeds
+# ``name`` on insert only. Its email does keep syncing from the token.
+OWNER_NAME = "Brain Wide Bench"
+DEFAULT_OWNER_EMAIL = "benchmark@internationalbrainlab.org"
 
 # One timestamp for the whole fixture, so a re-run is byte-identical.
 CREATED_AT = "2026-09-10T00:00:00Z"
 
-# load_baselines.py's namespace: the same natural key derives the same id in both scripts.
+# Fixed namespace, so an id depends only on the natural key and not on when it was made.
 _NS = uuid.uuid5(uuid.NAMESPACE_URL, "https://brainwidebench.org/baselines")
 
 # Task ids the lookup table holds. A prediction for anything else has nowhere to hang.
@@ -391,20 +397,39 @@ def _readme(path: Path) -> str:
     )
 
 
-def build(available: list[Entry], scored: dict[str, dict], snapshot: Path) -> dict:
+def owner_row(sub: str, email: str) -> dict:
+    """The user row every baseline is owned by, identified by ``sub``.
+
+    ``provider`` and ``orcid_id`` follow the sub the way ``app.auth.parse_sub`` derives them
+    at sign-in, so the row a real account later signs in to already matches.
+    """
+    provider, orcid_id = parse_sub(sub)
+    return {
+        "id": str(_id("user", sub)),
+        "created_at": CREATED_AT,
+        "auth0_sub": sub,
+        "email": email,
+        "name": OWNER_NAME,
+        "provider": provider,
+        "orcid_id": orcid_id,
+        "affiliation": TEAM_NAME,
+    }
+
+
+def build(available: list[Entry], scored: dict[str, dict], snapshot: Path, owner: dict) -> dict:
     """The whole fixture, tables in the order ``tests/fixtures/load.py`` inserts them.
 
     An entry absent from ``scored`` keeps its task rows, unscored, and marks its submission
     failed; so does one whose scorer covered only part of the tasks it enters.
     """
     team_id = _id("team", TEAM_NAME.lower())
-    user_id = _id("user", OWNER["auth0_sub"])
+    user_id = owner["id"]
 
     data: dict = {
         "_readme": _readme(snapshot),
         "teams": [{"id": str(team_id), "name": TEAM_NAME}],
-        "users": [{"id": str(user_id), "created_at": CREATED_AT, **OWNER}],
-        "user_teams": [{"user_id": str(user_id), "team_id": str(team_id), "role": "owner"}],
+        "users": [owner],
+        "user_teams": [{"user_id": user_id, "team_id": str(team_id), "role": "owner"}],
         "models": [],
         "submissions": [],
         "submission_users": [],
@@ -443,7 +468,7 @@ def build(available: list[Entry], scored: dict[str, dict], snapshot: Path) -> di
             }
         )
         data["submission_users"].append(
-            {"submission_id": str(submission_id), "user_id": str(user_id), "role": "owner"}
+            {"submission_id": str(submission_id), "user_id": user_id, "role": "owner"}
         )
 
         recordings_per_task: dict[str, list[dict]] = defaultdict(list)
@@ -507,6 +532,8 @@ def main(args: argparse.Namespace) -> int:
         for entry in entries:
             entry.submission["is_public"] = True
 
+    owner = owner_row(args.owner_sub, args.owner_email)
+    print(f"Owner: {owner['email']}  {owner['auth0_sub']}  (provider {owner['provider']})")
     print(f"{len(entries)} submission(s) in {metadata.name}; looking under {pred_root}\n")
     discover(entries, pred_root)
     available = report(entries, pred_root)
@@ -547,9 +574,9 @@ def main(args: argparse.Namespace) -> int:
             else:
                 failed += 1
             # After every submission, so an interrupt hours in keeps what already scored.
-            write(args.snapshot, build(available, scored, args.snapshot))
+            write(args.snapshot, build(available, scored, args.snapshot, owner))
 
-    write(args.snapshot, build(available, scored, args.snapshot))
+    write(args.snapshot, build(available, scored, args.snapshot, owner))
     print(f"\nscored={len(scored)} failed={failed} in {(time.monotonic() - started) / 60:.1f} min")
     if not any(entry.submission.get("is_public") for entry in available):
         print("Every submission is private — pass --public to show them to signed-out visitors.")
@@ -575,6 +602,11 @@ def parse() -> argparse.Namespace:
                         help="Keep the scores already in the fixture; score only what is new.")
     parser.add_argument("--public", action="store_true",
                         help="Publish every submission, whatever the metadata says.")
+    parser.add_argument("--owner-sub", default=DEV_SUB, metavar="SUB",
+                        help="Auth0 sub the owner row carries. The default is the dev stub, "
+                             "which no real account can ever sign in as.")
+    parser.add_argument("--owner-email", default=DEFAULT_OWNER_EMAIL, metavar="EMAIL",
+                        help="Email on the owner row. Must be the one that sub signs in with.")
     parser.add_argument("--dry-run", action="store_true", help="Report and write nothing.")
     return parser.parse_args()
 
