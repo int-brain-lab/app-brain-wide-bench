@@ -309,8 +309,7 @@ class User(SQLModel, table=True):
     name: str | None = None
     affiliation: str | None = None
     provider: str
-    # Least privilege by default. Every fixture file and every row load_baselines writes
-    # creates a user without one.
+    # Least privilege by default. Every fixture file creates a user without one.
     role: UserRole = Field(default=UserRole.user)
     orcid_id: str | None = Field(default=None, unique=True)
     created_at: datetime | None = _ts()
@@ -425,7 +424,7 @@ class Submission(SQLModel, table=True):
     model_id: uuid.UUID = Field(foreign_key="models.id")
     label: str  # human-readable run name, e.g. "mlp-ts1-baseline"
     s3_key: str
-    # The default is load-bearing: fixtures and load_baselines create rows without a status.
+    # The default is load-bearing: fixture rows are created without a status.
     status: SubmissionStatus = Field(default=SubmissionStatus.pending)
 
     # The S3 multipart upload the file arrives through. Null once it completes.

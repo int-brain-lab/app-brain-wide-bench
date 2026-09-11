@@ -313,9 +313,11 @@ function renderSubmissionsView({ model }) {
     // sends its picks to. These are one model's attempts and there are a handful of them: the
     // comparison a reader wants here is between two of the rows already in front of them, and
     // leaving the page to read it would lose the model they came for.
+    //
+    // No title: the comparison names itself, and the section is the reader's own picks
+    // rather than a part of the page they went looking for.
     panel: {
-      title: "Compare submissions",
-      create: (container) => createSubmissionComparison({ container }),
+      create: (container, options) => createSubmissionComparison({ container, ...options }),
     },
   });
 }

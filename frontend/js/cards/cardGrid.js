@@ -153,7 +153,7 @@ function createCardGrid({
   let activeFilter = null;
   let page = 1;
 
-  // `{ keys, onToggle }`, or null when nothing is pickable.
+  // `{ keys, inkOf, onToggle }`, or null when nothing is pickable.
   let activeSelection = null;
 
   // Key => row, for the page on screen.
@@ -205,7 +205,9 @@ function createCardGrid({
 
     setSelectable(grid, Boolean(activeSelection));
 
-    if (activeSelection) highlightSelectedCards(grid, activeSelection.keys);
+    if (activeSelection) {
+      highlightSelectedCards(grid, activeSelection.keys(), activeSelection.inkOf);
+    }
 
     refreshIcons();
   }
@@ -252,7 +254,10 @@ function createCardGrid({
     render();
   }
 
-  /** @param selection `{ keys, onToggle }` to make the cards pickable, or null to stop. */
+  /**
+   * @param selection `{ keys, inkOf, onToggle }` to make the cards pickable, or null to stop.
+   *                  `keys()` and `inkOf(key)` are read at each render — see createCardBinding.
+   */
   function setSelection(selection) {
     activeSelection = selection ?? null;
 

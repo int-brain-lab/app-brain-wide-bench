@@ -157,7 +157,7 @@ def _materialise(s3_key: str, tmpdir: Path) -> Path:
     """Return the prediction root for ``s3_key``, downloading and extracting if needed.
 
     Two local paths come before the download. A key naming a directory is used in place,
-    which is how the submissions ``scripts/load_baselines.py`` writes are validated. And
+    which is how the baseline submissions loaded from a fixture are validated. And
     with no object store there was no upload to read back, so ``stub_submission_dir`` stands
     in for it — every transition and the whole validator still run, over a submission the
     developer put there rather than the one the form chose.

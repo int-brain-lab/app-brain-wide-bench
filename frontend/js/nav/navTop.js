@@ -103,7 +103,7 @@ function renderUserMenu(user) {
   const name = user.name || user.email;
 
   return `
-    <span class="user-logo large">
+    <span class="user-logo">
       ${escapeHtml(initials(name))}
     </span>
 

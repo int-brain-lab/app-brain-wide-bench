@@ -1,9 +1,9 @@
-// The submissions list: submission_list.html, the viewer's own teams', signed in.
+// The submissions list, in the two scopes the pages ask for:
 //
-// No public counterpart, unlike the models and teams lists — every submission a reader may
-// see is reachable through the model it was made for, and through the task scores list.
+//   data-scope="mine"  submission_list.html         —  the viewer's own teams', signed in only
+//   data-scope="all"   submission_list_public.html  —  every one they may see, signed out too
 
-import { getMySubmissions } from "../api/submissionApi.js";
+import { getMySubmissions, getSubmissions } from "../api/submissionApi.js";
 import { getSubmissionFilters, toSubmissionRows } from "../utils/submissionUtils.js";
 import { createSubmissionsTable } from "../tables/submissionTable.js";
 import { createSubmissionCardGrid } from "../cards/submissionCards.js";
@@ -16,11 +16,16 @@ import { loadListPage } from "../templates/listPage.js";
 const COMPARE_PAGE = "/html/submissions/compare.html";
 const WITH_PARAM = "with";
 
+const MINE = document.body.dataset.scope === "mine";
+
 loadListPage({
   noun: "submission",
-  title: "My submissions",
+  title: MINE ? "My submissions" : "Submissions",
+  requiresAuth: MINE,
 
-  getRecords: getMySubmissions,
+  // No team id: the endpoint answers with everything this caller may see, which signed out
+  // is the public submissions — see list_submissions in app/routers/submissions.py.
+  getRecords: MINE ? getMySubmissions : getSubmissions,
   recordsToRows: toSubmissionRows,
 
   createCards: () => createSubmissionCardGrid(),

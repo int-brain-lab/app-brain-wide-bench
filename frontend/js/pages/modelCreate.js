@@ -34,7 +34,6 @@ async function submitModel(state) {
 loadCreatePage({
   noun: "model",
   title: "Create a new model",
-  description: "Name it, link to it, and describe its parameters.",
   cancelHref: "/html/models/model_list.html",
 
   fields: loadModelFields,

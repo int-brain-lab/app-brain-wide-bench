@@ -37,12 +37,14 @@ import { createPicks } from "../comparisons/picks.js";
 // The section the comparison is drawn into, under the list.
 const PANEL_ID = "panel";
 
+// Where the chips naming what is picked are drawn — above the list, as every other comparison
+// in the app has them.
+const PICKS_ID = "list-picks";
+
 // The line beside the buttons saying what they are for — see getHint.
 const HINT_ID = "list-hint";
 
 // What Go reads once the panel is open, being the only way to fold it away again.
-const HIDE_LABEL = "Hide comparison";
-
 // ─── LIST VIEW ───────────────────────────────────────────────────────────────
 
 /**
@@ -61,11 +63,12 @@ const HIDE_LABEL = "Hide comparison";
  * @param filterControls (rows) => controls for the bar, read once — see
  *                       components/filterState.js. Omit for no filter bar.
  * @param panel          `{ title, label, always, create }` — the comparison drawn from the
- *                       picks, in a section under the list that Go opens. `create(container)`
- *                       returns the controller holding the picks. `always: true` for a list
- *                       that is only ever picking: no buttons, the rows live from the first
- *                       render, and the panel appears as soon as one is ticked. Omit `panel`
- *                       for a list whose rows open nothing beside them.
+ *                       picks, in a section under the list that opens on the first pick.
+ *                       `create(container, { picksContainer })` returns the controller holding
+ *                       the picks, and draws the chips naming them into `picksContainer` where
+ *                       it takes one. `always: true` for a list that is only ever picking: no
+ *                       buttons, the rows live from the first render, and the chips stay with
+ *                       the panel. Omit `panel` for a list whose rows open nothing beside them.
  * @param picking        `{ max, palette, label, toPick, onCompare }` for a list that hands its
  *                       picks on instead of drawing them: `onCompare(keys)` is what Go calls,
  *                       and `palette` marks each pick in the colour it will be drawn in
@@ -290,21 +293,23 @@ function createListView({
   // many are in and where they are read.
   function getHint() {
     const max = picks?.controller.max ?? 0;
+    const room = `Select up to ${max} ${pluralise(noun)} to compare them`;
+    const selected = `Selected ${heldCount()} out of ${max}.`;
 
     if (alwaysPicking) {
-      return heldCount()
-        ? `Selected ${heldCount()} out of ${max}. The comparison is below.`
-        : `Select up to ${max} ${pluralise(noun)} to compare them.`;
+      return heldCount() ? `${selected} The comparison is below.` : `${room}.`;
     }
 
     if (!comparing) {
-      return `Click ${compareLabel} and select up to ${max} ${pluralise(noun)} to compare them.`;
+      return `Click ${compareLabel} and ${room[0].toLowerCase()}${room.slice(1)}.`;
     }
 
-    const selected = `Selected ${heldCount()} out of ${max}.`;
-
-    if (showingPanel) {
-      return `${selected} The comparison is below. Click ${DONE_LABEL} to return to the list.`;
+    // A panel is already below by the time there is anything to read; only a list handing its
+    // picks to a page of its own has a Go to name.
+    if (panel) {
+      return heldCount()
+        ? `${selected} The comparison is below. Click ${DONE_LABEL} to return to the list.`
+        : `${room}, or ${DONE_LABEL} to return to the list.`;
     }
 
     return `${selected} Click ${GO_COMPARE_LABEL} to see the comparison, or ${DONE_LABEL} to return to the list.`;
@@ -317,9 +322,10 @@ function createListView({
     // an early return rather than a guard per write.
     if (!comparable) return;
 
-    // Nothing to press, so the picks alone decide whether the comparison is on screen.
-    if (alwaysPicking) {
-      showingPanel = heldCount() > 0;
+    // The picks alone decide whether the comparison is on screen: there is nothing to press
+    // to see it, whether the list is always picking or the reader turned it on.
+    if (panel) {
+      showingPanel = comparing && heldCount() > 0;
 
       showPanel();
     }
@@ -333,20 +339,16 @@ function createListView({
         icon: getIcon(comparing ? "cancel" : "compare"),
       });
 
+      // Lit until the reader is comparing, when Done becomes the way back out and stays plain.
+      compare.classList.toggle("primary-inv", !comparing);
+    }
+
+    if (go) {
       go.hidden = !comparing;
 
-      // A pick is the fewest that is a comparison — but folding the panel away is always
-      // live.
-      go.disabled = !showingPanel && heldCount() < 1;
+      // A pick is the fewest that is a comparison.
+      go.disabled = heldCount() < 1;
 
-      setButtonLabel(go, {
-        label: showingPanel ? HIDE_LABEL : GO_COMPARE_LABEL,
-        icon: getIcon(showingPanel ? "collapse" : "compare"),
-      });
-
-      // One of them is lit, and it is always the way on: Compare until the reader is
-      // comparing, then Go from the first pick. Done is the way back out, so it stays plain.
-      compare.classList.toggle("primary-inv", !comparing);
       go.classList.toggle("primary", heldCount() > 0);
     }
 
@@ -363,33 +365,19 @@ function createListView({
   }
 
   // The picks are given up on the way out, as the leaderboard's are: pressing Compare again
-  // starts on a clean list.
+  // starts on a clean list. updateCompare folds the panel away, the picks being gone.
   function handleCompare() {
     comparing = !comparing;
 
-    if (!comparing) {
-      showingPanel = false;
-
-      picks?.controller.clear();
-      showPanel();
-    }
+    if (!comparing) picks?.controller.clear();
 
     updateCompare();
   }
 
-  // Where the picks are read: a page of its own for a list that hands them on, or the panel
-  // under the list, which this is the only way to open and to fold away again.
+  // Where the picks are read for a list that hands them on: a page of its own. A panel needs
+  // no press — see updateCompare.
   function handleGo() {
-    if (picking) {
-      picking.onCompare(picks.controller.keys());
-
-      return;
-    }
-
-    showingPanel = !showingPanel;
-
-    showPanel();
-    updateCompare();
+    picking.onCompare(picks.controller.keys());
   }
 
   function attachEvents() {
@@ -408,22 +396,25 @@ function createListView({
   function buildCompareControls() {
     if (!comparable) return "";
 
-    const buttons = alwaysPicking
-      ? ""
-      : `
-        ${buildButton({
+    // Go only where the picks leave the page. A panel is the comparison itself, so it opens
+    // on the first pick rather than waiting to be asked for — see updateCompare.
+    const go = picking
+      ? buildButton({
           id: GO_BUTTON_ID,
           label: GO_COMPARE_LABEL,
           icon: getIcon("compare"),
           hidden: true,
           disabled: true,
-        })}
-        ${buildCompareButton({ label: compareLabel, className: "primary-inv" })}
-      `;
+        })
+      : "";
+
+    const buttons = alwaysPicking
+      ? ""
+      : `${go}${buildCompareButton({ label: compareLabel, className: "primary-inv" })}`;
 
     return `
       <div class="row right gap-lg">
-        <span class="metadata bold action-hint" id="${HINT_ID}"></span>
+        <span class="card metadata bold action-hint" id="${HINT_ID}"></span>
         ${buttons}
       </div>
     `;
@@ -461,11 +452,22 @@ function createListView({
     `;
   }
 
+  // Under the list and over the comparison, which is what they name: a reader reads down from
+  // the rows they ticked to the panel those ticks opened. Drawn into by the panel's own
+  // comparison — see the `picksContainer` it is built with below. An always-picking list keeps
+  // its chips with the panel, which is that page's subject rather than a step in it.
+  function buildPicksRow() {
+    if (!panel || alwaysPicking) return "";
+
+    return `<span class="row left gap-sm compare-picks" id="${PICKS_ID}"></span>`;
+  }
+
   function buildViewBody() {
     return `
       ${buildToolbar()}
       ${buildFilters()}
       <div data-role="list"></div>
+      ${buildPicksRow()}
       ${buildPanel()}
     `;
   }
@@ -492,7 +494,9 @@ function createListView({
   if (comparable) {
     picks = createBindings(
       panel
-        ? panel.create(getSlot(`#section-${PANEL_ID}-body`))
+        ? panel.create(getSlot(`#section-${PANEL_ID}-body`), {
+            picksContainer: getSlot(`#${PICKS_ID}`),
+          })
         : createPicks({
             max: picking.max,
             palette: picking.palette,

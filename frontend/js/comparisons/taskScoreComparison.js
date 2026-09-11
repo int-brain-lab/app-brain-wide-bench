@@ -572,7 +572,7 @@ function createTaskComparison({
 
     getSection(SCORES_SECTION).hidden = false;
 
-    renderHint();
+    // renderHint();
     renderGroupRows();
     renderMeans();
     renderRecordings();
@@ -611,7 +611,7 @@ function createTaskComparison({
 
     view = selected;
     setActiveView(view);
-    renderHint();
+    // renderHint();
     renderRecordings();
   }
 
@@ -664,7 +664,9 @@ function createTaskComparison({
       id: SCORES_SECTION,
 
       // What is being shown, opposite the choice of how to show it.
-      controls: nested ? "" : `<span class="metadata bold action-hint" id="${HINT_ID}"></span>`,
+      controls: nested
+        ? ""
+        : `<span class="card metadata bold action-hint" id="${HINT_ID}"></span>`,
       actions: nested ? [] : [buildToggle(VIEWS)],
     };
 

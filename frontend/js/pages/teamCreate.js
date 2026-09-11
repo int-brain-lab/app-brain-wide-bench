@@ -91,7 +91,6 @@ async function submitTeam(state, draft, members) {
 loadCreatePage({
   noun: "team",
   title: "Create a new team",
-  description: "Name it and add the people who will work in it.",
   cancelHref: "/html/teams/team_list.html",
 
   fields: TEAM_FIELDS,

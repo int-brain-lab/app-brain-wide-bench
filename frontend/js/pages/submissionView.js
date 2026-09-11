@@ -1,5 +1,6 @@
 // Submission record page — dashboard, details, tasks and scores for one submission.
 
+import { hrefForRecord } from "../core/links.js";
 import { renderHtml } from "../core/render.js";
 import { suiteFromTask, suiteLabel } from "../core/suites.js";
 import { escapeHtml } from "../core/html.js";
@@ -32,6 +33,7 @@ import {
 } from "../tables/taskSubmissionTable.js";
 import { SCORE_PANEL } from "../comparisons/taskScoreComparison.js";
 import {
+  buildButton,
   buildCancelButton,
   buildDetailsButton,
   buildEditButton,
@@ -39,6 +41,7 @@ import {
   buildViewAllButton,
   EDIT_DETAILS_BUTTON,
 } from "../components/buttons.js";
+import { getIcon } from "../components/icons.js";
 import { buildEmptyMessage, buildFailureMessage } from "../components/messages.js";
 import {
   buildHeader,
@@ -56,6 +59,9 @@ import { renderRecordListView } from "../templates/recordList.js";
 import { renderHeader, renderPage } from "../templates/pageChrome.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
+
+// Where the model a submission is of lives — see the button beside Edit details.
+const MODEL_PAGE = "/html/models/models.html";
 
 // Three rows. The rest are behind the section's "view all".
 const MAX_TASKS = 3;
@@ -182,9 +188,19 @@ function renderScoresSection(rows) {
 function renderDashboardView(context) {
   const { submission, breakdown, canEdit } = context;
 
+  // The model this is a submission of. The subtitle names it; this is the way to it, and it
+  // is offered to every reader — a public submission's model is public too. `mine` off the
+  // same answer: whoever may edit this is on the team that owns both.
+  const model = buildButton({
+    label: "View model",
+    icon: getIcon("model"),
+    href: hrefForRecord(MODEL_PAGE, submission.model_id, { mine: canEdit }),
+    className: "primary",
+  });
+
   renderPage(
     buildPage({
-      header: buildHeader(canEdit ? [EDIT_DETAILS_BUTTON] : []),
+      header: buildHeader(canEdit ? [EDIT_DETAILS_BUTTON, model] : [model]),
       body: buildSections(DASHBOARD_SECTIONS),
     }),
   );

@@ -114,6 +114,12 @@ export function buildSignOutButton({ id = null, data = {}, label = "Sign out" } 
   return buildButton({ id, label, data, icon: getIcon("signOut") });
 }
 
+// For a reader who has no account yet. It goes exactly where Sign in goes — the same hosted
+// page carries both — so the card can offer the two without a second flow behind them.
+export function buildSignUpButton({ id = null, data = {}, label = "Create an account" } = {}) {
+  return buildButton({ id, label, data, icon: getIcon("add") });
+}
+
 export function buildCompareButton({
   id = COMPARE_BUTTON_ID,
   href = null,

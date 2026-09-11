@@ -14,7 +14,7 @@ import { escapeHtml } from "../core/html.js";
 import { readMineHint } from "../core/links.js";
 import { pluralise } from "../core/utils.js";
 import { getElement, renderHtml } from "../core/render.js";
-import { buildSignInButton } from "../components/buttons.js";
+import { buildSignInButton, buildSignUpButton } from "../components/buttons.js";
 import { CONTAINER_ID, renderPageError } from "./pageChrome.js";
 
 // ─── SHELL ───────────────────────────────────────────────────────────────────
@@ -69,12 +69,21 @@ function wireLoginButton(button) {
 }
 
 // Built here rather than written into all eight private pages, which had a copy each.
+//
+// Two ways in, one destination: signing in and creating an account are the same hosted page,
+// so both buttons take the same listener and a reader without an account is not sent looking
+// for a link that isn't there.
 function renderSignIn(slot) {
   if (!slot) return;
 
-  renderHtml(slot, buildSignInButton());
+  renderHtml(
+    slot,
+    `<span class="row left gap-md">${buildSignInButton()}${buildSignUpButton()}</span>`,
+  );
 
-  wireLoginButton(slot.querySelector("button"));
+  for (const button of slot.querySelectorAll("button")) {
+    wireLoginButton(button);
+  }
 }
 
 function showGate(signedIn) {

@@ -144,7 +144,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
           // What pressing them does, then the buttons: the one that stays put reads
           // "Compare models", then "Done", and the other appears beside it.
           actions: [
-            `<span class="metadata bold action-hint" id="${HINT_ID}"></span>`,
+            `<span class="card metadata bold action-hint" id="${HINT_ID}"></span>`,
             buildButton({
               id: GO_BUTTON_ID,
               label: GO_COMPARE_LABEL,

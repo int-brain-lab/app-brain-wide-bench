@@ -28,7 +28,7 @@
 
 import { disposeAll } from "../core/disposable.js";
 import { resolveContainer } from "../core/dom.js";
-import { getElement, refreshIcons, renderHtml, setText } from "../core/render.js";
+import { getElement, refreshIcons, renderHtml } from "../core/render.js";
 import { metricLabel, suiteFromTask, taskLabel } from "../core/suites.js";
 import { TASK_FIELDS } from "../schemas/taskSubmissionSchema.js";
 import { withRanges } from "../plots/series.js";
@@ -78,12 +78,8 @@ const TASK_DETAIL_ID = "compare-task-detail";
 
 const SCORES_ID = "compare-scores-toggle";
 
-// The line over the plots saying what they are showing — see renderBreakdownHint. Not
-// "compare-hint": the leaderboard's own hint carries that, and this widget is mounted on it.
-const HINT_ID = "compare-breakdown-hint";
-
-// The baseline select and the line above it, under the details grid. Hidden as one while a
-// single task is being read: a difference is the set's question, not one task's.
+// The baseline select, over the plots it is read against. Hidden while a single task is being
+// read: a difference is the set's question, not one task's.
 const BASELINE_ROW_ID = "compare-baseline-row";
 
 // The two view controls, one per state: every task drawn as plots or a table, or the one being
@@ -570,23 +566,6 @@ function createRecordComparison({
     return { element, charts };
   }
 
-  // What the cards below are of: every task at a glance, the same tasks as distances from one
-  // record, or the one task being read closely.
-  function renderBreakdownHint() {
-    const baseline = getBaseline();
-
-    const against = selectedRecords.find((record) => record.key === baseline)?.name;
-
-    setText(
-      getElement(HINT_ID),
-      showScores
-        ? `One task read closely: its mean on the left, and the recordings behind it beside.`
-        : baseline
-          ? `Every task as the difference from ${against}.`
-          : `Every task, each ${noun}'s score drawn against the same 0 to 1 span.`,
-    );
-  }
-
   // The scores, or how far each is from the baseline where one is chosen.
   function renderBreakdown() {
     const section = getElement(PLOTS_ID);
@@ -607,8 +586,6 @@ function createRecordComparison({
     getElement(BASELINE_ROW_ID).hidden = showScores;
     getElement(TASK_VIEW_ID).hidden = showScores;
     getElement(SCORE_VIEW_ID).hidden = !showScores;
-
-    renderBreakdownHint();
 
     disposeAll(breakdownCharts);
     breakdownCharts = [];
@@ -820,8 +797,10 @@ function createRecordComparison({
           {
             id: BREAKDOWN,
 
-            // No heading: what the plots are showing sits where one would be.
-            controls: `<span class="metadata bold action-hint" id="${HINT_ID}"></span>`,
+            // No heading: the baseline the plots are read against sits where one would be.
+            // Wrapped, so it can be hidden whole while a single task is being read — a
+            // difference is the set's question, not one task's.
+            controls: `<span id="${BASELINE_ROW_ID}">${buildBaselineSelect()}</span>`,
             actions: [
               `<span id="${TASK_VIEW_ID}">${buildPlotTableToggle(BREAKDOWN)}</span>`,
               `<span id="${SCORE_VIEW_ID}" hidden>${buildRecordingsToggle()}</span>`,
@@ -868,19 +847,7 @@ function createRecordComparison({
       `
         <div id="${DETAILS_GRID_ID}"></div>
 
-        <div id="${BASELINE_ROW_ID}" class="column gap-sm push-down">
-          <span class="metadata bold action-hint">
-            Select a baseline ${noun} to read every score as its distance from that one.
-          </span>
-          ${buildBaselineSelect()}
-        </div>
-
         <div class="column gap-sm push-down">
-          <span class="metadata bold action-hint">
-            Read one task closely instead: the recordings behind it, and the metrics it can
-            be read in.
-          </span>
-
           <span class="row left gap-sm">
             ${buildButton({
               id: SCORES_ID,

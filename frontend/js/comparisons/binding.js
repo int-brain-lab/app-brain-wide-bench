@@ -148,9 +148,13 @@ function createCardBinding(comparison) {
     }
   }
 
+  // Read at each render rather than captured: the grid re-highlights whenever it redraws —
+  // a page turned, a filter applied — and a snapshot taken when the view was built would
+  // paint the picks as they stood then, in the app's own colour rather than each pick's.
   function selectionOptions() {
     return {
-      keys: comparison.keySet(),
+      keys: () => comparison.keySet(),
+      inkOf: comparison.colourFor,
       onToggle: (row) => comparison.toggle(row),
     };
   }

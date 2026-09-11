@@ -69,10 +69,13 @@ const VIEWS = {
 
 const CREATE_MODEL_HREF = "/html/models/model_create.html";
 
-// Where the cards' "view all" goes. Not scoped to this team — there is no team-scoped
-// listing page — but both lists carry a Team filter, which is the nearest thing to one.
-const MODELS_LIST_HREF = "/html/models/model_list.html";
-const SUBMISSIONS_LIST_HREF = "/html/submissions/submission_list.html";
+// Where the cards' "view all" goes. The public listings, not the reader's own: a team page is
+// readable signed out, and its sections show the team's records rather than the viewer's.
+//
+// Not scoped to this team — there is no team-scoped listing page — but both lists carry a
+// Team filter, which is the nearest thing to one.
+const MODELS_LIST_HREF = "/html/models/model_list_public.html";
+const SUBMISSIONS_LIST_HREF = "/html/submissions/submission_list_public.html";
 
 // What an empty section offers a member in place of its cards.
 const CREATE_MODEL = {
