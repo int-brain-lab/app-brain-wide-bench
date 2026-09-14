@@ -52,7 +52,7 @@ import { CONTAINER_ID, renderHeader, renderPage } from "../templates/pageChrome.
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 const TITLE = "Leaderboard";
-const DESCRIPTION = "Public, completed submissions scored against held-out test data.";
+const DESCRIPTION = "Public, completed submissions scored against the benchmark's evaluation set.";
 
 // The chips naming what is being compared, in the board's own header row — see picksContainer.
 const PICKS_ID = "board-picks";
