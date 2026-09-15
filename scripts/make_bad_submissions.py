@@ -34,7 +34,7 @@ from safetensors.torch import load_file, save_file
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from ibl_bwb_eval._unit_ids import _UID_LEN, encode_unit_ids
+from ibl_bwb_eval.entity_ids import encode_entity_ids
 from ibl_bwb_eval.tasks import get_ts3_readout_spec
 
 from app.validation.validate_submission import validate_folder
@@ -61,12 +61,8 @@ TS3_LABELS = get_ts3_readout_spec("cosmos").label_names
 
 
 def _ids(prefix: str, count: int) -> torch.Tensor:
-    """Encode ``count`` ids, NUL-padded to the width the decoder expects.
-
-    A plain list, not an ndarray: numpy strips trailing NULs from fixed-width unicode, and
-    the padding is exactly what makes every id the same length.
-    """
-    return encode_unit_ids([f"{prefix}{n}".ljust(_UID_LEN, "\0") for n in range(count)])
+    """Encode ``count`` ids; ``encode_entity_ids`` pads each row to the batch's longest id."""
+    return encode_entity_ids([f"{prefix}{n}" for n in range(count)])
 
 
 def _write(path: Path, tensors: dict, metadata: dict) -> None:
