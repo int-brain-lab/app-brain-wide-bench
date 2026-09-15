@@ -12,9 +12,9 @@ Running the app locally, including the submission flow. Two storage modes:
 Start with Simple. Switch to Realistic to exercise the upload itself.
 
 Auth is separate and orthogonal — see `local_dev.md`. Everything here assumes
-`AUTH0_DOMAIN=dev`, which is what `DEV_MODE = true` in `frontend/js/api/client.js` expects.
-The two have to agree in either direction: a stub browser against a real tenant 401s on every
-request, and a real sign-in against a stub API gets a token the API ignores.
+`AUTH0_DOMAIN=dev`. The frontend reads its own dev/prod behaviour from the backend, via
+`GET /api/meta/auth-config`, so the two can't disagree: setting `AUTH0_DOMAIN=dev` here is
+enough for both sides.
 
 ## 1. Containers
 

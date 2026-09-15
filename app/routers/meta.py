@@ -10,6 +10,10 @@ Served with an ``ETag``, and built once per process — see ``meta_document``.
 
 ``/api/meta/stats`` shares the prefix but not the document: two counts of finished public
 work, which move with the data rather than with a deploy.
+
+``/api/meta/auth-config`` also shares the prefix but not the document: what the frontend
+needs to initialise its own Auth0 session, read from the backend's settings rather than
+hardcoded in the built JS.
 """
 
 import hashlib
@@ -34,7 +38,8 @@ from app.models import (
     TaskSubmission,
     TrainingParadigm,
 )
-from app.schemas.meta import EnumOption, MetaResponse, MetaStats, SuiteInfo
+from app.config import settings
+from app.schemas.meta import AuthConfig, EnumOption, MetaResponse, MetaStats, SuiteInfo
 from app.schemas.tasks import TaskResponse
 
 router = APIRouter(prefix="/api/meta", tags=["meta"])
@@ -181,3 +186,22 @@ async def stats(
     response.headers["Cache-Control"] = "public, max-age=300"
 
     return MetaStats(n_models=n_models, n_submissions=n_submissions)
+
+
+@router.get("/auth-config", response_model=AuthConfig)
+async def auth_config(response: Response) -> AuthConfig:
+    """What the frontend needs to initialise Auth0, fetched before any sign-in exists.
+
+    Necessarily unauthenticated — a caller with no session yet is exactly who needs this
+    to be able to sign in at all — but not a disclosure: see ``AuthConfig``. Cached client
+    side like the other two documents on this prefix, since every page fetches it once
+    before Auth0 can start.
+    """
+    response.headers["Cache-Control"] = "public, max-age=300"
+
+    return AuthConfig(
+        domain=settings.auth0_domain,
+        client_id=settings.auth0_client_id,
+        audience=settings.auth0_audience,
+        dev_mode=settings.dev_mode,
+    )

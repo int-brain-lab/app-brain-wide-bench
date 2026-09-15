@@ -3,21 +3,24 @@
 What has to change outside the code for the submission flow to work on a server. The code
 itself goes out through `scripts/deploy.sh`, which pulls, rebuilds and migrates.
 
-## The frontend's auth flag
+## Auth0: tenant, and the frontend's dev flag
 
-`frontend/js/api/client.js` carries
+`frontend/js/api/client.js` used to carry a hand-maintained `DEV_MODE` constant and a
+hardcoded tenant domain/client ID, which could drift from the backend's own `AUTH0_DOMAIN`
+(against a production API that verifies signatures every request would 401; against a
+`AUTH0_DOMAIN=dev` API it would let anyone through as the stub user). Both are now read from
+`GET /api/meta/auth-config`, which mirrors the backend's `AUTH0_DOMAIN`/`AUTH0_CLIENT_ID`/
+`AUTH0_AUDIENCE`/`dev_mode` settings — the frontend can no longer disagree with the backend
+about which mode it's in, and pointing the deployed app at a different tenant is an `.env`
+change, not a rebuild. None of the three values are secrets (see
+`app/schemas/meta.py:AuthConfig`), so serving them unauthenticated is fine.
 
-```js
-const DEV_MODE = true;
-```
-
-which signs the browser in against a `localStorage` flag instead of Auth0 and sends
-`Bearer dev`. It has to be `false` to deploy: against a production API that verifies
-signatures every request 401s instead, and against one that does not, anyone is let through
-as its stub user.
-
-Nothing enforces it yet — the one-line guard for `deploy.sh` is filed in `next_steps.md`,
-alongside the other changes that script needs.
+**Production needs its own Auth0 tenant.** A tenant owns its enabled social connections
+(Google, GitHub, …) and its users; today local dev and the live site share the one free
+`dev-xxxx.us.auth0.com` tenant, which means real submitters' accounts and every local
+sign-in during development live in the same place. Create a separate tenant for
+`brainwidebench.iblcore.org`, register the SPA application in it, and set `AUTH0_DOMAIN`/
+`AUTH0_CLIENT_ID`/`AUTH0_AUDIENCE` in the server's `.env` accordingly.
 
 ## S3 bucket
 
@@ -129,6 +132,20 @@ submission may span suites and each needs its own ground truth. Left as a single
 prefix, the download looks under `ground-truth/ts1/ts1/`, finds nothing, and **every
 `score_dir` skips missing ground truth silently** — so the symptom is a submission reaching
 `done` with unscored tasks rather than an error.
+
+```
+AUTH0_DOMAIN=<production tenant domain>
+AUTH0_CLIENT_ID=<SPA client id in that tenant>
+AUTH0_AUDIENCE=https://brainwidebench.iblcore.org
+CORS_ORIGINS=https://brainwidebench.iblcore.org
+```
+
+See "Auth0: tenant, and the frontend's dev flag" above for the tenant. `CORS_ORIGINS` must
+be pinned to the real origin, not left at its `*` local-dev default: `CORSMiddleware` runs
+with `allow_credentials=True`, and a wildcard origin combined with credentialed requests
+means any site can read the API as a signed-in visitor. `Settings` enforces this — the app
+refuses to start with `CORS_ORIGINS=*` unless `AUTH0_DOMAIN=dev` — so a deploy with both set
+wrong fails at startup with a clear error rather than serving traffic under a no-op policy.
 
 ### Optional, sensible defaults
 
