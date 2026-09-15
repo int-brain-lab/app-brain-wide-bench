@@ -299,7 +299,7 @@ class Team(SQLModel, table=True):
 
 
 class User(SQLModel, table=True):
-    """Researcher authenticated via Auth0 (Google / Microsoft / ORCID)."""
+    """Researcher authenticated via Auth0 (Google / GitHub / Microsoft / ORCID / Hugging Face)."""
 
     __tablename__ = "users"
 

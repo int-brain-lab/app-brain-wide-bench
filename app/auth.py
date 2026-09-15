@@ -2,9 +2,15 @@
 
 The ``auth0_sub`` claim encodes the identity provider::
 
-    google-oauth2|<id>   -> provider="google"
-    windowslive|<id>     -> provider="microsoft"
-    oauth2|orcid|<id>    -> provider="orcid", orcid_id=<id>
+    google-oauth2|<id>       -> provider="google"
+    github|<id>              -> provider="github"
+    windowslive|<id>         -> provider="microsoft"
+    oauth2|orcid|<id>        -> provider="orcid", orcid_id=<id>
+    oauth2|huggingface|<id>  -> provider="huggingface"
+
+The last two are Auth0 "custom social connections" (OAuth2), which is how a provider
+without native Auth0 support is added: the connection is named in the Auth0 dashboard,
+and that name is the middle segment of the resulting ``sub``.
 
 In dev mode (``AUTH0_DOMAIN=dev``) JWT verification is skipped and a single stub
 user is upserted, so the API can be exercised locally without Auth0.
@@ -58,10 +64,14 @@ def parse_sub(auth0_sub: str) -> tuple[str, str | None]:
     """
     if auth0_sub.startswith("google-oauth2|"):
         return "google", None
+    if auth0_sub.startswith("github|"):
+        return "github", None
     if auth0_sub.startswith("windowslive|"):
         return "microsoft", None
     if auth0_sub.startswith("oauth2|orcid|"):
         return "orcid", auth0_sub.rsplit("|", 1)[-1]
+    if auth0_sub.startswith("oauth2|huggingface|"):
+        return "huggingface", None
     return "unknown", None
 
 
