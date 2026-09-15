@@ -58,8 +58,8 @@ in as. `--append` is needed because a signed-in account is already data, which t
 otherwise refuses.
 
 A wrong or deleted id is the only failure, and it surfaces as a foreign-key violation with
-nothing written. `deploy.md` carries the same sequence as a deploy step, including getting the
-file into a container that has no volume mount.
+nothing written. A real deploy follows the same sequence, including getting the file into a
+container that has no volume mount — see the private ops docs.
 
 ### A self-contained fixture: the default
 
