@@ -18,6 +18,7 @@ dependencies = [
     "ibl-bwb-eval==0.0.1",
     "python-dotenv>=1.0",
     "sqlmodel>=0.0.38",
+    "torch==2.10.0",
 ]
 
 [dependency-groups]
@@ -30,6 +31,23 @@ dev = [
 
 [tool.uv]
 python-preference = "managed"
+
+[tool.uv.sources]
+# torch only ever runs inference on the Docker host's CPU here, never training. The
+# default PyPI wheel for linux/x86_64 bundles the CUDA runtime and a dozen
+# nvidia-*-cu12 packages (multiple GB), which has bloated this image before. Pinned
+# directly below (it's otherwise only a transitive dep of ibl-bwb-eval[scoring]) so
+# this source override actually applies — uv only honors [tool.uv.sources] for a
+# package the project declares itself. macOS keeps resolving from PyPI as normal —
+# it has no CUDA variant to avoid in the first place.
+torch = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
