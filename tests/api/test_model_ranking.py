@@ -28,11 +28,11 @@ METRICS = {
     "ts1-reward": "bacc",
     "ts2-co_smoothing": "poisson_d2",
     "ts2-forecasting": "poisson_d2",
-    "ts3-cosmos": "macro/f1-score",
+    "ts3-unit_cosmos": "macro/f1-score",
 }
 
 # TS3 has no recording dimension; everything else is scored per recording.
-RECORDINGS = {"ts3-cosmos": [None]}
+RECORDINGS = {"ts3-unit_cosmos": [None]}
 
 PUBLIC_AT = datetime(2026, 5, 1, 9, 0, 0)
 PRIVATE_AT = datetime(2026, 6, 1, 9, 0, 0)
@@ -103,7 +103,7 @@ async def scenario(seeded_client, add, me):
         add,
         rival.id,
         "rival-run",
-        {task_id: 0.5 for task_id in ("ts1-choice", "ts1-reward", "ts2-co_smoothing", "ts3-cosmos")},
+        {task_id: 0.5 for task_id in ("ts1-choice", "ts1-reward", "ts2-co_smoothing", "ts3-unit_cosmos")},
         is_public=True,
         created_at=PUBLIC_AT,
     )
@@ -112,7 +112,7 @@ async def scenario(seeded_client, add, me):
         add,
         target.id,
         "target-public",
-        {task_id: 0.1 for task_id in ("ts1-choice", "ts1-reward", "ts2-co_smoothing", "ts3-cosmos")},
+        {task_id: 0.1 for task_id in ("ts1-choice", "ts1-reward", "ts2-co_smoothing", "ts3-unit_cosmos")},
         is_public=True,
         created_at=PUBLIC_AT,
     )
@@ -192,7 +192,7 @@ async def test_tasks_name_the_entry_behind_each_side(seeded_client, scenario):
         "ts1-reward",
         "ts2-co_smoothing",
         "ts2-forecasting",
-        "ts3-cosmos",
+        "ts3-unit_cosmos",
     }
 
     # Re-entered privately: the public side falls back to the older public entry.
@@ -203,7 +203,7 @@ async def test_tasks_name_the_entry_behind_each_side(seeded_client, scenario):
     assert choice["public"]["submission_id"] != choice["private"]["submission_id"]
 
     # Not re-entered: the same public score stands in both rankings.
-    assert tasks["ts3-cosmos"]["public"] == tasks["ts3-cosmos"]["private"]
+    assert tasks["ts3-unit_cosmos"]["public"] == tasks["ts3-unit_cosmos"]["private"]
 
     # Entered only privately: nothing public to rank, so publishing would add it.
     assert tasks["ts2-forecasting"]["public"] is None
@@ -233,7 +233,7 @@ async def test_tasks_carry_where_each_side_placed(seeded_client, scenario):
 
     # Not re-entered privately, so the same entry stands in both rankings — and places the
     # same way in each, the rival being the same competitor on both sides.
-    cosmos = tasks["ts3-cosmos"]
+    cosmos = tasks["ts3-unit_cosmos"]
 
     assert cosmos["public"] == cosmos["private"]
     assert cosmos["public"]["rank"] == 2

@@ -145,11 +145,11 @@ def test_ts3_wrapper_shape(monkeypatch):
     (row,) = result["rows"]
     # aggregate() keys TS3 (label, task, NO_RECORDING_ID); the rows keep the label alone
     assert row["label"] == "m"
-    assert row["task"] == "ts3-cosmos"
+    assert row["task"] == "ts3-unit_cosmos"
     assert "recording_id" not in row  # TS3 classifies the whole population at once
     assert "macro/f1-score" in row["metrics"]
     # headline is macro/f1-score → mean of 0.60 and 0.80
-    assert result["summary"]["ts3-cosmos"]["mean"] == pytest.approx(0.70)
+    assert result["summary"]["ts3-unit_cosmos"]["mean"] == pytest.approx(0.70)
 
 
 def test_ts1_clips_r2_at_zero_per_seed(monkeypatch):

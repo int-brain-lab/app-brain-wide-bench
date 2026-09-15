@@ -168,7 +168,7 @@ def upgrade() -> None:
         {"id": "ts2-co_smoothing",          "task_suite": "ts2", "task_type": "firing_rate",  "primary_metric": "poisson_d2"},
         {"id": "ts2-forecasting",           "task_suite": "ts2", "task_type": "firing_rate",  "primary_metric": "poisson_d2"},
         # ts3 — brain region (macro F1)
-        {"id": "ts3-cosmos",                "task_suite": "ts3", "task_type": "brain_region", "primary_metric": "macro/f1-score"},
+        {"id": "ts3-unit_cosmos",           "task_suite": "ts3", "task_type": "brain_region", "primary_metric": "macro/f1-score"},
     ])
 
 

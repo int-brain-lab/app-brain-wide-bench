@@ -6,7 +6,7 @@ import numpy as np
 
 from app.scoring.base import BaseScorer
 
-TASK = "ts3-cosmos"  # only TS3 task
+TASK = "ts3-unit_cosmos"  # only TS3 task
 PRIMARY_METRIC = "macro/f1-score"
 
 

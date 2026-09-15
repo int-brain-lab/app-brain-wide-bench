@@ -36,7 +36,7 @@ from pathlib import Path, PurePosixPath
 from rich.console import Console
 from safetensors import safe_open
 
-from ibl_bwb_eval._unit_ids import decode_unit_ids
+from ibl_bwb_eval.entity_ids import decode_entity_ids
 from ibl_bwb_eval.tasks import SUITE_TASKS, check_ts3_label_order, get_ts1_readout_spec, task_id
 
 ####################################################################################
@@ -393,8 +393,8 @@ def _require_keys(present: set[str], required: set[str], what: str) -> None:
 
 
 def _decode_ids(tensor) -> set[str]:
-    """Decode an entity-id tensor (see ibl_bwb_eval._unit_ids: variable-width, NUL-padded)."""
-    return set(decode_unit_ids(tensor).tolist())
+    """Decode an entity-id tensor (see ibl_bwb_eval.entity_ids: variable-width, NUL-padded)."""
+    return set(decode_entity_ids(tensor).tolist())
 
 
 def _parse_version(s: str) -> tuple[int, int, int]:
@@ -547,13 +547,13 @@ def _check_ts3(f, meta: dict, gt_dir: Path) -> None:
             "E009", f"'pred_proba' class dim {proba_shape[1]} != len(label_names) ({len(label_names)})"
         )
     # entity_ids is variable-width (NUL-padded to the batch's longest id), so only the
-    # row count is checked here; see ibl_bwb_eval._unit_ids.
+    # row count is checked here; see ibl_bwb_eval.entity_ids.
     if len(uid_shape) != 2 or uid_shape[0] != proba_shape[0]:
         raise SubmissionValidationError(
             "E009", f"'entity_ids' shape {uid_shape} doesn't have {proba_shape[0]} rows to match 'pred_proba'"
         )
     try:
-        decode_unit_ids(f.get_tensor("entity_ids"))
+        decode_entity_ids(f.get_tensor("entity_ids"))
     except UnicodeDecodeError as e:
         raise SubmissionValidationError("E009", f"'entity_ids' isn't valid ascii: {e}") from e
 
