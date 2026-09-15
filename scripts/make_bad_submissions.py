@@ -52,9 +52,9 @@ TS2_TASK = "ts2-co_smoothing"
 TS2_RECORDING = "rec1"
 TS2_WINDOWS, TS2_STEPS, TS2_UNITS = 3, 2, 4
 
-TS3_TASK = "ts3-cosmos"
+TS3_TASK = "ts3-unit_cosmos"
 TS3_ROWS = 5
-TS3_LABELS = get_ts3_readout_spec("cosmos").label_names
+TS3_LABELS = get_ts3_readout_spec("unit_cosmos").label_names
 
 
 # ── Writing a valid submission ────────────────────────────────────────────────

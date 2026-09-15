@@ -27,7 +27,7 @@ from tests.fixtures.submissions import TASK, write_submission
 # checks need nothing from disk.
 NO_GT = Path("/nonexistent-ground-truth")
 
-TS3_TASK = "ts3-cosmos"
+TS3_TASK = "ts3-unit_cosmos"
 
 
 def entries(label="mlp", task=TASK, recording="rec1", seeds=(1, 2, 3)):

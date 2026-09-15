@@ -90,7 +90,7 @@ async def test_a_row_is_a_standing_across_submissions(seeded_client, add):
         created_at=datetime(2026, 8, 1, 9, 0, 0),
     )
     choice = TaskSubmission(submission_id=newer.id, task_id="ts1-choice")
-    cosmos = TaskSubmission(submission_id=newer.id, task_id="ts3-cosmos")
+    cosmos = TaskSubmission(submission_id=newer.id, task_id="ts3-unit_cosmos")
 
     await add(
         newer,
@@ -117,7 +117,7 @@ async def test_a_row_is_a_standing_across_submissions(seeded_client, add):
 
     assert row["scores"]["ts1-choice"]["mean"] == 0.91
     assert row["scores"]["ts1-choice"]["submission_id"] == str(newer.id)
-    assert row["scores"]["ts3-cosmos"]["submission_id"] == str(newer.id)
+    assert row["scores"]["ts3-unit_cosmos"]["submission_id"] == str(newer.id)
 
     # A task the newer run didn't re-enter keeps the earlier score, and says where it is from.
     assert row["scores"]["ts1-reward"]["mean"] == 0.85
