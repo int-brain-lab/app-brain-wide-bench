@@ -51,9 +51,11 @@ local directory it is used directly (no S3 needed).
 
 ## Full stack
 
-`docker compose up --build` starts Postgres, Redis, the web service (port 80) and a
-Celery worker. Migrations run with `alembic upgrade head`. Deploy to EC2 happens via
-`.github/workflows/deploy.yml` on push to `main`.
+`docker compose --profile local up --build` starts Postgres, Redis, the web service
+(port 80) and a Celery worker. Migrations run with `alembic upgrade head`. The `db`
+service is behind the `local` profile because production points `DATABASE_URL` at a
+managed RDS instance instead — omit `--profile local` to match that. Deploy to EC2
+happens via `.github/workflows/deploy.yml` on push to `main`.
 
 The production instance runs at `https://brainwidebench.iblcore.org` (EC2 t3.small,
 us-east-1). Full deployment instructions, resource IDs, and operational notes are on the

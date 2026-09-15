@@ -1,6 +1,9 @@
 services:
+  # Local dev only — production points DATABASE_URL at RDS instead. Start with
+  # `docker compose --profile local up ...` to include this service.
   db:
     image: postgres:16
+    profiles: ["local"]
     environment:
       POSTGRES_DB: brainwidebench
       POSTGRES_USER: ${POSTGRES_USER}
@@ -31,6 +34,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
+        required: false
       redis:
         condition: service_started
 
@@ -54,6 +58,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
+        required: false
       redis:
         condition: service_started
 
