@@ -31,13 +31,13 @@ repo** — that content used to live in `docs/deploy.md`, which was removed beca
 production resources (bucket, IAM, CORS origin, tenant) more publicly than warranted for a
 public repo.
 
-That knowledge now lives on the private IBL dev site:
-[`ibldevtools/00_dev_site/brain_wide_bench.md`](https://github.com/int-brain-lab/ibldevtools/blob/main/00_dev_site/brain_wide_bench.md),
-with the full AWS provisioning runbook (resource IDs, IAM policies, EC2/DNS/SSL setup) in
-[`iblsre/brain-wide-bench/aws_deploy.md`](https://github.com/int-brain-lab/iblsre/blob/main/brain-wide-bench/aws_deploy.md).
-Both repos are private. If a task touches deployment, production config, or AWS/Auth0
-resources, read those first rather than guessing from what remains in this repo — ask the
-user for access or specifics if you can't reach them.
+That knowledge, including the full AWS provisioning runbook (resource IDs, IAM policies,
+EC2/DNS/SSL setup), now lives on the private IBL dev site:
+[`ibldevtools/00_dev_site/deployments/brain_wide_bench.md`](https://github.com/int-brain-lab/ibldevtools/blob/main/00_dev_site/deployments/brain_wide_bench.md).
+(A duplicate copy in `iblsre/brain-wide-bench/aws_deploy.md` was consolidated into this page
+and removed — only the Ansible playbooks stayed in `iblsre`.) If a task touches deployment,
+production config, or AWS/Auth0 resources, read that page first rather than guessing from
+what remains in this repo — ask the user for access or specifics if you can't reach it.
 
 ## `_todo` files
 
