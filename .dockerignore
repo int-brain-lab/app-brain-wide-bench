@@ -1,0 +1,10 @@
+# Local environments and build output. A host .venv copied over the image's own leaves a
+# venv whose paths point at the build machine.
+.venv/
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+**/__pycache__/
+.pytest_cache/
+.ruff_cache/
+.git/

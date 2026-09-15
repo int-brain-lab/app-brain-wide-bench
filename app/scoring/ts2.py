@@ -16,9 +16,8 @@ class TS2Scorer(BaseScorer):
     Same (label, task, recording_id) row/summary shape as :class:`~app.scoring.ts1.TS1Scorer`,
     but TS2's metrics (``poisson_d2``, ``bps``) are fixed rather than per-task.
 
-    Aggregated through :func:`ibl_bwb_eval.scoring.aggregation.aggregate`, which floors
-    ``poisson_d2`` at 0 per seed before the mean and SEM are taken. ``bps`` is not clipped and
-    can be negative.
+    Aggregated through :func:`ibl_bwb_eval.scoring.aggregation.aggregate`, which floors both
+    ``poisson_d2`` and ``bps`` at 0 per seed before the mean and SEM are taken.
     """
 
     def score(self, pred_dir: Path, gt_dir: Path) -> dict:

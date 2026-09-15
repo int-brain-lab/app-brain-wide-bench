@@ -4,9 +4,9 @@ Neural-model benchmarking platform. Users upload a zip of `safetensors`
 predictions; a Celery worker scores them against a ground-truth oracle and
 publishes results to a public leaderboard.
 
-This directory is the git repository root. The `ibl-benchmark/` package (which
-provides `core.scoring.ts1_scoring`) lives **alongside** this repo as a sibling
-directory and is consumed as an editable dependency at `../ibl-benchmark`.
+This directory is the git repository root. Scoring and validation are delegated to
+[`ibl-bwb-eval`](https://pypi.org/project/ibl-bwb-eval/), installed from PyPI like any
+other dependency.
 
 ## Layout
 
@@ -27,7 +27,6 @@ alembic/                   migrations (0001_initial)
 tests/                     scoring unit tests + sample.zip fixture
 frontend/                  vanilla JS SPA (index / submit / dashboard)
 Dockerfile, docker-compose.yml, .github/workflows/   deployment
-../ibl-benchmark/          editable dependency (sibling, outside this repo)
 ```
 
 ## Run locally
@@ -62,16 +61,7 @@ us-east-1). Full deployment instructions, resource IDs, and operational notes ar
 
 ### Continuous integration
 
-`.github/workflows/test.yml` checks out this repo and `neuro-galaxy/ibl-benchmark`
-as siblings so the `../ibl-benchmark` dependency resolves, then runs `uv sync` + pytest.
-The cross-org (private) checkout authenticates with the `IBL_BENCH_PAT` repo secret.
-
-<!-- TODO(ci): IBL_BENCH_PAT is currently a personal, read-only fine-grained PAT scoped
-     to neuro-galaxy/ibl-benchmark. It expires and is tied to one account, so CI breaks
-     if the token lapses or that account loses access — check the token's expiry first
-     when CI suddenly can't find ibl-benchmark. This is a temporary solution until 
-     ibl-benchmark gets a public release and public pypi package   -->
-
+`.github/workflows/test.yml` checks out this repo, runs `uv sync` + pytest.
 
 ## Submission format
 

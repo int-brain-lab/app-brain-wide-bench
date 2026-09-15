@@ -15,7 +15,7 @@ dependencies = [
     "pydantic-settings>=2.0",
     "httpx>=0.27",
     "python-multipart>=0.0.9",
-    "ibl-brain-wide-bench[scoring]",
+    "ibl-bwb-eval==0.0.1",
     "python-dotenv>=1.0",
     "sqlmodel>=0.0.38",
 ]
@@ -30,12 +30,6 @@ dev = [
 
 [tool.uv]
 python-preference = "managed"
-
-[tool.uv.sources]
-# Path source, NOT a uv workspace: ibl-benchmark is a separately-versioned
-# sibling repo with no shared committed root pyproject, so `workspace = true`
-# cannot resolve. The Docker build context (`..`) and uv.lock both rely on this.
-ibl-brain-wide-bench = { path = "../ibl-benchmark", editable = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
