@@ -15,7 +15,7 @@ const TASK_NAMES = {
   "ts1-whisker_motion_energy": "Whisker",
   "ts2-co_smoothing": "Co-smooth",
   "ts2-forecasting": "Forecast",
-  "ts3-cosmos": "Cosmos",
+  "ts3-unit_cosmos": "Cosmos",
 };
 
 // How a suite is written wherever one is shown — a badge, a filter option, a heading.
@@ -70,7 +70,7 @@ const TASK_TYPES = {
   "ts1-whisker_motion_energy": "continuous",
   "ts2-co_smoothing": "firing_rate",
   "ts2-forecasting": "firing_rate",
-  "ts3-cosmos": "brain_region",
+  "ts3-unit_cosmos": "brain_region",
 };
 
 // TS3 reports one set of metrics per brain region, and a macro average over them, so a

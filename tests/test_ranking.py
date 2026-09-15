@@ -25,7 +25,7 @@ NOW = datetime(2026, 8, 1, 12, 0, 0)
 TASKS = [
     SimpleNamespace(id="ts1-choice", task_suite=TaskSuite.ts1, primary_metric=Metric.bacc),
     SimpleNamespace(id="ts1-wheel_speed", task_suite=TaskSuite.ts1, primary_metric=Metric.r2),
-    SimpleNamespace(id="ts3-cosmos", task_suite=TaskSuite.ts3, primary_metric=Metric.f1_macro),
+    SimpleNamespace(id="ts3-unit_cosmos", task_suite=TaskSuite.ts3, primary_metric=Metric.f1_macro),
 ]
 
 
@@ -90,7 +90,7 @@ def test_a_standing_holds_the_newest_score_for_each_task():
     )
     rerun = submission(
         model,
-        {"ts1-choice": score("bacc", [("a", 0.9)]), "ts3-cosmos": None},
+        {"ts1-choice": score("bacc", [("a", 0.9)]), "ts3-unit_cosmos": None},
         created_at=NOW,
     )
 
@@ -225,7 +225,7 @@ def test_entries_are_stable_when_submissions_share_a_timestamp():
 
 def test_primary_metrics_uses_the_metric_name():
     """Matched against the JSON's keys, which the scorer wrote as plain strings."""
-    assert primary_metrics(TASKS)["ts3-cosmos"] == "macro/f1-score"
+    assert primary_metrics(TASKS)["ts3-unit_cosmos"] == "macro/f1-score"
 
 
 def test_ranks_each_task_separately():
@@ -254,13 +254,13 @@ def test_rank_is_averaged_over_recordings():
 
 def test_a_suite_without_recordings_still_ranks():
     """TS3 scores carry no recording_id; aggregate()'s sentinel stands in for one."""
-    first = submission(uuid.uuid4(), {"ts3-cosmos": score("macro/f1-score", [(None, 0.7)])})
-    second = submission(uuid.uuid4(), {"ts3-cosmos": score("macro/f1-score", [(None, 0.6)])})
+    first = submission(uuid.uuid4(), {"ts3-unit_cosmos": score("macro/f1-score", [(None, 0.7)])})
+    second = submission(uuid.uuid4(), {"ts3-unit_cosmos": score("macro/f1-score", [(None, 0.6)])})
 
     ranks = ranks_by_model(first, second)
 
-    assert ranks[first.model_id]["ts3-cosmos"] == 1.0
-    assert ranks[second.model_id]["ts3-cosmos"] == 2.0
+    assert ranks[first.model_id]["ts3-unit_cosmos"] == 1.0
+    assert ranks[second.model_id]["ts3-unit_cosmos"] == 2.0
 
 
 def test_a_model_is_ranked_on_every_task_it_has_a_current_score_for():
@@ -320,7 +320,7 @@ def test_placings_place_every_suite_but_withhold_a_partial_overall():
         uuid.uuid4(),
         {
             "ts1-choice": score("bacc", [("a", 0.9)]),
-            "ts3-cosmos": score("macro/f1-score", [(None, 0.9)]),
+            "ts3-unit_cosmos": score("macro/f1-score", [(None, 0.9)]),
         },
     )
     ts1_only = submission(uuid.uuid4(), {"ts1-choice": score("bacc", [("a", 0.1)])})
@@ -348,14 +348,14 @@ def test_placings_place_every_suite_but_withhold_a_partial_overall():
 def test_placings_place_each_task_against_whoever_entered_it():
     """A task's field is who entered that task, which is narrower than its suite's.
 
-    The two models meet on ts1-choice; nothing else entered ts3-cosmos, so the model that
+    The two models meet on ts1-choice; nothing else entered ts3-unit_cosmos, so the model that
     did is placed first there against a field of one rather than against the suite's two.
     """
     both = submission(
         uuid.uuid4(),
         {
             "ts1-choice": score("bacc", [("a", 0.9)]),
-            "ts3-cosmos": score("macro/f1-score", [(None, 0.9)]),
+            "ts3-unit_cosmos": score("macro/f1-score", [(None, 0.9)]),
         },
     )
     ts1_only = submission(uuid.uuid4(), {"ts1-choice": score("bacc", [("a", 0.1)])})
@@ -367,11 +367,11 @@ def test_placings_place_each_task_against_whoever_entered_it():
 
     assert {task: placing.rank for task, placing in covered.tasks.items()} == {
         "ts1-choice": 1,
-        "ts3-cosmos": 1,
+        "ts3-unit_cosmos": 1,
     }
 
     assert covered.tasks["ts1-choice"].n_ranked == 2
-    assert covered.tasks["ts3-cosmos"].n_ranked == 1
+    assert covered.tasks["ts3-unit_cosmos"].n_ranked == 1
 
     # A task never entered is absent rather than placed last, as a suite is.
     assert set(partial.tasks) == {"ts1-choice"}

@@ -54,7 +54,7 @@ _TASK_ROWS = [
     dict(id="ts1-left_paw_speed",        task_suite=TaskSuite.ts1, task_type=TaskType.continuous,    primary_metric="r2"),
     dict(id="ts2-co_smoothing",          task_suite=TaskSuite.ts2, task_type=TaskType.firing_rate,   primary_metric="poisson_d2"),
     dict(id="ts2-forecasting",           task_suite=TaskSuite.ts2, task_type=TaskType.firing_rate,   primary_metric="poisson_d2"),
-    dict(id="ts3-cosmos",                task_suite=TaskSuite.ts3, task_type=TaskType.brain_region,  primary_metric="macro/f1-score"),
+    dict(id="ts3-unit_cosmos",           task_suite=TaskSuite.ts3, task_type=TaskType.brain_region,  primary_metric="macro/f1-score"),
 ]
 
 
