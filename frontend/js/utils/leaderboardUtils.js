@@ -50,7 +50,8 @@ function toLeaderboardRow(standing, myTeamIds) {
  * @param taskIds   the tasks the board is ranked over, in column order.
  * @param myTeamIds Set of the viewer's own team ids, as strings. Empty for a signed-out
  *                  reader, who owns none of the board.
- * @returns one row per model, in position order.
+ * @returns one row per ranked model, in position order. A model not scored on every chosen
+ *          task has no position and is left off the board.
  */
 function toLeaderboardRows(standings, taskIds, myTeamIds = new Set()) {
   const rows = (standings ?? []).map((standing) => toLeaderboardRow(standing, myTeamIds));
@@ -58,9 +59,9 @@ function toLeaderboardRows(standings, taskIds, myTeamIds = new Set()) {
   assignMeanRank(rows, taskIds);
   assignPositions(rows);
 
-  // Sorted before it leaves, because Tabulator's initial sort on `meanRank` is a no-op while
-  // every row is unranked — a stable sort of all-equal keys is the order it was handed.
-  return rows.sort(byPosition);
+  // In position order, which is the order the board opens on and the order any other reader
+  // of these rows gets.
+  return rows.filter((row) => row.rank != null).sort(byPosition);
 }
 
 // ─── RANKING ─────────────────────────────────────────────────────────────────
@@ -75,23 +76,22 @@ const EPSILON = 1e-10;
  * and outranks one placed second on all eight — and on this board that is not an edge case,
  * since the suites are largely disjoint cohorts.
  *
- * `partialRank` is never shown and never ranked. It exists so that unranked rows have
- * something better than insertion order to sit in.
+ * A model without one is off the board altogether — see toLeaderboardRows.
  */
 function assignMeanRank(rows, taskIds) {
   for (const row of rows) {
     const ranks = taskIds.map((taskId) => row.taskRanks[taskId]).filter((rank) => rank != null);
 
     row.tasksScored = taskIds.filter((taskId) => row[taskId] != null).length;
-    row.partialRank = mean(ranks);
-    row.meanRank = taskIds.length && row.tasksScored === taskIds.length ? row.partialRank : null;
+    row.meanRank = taskIds.length && row.tasksScored === taskIds.length ? mean(ranks) : null;
   }
 }
 
 /**
  * Standard competition ranking (1224) by `meanRank`, ascending. Ties share a position and
  * the next is skipped; a row without a figure is left unranked rather than ranked last — it
- * hasn't placed below the others so much as not competed against them.
+ * hasn't placed below the others so much as not competed against them, and toLeaderboardRows
+ * drops it rather than showing it under them.
  */
 function assignPositions(rows) {
   const ranked = [...rows]
@@ -112,15 +112,10 @@ function assignPositions(rows) {
   }
 }
 
-// Position first; then, for the rows that share one — every unranked row — how many of the
-// chosen tasks they cover, and then how they placed on those. Neither tiebreak is a ranking
-// claim; they are what keeps a table of unranked models out of arbitrary order.
+// Every row reaching this has a position, and two sharing one are tied outright, so the
+// sort leaves them in the order they were handed.
 function byPosition(a, b) {
-  if (a.rank !== b.rank) return (a.rank ?? Infinity) - (b.rank ?? Infinity);
-
-  if (a.tasksScored !== b.tasksScored) return b.tasksScored - a.tasksScored;
-
-  return (a.partialRank ?? Infinity) - (b.partialRank ?? Infinity);
+  return a.rank - b.rank;
 }
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
