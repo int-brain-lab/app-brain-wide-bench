@@ -56,10 +56,6 @@ services:
     command: uv run celery -A app.worker worker --loglevel=info
     env_file: .env
     environment:
-      # Extraction and downloaded zips land here instead of the container's overlay
-      # layer, which sits on the same disk as everything else on the host. See the
-      # volumes below — in production these are bind-mounted from a dedicated EBS
-      # volume, not the root filesystem.
       TMPDIR: /scratch
     volumes:
       - ${BWB_SCRATCH_DIR:-./.data/scratch}:/scratch
