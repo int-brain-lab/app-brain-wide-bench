@@ -6,6 +6,7 @@ as an error. The caching assertions are here because the ETag is what keeps a re
 cheap once the freshness window has lapsed.
 """
 
+from app.config import settings
 from app.models import (
     SUITE_OUTPUT_MODALITY,
     Calibration,
@@ -193,3 +194,40 @@ async def test_stats_is_cacheable(seeded_client):
 
     assert response.headers["cache-control"] == "public, max-age=300"
     assert "vary" not in response.headers
+
+
+# ── GET /api/meta/auth-config ───────────────────────────────────────────────────
+
+
+AUTH_CONFIG_URL = "/api/meta/auth-config"
+
+
+async def test_auth_config_is_public_and_cacheable(client):
+    """No token, and no session at all yet — this is what a signed-out browser fetches to
+    be able to sign in in the first place."""
+    response = await client.get(AUTH_CONFIG_URL)
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "public, max-age=300"
+    assert set(response.json()) == {"domain", "client_id", "audience", "dev_mode"}
+
+
+async def test_auth_config_reflects_dev_mode(client):
+    """The `client` fixture forces the stub auth backend — the frontend should be told so,
+    rather than maintaining its own separate dev/prod flag that could disagree."""
+    assert (await client.get(AUTH_CONFIG_URL)).json()["dev_mode"] is True
+
+
+async def test_auth_config_reflects_a_real_tenant(client, monkeypatch):
+    monkeypatch.setattr(settings, "auth0_domain", "brainwidebench.us.auth0.com")
+    monkeypatch.setattr(settings, "auth0_client_id", "some-client-id")
+    monkeypatch.setattr(settings, "auth0_audience", "https://api.brainwidebench.org")
+
+    body = (await client.get(AUTH_CONFIG_URL)).json()
+
+    assert body == {
+        "domain": "brainwidebench.us.auth0.com",
+        "client_id": "some-client-id",
+        "audience": "https://api.brainwidebench.org",
+        "dev_mode": False,
+    }

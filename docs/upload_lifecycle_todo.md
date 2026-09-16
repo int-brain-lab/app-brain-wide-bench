@@ -235,7 +235,7 @@ from what S3 holds.
 
 **Approach.** Persisting `{submissionId, label, size}` per browser would let the page offer
 "resume your upload" instead of relying on a retyped label. Server-side this is the reaper's
-scenario, and the lifecycle rule (`deploy.md`) is its backstop — neither exists yet.
+scenario, and the lifecycle rule (private ops docs) is its backstop — neither exists yet.
 
 ## 7. A different file of the same size
 
@@ -330,8 +330,8 @@ everything, calls `_finish_scoring(..., failed, ...)` and re-raises; the object 
   the bucket grows without bound.
 
 **Approach.** Add `failed` to `ABANDONABLE`: it is a dead end by definition and holds nothing
-worth keeping. For `done`, the lifecycle transition to Infrequent Access in `deploy.md` is the
-answer rather than deletion. A re-score endpoint, mirroring item 3's revalidate, would make
+worth keeping. For `done`, the lifecycle transition to Infrequent Access documented in the
+private ops docs is the answer rather than deletion. A re-score endpoint, mirroring item 3's revalidate, would make
 `failed` recoverable instead of merely deletable — the file is intact and it is our failure,
 the same argument as `unchecked`.
 
@@ -350,7 +350,7 @@ itself is gone: phase 1 is built, and what follows is its residue.
   and the restart path then tries to abort it. Today that is a lost race; a bucket lifecycle
   rule makes it weekly.
 - **Bucket lifecycle rules** — `AbortIncompleteMultipartUpload`, and an IA transition for
-  scored submissions. One bucket call (`docs/deploy.md` carries it), but it creates a state
+  scored submissions. One bucket call (carried in the private ops docs), but it creates a state
   the endpoints do not handle: an `uploading` row whose upload S3 has already discarded. It
   needs `list_parts` returning `dict | None` — `{}` reads as "no parts yet" and would sign
   URLs for a dead upload — `abort_multipart` tolerating `NoSuchUpload` as above, and 409

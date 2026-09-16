@@ -8,8 +8,10 @@ from app.auth import _upsert_user, parse_sub
 
 def test_parse_sub_recognises_known_providers():
     assert parse_sub("google-oauth2|1") == ("google", None)
+    assert parse_sub("github|1") == ("github", None)
     assert parse_sub("windowslive|1") == ("microsoft", None)
     assert parse_sub("oauth2|orcid|0000-0001-2345-6789") == ("orcid", "0000-0001-2345-6789")
+    assert parse_sub("oauth2|huggingface|1") == ("huggingface", None)
     assert parse_sub("auth0|1") == ("unknown", None)
 
 

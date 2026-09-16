@@ -8,22 +8,8 @@
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
-// Stub sign-in: a localStorage flag instead of Auth0, matching an API that skips JWT
-// verification and answers as its stub user.
-//
-// The API has to agree. Stubbed here against a real tenant sends `Bearer dev` to an API
-// that verifies signatures and every request 401s; a real sign-in against
-// `AUTH0_DOMAIN=dev` gets a token the API ignores, so the browser is one person and the
-// API answers as another.
-//
-// Must be false to deploy, and nothing enforces that yet — see `next_steps.md`.
-const DEV_MODE = false;
-
 const CONFIG = {
   apiBase: "", // same origin; set to e.g. "http://localhost:8080" for split hosting
-  auth0Domain: "dev-dmv00yvt1n0i036m.us.auth0.com",
-  auth0ClientId: "jYERzEVe5MWl0r8SKGshQLRvxswseQlS",
-  auth0Audience: "https://brainwidebench.iblcore.org",
 };
 
 // Auth0's Allowed Callback URLs must contain exactly `origin + this`. Ports and trailing
@@ -36,6 +22,14 @@ const FAKE_SESSION_KEY = "signed_in";
 const DEV_TOKEN = "dev";
 
 let auth0Client = null;
+
+// Whether the API answered GET /api/meta/auth-config with dev_mode: true — i.e. whether
+// AUTH0_DOMAIN=dev on the backend. Read from the backend rather than a second,
+// hand-maintained flag here, so the two can't drift apart: a stubbed frontend talking to a
+// verifying backend gets a `Bearer dev` that 401s on every call, and a real sign-in
+// against a stubbed backend gets a token the API ignores — either way the browser and the
+// API disagree about who is signed in. Unset until `loadAuth` resolves.
+let devMode = false;
 
 // One shared promise, so the redirect callback is handled exactly once however many
 // modules ask for the session.
@@ -50,14 +44,21 @@ function ensureAuth() {
 }
 
 async function loadAuth() {
-  if (DEV_MODE) return null;
-
   try {
+    const response = await fetch(CONFIG.apiBase + "/api/meta/auth-config");
+
+    if (!response.ok) throw new Error(`${response.status} fetching auth config`);
+
+    const { domain, client_id, audience, dev_mode } = await response.json();
+
+    devMode = dev_mode;
+    if (devMode) return null;
+
     auth0Client = await auth0.createAuth0Client({
-      domain: CONFIG.auth0Domain,
-      clientId: CONFIG.auth0ClientId,
+      domain,
+      clientId: client_id,
       authorizationParams: {
-        audience: CONFIG.auth0Audience,
+        audience,
         redirect_uri: window.location.origin + CALLBACK_PATH,
       },
       // A full navigation discards an in-memory cache, and re-authenticating silently
@@ -91,7 +92,7 @@ async function loadAuth() {
 async function isAuthenticated() {
   await ensureAuth();
 
-  if (DEV_MODE) return localStorage.getItem(FAKE_SESSION_KEY) === "1";
+  if (devMode) return localStorage.getItem(FAKE_SESSION_KEY) === "1";
 
   return auth0Client ? auth0Client.isAuthenticated() : false;
 }
@@ -108,7 +109,7 @@ async function isAuthenticated() {
 async function login(returnTo = window.location.pathname + window.location.search) {
   await ensureAuth();
 
-  if (DEV_MODE) {
+  if (devMode) {
     localStorage.setItem(FAKE_SESSION_KEY, "1");
     window.location.assign(returnTo);
 
@@ -126,7 +127,7 @@ async function login(returnTo = window.location.pathname + window.location.searc
 async function logout() {
   await ensureAuth();
 
-  if (DEV_MODE || !auth0Client) {
+  if (devMode || !auth0Client) {
     localStorage.removeItem(FAKE_SESSION_KEY);
     window.location.href = "/index.html";
 
@@ -143,14 +144,14 @@ async function logout() {
 async function getToken() {
   await ensureAuth();
 
-  if (!auth0Client && !DEV_MODE) return null;
+  if (!auth0Client && !devMode) return null;
 
   // `getTokenSilently` opens a hidden /authorize iframe even for a visitor with no session,
   // and an iframe that is blocked rather than refused never fires its load event — so the
   // SDK waits out its full timeout and the page appears to hang.
   if (!(await isAuthenticated())) return null;
 
-  if (DEV_MODE) return DEV_TOKEN;
+  if (devMode) return DEV_TOKEN;
 
   try {
     return await auth0Client.getTokenSilently();

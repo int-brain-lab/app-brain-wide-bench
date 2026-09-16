@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,6 +19,10 @@ class Settings(BaseSettings):
     auth0_domain : str
         Auth0 tenant domain. When set to ``"dev"`` the API runs with a stub
         authentication backend (no JWT required) for local development.
+    auth0_client_id : str
+        The SPA application's Auth0 client ID. Not a secret — a SPA is a public client
+        (PKCE, no ``client_secret``) — so it is safe to serve to the frontend, which reads
+        it from ``GET /api/meta/auth-config`` rather than hardcoding it.
     auth0_audience : str
         Expected ``aud`` claim of incoming access tokens.
     aws_region, s3_bucket : str
@@ -62,6 +67,7 @@ class Settings(BaseSettings):
 
     # Auth0 ("dev" disables JWT verification for local development)
     auth0_domain: str = "dev"
+    auth0_client_id: str = ""
     auth0_audience: str = "https://api.brainwidebench.org"
 
     # AWS / S3
@@ -93,6 +99,26 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> list[str]:
         """CORS origins split into a list."""
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @model_validator(mode="after")
+    def _forbid_wildcard_cors_outside_dev_mode(self) -> "Settings":
+        """Refuse ``CORS_ORIGINS=*`` against a real Auth0 tenant.
+
+        ``CORSMiddleware`` runs with ``allow_credentials=True`` (``app/main.py``), and
+        Starlette's implementation of that combination does not send a literal ``*`` — it
+        reflects back whatever ``Origin`` header the caller sent (see
+        ``starlette.middleware.cors.CORSMiddleware.send``), so a wildcard here really means
+        "every origin, with credentials." Only safe in dev mode, where there is no real
+        tenant issuing tokens worth stealing. Raising here — at settings construction,
+        which happens at import — fails a misconfigured deploy at startup instead of
+        serving traffic under a CORS policy that is a no-op.
+        """
+        if not self.dev_mode and "*" in self.cors_origin_list:
+            raise ValueError(
+                "CORS_ORIGINS=* is not allowed outside dev mode (AUTH0_DOMAIN=dev) — pin "
+                "it to the real site origin, e.g. CORS_ORIGINS=https://brainwidebench.iblcore.org"
+            )
+        return self
 
 
 @lru_cache

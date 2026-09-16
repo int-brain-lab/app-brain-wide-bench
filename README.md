@@ -55,9 +55,10 @@ local directory it is used directly (no S3 needed).
 Celery worker. Migrations run with `alembic upgrade head`. Deploy to EC2 happens via
 `.github/workflows/deploy.yml` on push to `main`.
 
-The production instance runs at `http://brainwidebench.iblcore.org` (EC2 t3.small,
-us-east-1). Full deployment instructions, resource IDs, and operational notes are in
-[`iblsre/brain-wide-bench/aws_deploy.md`](https://github.com/int-brain-lab/iblsre/blob/main/brain-wide-bench/aws_deploy.md).
+The production instance runs at `https://brainwidebench.iblcore.org` (EC2 t3.small,
+us-east-1). Full deployment instructions, resource IDs, and operational notes are on the
+private IBL dev site:
+[`ibldevtools/00_dev_site/deployments/brain_wide_bench.md`](https://github.com/int-brain-lab/ibldevtools/blob/main/00_dev_site/deployments/brain_wide_bench.md).
 
 ### Continuous integration
 

@@ -48,3 +48,23 @@ class MetaStats(BaseModel):
 
     n_models: int
     n_submissions: int
+
+
+class AuthConfig(BaseModel):
+    """What the frontend needs to stand up an Auth0 session, read from the same ``.env``
+    the backend already uses to verify tokens.
+
+    None of these are secrets: ``domain`` and ``audience`` are visible in every login
+    redirect and access token, and a SPA's ``client_id`` is a public identifier by
+    Auth0's own design (a SPA authenticates via PKCE, not a ``client_secret``). Serving
+    them here — rather than hardcoding them in the built JS — means a deploy points at
+    its own Auth0 tenant by setting environment variables, with nothing to rebuild.
+
+    ``dev_mode`` lets the frontend derive its own stub-auth behaviour from the backend's
+    actual setting instead of a second, hand-maintained flag that could drift from it.
+    """
+
+    domain: str
+    client_id: str
+    audience: str
+    dev_mode: bool

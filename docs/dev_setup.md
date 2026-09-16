@@ -12,9 +12,9 @@ Running the app locally, including the submission flow. Two storage modes:
 Start with Simple. Switch to Realistic to exercise the upload itself.
 
 Auth is separate and orthogonal — see `local_dev.md`. Everything here assumes
-`AUTH0_DOMAIN=dev`, which is what `DEV_MODE = true` in `frontend/js/api/client.js` expects.
-The two have to agree in either direction: a stub browser against a real tenant 401s on every
-request, and a real sign-in against a stub API gets a token the API ignores.
+`AUTH0_DOMAIN=dev`. The frontend reads its own dev/prod behaviour from the backend, via
+`GET /api/meta/auth-config`, so the two can't disagree: setting `AUTH0_DOMAIN=dev` here is
+enough for both sides.
 
 ## 1. Containers
 
@@ -58,7 +58,8 @@ uv run --env-file .env.local python scripts/set_user_role.py benchmark@internati
 The baselines fixtures own their rows as `app.auth.DEV_SUB` by default, the same identity dev
 mode resolves every request to, so what they load is already the stub user's own. A deployment
 instead points them at an account that has signed in, with `make_baselines.py --owner-id` —
-see "Who owns the rows" in `baselines_fixture.md`, and `deploy.md` for the order to do it in.
+see "Who owns the rows" in `baselines_fixture.md`; the private ops docs carry the order to do
+it in for a real deploy.
 
 The load wants an empty database and stops if it finds one that is not — add `--append` to
 load a second fixture into it instead.
