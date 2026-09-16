@@ -17,6 +17,10 @@ const SCORE_RANGE = { min: 0, max: 1 };
 const NAMED_TICKS = { 1: 10, 2: 6, 3: 4 };
 const NARROWEST = 4;
 
+// A category plot holds tens of bars a few px wide, where the mean plot beside it holds one
+// per score: finer than the house whisker, which would otherwise be wider than the bar.
+const CATEGORY_SEM = { width: 1, cap: 2 };
+
 /**
  * What a category is named on the axis.
  *
@@ -71,6 +75,7 @@ function createCategoryPlot({ series, categories, height }) {
     xTickRotation: 0,
 
     yRange: SCORE_RANGE,
+    sem: CATEGORY_SEM,
 
     plotTitle: null,
     height,

@@ -413,6 +413,40 @@ FOOTER
   flex-shrink: 0;
 }
 
+/* A footer entry standing for two destinations: the trigger, and the list it opens. The
+   anchor for the list, which is positioned against it. */
+.footer-menu {
+  position: relative;
+}
+
+/* The trigger wears `.link.icon-link` like the links beside it. A button inherits neither
+   the page font nor a pointer, and brings a box of its own, so all three are set here. */
+.footer-menu > button {
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Upward: the footer is the last band of the page, and there is nothing below it to open
+   into. Above the sticky footer's own stacking, as .field-help-text is above the page. */
+.footer-menu-list {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+  width: max-content;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+}
+
 /*----------------------------------------------------------------------------------------
 USER LOGO
 ----------------------------------------------------------------------------------------*/
