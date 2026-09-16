@@ -186,4 +186,4 @@ function initialiseFooter() {
 
 initialiseFooter();
 
-export { buildFooter };
+export { buildFooter, DOCS_HREF };

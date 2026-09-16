@@ -4,6 +4,7 @@ import { initials } from "../core/utils.js";
 import { login, logout } from "../api/client.js";
 import { getCurrentUser } from "../api/userApi.js";
 import { buildSignInButton, buildSignOutButton } from "../components/buttons.js";
+import { DOCS_HREF } from "./navFooter.js";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { label: "Models", href: "/html/models/model_list_public.html" },
   { label: "Tasks", href: "/html/tasks/task_list_public.html" },
   { label: "Teams", href: "/html/teams/team_list_public.html" },
+  { label: "Documentation", href: DOCS_HREF, external: true },
   { label: "My dashboard", href: DASHBOARD_HREF },
 ];
 
@@ -66,6 +68,7 @@ function renderLogo() {
   `;
 }
 
+// `external` is a page off this site, which never matches the path `active` is decided by.
 function renderNavItem(item, page) {
   const active = item.href === page;
 
@@ -73,6 +76,7 @@ function renderNavItem(item, page) {
     <a
       href="${item.href}"
       ${active ? 'class="active"' : ""}
+      ${item.external ? 'target="_blank" rel="noopener noreferrer"' : ""}
     >
       ${item.label}
     </a>
