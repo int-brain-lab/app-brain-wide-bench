@@ -363,6 +363,8 @@ class Model(SQLModel, table=True):
     publication_doi: str | None = None
     # Architecture
     n_parameters: int | None = None
+    # Not settable through the API — see ModelBase in app/schemas/models.py.
+    n_parameters_estimated: bool = Field(default=False)
     temporal_context_s: float | None = None
     # Pretraining — the detail is nullable for single-session baselines; the flag is not.
     is_pretrained: bool = Field(default=False)
@@ -387,6 +389,10 @@ class Model(SQLModel, table=True):
         "link_code": "Link to model code (e.g. GitHub).",
         "publication_doi": "DOI of affiliated publication.",
         "n_parameters": "Total number of non-embedding model parameters.",
+        "n_parameters_estimated": (
+            "The parameter count is a median over the models this baseline's per-session sweeps "
+            "selected, rather than an exact count."
+        ),
         "temporal_context_s": (
             "Duration (s) of context window used, including and preceding the target window. "
             "If context length varies across tasks for this model, report the primary/default "

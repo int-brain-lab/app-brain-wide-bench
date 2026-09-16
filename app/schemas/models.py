@@ -34,6 +34,10 @@ class ModelBase(ModelMetadata):
     temporal_context_s: float | None = None
     created_at: datetime | None = None
 
+    # Here and not on ``ModelMetadata``: it is seeded with the baselines, and the request
+    # bodies built from that class forbid fields they do not name.
+    n_parameters_estimated: bool = False
+
     # Optional here only because it lives on the ``team`` relationship rather than on
     # the ORM object, so ``model_validate(model)`` can't populate it — ``from_model``
     # fills it in, so responses always carry it. Same arrangement as

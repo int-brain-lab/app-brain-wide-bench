@@ -130,7 +130,33 @@ function buildPretrainedBadge(isPretrained) {
   return `<span class="badge xs neutral">Pretrained</span>`;
 }
 
+// A figure that was estimated rather than counted. Nothing for false or null: a value with no
+// badge beside it is a plain count.
+//
+// `description` is what hovering it says — the field's own, from /api/meta — in the popover a
+// field label's "?" uses. Its coordinates are written by components/fieldHelp.js, which
+// forms/fields.js installs, so a caller outside a rendered field gets an unplaced box. Omit
+// for a badge with nothing to say.
+//
+// `xs`, as the row-marking badges are — it qualifies the value it sits beside rather than
+// stating one of its own.
+function buildEstimateBadge(isEstimate, description = "") {
+  if (!isEstimate) return "";
+
+  const badge = `<span class="badge xs warning">Median estimate</span>`;
+
+  if (!description) return badge;
+
+  return `
+    <span class="field-help">
+      ${badge}
+      <span class="field-help-text" role="tooltip">${escapeHtml(description)}</span>
+    </span>
+  `;
+}
+
 export {
+  buildEstimateBadge,
   buildSuiteBadgeList,
   buildMetricBadge,
   buildMetricBadgeList,

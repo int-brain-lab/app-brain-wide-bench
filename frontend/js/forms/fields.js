@@ -155,15 +155,26 @@ function buildFieldLabel(key, field) {
   );
 }
 
+// `valueBadge` is a field qualifying its own value — (record) => markup, or "" for a value
+// that needs no mark. The row is only made a flex row where there is one to place.
+function buildDisplayValue(key, state, field) {
+  const value = displayValue(field, state[key]);
+  const shown = value == null || value === "" ? "—" : escapeHtml(value);
+  const badge = field.valueBadge?.(state) ?? "";
+
+  if (!badge) return `<p class="field-value">${shown}</p>`;
+
+  return `<p class="field-value row left gap-sm">${shown}${badge}</p>`;
+}
+
 function buildDisplayField(key, state, fields, inline = false) {
   const field = fields[key];
-  const value = displayValue(field, state[key]);
 
   if (inline) {
     return `
       <div class="row${fullRowClass(field)}">
         ${buildFieldLabel(key, field)}
-        <p class="field-value">${value == null || value === "" ? "—" : escapeHtml(value)}</p>
+        ${buildDisplayValue(key, state, field)}
       </div>
     `;
   }
@@ -171,7 +182,7 @@ function buildDisplayField(key, state, fields, inline = false) {
   return `
     <div class="column gap-xs${fullRowClass(field)}">
       ${buildFieldLabel(key, field)}
-      <p class="field-value">${value == null || value === "" ? "—" : escapeHtml(value)}</p>
+      ${buildDisplayValue(key, state, field)}
     </div>
   `;
 }

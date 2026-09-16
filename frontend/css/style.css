@@ -1253,7 +1253,10 @@ GENERIC TEXT
    components/fieldHelp.js so it is always fully on screen; on an input, clicking pins the
    same text open between the label and the control instead. Built in forms/fields.js from
    the `description` /api/meta fills in, so a field with nothing to explain emits none of
-   this. */
+   this.
+
+   `.field-help` also wraps a badge that qualifies a value — see buildEstimateBadge in
+   components/badges.js — which takes the box without the "?" beside it. */
 
 .field-help {
   display: inline-flex;
@@ -1563,6 +1566,13 @@ BADGES
 .badge.pending {
   background: var(--pending-light);
   color: var(--pending);
+}
+
+/* A caveat on the value beside it rather than a status of its own — the estimate marker on a
+   model's parameter count. */
+.badge.warning {
+  background: var(--warning-light);
+  color: var(--warning-dark);
 }
 
 /* The reader's own — a model of theirs on a board of everyone's, the team they own. The one
