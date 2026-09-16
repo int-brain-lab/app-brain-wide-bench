@@ -14,13 +14,12 @@ extracted, and both exist at once because extraction cannot free the archive it 
 One job therefore peaks at **~20 GB + G**, where G is the ground-truth tree. Validation adds
 a second, separate episode of the same shape for the same submission.
 
-**Where that disk is.** The `worker` service has no `volumes:` key, and
-`tempfile.TemporaryDirectory()` defaults to `/tmp` *inside the container* — so every byte
-lands in the container's writable overlay layer under `/var/lib/docker/overlay2`, on the
-host's root volume. `postgres_data` is a named Docker volume, which by default lives under
-`/var/lib/docker` too. Unless that has been given its own device, the worker's scratch space
-and the database share one filesystem, and a job that fills it does not merely fail — it
-takes Postgres with it.
+**Where that disk is.** Fixed by issue #42: the `worker` service now bind-mounts
+`BWB_SCRATCH_DIR`/`BWB_GT_DIR` to `/scratch`/`/ground-truth`, and `TMPDIR=/scratch` moves
+`tempfile.TemporaryDirectory()` off the container's writable overlay layer. In production
+those host paths are a dedicated EBS volume, not the root volume — a job that fills it no
+longer takes anything else on the host down with it. (The database moved off-box
+separately, to RDS.)
 
 **The multiplier.** `command: uv run celery -A app.worker worker --loglevel=info` passes no
 `--concurrency`, so the prefork pool defaults to the CPU count. Four vCPUs means four
@@ -42,16 +41,16 @@ Three related sharp edges:
 
 **What to do, in order of value:**
 
-1. **Put ground truth on a persistent read-only volume and point `s3_gt_prefix` at it.** No
-   code change — `download_ground_truth` already returns a local directory as-is when the
-   path exists. GT is identical for every submission and changes rarely, so this removes it
-   from the per-job footprint *and* deletes a full re-download per job. Biggest win,
-   smallest diff.
+1. **Done (issue #42).** Ground truth lives on a persistent volume, `s3_gt_prefix` points
+   at it. No code change — `download_ground_truth` already returns a local directory as-is
+   when the path exists. GT is identical for every submission and changes rarely, so this
+   removes it from the per-job footprint *and* deletes a full re-download per job.
 2. **`zip_path.unlink()` as soon as `extract` returns.** The archive is dead by then in both
    tasks. Cuts the footprint from ~20 GB to ~10 GB for the whole scoring phase, which is
    where the time is spent. It does not lower the peak *during* extraction, where both
    necessarily coexist.
-3. **A dedicated scratch volume mounted into the worker, with `TMPDIR` set to it.** Isolates
+3. **Done (issue #42).** A dedicated scratch volume is mounted into the worker
+   (`docker-compose.yml`, `BWB_SCRATCH_DIR` → `/scratch`), with `TMPDIR` set to it. Isolates
    the database from a runaway job; gp3 resizes online, so it can grow without a rebuild.
 4. **`--concurrency=1` for the heavy work**, ideally on its own queue so validation and
    scoring do not compete, with a separate light worker for everything else. There is one
@@ -69,8 +68,8 @@ Three related sharp edges:
    before adopting.
 
 **Unknowns blocking the sizing:** the ground-truth tree size per suite; the instance's vCPU
-count and root volume size, and whether `postgres_data` is on its own device; and how many
-submissions are expected in flight at once. With those the volume is
+count; and how many submissions are expected in flight at once. With those the volume is
 `G + C x 20 GB` plus headroom, or `G + C x 10 GB` with fix 2, and `G + C x 10 GB` with no
-extraction spike at all with fix 6.
+extraction spike at all with fix 6. (Root volume size no longer matters for the database —
+it's on RDS — only for the scratch/GT volume, which is now separate too, per issue #42.)
 
