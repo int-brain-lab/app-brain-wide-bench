@@ -306,7 +306,7 @@
     {
       "id": "1e5c9d7f-3b6a-4e4c-8d2b-2f7a5b3e9c1d",
       "submission_id": "0d4b8c6e-2a5f-4d3b-9c7a-1e6f4a2d8b0c",
-      "task_id": "ts3-cosmos",
+      "task_id": "ts3-unit_cosmos",
       "training_paradigm": "TSU",
       "calibration": "inductive"
     }

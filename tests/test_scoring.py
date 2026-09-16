@@ -40,7 +40,7 @@ BASELINES_DIR = FIXTURES_DIR.joinpath("baselines")
 
 # ibl_bwb_eval.scoring.aggregation.aggregate's clip set, which every scorer aggregates
 # through: a metric named here is floored at 0 per seed and never comes back negative.
-CLIPPED_METRICS = frozenset({"r2", "poisson_d2"})
+CLIPPED_METRICS = frozenset({"r2", "poisson_d2", "bps"})
 
 requires_fixtures = pytest.mark.skipif(
     not GT_DIR.is_dir(), reason=f"fixture dataset not found: {GT_DIR}"
@@ -145,11 +145,11 @@ def test_ts3_wrapper_shape(monkeypatch):
     (row,) = result["rows"]
     # aggregate() keys TS3 (label, task, NO_RECORDING_ID); the rows keep the label alone
     assert row["label"] == "m"
-    assert row["task"] == "ts3-cosmos"
+    assert row["task"] == "ts3-unit_cosmos"
     assert "recording_id" not in row  # TS3 classifies the whole population at once
     assert "macro/f1-score" in row["metrics"]
     # headline is macro/f1-score → mean of 0.60 and 0.80
-    assert result["summary"]["ts3-cosmos"]["mean"] == pytest.approx(0.70)
+    assert result["summary"]["ts3-unit_cosmos"]["mean"] == pytest.approx(0.70)
 
 
 def test_ts1_clips_r2_at_zero_per_seed(monkeypatch):
@@ -171,8 +171,8 @@ def test_ts1_clips_r2_at_zero_per_seed(monkeypatch):
     assert result["summary"]["ts1-wheel_speed"]["mean"] == pytest.approx(0.30)
 
 
-def test_ts2_clips_poisson_d2_but_not_bps(monkeypatch):
-    """TS2's primary metric is floored at 0 per seed; bps is left signed."""
+def test_ts2_clips_poisson_d2_and_bps(monkeypatch):
+    """TS2's metrics are both floored at 0 per seed before the mean is taken."""
     raw = {
         ("m", "ts2-co_smoothing", "recA", 42): {"poisson_d2": -0.2, "bps": -0.6},
         ("m", "ts2-co_smoothing", "recA", 43): {"poisson_d2": 0.4, "bps": 0.2},
@@ -183,7 +183,7 @@ def test_ts2_clips_poisson_d2_but_not_bps(monkeypatch):
 
     (row,) = result["rows"]
     assert row["metrics"]["poisson_d2"]["mean"] == pytest.approx(0.20)
-    assert row["metrics"]["bps"]["mean"] == pytest.approx(-0.20)
+    assert row["metrics"]["bps"]["mean"] == pytest.approx(0.10)
     assert result["summary"]["ts2-co_smoothing"]["mean"] == pytest.approx(0.20)
 
 
