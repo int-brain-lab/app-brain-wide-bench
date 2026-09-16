@@ -55,6 +55,11 @@ services:
       dockerfile: Dockerfile
     command: uv run celery -A app.worker worker --loglevel=info
     env_file: .env
+    environment:
+      TMPDIR: /scratch
+    volumes:
+      - ${BWB_SCRATCH_DIR:-./.data/scratch}:/scratch
+      - ${BWB_GT_DIR:-./.data/ground-truth}:/ground-truth
     depends_on:
       db:
         condition: service_healthy

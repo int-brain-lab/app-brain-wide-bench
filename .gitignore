@@ -23,3 +23,6 @@ docker-compose.override.yml
 build/
 dist/
 *.log
+
+# Local worker scratch / ground-truth bind-mount targets (docker-compose.yml)
+.data/
