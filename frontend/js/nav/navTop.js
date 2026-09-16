@@ -7,16 +7,15 @@ import { buildSignInButton, buildSignOutButton } from "../components/buttons.js"
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
-// The public surface, in the order a reader meets it — the scores, then what produced
-// them — with the way into the signed-in half last. Models is the unscoped list, the same
-// page the sidebar's "My models" is at data-scope="mine"; Tasks is every scored task, which
-// is the sidebar's "All tasks".
-// Where signing in lands, and the nav item that names it — one constant, so the button and
-// the link can't drift apart.
+// Where signing in lands, and where the nav item, the avatar and the sign-in button point.
 const DASHBOARD_HREF = "/html/dashboard/dashboard.html";
 
 const HOME_HREF = "/index.html";
 
+// The public surface, in the order a reader meets it — the scores, then what produced
+// them — with the way into the signed-in half last. Models is the unscoped list, the same
+// page the sidebar's "My models" is at data-scope="mine"; Tasks is every scored task, which
+// is the sidebar's "All tasks".
 const NAV_ITEMS = [
   { label: "Leaderboard", href: "/html/leaderboard/leaderboard.html" },
   { label: "Models", href: "/html/models/model_list_public.html" },
@@ -103,9 +102,9 @@ function renderUserMenu(user) {
   const name = user.name || user.email;
 
   return `
-    <span class="user-logo">
+    <a class="user-logo" href="${DASHBOARD_HREF}" title="My dashboard">
       ${escapeHtml(initials(name))}
-    </span>
+    </a>
 
     ${buildSignOutButton({ id: LOGOUT_ID })}
   `;
