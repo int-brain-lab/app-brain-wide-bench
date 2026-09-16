@@ -2,9 +2,9 @@
 set -e
 sudo -u ubuntu bash << 'DEPLOY'
   set -e
-  cd /srv/app-brain-wide-bench
+  cd /srv/app
   git pull
-  docker compose up -d --build
+  docker compose --profile local up -d --build
   docker compose exec -T web uv run alembic upgrade head
   # Wait up to 2 minutes for uvicorn to be ready (rebuild can take ~60s on a cold cache).
   # Use `if` to keep set -e from aborting on failed attempts.
