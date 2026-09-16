@@ -36,6 +36,11 @@ COPY --from=frontend /build/dist ./frontend
 # rather than merely have read access. Verify with `id ubuntu` on the instance if it was
 # ever provisioned differently.
 RUN groupadd --gid 1000 app && useradd --uid 1000 --gid 1000 --create-home appuser
+
+# /app is root-owned from the COPY/uv sync steps above. `uv run` re-syncs the editable
+# install on every start (touches app_brain_wide_bench.egg-info under /app), so appuser
+# needs write access there, not just read.
+RUN chown -R appuser:app /app
 USER appuser
 
 ENV PATH="/app/.venv/bin:$PATH"
