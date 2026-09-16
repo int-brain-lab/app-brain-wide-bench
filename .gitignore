@@ -16,6 +16,9 @@ __pycache__/
 .DS_Store
 .idea/
 
+# Local dev override (see docker-compose.override.yml's own header comment)
+docker-compose.override.yml
+
 # Build / tmp
 build/
 dist/
