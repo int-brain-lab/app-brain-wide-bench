@@ -133,6 +133,11 @@ class Modality(DescribedEnum):
         "Ephys spike waveforms (extracellular action potential shape captured in a short window "
         "around each detected spike).",
     )
+    other = (
+        "other",
+        "Any modality not listed here. Describe it in the pretraining data field and/or the "
+        "submission narrative.",
+    )
 
 
 class TrainingParadigm(DescribedEnum):
@@ -359,8 +364,8 @@ class Model(SQLModel, table=True):
     # Architecture
     n_parameters: int | None = None
     temporal_context_s: float | None = None
-    # Pretraining — all nullable for single-session baselines
-    is_pretrained: bool | None = None
+    # Pretraining — the detail is nullable for single-session baselines; the flag is not.
+    is_pretrained: bool = Field(default=False)
     pretrained_in_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON_LIST))
     pretrained_out_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON_LIST))
     pretraining_data: str | None = None

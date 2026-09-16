@@ -109,7 +109,7 @@
       "publication_doi": null,
       "n_parameters": null,
       "temporal_context_s": 1.0,
-      "is_pretrained": null,
+      "is_pretrained": false,
       "pretrained_in_modalities": null,
       "pretrained_out_modalities": null,
       "pretraining_data": null

@@ -17,7 +17,7 @@ class ModelMetadata(BaseModel):
     link_code: str | None = None
     publication_doi: str | None = None
     n_parameters: int | None = None
-    is_pretrained: bool | None = None
+    is_pretrained: bool = False
     pretrained_in_modalities: list[Modality] | None = None
     pretrained_out_modalities: list[Modality] | None = None
     pretraining_data: str | None = None

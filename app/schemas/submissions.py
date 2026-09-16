@@ -166,7 +166,7 @@ class SubmissionModelOut(BaseModel):
 
     id: uuid.UUID
     name: str
-    is_pretrained: bool | None = None
+    is_pretrained: bool = False
     pretrained_in_modalities: list[Modality] | None = None
     pretrained_out_modalities: list[Modality] | None = None
 
