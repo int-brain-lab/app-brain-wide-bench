@@ -41,8 +41,7 @@ function buildMembersPanel() {
         <input class="field-input" id="member-search" type="search"
                placeholder="Email address" autocomplete="off">
         <p class="info-msg">
-          Enter the whole email address — partial matches aren't looked up. They must
-          have signed in at least once before they can be added.
+          Enter the full email address. Partial matches aren't looked up. They must have signed in at least once before they can be added.
         </p>
 
         <!-- The match, with an Add button. Hidden until there is one. -->
