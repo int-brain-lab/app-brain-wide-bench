@@ -31,7 +31,7 @@ deployment, own the rows as an account that has already signed in:
 That writes no user row, only references one, so nothing can collide with the account Auth0
 already created. Load it with ``--append``, since a signed-in account is data already:
 
-    uv run python scripts/load_fixture_data.py tests/fixtures/2026_09_baselines.json --append
+    uv run python scripts/load_fixture_data.py tests/fixtures/2026_09_16_baselines.json --append
 
 Scoring needs the ``scoring`` extra (torch, safetensors); discovery does not.
 """
@@ -39,9 +39,7 @@ Scoring needs the ``scoring`` extra (torch, safetensors); discovery does not.
 import argparse
 import json
 import os
-import struct
 import sys
-import tempfile
 import time
 import uuid
 from collections import defaultdict
@@ -64,8 +62,8 @@ from app.models import (  # noqa: E402 — after the path insert
 from app.scoring import get_scorer  # noqa: E402 — after the path insert
 from tests.fixtures.load import _TASK_ROWS  # noqa: E402 — after the path insert
 
-DEFAULT_DATA_ROOT = Path("~/Downloads/new_brainwidebench_data")
-DEFAULT_SNAPSHOT = ROOT / "tests" / "fixtures" / "2026_09_baselines.json"
+DEFAULT_DATA_ROOT = Path("~/Downloads/new_again_brainwidebench")
+DEFAULT_SNAPSHOT = ROOT / "tests" / "fixtures" / "2026_09_16_baselines.json"
 
 TEAM_NAME = "Brain Wide Bench"
 
@@ -202,78 +200,6 @@ def read_models(path: Path) -> list[Entry]:
     return entries
 
 
-# ── Compatibility ──────────────────────────────────────────────────────────────────────────────
-
-# The TS3 predictions name their task ts3-unit_cosmos and their unit ids entity_ids; the
-# installed ibl_bwb_eval reads ts3-cosmos and unit_ids. Both aliases are no-ops once it agrees.
-TASK_ALIASES = {"ts3-unit_cosmos": "ts3-cosmos"}
-TENSOR_ALIASES = {"entity_ids": "unit_ids"}
-
-
-def read_header(path: Path) -> dict:
-    """A safetensors file's header without loading any tensor.
-
-    The format is an 8-byte little-endian header length followed by that many bytes of JSON.
-    """
-    with path.open("rb") as fh:
-        (header_len,) = struct.unpack("<Q", fh.read(8))
-        if not 0 < header_len < 100_000_000:
-            raise ValueError(f"implausible safetensors header length {header_len}")
-        return json.loads(fh.read(header_len))
-
-
-def alias_ground_truth(gt_root: Path, tmp: Path) -> Path:
-    """A ground-truth tree carrying the aliased task names too. ``gt_root`` when none is missing."""
-    aliased = {
-        alias: gt_root / task
-        for alias, task in TASK_ALIASES.items()
-        if (gt_root / task).is_dir() and not (gt_root / alias).exists()
-    }
-    if not aliased:
-        return gt_root
-
-    tree = tmp / "gt"
-    tree.mkdir(parents=True)
-    for task in gt_root.iterdir():
-        (tree / task.name).symlink_to(task)
-    for alias, task in aliased.items():
-        (tree / alias).symlink_to(task)
-
-    print(f"  ground truth aliased: {', '.join(f'{a} → {t.name}' for a, t in aliased.items())}")
-    return tree
-
-
-def alias_predictions(directory: Path, tmp: Path) -> Path:
-    """A copy of ``directory`` with aliased tensor keys renamed. ``directory`` when none are."""
-    from safetensors import safe_open
-    from safetensors.torch import load_file, save_file
-
-    paths = sorted(directory.rglob("seed_*.safetensors"))
-    stale = {path for path in paths if set(read_header(path)) & set(TENSOR_ALIASES)}
-    if not stale:
-        return directory
-
-    renamed = ", ".join(f"{old} → {new}" for old, new in TENSOR_ALIASES.items())
-    print(f"  tensor keys aliased in {len(stale)} file(s): {renamed}")
-
-    root = tmp / "pred" / directory.name
-    for path in paths:
-        dest = root / path.relative_to(directory)
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        if path not in stale:
-            dest.symlink_to(path)
-            continue
-        tensors = load_file(str(path))
-        for old, new in TENSOR_ALIASES.items():
-            if old in tensors:
-                tensors[new] = tensors.pop(old)
-        with safe_open(str(path), framework="pt") as fh:
-            metadata = fh.metadata()
-        save_file(tensors, str(dest), metadata=metadata)
-
-    return root
-
-
 # ── Discovery ──────────────────────────────────────────────────────────────────────────────────
 
 
@@ -288,9 +214,7 @@ def discover(entries: list[Entry], pred_root: Path) -> None:
         entry.directory = directory
         entry.files = len(paths)
         entry.n_bytes = sum(path.stat().st_size for path in paths)
-        entry.tasks_on_disk = {
-            TASK_ALIASES.get(task.name, task.name) for task in directory.iterdir() if task.is_dir()
-        }
+        entry.tasks_on_disk = {task.name for task in directory.iterdir() if task.is_dir()}
 
 
 def report(entries: list[Entry], pred_root: Path) -> list[Entry]:
@@ -322,18 +246,17 @@ def report(entries: list[Entry], pred_root: Path) -> list[Entry]:
 # ── Scoring ────────────────────────────────────────────────────────────────────────────────────
 
 
-def score(entry: Entry, gt_root: Path, tmp: Path) -> dict:
+def score(entry: Entry, gt_root: Path) -> dict:
     """Score one submission, one scorer per suite it enters. Empty summary when nothing matched.
 
     Task ids are unique across suites, so merging the per-suite summaries cannot collide.
     """
     results: dict = {"rows": [], "summary": {}}
-    pred_dir = alias_predictions(entry.directory, tmp)
     started = time.monotonic()
 
     for suite in entry.suites:
         try:
-            scored = get_scorer(suite).score(pred_dir, gt_root)
+            scored = get_scorer(suite).score(entry.directory, gt_root)
         except ModuleNotFoundError as exc:
             sys.exit(f"\nScoring code not importable ({exc}).\nInstall the scoring extra: uv sync")
         except Exception as exc:  # noqa: BLE001 — one bad baseline must not stop the batch
@@ -573,20 +496,16 @@ def main(args: argparse.Namespace) -> int:
 
     failed = 0
     started = time.monotonic()
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp = Path(tmp)
-        gt_root = alias_ground_truth(gt_root, tmp)
-
-        for index, entry in enumerate(pending, start=1):
-            print(f"\n[{index}/{len(pending)}] {entry.label}  "
-                  f"({entry.files} files, {_size(entry.n_bytes)})")
-            results = score(entry, gt_root, tmp)
-            if results["summary"]:
-                scored[entry.label] = results
-            else:
-                failed += 1
-            # After every submission, so an interrupt hours in keeps what already scored.
-            write(args.snapshot, build(available, scored, args.snapshot, user_id, owner))
+    for index, entry in enumerate(pending, start=1):
+        print(f"\n[{index}/{len(pending)}] {entry.label}  "
+              f"({entry.files} files, {_size(entry.n_bytes)})")
+        results = score(entry, gt_root)
+        if results["summary"]:
+            scored[entry.label] = results
+        else:
+            failed += 1
+        # After every submission, so an interrupt hours in keeps what already scored.
+        write(args.snapshot, build(available, scored, args.snapshot, user_id, owner))
 
     write(args.snapshot, build(available, scored, args.snapshot, user_id, owner))
     print(f"\nscored={len(scored)} failed={failed} in {(time.monotonic() - started) / 60:.1f} min")

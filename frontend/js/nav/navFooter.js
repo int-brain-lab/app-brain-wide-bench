@@ -1,7 +1,11 @@
 // Site footer: who made it, and the ways off the page.
 //
 // Self-mounting into #page-footer, as navTop.js is into #top-nav, and silent on a page
-// without one — the landing page is the only one carrying it so far.
+// without one.
+//
+// Two repos stand behind the site, so GitHub and Get help each open a short list of them
+// rather than naming one. Docs is a single link, and the menus are this module's own: it
+// mounts them, opens them, and closes them.
 //
 // Docs and Get help are Lucide placeholders, filled by the createIcons pass renderHtml makes.
 // GitHub is an inline SVG: Lucide carries no brand icons, so there is no name for it.
@@ -11,15 +15,22 @@ import { getIcon } from "../components/icons.js";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
-const REPO_HREF = "https://github.com/int-brain-lab/app-brain-wide-bench";
+// The two repos behind the site, in the order both menus name them.
+const REPOS = [
+  { label: "BrainWideBench", href: "https://github.com/brainbench-org/ibl-bwb" },
+  { label: "Website", href: "https://github.com/int-brain-lab/app-brain-wide-bench" },
+];
 
-// The repo's issues: a question belongs there as much as a bug report does.
-const HELP_HREF = `${REPO_HREF}/issues`;
+// A repo's issues: a question belongs there as much as a bug report does.
+const ISSUES = REPOS.map(({ label, href }) => ({ label, href: `${href}/issues` }));
+
+const DOCS_HREF = "https://brainbench-org.github.io/ibl-bwb/";
 
 const AUTHOR = "IBL Core";
 
-// Both placeholders on the landing page say this, so the footer says it the same way.
-const DOCS_PENDING = "Documentation link not yet available";
+// The list each trigger opens, named by the trigger's `aria-controls`.
+const REPO_MENU_ID = "footer-repos";
+const HELP_MENU_ID = "footer-help";
 
 // ─── ICONS ───────────────────────────────────────────────────────────────────
 
@@ -43,11 +54,14 @@ const DOCS_ICON = `<i class="footer-icon" data-lucide="${getIcon("docs")}"></i>`
 
 const HELP_ICON = `<i class="footer-icon" data-lucide="${getIcon("help")}"></i>`;
 
+// Upward, which is the way a list opens from the last band of the page.
+const MENU_ICON = `<i class="footer-icon" data-lucide="${getIcon("up")}"></i>`;
+
 // ─── RENDERING ───────────────────────────────────────────────────────────────
 
-// `_blank` on every one of them: all three leave the site, and a reader clicking through
+// `_blank` on every one of them: all of these leave the site, and a reader clicking through
 // from the footer has not finished with the page they were on.
-function buildFooterLink({ href, icon, label }) {
+function buildFooterLink({ href, icon = "", label }) {
   return `
     <a class="link icon-link" href="${href}" target="_blank" rel="noopener noreferrer">
       ${icon}
@@ -56,13 +70,29 @@ function buildFooterLink({ href, icon, label }) {
   `;
 }
 
-// The same greyed placeholder the hero's Docs button is, one row down.
-function buildPendingLink({ icon, label, title }) {
+/**
+ * A footer entry standing for more than one destination.
+ *
+ * @param id    the list's element id, which the trigger names in `aria-controls`.
+ * @param icon  markup for the icon on the trigger.
+ * @param label the trigger's text.
+ * @param items { href, label } per link in the list.
+ *
+ * @returns the trigger and its list, closed. attachFooterEvents opens it.
+ */
+function buildFooterMenu({ id, icon, label, items }) {
   return `
-    <span class="link disabled-link icon-link" aria-disabled="true" title="${title}">
-      ${icon}
-      <span>${label}</span>
-    </span>
+    <div class="footer-menu">
+      <button type="button" class="link icon-link" aria-controls="${id}" aria-expanded="false">
+        ${icon}
+        <span>${label}</span>
+        ${MENU_ICON}
+      </button>
+
+      <div class="footer-menu-list" id="${id}" hidden>
+        ${items.map(buildFooterLink).join("")}
+      </div>
+    </div>
   `;
 }
 
@@ -78,11 +108,62 @@ function buildFooter() {
     ${buildCredit()}
 
     <div class="row left gap-xl">
-      ${buildFooterLink({ href: REPO_HREF, icon: GITHUB_ICON, label: "GitHub" })}
-      ${buildPendingLink({ icon: DOCS_ICON, label: "Docs coming soon", title: DOCS_PENDING })}
-      ${buildFooterLink({ href: HELP_HREF, icon: HELP_ICON, label: "Get help" })}
+      ${buildFooterMenu({
+        id: REPO_MENU_ID,
+        icon: GITHUB_ICON,
+        label: "GitHub",
+        items: REPOS,
+      })}
+      ${buildFooterLink({ href: DOCS_HREF, icon: DOCS_ICON, label: "Docs" })}
+      ${buildFooterMenu({
+        id: HELP_MENU_ID,
+        icon: HELP_ICON,
+        label: "Get help",
+        items: ISSUES,
+      })}
     </div>
   `;
+}
+
+// ─── EVENTS ──────────────────────────────────────────────────────────────────
+
+const MENU = ".footer-menu";
+const MENU_TRIGGER = "[aria-controls]";
+const MENU_LIST = ".footer-menu-list";
+
+function setMenuOpen(menu, open) {
+  menu.querySelector(MENU_TRIGGER).setAttribute("aria-expanded", String(open));
+  menu.querySelector(MENU_LIST).hidden = !open;
+}
+
+function isClosed(trigger) {
+  return trigger?.getAttribute("aria-expanded") === "false";
+}
+
+// Every menu closes on any click; the one whose trigger was clicked while closed then opens.
+// A click on a link inside an open list closes it on the way out.
+function handleClick(footer, event) {
+  const trigger = event.target.closest(MENU_TRIGGER);
+  const opening = isClosed(trigger) ? trigger.closest(MENU) : null;
+
+  for (const menu of footer.querySelectorAll(MENU)) {
+    setMenuOpen(menu, menu === opening);
+  }
+}
+
+function closeMenus(footer) {
+  for (const menu of footer.querySelectorAll(MENU)) {
+    setMenuOpen(menu, false);
+  }
+}
+
+// On the document, not the footer: a click anywhere else on the page closes what is open.
+function attachFooterEvents(footer) {
+  document.addEventListener("click", (event) => handleClick(footer, event));
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeMenus(footer);
+  });
 }
 
 // ─── INITIALISATION ──────────────────────────────────────────────────────────
@@ -99,8 +180,10 @@ function initialiseFooter() {
   }
 
   renderHtml(footer, buildFooter(), { refresh: true });
+
+  attachFooterEvents(footer);
 }
 
 initialiseFooter();
 
-export { buildFooter };
+export { buildFooter, DOCS_HREF };

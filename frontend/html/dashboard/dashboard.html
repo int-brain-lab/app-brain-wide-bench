@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Brain-Wide Bench - Dashboard</title>
+    <title>BrainWideBench - Dashboard</title>
+    <link rel="icon" type="image/png" href="/img/favicon.png" />
     <!-- Handshakes for the script origins at the end of the body. -->
     <link rel="preconnect" href="https://unpkg.com" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" />
@@ -45,9 +46,8 @@
         <div class="column gap-sm">
           <p class="title">Getting started</p>
           <p class="section-description">
-            Nothing has been set up on this account yet. Benchmarking a model takes three steps, and
-            each one builds on the last — a submission belongs to a model, and a model belongs to a
-            team. Work through them in order and your results will start appearing on this page.
+            Welcome to the BrainWideBench dashboard! Follow the steps below to set up your account
+            and start benchmarking.
           </p>
         </div>
 
@@ -55,13 +55,12 @@
           <div class="step">
             <span class="step-number">1</span>
             <div class="column left gap-sm">
-              <p class="title">Create a team</p>
+              <p class="title">Create or join a team</p>
               <p class="metadata">
-                A team owns the models and submissions made under it, and team membership is how
-                access is shared. Everything else you create will belong to a team, so this comes
-                first. You will be its first member, and you can add colleagues now or any time
-                later — they need to have signed in at least once before they can be added. If you
-                are working on your own, a team of one is perfectly normal.
+                A team owns the models and submissions made under it, and team membership controls
+                access. Join an existing team by sharing your email with a team owner, or create a
+                new team and add colleagues now or later. Colleagues must have signed in at least
+                once before they can be added. If working alone, create a team of one.
               </p>
               <a class="btn primary with-icon" href="/html/teams/team_create.html">
                 <i class="btn-icon" data-lucide="plus"></i>
@@ -75,12 +74,10 @@
             <div class="column left gap-sm">
               <p class="title">Register a model</p>
               <p class="metadata">
-                A model is the thing being evaluated. You register it once, describing what it is —
-                which team owns it, how much temporal context it uses, whether it was pretrained and
-                on which modalities, plus optional links to your code, weights and paper. That
-                description is what makes results comparable between groups, so it is worth filling
-                in properly. You can edit any of it afterwards, and you will submit against the same
-                model many times as your work progresses.
+                Models are the entities being evaluated. Register a model once, describing what it
+                is, its owning team, and relevant pretraining details, with links to code, weights,
+                and paper. Edit any of it afterward, and submit against the same model as many times
+                as your work progresses.
               </p>
               <a class="btn primary with-icon" href="/html/models/model_create.html">
                 <i class="btn-icon" data-lucide="plus"></i>
@@ -94,12 +91,10 @@
             <div class="column left gap-sm">
               <p class="title">Make a submission</p>
               <p class="metadata">
-                A submission is a zip of your model's predictions. The folder names inside it tell
-                us which benchmark tasks you are entering — one folder per task — and you then
-                describe how each was run: the training paradigm, the supervision regime, the
-                calibration. Once uploaded, your predictions are scored against held-out test data.
-                Choose whether to publish it, and if you do, it appears on the public leaderboard
-                alongside everyone else's.
+                A submission is a zip of your model's predictions for any subset of the tasks,
+                generated using the utilities in the codepack. During upload, fill in details on how
+                the predictions were generated. Once uploaded, predictions are scored automatically
+                and, if made public, appear on the leaderboard.
               </p>
               <a class="btn primary with-icon" href="/html/submissions/submission_create.html">
                 <i class="btn-icon" data-lucide="plus"></i>

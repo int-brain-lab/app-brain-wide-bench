@@ -549,6 +549,28 @@ async def test_update_rejects_unknown_fields(seeded_client, add, me):
     assert response.status_code == 422
 
 
+async def test_update_cannot_set_n_parameters_estimated(seeded_client, add, me):
+    """The estimate flag is seeded with a model and read back, never set through the API."""
+    await add(
+        UserTeam(
+            user_id=me,
+            team_id=MY_TEAM,
+        )
+    )
+
+    response = await seeded_client.patch(
+        models_url(BASELINE),
+        json={"n_parameters_estimated": True},
+    )
+
+    assert response.status_code == 422
+
+    detail = await get_model(seeded_client, BASELINE)
+
+    assert detail.status_code == 200
+    assert detail.json()["n_parameters_estimated"] is False
+
+
 # ── DELETE /api/models/{id} ───────────────────────────────────────────────────
 
 

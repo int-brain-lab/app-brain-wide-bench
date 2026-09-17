@@ -56,8 +56,8 @@ async def test_enums_are_keyed_by_type_with_every_member(client):
 
 
 async def test_modality_offers_every_member(client):
-    """The model form's pretrained-modality pickers previously hardcoded three of the five,
-    which is the drift this endpoint exists to stop."""
+    """The model form's pretrained-modality pickers previously hardcoded three of them, which
+    is the drift this endpoint exists to stop."""
     modalities = (await client.get(META_URL)).json()["enums"]["modality"]
 
     assert [option["value"] for option in modalities] == [
@@ -66,6 +66,7 @@ async def test_modality_offers_every_member(client):
         "behavior",
         "lfp",
         "waveforms",
+        "other",
     ]
 
 

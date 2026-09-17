@@ -14,7 +14,10 @@ const AXIS = "#666";
 const GRID_INK = "#ededed";
 const SEM_INK = "#1a1a1a";
 
+// Half the width of the cap at each end, and the stroke the whisker is drawn in. A dataset
+// carrying `semCap` or `semWidth` is drawn to those instead — see `sem` in bar.js.
 const ERROR_BAR_CAP = 3;
+const ERROR_BAR_WIDTH = 1;
 
 // Plots stand as low as 120px.
 const MAX_Y_TICKS = 5;
@@ -115,17 +118,17 @@ function getPointSem(dataset, value, index) {
   return dataset.sems?.[index] ?? (value !== null && typeof value === "object" ? value.sem : null);
 }
 
-function drawErrorBar(ctx, x, top, bottom) {
+function drawErrorBar(ctx, x, top, bottom, cap) {
   ctx.beginPath();
 
   ctx.moveTo(x, top);
   ctx.lineTo(x, bottom);
 
-  ctx.moveTo(x - ERROR_BAR_CAP, top);
-  ctx.lineTo(x + ERROR_BAR_CAP, top);
+  ctx.moveTo(x - cap, top);
+  ctx.lineTo(x + cap, top);
 
-  ctx.moveTo(x - ERROR_BAR_CAP, bottom);
-  ctx.lineTo(x + ERROR_BAR_CAP, bottom);
+  ctx.moveTo(x - cap, bottom);
+  ctx.lineTo(x + cap, bottom);
 
   ctx.stroke();
 }
@@ -142,6 +145,9 @@ function drawErrorBar(ctx, x, top, bottom) {
  *   { x, y, sem }
  *
  * on an individual data point.
+ *
+ * `semColor`, `semWidth` and `semCap` on the dataset draw its whiskers in something other
+ * than the house ink, stroke and cap.
  */
 const errorBars = {
   id: "errorBars",
@@ -150,7 +156,6 @@ const errorBars = {
     const { ctx } = chart;
 
     ctx.save();
-    ctx.lineWidth = 1.5;
 
     chart.data.datasets.forEach((dataset, index) => {
       const meta = chart.getDatasetMeta(index);
@@ -158,7 +163,10 @@ const errorBars = {
       if (meta.hidden) return;
 
       const scale = chart.scales[meta.yAxisID ?? "y"];
+      const cap = dataset.semCap ?? ERROR_BAR_CAP;
+
       ctx.strokeStyle = dataset.semColor ?? dataset.borderColor;
+      ctx.lineWidth = dataset.semWidth ?? ERROR_BAR_WIDTH;
 
       meta.data.forEach((point, i) => {
         const value = dataset.data[i];
@@ -170,7 +178,7 @@ const errorBars = {
         const top = scale.getPixelForValue(y + sem);
         const bottom = scale.getPixelForValue(y - sem);
 
-        drawErrorBar(ctx, point.x, top, bottom);
+        drawErrorBar(ctx, point.x, top, bottom, cap);
       });
     });
 

@@ -22,8 +22,7 @@ Three rules, the same for every filter:
 
 * a filter naming no values narrows nothing
 * a filter naming several matches *any* of them
-* a null field matches nothing — an unanswered question is not a "no", which is the rule
-  ``is_pretrained`` has always followed
+* a null field matches nothing — an unanswered question is not a "no"
 
 A span follows all three, read as bounds rather than as values: neither bound given narrows
 nothing, one given is open at the other end, and a model that never said how many parameters

@@ -2,6 +2,7 @@
 
 import { applyFieldMeta, getMeta } from "../api/metaApi.js";
 import { getMyTeams } from "../api/teamApi.js";
+import { buildEstimateBadge } from "../components/badges.js";
 import { getIcon } from "../components/icons.js";
 
 const MODEL_FIELDS = {
@@ -74,6 +75,18 @@ const MODEL_FIELDS = {
     label: "N parameters",
     input: "number",
     panel: "specification",
+    valueBadge: (model) =>
+      buildEstimateBadge(
+        model.n_parameters_estimated,
+        MODEL_FIELDS.n_parameters_estimated.description,
+      ),
+  },
+
+  // No panel, so it is drawn nowhere as a row of its own. The entry is here for its
+  // description, which applyFieldMeta fills and the badge above shows on hover.
+  n_parameters_estimated: {
+    label: "Estimated parameter count",
+    editable: false,
   },
 
   temporal_context_s: {

@@ -4,24 +4,25 @@ import { initials } from "../core/utils.js";
 import { login, logout } from "../api/client.js";
 import { getCurrentUser } from "../api/userApi.js";
 import { buildSignInButton, buildSignOutButton } from "../components/buttons.js";
+import { DOCS_HREF } from "./navFooter.js";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
+
+// Where signing in lands, and where the nav item, the avatar and the sign-in button point.
+const DASHBOARD_HREF = "/html/dashboard/dashboard.html";
+
+const HOME_HREF = "/index.html";
 
 // The public surface, in the order a reader meets it — the scores, then what produced
 // them — with the way into the signed-in half last. Models is the unscoped list, the same
 // page the sidebar's "My models" is at data-scope="mine"; Tasks is every scored task, which
 // is the sidebar's "All tasks".
-// Where signing in lands, and the nav item that names it — one constant, so the button and
-// the link can't drift apart.
-const DASHBOARD_HREF = "/html/dashboard/dashboard.html";
-
-const HOME_HREF = "/index.html";
-
 const NAV_ITEMS = [
   { label: "Leaderboard", href: "/html/leaderboard/leaderboard.html" },
   { label: "Models", href: "/html/models/model_list_public.html" },
   { label: "Tasks", href: "/html/tasks/task_list_public.html" },
   { label: "Teams", href: "/html/teams/team_list_public.html" },
+  { label: "Documentation", href: DOCS_HREF, external: true },
   { label: "My dashboard", href: DASHBOARD_HREF },
 ];
 
@@ -50,23 +51,24 @@ function currentPage() {
 // crash. It returns early on a missing #top-nav now, so importing this from the sidebar
 // costs nothing but the module evaluation.
 //
-// An inline SVG rather than a Lucide placeholder: it isn't a Lucide icon, and it needs no
-// createIcons() pass to appear.
+// `new URL` rather than the path written out: the build hashes the files it emits, and a
+// plain "/img/logo.png" inside a string is not a reference it can see. Resolved against this
+// module either way, so the unbuilt source serves the same file.
+const LOGO_SRC = new URL("../../img/logo.png", import.meta.url).href;
+
+// Empty `alt`: the wordmark beside it is the name, and a screen reader reading both says it
+// twice.
 function renderLogo() {
   return `
     <div class="nav-logo">
-      <div class="nav-logo-mark">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="8" r="5" stroke="white" stroke-width="1.5" />
-          <circle cx="8" cy="8" r="2" fill="white" />
-        </svg>
-      </div>
+      <img class="nav-logo-mark" src="${LOGO_SRC}" alt="" />
 
-      <span>brain-wide bench</span>
+      <span>BrainWideBench</span>
     </div>
   `;
 }
 
+// `external` is a page off this site, which never matches the path `active` is decided by.
 function renderNavItem(item, page) {
   const active = item.href === page;
 
@@ -74,6 +76,7 @@ function renderNavItem(item, page) {
     <a
       href="${item.href}"
       ${active ? 'class="active"' : ""}
+      ${item.external ? 'target="_blank" rel="noopener noreferrer"' : ""}
     >
       ${item.label}
     </a>
@@ -103,9 +106,9 @@ function renderUserMenu(user) {
   const name = user.name || user.email;
 
   return `
-    <span class="user-logo">
+    <a class="user-logo" href="${DASHBOARD_HREF}" title="My dashboard">
       ${escapeHtml(initials(name))}
-    </span>
+    </a>
 
     ${buildSignOutButton({ id: LOGOUT_ID })}
   `;

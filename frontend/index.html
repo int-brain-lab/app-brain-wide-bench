@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Brain-Wide Bench</title>
+    <title>BrainWideBench</title>
+    <link rel="icon" type="image/png" href="/img/favicon.png" />
     <!-- Handshakes for the script origins at the end of the body. -->
     <link rel="preconnect" href="https://cdn.auth0.com" />
     <link rel="preconnect" href="https://unpkg.com" />
@@ -16,10 +17,12 @@
         <!-- Hero -->
         <section class="page-hero">
           <div class="column left gap-lg">
-            <h1 class="hero-title">How well does your model understand the brain?</h1>
+            <h1 class="hero-title">
+              A brain-wide benchmark spanning behavior, dynamics, and anatomy.
+            </h1>
             <p class="hero-description">
-              Brain-Wide Bench evaluates neural population models on held-out data from the
-              International Brain Laboratory, across behavior, dynamics, and anatomy.
+              BrainWideBench evaluates neural population models using data from the International
+              Brain Laboratory. Put your model to the test!
             </p>
             <div class="row left gap-md">
               <a class="btn primary with-icon" href="/html/leaderboard/leaderboard.html">
@@ -32,6 +35,16 @@
                 Submit a model
               </a>
             </div>
+          </div>
+
+          <div class="hero-figure">
+            <img
+              class="hero-image"
+              src="/img/hero-cover.webp"
+              width="940"
+              height="938"
+              alt="Recording locations across the mouse brain, from the IBL Brain Wide Map."
+            />
           </div>
         </section>
 
@@ -143,7 +156,7 @@
           <div class="row">
             <div class="column left">
               <h2 class="section-title">How it works</h2>
-              <p class="section-description">From your model to the leaderboard in three steps.</p>
+              <p class="section-description">Get your model on the leaderboard in three steps.</p>
             </div>
           </div>
 
@@ -154,7 +167,10 @@
                 <span class="step-icon" data-icon="train"></span>
                 <div class="column left gap-sm">
                   <h3 class="card-title">Train</h3>
-                  <p class="card-description">Train your model on publicly available data.</p>
+                  <p class="card-description">
+                    Pretrain your model, then generate predictions on the benchmark tasks using the
+                    codepack utilities.
+                  </p>
                 </div>
               </div>
 
@@ -164,7 +180,7 @@
                 <div class="column left gap-sm">
                   <h3 class="card-title">Submit</h3>
                   <p class="card-description">
-                    Upload your model's prediction results on held-out data.
+                    Upload your predictions along with details about your model.
                   </p>
                 </div>
               </div>
@@ -188,7 +204,7 @@
                   <h3 class="card-title">Explore the leaderboard</h3>
                 </div>
                 <p class="card-description">
-                  See how all the uploaded models perform across behavior, dynamics and anatomy.
+                  See how all the uploaded models perform across behavior, dynamics, and anatomy.
                 </p>
                 <a class="btn sm primary with-icon" href="/html/leaderboard/leaderboard.html">
                   View leaderboard
@@ -202,7 +218,7 @@
                   <h3 class="card-title">Have a model?</h3>
                 </div>
                 <p class="card-description">
-                  Evaluate it on held-out IBL data and see how it compares with other models.
+                  Evaluate it on the benchmark tasks and see how it compares with other models.
                 </p>
                 <a class="btn sm primary with-icon" href="/html/dashboard/dashboard.html">
                   Submit a model

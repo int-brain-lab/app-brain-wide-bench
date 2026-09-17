@@ -8,12 +8,15 @@ import { renderLogo } from "./navTop.js";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
+// Where both the rail's first item and the initials at its foot point.
+const DASHBOARD_HREF = "/html/dashboard/dashboard.html";
+
 // "My" throughout, because every one of these is scoped to the viewer, and the label is what
 // tells one from the unscoped list below it in a rail where both appear.
 const MAIN_NAV_ITEMS = [
   {
     label: "My dashboard",
-    href: "/html/dashboard/dashboard.html",
+    href: DASHBOARD_HREF,
     icon: getIcon("dashboard"),
   },
   {
@@ -119,7 +122,9 @@ function renderSidebar() {
 
     <div class="sidebar-bottom">
       <div class="row left gap-lg">
-        <div class="user-logo" id="user-initials">—</div>
+        <a class="user-logo" id="user-initials" href="${DASHBOARD_HREF}" title="My dashboard">
+          —
+        </a>
         ${buildSignOutButton({ id: LOGOUT_ID })}
       </div>
     </div>

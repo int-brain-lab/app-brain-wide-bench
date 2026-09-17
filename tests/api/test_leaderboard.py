@@ -139,8 +139,8 @@ async def test_row_carries_a_rank_per_task(seeded_client):
 # ── the pretrained filter ────────────────────────────────────────────────────
 #
 # The one public+done fixture submission belongs to mlp-baseline, which is not pretrained.
-# ssl-transformer is, and unsubmitted-net says nothing either way — neither has a submission
-# on the board, which is what makes "no rows" the right answer rather than an accident.
+# ssl-transformer is — and it has no submission on the board, which is what makes "no rows"
+# the right answer rather than an accident.
 
 
 async def test_unfiltered_includes_every_model(seeded_client):
@@ -158,35 +158,6 @@ async def test_filters_out_models_that_are_not_pretrained(seeded_client):
 
     assert response.status_code == 200
     assert response.json() == []
-
-
-async def test_an_unanswered_pretrained_flag_matches_neither_value(seeded_client, add):
-    """Nullable, so "not filled in" is its own state — not a quiet "no"."""
-    mystery = Submission(
-        model_id=MODELS["unsubmitted-net"],
-        label="mystery-run",
-        s3_key="submissions/mystery.zip",
-        status=SubmissionStatus.done,
-        is_public=True,
-    )
-
-    # Scored, because an unscored standing is no longer a row at all — see
-    # ``test_a_model_with_nothing_left_is_not_a_row``. The flag is what this is about, so the
-    # row has to exist before either value can be shown not to match it.
-    choice = TaskSubmission(submission_id=mystery.id, task_id="ts1-choice")
-
-    await add(
-        mystery,
-        choice,
-        TaskScore(task_submission_id=choice.id, n_seeds=3, primary_metric_mean=0.5),
-    )
-
-    assert "mystery-run" in labels(await seeded_client.get(LEADERBOARD_URL))
-
-    for value in ("true", "false"):
-        response = await seeded_client.get(LEADERBOARD_URL, params={"is_pretrained": value})
-
-        assert "mystery-run" not in labels(response)
 
 
 # ── the numeric spans ────────────────────────────────────────────────────────

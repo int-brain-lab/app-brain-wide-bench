@@ -251,14 +251,11 @@ TOP NAVIGATION BAR
   font-weight: 500;
 }
 
+/* The brand mark — img/logo.png, placed by renderLogo in js/nav/navTop.js. Its own width at
+   the nav's height: the mark is wider than it is tall. */
 .nav-logo-mark {
-  width: 28px;
   height: 28px;
-  background: var(--primary);
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: auto;
 }
 
 .nav-links {
@@ -413,6 +410,40 @@ FOOTER
   flex-shrink: 0;
 }
 
+/* A footer entry standing for two destinations: the trigger, and the list it opens. The
+   anchor for the list, which is positioned against it. */
+.footer-menu {
+  position: relative;
+}
+
+/* The trigger wears `.link.icon-link` like the links beside it. A button inherits neither
+   the page font nor a pointer, and brings a box of its own, so all three are set here. */
+.footer-menu > button {
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Upward: the footer is the last band of the page, and there is nothing below it to open
+   into. Above the sticky footer's own stacking, as .field-help-text is above the page. */
+.footer-menu-list {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+  width: max-content;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+}
+
 /*----------------------------------------------------------------------------------------
 USER LOGO
 ----------------------------------------------------------------------------------------*/
@@ -552,8 +583,39 @@ SECTIONS
    starts at the same edge as "Task suites" and the cards. */
 .page-hero {
   display: flex;
+  align-items: center;
+  gap: var(--gap-xl);
   padding: var(--gap-xl) 0 var(--gap-xxl);
   text-align: left;
+}
+
+/* The illustration in what the text column leaves, as tall as that column and no taller. The
+   frame takes its height from `align-self: stretch`, which is the flex line's — and the line
+   is the text column alone, since the image inside is out of flow and adds nothing to it. */
+.page-hero > .hero-figure {
+  flex: 1 1 0;
+  align-self: stretch;
+  position: relative;
+  min-width: 0;
+}
+
+/* Absolute, so the frame's height is the row's rather than the picture's. `contain` draws the
+   whole picture at that height, which leaves it narrower than the frame — `object-position`
+   is what puts that spare width on one side of it, and the inset on the right is what holds
+   the picture off that edge and nearer the text.
+
+   The inset rather than padding on the frame: an absolute box is placed against the padding
+   box, so padding would not move it.
+
+   An `aspect-ratio` on the frame would size it to the picture instead, but a flex item's
+   width is settled before stretching gives it a height, and the frame collapses. */
+.hero-figure > .hero-image {
+  position: absolute;
+  inset: 0 var(--gap-xl) 0 0;
+  width: auto;
+  height: 100%;
+  object-fit: contain;
+  object-position: right center;
 }
 
 /* Two thirds, and nothing beside it: the description sets its own line length, and across the
@@ -1219,7 +1281,10 @@ GENERIC TEXT
    components/fieldHelp.js so it is always fully on screen; on an input, clicking pins the
    same text open between the label and the control instead. Built in forms/fields.js from
    the `description` /api/meta fills in, so a field with nothing to explain emits none of
-   this. */
+   this.
+
+   `.field-help` also wraps a badge that qualifies a value — see buildEstimateBadge in
+   components/badges.js — which takes the box without the "?" beside it. */
 
 .field-help {
   display: inline-flex;
@@ -1529,6 +1594,13 @@ BADGES
 .badge.pending {
   background: var(--pending-light);
   color: var(--pending);
+}
+
+/* A caveat on the value beside it rather than a status of its own — the estimate marker on a
+   model's parameter count. */
+.badge.warning {
+  background: var(--warning-light);
+  color: var(--warning-dark);
 }
 
 /* The reader's own — a model of theirs on a board of everyone's, the team they own. The one

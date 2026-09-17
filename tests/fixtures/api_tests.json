@@ -71,6 +71,7 @@
       "link_code": "https://github.com/int-brain-lab/ibl-benchmark",
       "publication_doi": null,
       "n_parameters": 50000,
+      "n_parameters_estimated": false,
       "temporal_context_s": 2.0,
       "is_pretrained": false,
       "pretrained_in_modalities": [
@@ -88,6 +89,7 @@
       "link_code": null,
       "publication_doi": "10.1234/ssl.2026",
       "n_parameters": 12000000,
+      "n_parameters_estimated": false,
       "temporal_context_s": 4.0,
       "is_pretrained": true,
       "pretrained_in_modalities": [
@@ -108,8 +110,9 @@
       "link_code": null,
       "publication_doi": null,
       "n_parameters": null,
+      "n_parameters_estimated": false,
       "temporal_context_s": 1.0,
-      "is_pretrained": null,
+      "is_pretrained": false,
       "pretrained_in_modalities": null,
       "pretrained_out_modalities": null,
       "pretraining_data": null

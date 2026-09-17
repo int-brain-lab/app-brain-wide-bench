@@ -57,6 +57,11 @@ function filterControls() {
       type: "pinned",
       name: "pretrained",
       label: "Pretrained",
+
+      // The question, where the other controls show the field's name: the options answer it,
+      // and "Pretrained" over "Pretrained" reads as the same word twice.
+      placeholder: "Is pretrained?",
+
       options: PRETRAINED_OPTIONS,
     },
     ...MODEL_KEYS.map((key) => ({

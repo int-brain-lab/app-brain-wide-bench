@@ -5,10 +5,10 @@ The official baselines, scored from local prediction files and written as the fl
 
 ```bash
 uv run python scripts/make_baselines.py
-uv run python scripts/load_fixture_data.py tests/fixtures/2026_09_baselines.json
+uv run python scripts/load_fixture_data.py tests/fixtures/2026_09_16_baselines.json
 ```
 
-Paths default to `~/Downloads/new_brainwidebench_data`; `--data-root` moves all three at once,
+Paths default to `~/Downloads/new_again_brainwidebench`; `--data-root` moves all three at once,
 `--pred-root`, `--gt-root` and `--metadata` move one.
 
 ## What decides what
@@ -48,7 +48,7 @@ psql -c "select id, auth0_sub from users where email = 'benchmark@...'"
 
 # 2. build against it, and load with --append
 uv run python scripts/make_baselines.py --public --owner-id <that uuid>
-uv run python scripts/load_fixture_data.py tests/fixtures/2026_09_baselines.json --append
+uv run python scripts/load_fixture_data.py tests/fixtures/2026_09_16_baselines.json --append
 ```
 
 The fixture's `users` table comes out empty; only `user_teams` and `submission_users`
@@ -110,13 +110,13 @@ inputs is byte-identical.
 15 of 43 declared submissions had predictions: 9 models, 64 task entries, 59 scores. The ts1
 means match the previous scoring run exactly.
 
-**ts3 needs two compatibility aliases.** The predictions call the task `ts3-unit_cosmos` and
-the unit ids `entity_ids`; the installed `ibl_bwb_eval` reads `ts3-cosmos` and `unit_ids`, so
-ts3 scored nothing at all. `make_baselines.py` aliases both — a symlinked ground-truth tree
-and a temp copy of the prediction files with the tensor renamed. The content is the same
-array: all 3222 units match the ground truth. Both aliases go inert once the eval package
-agrees, and the fix belongs there: nothing in the `ibl-benchmark` checkout mentions
-`entity_ids`, so those predictions came from newer code than `main`.
+**ts3 needed two compatibility aliases, and no longer does.** `ibl_bwb_eval` renamed the task
+to `ts3-unit_cosmos` and the unit ids to `entity_ids` in #34; the tasks lookup, the metadata,
+the ground-truth tree and the prediction files all now use those names, so the script scores
+the files as they are and both aliases are gone. The older `new_brainwidebench_data` tree still
+carries `ts3-cosmos` in `bwb_models.json` and in its ground-truth directory, and the script no
+longer reconciles that — rename them, or score against this tree. A database migrated before
+#34 carries the old task id too: `alembic upgrade head` renames it.
 
 **`poyo-plus-ts1-baseline` scores 3 of its 8 tasks** and is left `failed`. Its timestep-level
 predictions are `(148, 50)` where every other baseline writes `(148, 50, 1)`, and

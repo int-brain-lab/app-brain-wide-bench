@@ -30,9 +30,8 @@ class LeaderboardRow(BaseModel):
     created_at: datetime | None = None
 
     # Whether the model is a pretrained foundation model, so a row can say so beside its
-    # name. Nullable for the same reason the column is: a model whose pretraining fields
-    # were never filled in makes no claim either way, and the client badges only ``True``.
-    is_pretrained: bool | None = None
+    # name. The client badges only ``True``.
+    is_pretrained: bool = False
 
     # How many public, completed submissions stand behind the row, superseded ones included
     # — a row is a standing, so its own count is the only place that total survives.

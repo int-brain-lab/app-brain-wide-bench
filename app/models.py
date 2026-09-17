@@ -133,6 +133,11 @@ class Modality(DescribedEnum):
         "Ephys spike waveforms (extracellular action potential shape captured in a short window "
         "around each detected spike).",
     )
+    other = (
+        "other",
+        "Any modality not listed here. Describe it in the pretraining data field and/or the "
+        "submission narrative.",
+    )
 
 
 class TrainingParadigm(DescribedEnum):
@@ -358,9 +363,11 @@ class Model(SQLModel, table=True):
     publication_doi: str | None = None
     # Architecture
     n_parameters: int | None = None
+    # Not settable through the API — see ModelBase in app/schemas/models.py.
+    n_parameters_estimated: bool = Field(default=False)
     temporal_context_s: float | None = None
-    # Pretraining — all nullable for single-session baselines
-    is_pretrained: bool | None = None
+    # Pretraining — the detail is nullable for single-session baselines; the flag is not.
+    is_pretrained: bool = Field(default=False)
     pretrained_in_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON_LIST))
     pretrained_out_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON_LIST))
     pretraining_data: str | None = None
@@ -382,6 +389,10 @@ class Model(SQLModel, table=True):
         "link_code": "Link to model code (e.g. GitHub).",
         "publication_doi": "DOI of affiliated publication.",
         "n_parameters": "Total number of non-embedding model parameters.",
+        "n_parameters_estimated": (
+            "The parameter count is approximate — a typical or median value rather than an exact "
+            "figure, as for a model trained per session whose size varies between runs."
+        ),
         "temporal_context_s": (
             "Duration (s) of context window used, including and preceding the target window. "
             "If context length varies across tasks for this model, report the primary/default "

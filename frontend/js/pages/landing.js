@@ -25,10 +25,6 @@ const SUITE_ATTRIBUTE = "data-suite";
 // A count the API has not answered with yet.
 const UNKNOWN = "—";
 
-// Chips beyond this many are counted rather than named. Three and the overflow chip are one
-// line of a suite card; a fourth wraps, and the wrap lengthens the tasks row of all three.
-const MAX_TASK_CHIPS = 3;
-
 // Every task the benchmark holds, one of the four figures. Off the suites rather than written
 // here, so a task added to TASK_NAMES is in this total.
 const N_TASKS = SUITES.flatMap(tasksForSuite).length;
@@ -95,17 +91,12 @@ function renderHeroStats(stats = null) {
 
 // ─── SUITE CARDS ─────────────────────────────────────────────────────────────
 
-// The first few tasks, and how many more there are. The overflow chip is neutral rather than
-// the suite's colour: it stands for the rest of them, not for a task.
+// Every task in the suite, in the suite's colour. The row wraps where the card is narrower
+// than the chips it holds.
 function buildTaskChips(suite) {
   const tasks = tasksForSuite(suite);
-  const shown = tasks.slice(0, MAX_TASK_CHIPS);
 
-  const chips = shown.map((taskId) => buildTaskBadge(taskLabel(taskId), suite, "sm"));
-
-  if (tasks.length > shown.length) {
-    chips.push(buildTaskBadge(`+${tasks.length - shown.length}`, "ts-neutral", "sm"));
-  }
+  const chips = tasks.map((taskId) => buildTaskBadge(taskLabel(taskId), suite, "sm"));
 
   return `<span class="row left gap-sm">${chips.join("")}</span>`;
 }

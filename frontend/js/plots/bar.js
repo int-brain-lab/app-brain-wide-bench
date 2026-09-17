@@ -19,8 +19,9 @@ function toFill(ink) {
 }
 
 // `colours` where a plot's bars are its categories rather than its series — one entry per
-// category, which is what Chart.js takes.
-function barMark(series) {
+// category, which is what Chart.js takes. `sem` is read by the errorBars plugin in plot.js,
+// which falls back to the house stroke and cap for whichever half of it is missing.
+function barMark(series, sem) {
   const ink = series.colours ?? series.colour;
 
   return {
@@ -31,6 +32,8 @@ function barMark(series) {
     borderSkipped: false,
     borderRadius: 2,
     semColor: SEM_INK,
+    semWidth: sem?.width,
+    semCap: sem?.cap,
     // Bar width is the product of the two, so one knob: a narrow gap, no more.
     categoryPercentage: 0.9,
     barPercentage: 1,
@@ -56,6 +59,7 @@ const ZERO_LINE = {
  * @param categoryLabel   (key) => what a tooltip calls it. Omit to show the key.
  * @param xTickRotation   degrees to turn the x tick labels by.
  * @param yRange          { min, max } the plot spans, widened to include zero.
+ * @param sem             { width, cap } in px for the whiskers. Omit for the house ones.
  * @param plotTitle       a heading inside the plot. Omit for none.
  * @param height          plot height in px.
  * @returns { element, chart }.
@@ -69,13 +73,14 @@ function createBarPlot({
   categoryLabel,
   xTickRotation,
   yRange,
+  sem,
   plotTitle,
   height,
 }) {
   return createCategoryChart({
     type: "bar",
     categories,
-    datasets: toDatasets(series, categories, barMark),
+    datasets: toDatasets(series, categories, (one) => barMark(one, sem)),
     yAxisLabel,
     xAxisLabel,
     xTickLabel,

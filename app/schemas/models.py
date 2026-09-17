@@ -17,7 +17,7 @@ class ModelMetadata(BaseModel):
     link_code: str | None = None
     publication_doi: str | None = None
     n_parameters: int | None = None
-    is_pretrained: bool | None = None
+    is_pretrained: bool = False
     pretrained_in_modalities: list[Modality] | None = None
     pretrained_out_modalities: list[Modality] | None = None
     pretraining_data: str | None = None
@@ -33,6 +33,10 @@ class ModelBase(ModelMetadata):
     name: str
     temporal_context_s: float | None = None
     created_at: datetime | None = None
+
+    # Here and not on ``ModelMetadata``: it is seeded with the baselines, and the request
+    # bodies built from that class forbid fields they do not name.
+    n_parameters_estimated: bool = False
 
     # Optional here only because it lives on the ``team`` relationship rather than on
     # the ORM object, so ``model_validate(model)`` can't populate it — ``from_model``
