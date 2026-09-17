@@ -390,8 +390,8 @@ class Model(SQLModel, table=True):
         "publication_doi": "DOI of affiliated publication.",
         "n_parameters": "Total number of non-embedding model parameters.",
         "n_parameters_estimated": (
-            "The parameter count is a median over the models this baseline's per-session sweeps "
-            "selected, rather than an exact count."
+            "The parameter count is approximate — a typical or median value rather than an exact "
+            "figure, as for a model trained per session whose size varies between runs."
         ),
         "temporal_context_s": (
             "Duration (s) of context window used, including and preceding the target window. "

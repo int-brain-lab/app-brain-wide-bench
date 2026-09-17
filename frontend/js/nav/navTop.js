@@ -51,19 +51,19 @@ function currentPage() {
 // crash. It returns early on a missing #top-nav now, so importing this from the sidebar
 // costs nothing but the module evaluation.
 //
-// An inline SVG rather than a Lucide placeholder: it isn't a Lucide icon, and it needs no
-// createIcons() pass to appear.
+// `new URL` rather than the path written out: the build hashes the files it emits, and a
+// plain "/img/logo.png" inside a string is not a reference it can see. Resolved against this
+// module either way, so the unbuilt source serves the same file.
+const LOGO_SRC = new URL("../../img/logo.png", import.meta.url).href;
+
+// Empty `alt`: the wordmark beside it is the name, and a screen reader reading both says it
+// twice.
 function renderLogo() {
   return `
     <div class="nav-logo">
-      <div class="nav-logo-mark">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="8" r="5" stroke="white" stroke-width="1.5" />
-          <circle cx="8" cy="8" r="2" fill="white" />
-        </svg>
-      </div>
+      <img class="nav-logo-mark" src="${LOGO_SRC}" alt="" />
 
-      <span>brain-wide bench</span>
+      <span>BrainWideBench</span>
     </div>
   `;
 }
