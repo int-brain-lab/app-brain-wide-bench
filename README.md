@@ -49,6 +49,14 @@ dev mode against the stub backend.
 The scorer reads ground truth from `S3_GT_PREFIX`. If that points at an existing
 local directory it is used directly (no S3 needed).
 
+### Worker scratch space
+
+The `worker` container downloads and extracts every submission under `TMPDIR`, which
+`docker-compose.yml` points at a bind-mounted `/scratch` (host path `BWB_SCRATCH_DIR`,
+default `./.data/scratch`), with ground truth similarly mounted at `/ground-truth`
+(`BWB_GT_DIR`). In production these are a dedicated EBS volume, not the root volume — see
+`.env.example` and `docs/worker_disk_plan_todo.md`.
+
 ## Full stack
 
 `docker compose --profile local up --build` starts Postgres, Redis, the web service

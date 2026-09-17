@@ -2,7 +2,7 @@
 set -e
 sudo -u ubuntu bash << 'DEPLOY'
   set -e
-  cd /srv/app-brain-wide-bench
+  cd /srv/app
   git pull
   docker compose up -d --build
   docker compose exec -T web uv run alembic upgrade head

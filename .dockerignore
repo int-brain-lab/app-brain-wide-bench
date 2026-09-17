@@ -8,3 +8,8 @@ frontend/coverage/
 .pytest_cache/
 .ruff_cache/
 .git/
+
+# Runtime secrets: injected via `env_file` at container start, never needed in the build
+# context. COPY . . would otherwise bake these into an image layer.
+.env
+.env.local
