@@ -31,7 +31,7 @@ const NAV_ITEMS = [
   { label: "Models", href: "/html/models/model_list_public.html", icon: getIcon("model") },
   { label: "Tasks", href: "/html/tasks/task_list_public.html", icon: getIcon("task") },
   { label: "Teams", href: "/html/teams/team_list_public.html", icon: getIcon("team") },
-  { label: "Documentation", href: DOCS_HREF, external: true, icon: getIcon("docs") },
+  { label: "Docs", href: DOCS_HREF, external: true, icon: getIcon("docs") },
   { label: "My dashboard", href: DASHBOARD_HREF, icon: getIcon("dashboard") },
 ];
 

@@ -18,7 +18,7 @@ const OPEN_CLASS = "drawer-open";
 
 // The same width as the chrome query in style.css. Above it the button is not drawn, so an
 // open drawer would have nothing left to close it.
-const CHROME_QUERY = "(max-width: 1100px)";
+const CHROME_QUERY = "(max-width: 1200px)";
 
 // Every link either panel holds, which is every way out of the page a panel offers.
 const PANEL_LINK = ".nav-links a, .sidebar a";

@@ -114,11 +114,12 @@ a {
      .nav and .page-footer. */
   --shell-pad: 40px;
 
-  /* Where the chrome folds — the six top-nav links stop fitting a little under this, and
-     the rail becomes a drawer at the same width so both shells leave the same room for
-     content below it. Written out in the query as well: a custom property cannot be used in
-     a media condition, so this is here to be read, not resolved. */
-  --bp-chrome: 1100px;
+  /* Where the chrome folds — the six top-nav links stop fitting a little under this now
+     that each carries a glyph, and the rail becomes a drawer at the same width so both
+     shells leave the same room for content below it. Written out in the query as well: a
+     custom property cannot be used in a media condition, so this is here to be read, not
+     resolved. */
+  --bp-chrome: 1200px;
 
   /* The floor for anything a thumb has to hit. */
   --tap-min: 44px;
@@ -278,10 +279,15 @@ TOP NAVIGATION BAR
   width: auto;
 }
 
+/* --font-md, as .sidebar-item is: one nav should not be a size larger than the same list of
+   destinations in the other, and the panel these become was already reading at this size.
+
+   20px and not 28 between them: the items carry a glyph each now, and the bar has to hold six
+   of them plus the brand and the account controls before the chrome folds. */
 .nav-links {
   display: flex;
-  gap: 28px;
-  font-size: var(--font-lg);
+  gap: 20px;
+  font-size: var(--font-md);
   color: var(--text-muted);
 }
 
@@ -291,6 +297,9 @@ TOP NAVIGATION BAR
 
    `.nav-link` rather than `.nav-links a`, which would take the panel's own head with it. */
 .nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-md);
   padding: 8px 10px;
   border-radius: var(--radius-md);
 }
@@ -300,10 +309,17 @@ TOP NAVIGATION BAR
   color: var(--text-color);
 }
 
-/* The head and the glyphs belong to the panel the links become below the chrome breakpoint.
-   In the bar they are six words, and a mark beside each would be a second brand. */
-.nav-links > .sidebar-logo,
+/* .sidebar-icon's own 15px, for the same --font-md label: the two navs draw one list of
+   destinations and should draw it identically. `flex-shrink: 0` so a long label cannot
+   squash the glyph once the row is a panel's width rather than a bar's. */
 .nav-link-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+/* The head is the panel's alone: in the bar the mark is already at the far end of it. */
+.nav-links > .sidebar-logo {
   display: none;
 }
 
@@ -455,7 +471,7 @@ NAVIGATION DRAWER
   background: rgb(20 20 19 / 44%);
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
   :root {
     --shell-pad: 24px;
   }
@@ -504,31 +520,15 @@ NAVIGATION DRAWER
     display: none;
   }
 
-  /* No padding of its own: the head spans the panel and the rows inset themselves, which is
-     how the rail is built — see .sidebar-logo and .sidebar-section. */
-  .nav-links {
-    font-size: var(--font-md);
-  }
-
   .nav-links > .sidebar-logo {
     display: block;
   }
 
-  /* A row in a panel, where it was an item in a bar — at .sidebar-item's own measurements,
-     since the two are now the same thing seen in two shells. */
+  /* A row in a panel, where it was an item in a bar — the glyph and the gap are the same
+     either way, so only the tap floor and the inset are the panel's. */
   .nav-link {
-    display: flex;
-    align-items: center;
-    gap: 9px;
     min-height: var(--tap-min);
     margin: 2px var(--gap-md) 0;
-  }
-
-  .nav-link-icon {
-    display: block;
-    width: 15px;
-    height: 15px;
-    flex-shrink: 0;
   }
 
   .sidebar-item {
