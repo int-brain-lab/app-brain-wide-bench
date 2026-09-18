@@ -116,7 +116,7 @@ class Settings(BaseSettings):
         if not self.dev_mode and "*" in self.cors_origin_list:
             raise ValueError(
                 "CORS_ORIGINS=* is not allowed outside dev mode (AUTH0_DOMAIN=dev) — pin "
-                "it to the real site origin, e.g. CORS_ORIGINS=https://brainwidebench.iblcore.org"
+                "it to the real site origin, e.g. CORS_ORIGINS=https://bwb.iblcore.org"
             )
         return self
 

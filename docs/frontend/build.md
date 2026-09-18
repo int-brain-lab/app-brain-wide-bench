@@ -74,7 +74,7 @@ symbol a freshly-fetched sibling no longer exports is a `SyntaxError` and a blan
 ## Verifying a deploy
 
 ```bash
-SITE=https://brainwidebench.iblcore.org
+SITE=https://bwb.iblcore.org
 
 curl -sI $SITE/html/models/models.html | grep -i cache-control   # no-cache
 curl -s  $SITE/html/models/models.html | grep -o '/assets/[^"]*' # hashed chunks
