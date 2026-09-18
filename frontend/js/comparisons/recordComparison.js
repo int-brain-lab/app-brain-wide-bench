@@ -88,8 +88,8 @@ const BASELINE_ROW_ID = "compare-baseline-row";
 const TASK_VIEW_ID = "compare-task-view";
 const SCORE_VIEW_ID = "compare-score-view";
 
-const SHOW_SCORES = "See scores breakdown";
-const HIDE_SCORES = "See every task";
+const SHOW_SCORES = "Show breakdown";
+const HIDE_SCORES = "Hide breakdown";
 
 // ─── DETAILS ─────────────────────────────────────────────────────────────────
 
@@ -482,7 +482,7 @@ function createRecordComparison({
 
     const element = document.createElement("div");
 
-    applyGrid(element, { cols: 3 });
+    applyGrid(element, { cols: 3, className: "table-grid" });
 
     for (const task of allTasks()) {
       const cell = document.createElement("div");
@@ -546,7 +546,7 @@ function createRecordComparison({
     const element = document.createElement("div");
     const charts = [];
 
-    applyGrid(element, { cols: 3 });
+    applyGrid(element, { cols: 3, className: "plot-grid" });
 
     for (const plot of plots) {
       const built = createTaskPlot({
@@ -636,7 +636,7 @@ function createRecordComparison({
         })),
         {
           selected: getBaseline(),
-          placeholder: `Select a baseline ${noun} to see differences`,
+          placeholder: "Show difference from",
         },
       ),
     );
@@ -793,7 +793,7 @@ function createRecordComparison({
 
   function setup() {
     const pageHtml = `
-      <div class="section-row" ${toGridAttrs({ cols: 2 })}>
+      <div class="section-row compare-layout" ${toGridAttrs({ cols: 2 })}>
         ${buildSections([
           {
             id: BREAKDOWN,
@@ -801,7 +801,18 @@ function createRecordComparison({
             // No heading: the baseline the plots are read against sits where one would be.
             // Wrapped, so it can be hidden whole while a single task is being read — a
             // difference is the set's question, not one task's.
-            controls: `<span id="${BASELINE_ROW_ID}">${buildBaselineSelect()}</span>`,
+            // The baseline to read the plots against, and the way into the scores behind
+            // them. Beside that row rather than inside it: the row is hidden while the
+            // breakdown is open — see renderBreakdown — and a toggle in it would go with it,
+            // leaving no way back.
+            controls:
+              `<span id="${BASELINE_ROW_ID}">${buildBaselineSelect()}</span>` +
+              buildButton({
+                id: SCORES_ID,
+                label: SHOW_SCORES,
+                icon: getIcon("expand"),
+                className: "sm muted",
+              }),
             actions: [
               `<span id="${TASK_VIEW_ID}">${buildPlotTableToggle(BREAKDOWN)}</span>`,
               `<span id="${SCORE_VIEW_ID}" hidden>${buildRecordingsToggle()}</span>`,
@@ -812,7 +823,7 @@ function createRecordComparison({
           },
         ])}
 
-        <div class="column gap-lg">
+        <div class="column gap-lg compare-details">
           ${buildSections([
             {
               id: DETAILS,
@@ -848,20 +859,10 @@ function createRecordComparison({
       `
         <div id="${DETAILS_GRID_ID}"></div>
 
-        <div class="column gap-sm push-down">
-          <span class="row left gap-sm">
-            ${buildButton({
-              id: SCORES_ID,
-              label: SHOW_SCORES,
-              icon: getIcon("expand"),
-              className: "sm muted",
-            })}
-          </span>
-        </div>
         ${
           picksContainer
             ? ""
-            : `<span class="row left gap-sm compare-picks" id="${PICKS_ID}"></span>`
+            : `<span class="row left gap-sm compare-picks push-down" id="${PICKS_ID}"></span>`
         }
       `,
     );

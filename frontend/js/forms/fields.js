@@ -12,7 +12,7 @@
 
 import { installFieldHelp } from "../components/fieldHelp.js";
 import { toGridAttrs } from "../components/layout.js";
-import { formatDate } from "../core/utils.js";
+import { formatDate, formatEnumValue } from "../core/utils.js";
 import { escapeHtml } from "../core/html.js";
 import { disabledOptionValues, isHelpPinned, isInactive, isLocked } from "./form.js";
 
@@ -121,11 +121,18 @@ function optionsHelpText(field) {
 
 // A checkbox-list's array is joined rather than left to String(array), and an empty one
 // reads as unset rather than "".
+//
+// An enum field's value is written out the way its own option is — see formatEnumValue. Only
+// an enum field: the option lists filled from the API hold team and model names, where an
+// underscore is part of the name rather than a separator of ours.
 function displayValue(field, raw) {
   if (field.input === "datetime-local") return formatDate(raw);
-  if (Array.isArray(raw)) return raw.length ? raw.join(", ") : null;
+
+  const written = (value) => (field.enum ? formatEnumValue(value) : value);
+
+  if (Array.isArray(raw)) return raw.length ? raw.map(written).join(", ") : null;
   if (typeof raw === "boolean") return raw ? "Yes" : "No";
-  return raw;
+  return written(raw);
 }
 
 // A textarea's value is prose, so its row takes the whole width whatever the card's

@@ -65,6 +65,10 @@ const COMPARE_ID = "compare-models";
 // The line beside the buttons saying what they are for — see getHint.
 const HINT_ID = "compare-hint";
 
+// Where the two control sections arrive closed, so a reader lands on the board rather than
+// on two panels of filters. The same width as `.board-controls`'s own tier in style.css.
+const NARROW_QUERY = "(max-width: 600px)";
+
 // This page's own two, beside the pair every comparison shares — see DONE_LABEL and
 // GO_COMPARE_LABEL in components/buttons.js.
 const COMPARE_LABEL = "Compare models";
@@ -114,6 +118,9 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
       header: buildHeader(),
       body: buildSections([
         {
+          // Named, because this row stacks at a width the record pages' own rows do not —
+          // see `.board-controls` in style.css.
+          className: "board-controls",
           sections: [
             {
               id: TASKS_SECTION,
@@ -121,6 +128,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
               description: "Select the suites or a combination of tasks to include in the ranking",
               compact: true,
               collapsible: true,
+              collapsed: matchMedia(NARROW_QUERY).matches,
             },
             {
               id: FILTERS_SECTION,
@@ -129,6 +137,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
                 "Apply filters to restrict models or tasks included in the ranking. Click more filters to show all",
               compact: true,
               collapsible: true,
+              collapsed: matchMedia(NARROW_QUERY).matches,
               actions: buildFilterActions(),
             },
           ],
@@ -144,7 +153,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
           // What pressing them does, then the buttons: the one that stays put reads
           // "Compare models", then "Done", and the other appears beside it.
           actions: [
-            `<span class="card metadata bold action-hint" id="${HINT_ID}"></span>`,
+            `<span class="hint-line"><span class="card metadata bold action-hint" id="${HINT_ID}"></span></span>`,
             buildButton({
               id: GO_BUTTON_ID,
               label: GO_COMPARE_LABEL,

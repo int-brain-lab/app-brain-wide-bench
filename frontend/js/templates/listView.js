@@ -414,7 +414,7 @@ function createListView({
 
     return `
       <div class="row right gap-lg">
-        <span class="card metadata bold action-hint" id="${HINT_ID}"></span>
+        <span class="hint-line"><span class="card metadata bold action-hint" id="${HINT_ID}"></span></span>
         ${buttons}
       </div>
     `;

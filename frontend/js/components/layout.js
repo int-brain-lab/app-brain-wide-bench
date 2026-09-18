@@ -65,7 +65,8 @@ function toGridAttrs(options = {}) {
  * The same, on an element the caller already holds.
  *
  * @param element the element to lay out.
- * @param options toGridAttrs's. Null takes the grid off again, classes and all.
+ * @param options toGridAttrs's, plus a `className` the grid keeps beside `grid` — for a grid
+ *               a stylesheet has to find. Null takes the grid off again, classes and all.
  */
 function applyGrid(element, options) {
   if (!element) return;
@@ -77,7 +78,7 @@ function applyGrid(element, options) {
   delete element.dataset.cols;
   delete element.dataset.shares;
 
-  element.className = options ? "grid" : "";
+  element.className = options ? ["grid", options.className].filter(Boolean).join(" ") : "";
 
   if (!options) return;
 

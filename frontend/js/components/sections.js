@@ -156,7 +156,7 @@ function buildSection({
     title || controls || actions.length
       ? `
     <div class="column gap-xs">
-      <div class="row${heading || controls ? "" : " right"}">
+      <div class="row section-head${heading || controls ? "" : " right"}">
         ${controls ? `<div class="row left gap-xl section-lead">${heading}${controls}</div>` : heading}
         ${actions.length ? buildActions(actions) : ""}
       </div>
@@ -209,8 +209,10 @@ function buildSectionFooter(action, { hidden = false } = {}) {
     : `<div class="section-footer row right">${action}</div>`;
 }
 
-function buildRow({ sections, ratio, stretch = true }) {
-  const classes = ["section-row", !stretch && "align-start"].filter(Boolean).join(" ");
+function buildRow({ sections, ratio, stretch = true, className = "" }) {
+  const classes = ["section-row", className, !stretch && "align-start"]
+    .filter(Boolean)
+    .join(" ");
 
   return `
     <div
@@ -231,7 +233,7 @@ function buildRow({ sections, ratio, stretch = true }) {
  *
  * A row:
  *
- *   { sections: [section, section], ratio, stretch }
+ *   { sections: [section, section], ratio, stretch, className }
  *
  * `ratio` is the columns' relative widths — `[1, 2]` for a summary beside the table it
  * summarises. Omit for equal columns.

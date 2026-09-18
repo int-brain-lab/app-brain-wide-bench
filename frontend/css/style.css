@@ -121,6 +121,12 @@ a {
      resolved. */
   --bp-chrome: 1200px;
 
+  /* The window height below which the footer stops being sticky — see `.page-footer`. The
+     band is about 51px; above this there is enough page left that holding it in view costs
+     little, and below it there is not. Written out in the query too, for the same reason as
+     the one above. */
+  --bp-short: 1000px;
+
   /* The floor for anything a thumb has to hit. */
   --tap-min: 44px;
 
@@ -626,6 +632,19 @@ FOOTER
   padding: 14px var(--shell-pad);
   border-top: 1px solid var(--border-color);
   background: var(--surface-secondary);
+}
+
+/* Not on a short window, where the band is a large enough share of what there is to read that
+   keeping three links in view costs more than it gives. Most windows are short by this
+   measure — a laptop browser and a phone held upright both are — so the sticky footer is the
+   exception rather than the rule, and only a tall monitor or a tablet upright keeps it.
+
+   Only `position` goes: `margin-top: auto` still puts the footer on the bottom edge of a page
+   shorter than the window, so nothing moves until there is a scroll for it to sit out. */
+@media (max-height: 1000px) {
+  .page-footer {
+    position: static;
+  }
 }
 
 /* Icon and label as one target, at .link's size and colour — the footer's three, and the
@@ -1343,6 +1362,80 @@ GENERIC TEXT
   min-width: 0;
 }
 
+/* A section's heading and whatever works it, one over the other rather than at two ends of a
+   row: on a phone the two rarely both fit, and a heading pushed to a second line by a pair of
+   buttons reads as belonging to them. */
+@media (max-width: 600px) {
+  .section-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--gap-md);
+  }
+
+  /* The hint at one end and the buttons stacked at the other, rather than the hint over both:
+     with the head already a column, a line of its own for the sentence is a third band of
+     chrome above the thing it is about.
+
+     A grid, not the wrapping row above: a row can put the buttons on their own line but not
+     beside each other in a column, and there is no wrapper around the two of them to make one
+     of. The hint holds column one down both rows; the buttons fall into column two. */
+  .section-head > .row.right:has(.hint-line) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: var(--gap-md);
+  }
+
+  .section-head > .row.right > .hint-line {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    justify-content: flex-start;
+  }
+
+  /* The lead's children become the head's own, so what is in it can be ordered past the
+     buttons: `order` sorts siblings, and the picks sit a level down from them. It also stacks
+     the heading and the count, which is what a column of this width wants anyway. */
+  .section-lead {
+    display: contents;
+  }
+
+  /* Except the breakdown's, which holds two controls rather than a heading and what qualifies
+     it: they stack as a column of their own at the near edge, instead of being handed to the
+     head to stretch across it. */
+  .section-lead:has(> #compare-scores-toggle) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+
+    /* `0 1 auto` where the lead's own is `1 1 0`: the column takes the width of the wider of
+       the two rather than all the row leaves, and `stretch` then draws the other to match.
+       Shrinking stays on, so a long option name gives way before it pushes the toggle off. */
+    flex: 0 1 auto;
+  }
+
+  /* And that head stays a row where the others become a column: two controls stacked at one
+     end and the view toggle at the other is what fits across this width, where the same three
+     in a column would be three bands above the plots.
+
+     `align-items` is left to `.row`'s own `center`, so the toggle sits against the stack as it
+     does against a single row above this width rather than being pulled to its top. */
+  .section-head:has(#compare-scores-toggle) {
+    flex-direction: row;
+  }
+
+  /* The select gives up its 280px there, so the column is sized by whichever of the two is
+     wider and both are drawn to that. */
+  .section-lead:has(> #compare-scores-toggle) > .inline-select {
+    width: auto;
+  }
+
+  /* The models picked, under the controls that pick them rather than beside the count: a row
+     of chips grows as they are chosen, and beside a summary it pushes the count off the line. */
+  .compare-picks {
+    order: 1;
+  }
+}
+
 /* A title that turns its own section off and on. A button of its own making: no chrome, so
    the row reads as the heading it is, with the arrow the only sign it can be pressed. */
 .section-toggle {
@@ -1800,8 +1893,8 @@ button.badge {
 /* A column of its own for the button, so the three lead controls keep the full width beside
    it. The bar is a `.grid` of three otherwise; only the trailing column is the bar's own.
 
-   Two classes, so this outranks `.grid` wherever the two disagree — including the breakpoint
-   rules, which have to name it as well to fold the button onto its own row. */
+   Two classes, so this outranks `.grid` wherever the two disagree — which is why the tiers
+   below name it as well as the bar itself. */
 .filter-flow.compact {
   grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
 }
@@ -1847,6 +1940,45 @@ button.badge {
    what "nothing chosen yet" looks like in markup. */
 .baseline-select .input-select:has(option[value=""]:checked) {
   color: var(--text-muted);
+}
+
+/* The breakdown toggle beside it, at that select's own measurements — see `.input-select`.
+   The two sit in one row and are two offers rather than a control and a button, so the button
+   gives up the padding, fill and weight `.btn` gives it. Its colour is `.muted`'s, which is
+   the select's while it is still asking. */
+#compare-scores-toggle {
+  padding: 9px 12px;
+  background: var(--surface);
+  font-weight: normal;
+
+  /* Ranged left, as the select's own text is: stretched to the column's width it would
+     otherwise centre its label and the pair would not read as one stack. */
+  justify-content: flex-start;
+  text-align: left;
+}
+
+/* And close to it: the two are one pair of offers, where the lead's own `--gap-xl` is the
+   space between a heading and what qualifies it. Scoped to the lead holding this toggle, so
+   the board's own heading, count and picks keep theirs. */
+.section-lead:has(> #compare-scores-toggle) {
+  gap: var(--gap-md);
+}
+
+/* The view toggle holds the right edge at every width. `.row`'s own wrap would drop it to a
+   line of its own, where `space-between` leaves a single item at the *left* — the one place a
+   control opposite the lead should never be. So the head does not wrap, and the two ends give
+   way instead. */
+.section-head:has(#compare-scores-toggle) {
+  flex-wrap: nowrap;
+}
+
+/* What lets them give way: a flex item will not shrink past its contents on its own, so
+   without this the toggle keeps its full width and pushes the lead out rather than folding.
+   With it, the toggle's own row wraps inside itself — Plots over Table, each still against the
+   right edge — which is the narrowest it has to get before anything moves off that edge. */
+.section-head:has(#compare-scores-toggle) > .row.right,
+.section-head:has(#compare-scores-toggle) > .row.right > span {
+  min-width: 0;
 }
 
 /* A badge standing for a set of things, pressed to take the whole set on or off — see
@@ -1913,6 +2045,38 @@ COMPARISONS
    pages/leaderboard.js. Collapsed until then, so no bare box sits beside the buttons. */
 .action-hint:empty {
   display: none;
+}
+
+/* The line a hint sits on. `display: contents` here, so the hint itself is the row's item and
+   the row is exactly what it was without this. */
+.hint-line {
+  display: contents;
+}
+
+/* A hint over the buttons it is about rather than beside them: the three share a row with the
+   heading, and at this width the sentence is the first of them to run out of room. The row
+   already wraps, so an item taking a whole line puts the buttons on the next — and leaves them
+   beside each other there, which a column would not.
+
+   A wrapper, because one element cannot do both: wrapping is decided on an item's basis
+   *clamped by its max-width*, so a hint asked for the whole line is still laid out at 38ch of
+   it and the buttons stay alongside. The wrapper takes the basis; the hint keeps its measure.
+
+   `flex` and not `block` on it, which is the part that bit: `.action-hint` is a span with no
+   display of its own, blockified only by being a flex item. In a block wrapper it is inline
+   again, and `max-width` does not apply to an inline box — so the measure it was wrapped to
+   keep is the first thing it loses. */
+@media (max-width: 1200px) {
+  .hint-line {
+    display: flex;
+    justify-content: flex-end;
+    flex: 1 0 100%;
+  }
+
+  /* Nothing to break the line for until the row knows what to say. */
+  .hint-line:has(.action-hint:empty) {
+    display: none;
+  }
 }
 
 /*----------------------------------------------------------------------------------------
@@ -3420,5 +3584,140 @@ LANDING PAGE
 
   .tab {
     justify-content: center;
+  }
+}
+
+/*----------------------------------------------------------------------------------------
+LEADERBOARD
+----------------------------------------------------------------------------------------*/
+
+/* The board's own two widths.
+
+   1200 is where the two control sections stop fitting beside each other: a bar of filters
+   three across and a row of suites with its tasks both want the width, and neither gets it at
+   half of it. It is the chrome's own width too — the navs fold there — so the page changes
+   once rather than twice. 600 is where what is left stops being a row at all.
+
+   Named rather than taken on every `.section-row[data-cols="2"]`: the record pages' own pairs
+   are a card beside a table and hold together far lower than this. */
+
+@media (max-width: 1200px) {
+  .board-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Two across, and the button still in a column of its own while the rest are folded. */
+  .filter-flow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-flow.compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  }
+
+  /* Once the board scrolls under them, the frozen columns need the edge the rules above take
+     off — see `.tabulator-frozen`, where nothing scrolls at full width and the grid's only
+     separators are horizontal. */
+  .tabulator .tabulator-header .tabulator-col.tabulator-frozen,
+  .tabulator .tabulator-row .tabulator-cell.tabulator-frozen {
+    box-shadow: 1px 0 0 var(--border-color);
+  }
+}
+
+@media (max-width: 600px) {
+  /* Two across, not one: a filter is a label over a select, and a column of eight of them
+     down a phone is longer than the board they narrow. The compact bar loses its trailing
+     column with them — the button takes a cell in the grid and wraps onto the next row. */
+  .filter-flow,
+  .filter-flow.compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* The board's head is the one that carries a summary, the picks, a hint and two buttons, so
+     its buttons take the width the stacked head gives them rather than hugging one end.
+
+     Its own head only: the comparison mounts inside this section's body, so a descendant
+     selector would widen the breakdown's Plots/Table toggle too and wrap it into a column. */
+  #section-board > .column > .section-head .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/*----------------------------------------------------------------------------------------
+COMPARE LAYOUT
+----------------------------------------------------------------------------------------*/
+
+/* The comparison is the breakdown beside the details — see comparisons/recordComparison.js.
+   At 1200 the two stop being halves: the details table goes under the plots, and the plots,
+   with the whole width to themselves, take five to a row rather than three. The same width the
+   chrome folds at, so a comparison rearranges once rather than twice.
+
+   Named rather than taken on `[data-cols="2"]`: the record pages' own pairs are a card beside
+   a table and hold together far lower than this. */
+
+@media (max-width: 1200px) {
+  .compare-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .plot-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+/* Four, then three, as the row narrows. Written widest first, so each takes over from the one
+   above it: a small multiple is still a plot, and an axis it cannot label is not one. */
+@media (max-width: 1000px) {
+  .plot-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 800px) {
+  .plot-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* One fewer than the plots at every width they share: the same task drawn as a table needs
+     room for a model's name beside its number, where a plot needs room for an axis. */
+  .table-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .plot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* One, where the plots hold two: a table of this one still has to fit a model's name beside
+     its number, and at half a phone it wraps every row of them. */
+  .table-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* The breakdown behind one task is a column even here, where the task plots above are still
+     two across: its mean, and the recordings under it, rather than the mean in a third of the
+     width with the rest beside it. The recordings already stack in the column they are given;
+     this is what stops that column being a third of a phone. Inert while the breakdown is
+     shut, when the layout is not a grid at all — see renderBreakdown. */
+  #compare-plot-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .scores-rest {
+    grid-column: auto;
+  }
+
+  /* The details table goes, rather than being scrolled sideways: it is a column per model over
+     rows of methodology, so at this width every column is narrower than the values in it and
+     nothing lines up to be compared — which is the only reason to read it.
+
+     The wrapper and not `#section-summary` alone: the section is a grid item, and an emptied
+     one still takes the row gap under the plots. The plots and the picks stay, so what is
+     being compared is still named. */
+  .compare-details {
+    display: none;
   }
 }

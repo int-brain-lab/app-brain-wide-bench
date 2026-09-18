@@ -11,7 +11,7 @@ import { hrefForRecord } from "../core/links.js";
 import { buildScoreBar } from "../components/bars.js";
 import { buildButton } from "../components/buttons.js";
 import { metricLabel, suiteFromTask, taskFullLabel, taskLabel } from "../core/suites.js";
-import { formatDate, score } from "../core/utils.js";
+import { formatDate, formatEnumValue, score } from "../core/utils.js";
 import {
   buildMetricBadge,
   buildMetricBadgeList,
@@ -371,18 +371,20 @@ function editFormatter(cell) {
   });
 }
 
+// A methodology column's cell — the only columns this is given, so its values are the
+// server's enum members and are written out as such. See formatEnumValue.
 function parameterFormatter(cell) {
   const value = cell.getValue();
 
   if (Array.isArray(value)) {
     return value.length
-      ? `<span class="metadata">${escapeHtml(value.join(", "))}</span>`
+      ? `<span class="metadata">${escapeHtml(value.map(formatEnumValue).join(", "))}</span>`
       : emptyMetadata();
   }
 
   return value == null || value === ""
     ? emptyMetadata()
-    : `<span class="metadata">${escapeHtml(value)}</span>`;
+    : `<span class="metadata">${escapeHtml(formatEnumValue(value))}</span>`;
 }
 
 function rankFormatter(cell) {
