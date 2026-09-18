@@ -45,6 +45,7 @@ import {
   setButtonLabel,
 } from "../components/buttons.js";
 import { getIcon } from "../components/icons.js";
+import { applyGrid, toGridAttrs } from "../components/layout.js";
 import { buildComparisonGrid, buildPicks, dropFromClick } from "../components/comparisonGrid.js";
 import { methodologyCells, methodologyColumns } from "../components/methodologyGrid.js";
 import { buildOptions, buildSelect } from "../components/filters.js";
@@ -481,7 +482,7 @@ function createRecordComparison({
 
     const element = document.createElement("div");
 
-    element.className = "grid-3 gap-lg";
+    applyGrid(element, { cols: 3 });
 
     for (const task of allTasks()) {
       const cell = document.createElement("div");
@@ -545,7 +546,7 @@ function createRecordComparison({
     const element = document.createElement("div");
     const charts = [];
 
-    element.className = "grid-3 gap-lg";
+    applyGrid(element, { cols: 3 });
 
     for (const plot of plots) {
       const built = createTaskPlot({
@@ -573,7 +574,7 @@ function createRecordComparison({
 
     // Reading one task: a column for its plot and the rest for the recordings beside it —
     // see `.scores-rest`.
-    getElement(LAYOUT_ID).className = showScores ? "grid-3 gap-lg" : "";
+    applyGrid(getElement(LAYOUT_ID), showScores ? { cols: 3 } : null);
     getElement(TASK_DETAIL_ID).className = showScores ? "scores-rest" : "";
 
     // Reading one task, the mean of it stands in for its card in the grid.
@@ -792,7 +793,7 @@ function createRecordComparison({
 
   function setup() {
     const pageHtml = `
-      <div class="section-row">
+      <div class="section-row" ${toGridAttrs({ cols: 2 })}>
         ${buildSections([
           {
             id: BREAKDOWN,

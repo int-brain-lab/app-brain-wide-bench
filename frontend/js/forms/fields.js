@@ -11,6 +11,7 @@
 // escaping uniformly means no reader has to work out which slot is which.
 
 import { installFieldHelp } from "../components/fieldHelp.js";
+import { toGridAttrs } from "../components/layout.js";
 import { formatDate } from "../core/utils.js";
 import { escapeHtml } from "../core/html.js";
 import { disabledOptionValues, isHelpPinned, isInactive, isLocked } from "./form.js";
@@ -412,15 +413,12 @@ function buildDisplayFields(keys, state, fields, inline = false) {
 
 // ─── CARDS AND GRIDS ─────────────────────────────────────────────────────────
 
-// A `columns` value with no class here falls back to the card's own flex column, rather
-// than emitting a class style.css has no rule for.
-const GRID_CLASS = { 2: "grid-2", 3: "grid-3", 4: "grid-4" };
-
 // Fields arrive as a flat run of siblings, so the container decides how they flow: one
 // column needs no wrapper, more than one needs a grid.
 function wrapColumns(html, columns) {
-  const gridClass = GRID_CLASS[columns];
-  return gridClass ? `<div class="${gridClass}">${html}</div>` : html;
+  return columns > 1
+    ? `<div class="grid" ${toGridAttrs({ cols: columns })}>${html}</div>`
+    : html;
 }
 
 // One panel as a card: its title above its fields. A panel group is `{title, keys, inline,

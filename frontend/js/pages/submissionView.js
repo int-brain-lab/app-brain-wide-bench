@@ -92,7 +92,7 @@ const DETAILS_FOOTER = buildSectionFooter(buildDetailsButton({ view: "details" }
 
 const DASHBOARD_SECTIONS = [
   {
-    ratio: 3,
+    ratio: [1, 2],
     sections: [
       { id: "narrative", title: "Narrative" },
       { id: "methodology", title: "Task submissions" },

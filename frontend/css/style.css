@@ -34,7 +34,7 @@ a {
    referenced everywhere with var(). Change a value here, and it updates
    across the whole site. */
 :root {
-  /*!* Primary *!*/
+  /* Primary */
 
   /* A dark ink rather than a hue: every saturated colour on this page already belongs to a
      suite or to a status, and a brand competing for one of them reads as that thing. */
@@ -42,7 +42,7 @@ a {
   --primary-dark: #16222a;
   --primary-light: #eef2f3;
 
-  /*!* Neutral *!*/
+  /* Neutral */
   --text-color: #1a1a1a;
   --text-muted: #666;
 
@@ -51,16 +51,13 @@ a {
 
   --border-color: #e5e5e5;
 
-  /*!* Task suites *!*/
-  /*--ts1: #085041;*/
+  /* Task suites */
   --ts1: #1d9e75;
   --ts1-light: #e1f5ee;
 
-  /*--ts2: #0C447C;*/
   --ts2: #378add;
   --ts2-light: #e6f1fb;
 
-  /*--ts3: #3C3489;*/
   --ts3: #7b61a8;
   --ts3-light: #f1ecf7;
 
@@ -86,7 +83,6 @@ a {
 
   /* Mine — the reader's own, which is a fact about them rather than about the record. The one
      hue no suite and no status carries. */
-  --mine: #c05a9b;
   --mine-dark: #a3417f;
   --mine-light: #fbecf5;
 
@@ -139,7 +135,7 @@ a {
 /* Stops grid/flex children stretching to the tallest in their row. The dashboard needs it:
    two .page-section columns of unequal length would both stretch, and .page-section's
    `justify-content: space-between` then pushes the shorter one's content to the bottom of
-   the row instead of leaving it at the top. Same reason .wizard and .task-split set it. */
+   the row instead of leaving it at the top. Same reason .task-split sets it. */
 .align-start {
   align-items: start;
 }
@@ -477,11 +473,6 @@ BUTTONS
   font-weight: var(--bold);
 }
 
-.btn.lg {
-  font-size: var(--font-md);
-  padding: 11px 24px;
-}
-
 .btn.primary-inv {
   background: var(--surface);
   color: var(--primary);
@@ -548,9 +539,8 @@ BUTTONS
 }
 
 /* A button beside the thing it acts on rather than at the head of the page: a view switch,
-   a filter bar's Clear and Apply. The box shrinks with the label, as `.btn.lg`'s grows with
-   it — the two are one scale, and a `sm` at full padding read as a full button with small
-   text in it. */
+   a filter bar's Clear and Apply. The box shrinks with the label: a `sm` at full padding
+   read as a full button with small text in it. */
 .btn.sm {
   padding: 5px 12px;
   font-size: var(--font-xs);
@@ -673,44 +663,15 @@ GRIDS, COLUMNS AND ROWS
   justify-content: flex-end;
 }
 
-.grid-2 {
+/* Equal columns, as many as `--cols` says — components/layout.js writes it. One rule rather
+   than one class per count: a count is data, and a breakpoint rule overriding
+   `grid-template-columns` beats it without having to outrank an inline property. */
+.grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--gap-lg);
+  grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr));
+  gap: var(--grid-gap, var(--gap-lg));
 }
 
-.grid-3 {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--gap-lg);
-}
-
-.grid-4 {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-/* Five is as narrow as a control can be and still read, so it takes the tighter gap. */
-.grid-5 {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--gap-lg);
-}
-
-.grid-6 {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: var(--gap-lg);
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 300px));
-  gap: var(--gap-xxl);
-  justify-content: center;
-  align-items: center;
-  margin-top: 10px;
-}
 /* A grid child that takes the whole row whatever the column count — used by the
    field renderers for textareas, which need the full width of a multi-column
    card. Ignored outside a grid, so it costs nothing on a single-column card. */
@@ -718,50 +679,17 @@ GRIDS, COLUMNS AND ROWS
   grid-column: 1 / -1;
 }
 
+/* A row of sections: equal columns, or the widths `--shares` names where they differ — a
+   summary beside the table it summarises, a card of positions beside the record itself.
+   Both are written by components/layout.js.
+
+   `data-cols` carries the count as well, for the breakpoint rules: a row of three stops
+   working at a width a row of two is still fine at, and CSS cannot read `--cols` to tell
+   them apart. */
 .section-row {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
-  gap: var(--gap-lg);
-}
-
-/* One narrow column beside a wide one — a summary next to the table it summarises.
-   `minmax(0, ...)` on both so a wide child (a table, a Tabulator grid) is clipped by its
-   column rather than widening it. */
-.section-row.ratio-3 {
-  grid-auto-flow: row;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-}
-
-/* Three columns — a stack of figures, a card of positions, and the record they belong to,
-   the last the widest. The `ratio-N` rows are pairs; this one names its shares because it
-   has three. */
-/* Three columns, widening left to right. The `ratio-N` rows are pairs; the ones that name
-   all their shares have three. */
-.section-row.ratio-1-2-3 {
-  grid-auto-flow: row;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 3fr);
-}
-
-/* Three columns, a card of positions beside the record itself and a stack of cards. */
-.section-row.ratio-1-2-2 {
-  grid-auto-flow: row;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 2fr);
-}
-
-.section-row.ratio-4 {
-  grid-auto-flow: row;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
-}
-
-.section-row.ratio-5 {
-  grid-auto-flow: row;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 4fr);
-}
-
-.section-row.ratio-6 {
-  grid-auto-flow: row;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 5fr);
+  grid-template-columns: var(--shares, repeat(var(--cols, 1), minmax(0, 1fr)));
+  gap: var(--grid-gap, var(--gap-lg));
 }
 
 /* The chain that carries the row's height down to the card, so two sections sharing a row
@@ -795,13 +723,11 @@ CREATE CARD
    drawing a card twice the size of its neighbours. Two, because that is MAX_CARDS in
    pages/dashboard.js. */
 .card-stack {
-  display: grid;
   grid-template-rows: repeat(2, 1fr);
-  gap: var(--gap-lg);
   flex: 1;
 }
 
-/* The "new X" control on the list pages — js/utils/create-card.js.
+/* The "new X" control on the list pages — js/cards/createCard.js.
    Dashed rather than solid, so it reads as a slot for something that doesn't exist yet
    next to cards that are real records. No explicit height: as a grid cell it stretches to
    its row, and min-height only matters when it's alone on an empty list. */
@@ -827,7 +753,7 @@ CREATE CARD
   color: var(--primary-dark);
 }
 
-/* The filter bar over a list page's two views — templates/list-page.js. It has a container
+/* The filter bar over a list page's two views — templates/listPage.js. It has a container
    of its own above the list, rather than the one inside the table root that used to hold it
    and space it, so the gap under it comes from here. Empty on a list with nothing to narrow,
    where it should take no room at all. */
@@ -925,12 +851,6 @@ CARDS
   position: relative;
   width: 100%;
 }
-
-/*!* One panel of a faceted chart. The gap is small on purpose: the panels share an axis and*/
-/*   are read as one figure, and a wide gap would make them look like separate charts. *!*/
-/*.chart-facet + .chart-facet {*/
-/*  margin-top: 8px;*/
-/*}*/
 
 /* The recordings behind one task, in the columns its own plot leaves: the plot takes the
    first, these take the rest, one to a row. */
@@ -1114,7 +1034,6 @@ CARDS
   padding: 8px 16px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
-  /*border-color: transparent;*/
   background: var(--surface);
   overflow: hidden;
   align-items: center;
@@ -1258,15 +1177,16 @@ GENERIC TEXT
   font-weight: var(--bold);
 }
 
-.field-label,
 .metadata {
   font-size: var(--font-xs);
   color: var(--text-muted);
 }
 
-/* Level with the value under it, rather than a size below. */
+/* Level with the value under it, rather than a size below — which is what `.metadata`
+   beside it takes. */
 .field-label {
   font-size: var(--font-sm);
+  color: var(--text-muted);
 }
 
 /* The asterisk beside a required field's label. Inherits the label's size, so it stays in
@@ -1399,18 +1319,6 @@ GENERIC TEXT
   font-weight: var(--bold);
 }
 
-/*.text {*/
-/*  font-size: var(--font-md);*/
-/*}*/
-
-/*.text-sm {*/
-/*  font-size: var(--font-sm);*/
-/*}*/
-
-/*.text-xs {*/
-/*  font-size: var(--font-xs);*/
-/*}*/
-
 .muted {
   color: var(--text-muted);
 }
@@ -1467,16 +1375,13 @@ GENERIC TEXT
   color: var(--success-dark);
   font-size: var(--font-md);
   font-weight: var(--bold);
-}
 
-/* Centred on the card, which is centred on the page: this is the only thing on it, and a
-   sentence and two buttons ranged left in a 520px box read as the start of a form.
-   `align-items` rather than stretch, so the buttons keep their own width. */
-#gate,
-.sign-in-card {
+  /* Centred: this is the only thing on the page, and a sentence and two buttons ranged left
+     in a 520px box read as the start of a form. */
   text-align: center;
 }
 
+/* `align-items` rather than stretch, so the buttons keep their own width. */
 #gate .column,
 .sign-in-card .column {
   align-items: center;
@@ -1637,15 +1542,11 @@ button.badge {
 
 /* The filters and the button that folds them, three to a row with the button last: unfolded it
    ends the last row of controls, folded it ends the only one. */
-.filter-flow {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: start;
-  gap: var(--gap-lg);
-}
-
 /* A column of its own for the button, so the three lead controls keep the full width beside
-   it. */
+   it. The bar is a `.grid` of three otherwise; only the trailing column is the bar's own.
+
+   Two classes, so this outranks `.grid` wherever the two disagree — including the breakpoint
+   rules, which have to name it as well to fold the button onto its own row. */
 .filter-flow.compact {
   grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
 }
@@ -1740,8 +1641,7 @@ COMPARISONS
    templates/listView.js. Capped rather than left to run: a sentence the width of the page
    would take the whole first line of the action row and push the buttons onto their own.
 
-   Narrow by default, for the short ones — a hint beside the buttons rather than across from
-   them. `.lg` below is for the sentences that need the room.
+   Narrow, for the short ones — a hint beside the buttons rather than across from them.
 
    A filled block with no edge, as `.how-panel` and `.hero-stat` are, in the type it always
    had. `.card`'s own 16px padding would set the height of the row the buttons are in, so this
@@ -1752,13 +1652,6 @@ COMPARISONS
   padding: 3px 8px;
   border-color: transparent;
   background: var(--primary-light);
-}
-
-/* The long ones: the leaderboard's runs to about 104 characters, which needs 54 to a line to
-   break in two, and `ch` — the width of a digit — is a little wider than the average letter
-   here, so 58 of them leaves room for the ragged break. */
-.action-hint.lg {
-  max-width: 58ch;
 }
 
 /* Written empty and filled once the row knows what to say — see updateComparing in
@@ -1993,12 +1886,16 @@ table {
    Tabulator's own colour here is a hardcoded grey, so --text-muted is set explicitly
    rather than left to whichever stylesheet loads last.
 
+   The top edge is the footer's own: the last row's border-bottom is dropped above, so
+   without it the strip butts straight onto that row. `.table-footer.cards-footer` below
+   takes it back off for a grid of cards, which stands on the page rather than closing a box.
+
    The count itself is written as `.metadata`, which is a size smaller — see buildTableCount
    and the footers that place it. */
 .table-footer,
 .tabulator .tabulator-footer {
   background: var(--surface-secondary);
-  border-top: none;
+  border-top: 1px solid var(--border-color);
   font-size: var(--font-sm);
   font-weight: normal;
   color: var(--text-muted);
@@ -2021,14 +1918,6 @@ table {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-}
-
-/* With the last row's border-bottom gone, a footer needs its own top edge or it butts
-   straight onto the final row. Both kinds, now that the hand-written tables have lost
-   that line too — .table-footer sits inside the same .table container (index.html). */
-.table-footer,
-.tabulator .tabulator-footer {
-  border-top: 1px solid var(--border-color);
 }
 
 /* The card grid's footer sits under a gap rather than against a last row, so it has no edge
@@ -2526,18 +2415,10 @@ textarea:focus {
 }
 
 /*----------------------------------------------------------------------------------------
-WIZARD
+FORM PANELS
 --------------------------------------------------------------------------------------*/
 
-/* Layout: stepper (left) + step panel (right). */
-.wizard {
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 32px;
-  align-items: start;
-}
-
-/* A panel on the single-page create form (js/models/modelCreate.js), which shows every
+/* A panel on the single-page create form (js/pages/modelCreate.js), which shows every
    panel at once and locks the ones below the point the user has reached.
 
    It's a <fieldset> because that is the one element `disabled` cascades from: setting it
@@ -2589,12 +2470,11 @@ WIZARD
   border: 1.5px solid var(--border-color);
 }
 
-/* The task panel of the single-page submission form — js/tasks/taskSubmissionsCreate.js.
+/* The task panel of the single-page submission form — js/widgets/taskPanel.js.
    Master–detail: the suite-grouped picker on the left, the selected task's methodology
    form on the right. `minmax(0, 1fr)` so a long field can't push the detail column wider
    than the card; `align-items: start` so a short picker doesn't stretch to the form's
-   height. The .task-row/.task-head rules above belong to the wizard's accordion and are
-   unrelated; only .task-status is shared between the two. */
+   height. */
 .task-split {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
@@ -2742,23 +2622,6 @@ COMPARISON
   display: none;
 }
 
-/* The tasks a board is ranked over, beside the suites that tick them. It takes what the
-   suites leave and wraps within itself; without a floor of its own a flex item will not
-   shrink below its content, so a long row of chips would drop the whole column below the
-   suites instead. */
-.task-choice {
-  flex: 1;
-  min-width: 0;
-}
-
-/* The chips and the select that adds one are one wrapping row. The slot the chips are written
-   into, and the row they are written as, have no box of their own here — otherwise the select
-   follows the whole block of chips onto a line of its own rather than the last of them. */
-.task-choice [data-role="task-pins"],
-.task-choice .pins {
-  display: contents;
-}
-
 /* A chip with nothing after its label — a grid heading, where taking the thing out belongs to
    the row above rather than to every reading of it. Even padding, since there is no ✕ on the
    right bringing its own. */
@@ -2885,10 +2748,7 @@ LANDING PAGE
    Without `subgrid` a card is simply a grid of its own six rows, which is what these looked
    like before: laid out correctly, just not aligned with each other. */
 .suite-cards {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-rows: repeat(6, auto);
-  gap: var(--gap-lg);
 }
 
 .suite-card {

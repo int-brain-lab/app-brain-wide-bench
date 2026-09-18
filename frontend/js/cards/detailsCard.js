@@ -1,6 +1,7 @@
 // The summary card a record dashboard shows: a few of a record's fields. The way to the rest
 // is the section's own footer button — see buildSectionFooter in components/sections.js.
 
+import { toGridAttrs } from "../components/layout.js";
 import { buildDisplayFields } from "../forms/fields.js";
 
 function toColumns(keys, columns) {
@@ -35,7 +36,7 @@ function buildDetailsCard({ record, fields, keys, columns = 1 }) {
     )
     .join("");
 
-  const layout = columns > 1 ? ` class="grid-${columns}"` : "";
+  const layout = columns > 1 ? ` class="grid" ${toGridAttrs({ cols: columns })}` : "";
 
   return `
     <div class="card secondary">

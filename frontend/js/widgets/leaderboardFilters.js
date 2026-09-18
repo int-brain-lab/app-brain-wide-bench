@@ -12,6 +12,7 @@ import { buildButton } from "../components/buttons.js";
 import { buildFilterControl } from "../components/filters.js";
 import { createFilterState } from "../components/filterState.js";
 import { getIcon } from "../components/icons.js";
+import { toGridAttrs } from "../components/layout.js";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
@@ -99,7 +100,13 @@ function filterControls() {
 // ─── MARKUP ──────────────────────────────────────────────────────────────────
 
 function buildShell() {
-  return `<div class="filter-flow" id="${FLOW_ID}"></div>`;
+  return `
+    <div
+      class="grid filter-flow align-start"
+      ${toGridAttrs({ cols: 3 })}
+      id="${FLOW_ID}"
+    ></div>
+  `;
 }
 
 // One cell. Folded controls stay in the DOM, hidden: a pinned value is read back off them.

@@ -12,6 +12,7 @@
 import { escapeHtml } from "../core/html.js";
 import { suiteLabel, SUITES } from "../core/suites.js";
 import { getIcon } from "./icons.js";
+import { toGridAttrs } from "./layout.js";
 import { buildRange } from "./ranges.js";
 
 // ─── MATCHERS ────────────────────────────────────────────────────────────────
@@ -474,9 +475,7 @@ function buildFilterControl({ control, value, className = "" }) {
 // ─── BAR ─────────────────────────────────────────────────────────────────────
 
 // A grid rather than a flex row: the controls carry width:100% from .input-select and
-// .input-text, so only a grid gives them equal shares. A single control has no share to take
-// and stays stacked.
-const GRID_CLASS = { 2: "grid-2", 3: "grid-3", 4: "grid-4", 5: "grid-5" };
+// .input-text, so only a grid gives them equal shares.
 
 // Five to a row at most, and the rows are even rather than filled: ten controls are two
 // fives, six are two threes, and no row is left holding one control at a fifth of the width.
@@ -512,18 +511,15 @@ function buildFilterBar(controls, values = {}) {
 
   const { rows, perRow } = toFilterRows(controls);
 
-  // Not on the stacked fallback, where `align-items: start` would take a lone control down
-  // to its content width.
-  const grid = GRID_CLASS[perRow];
-  const layout = grid ?? "column gap-lg";
-  const align = pinned && grid ? " align-start" : "";
+  const align = pinned ? " align-start" : "";
+  const attrs = toGridAttrs({ cols: perRow });
 
   return `
     <div class="column gap-lg">
       ${rows
         .map(
           (row) => `
-        <div class="${layout}${align}">
+        <div class="grid${align}" ${attrs}>
           ${row
             .map((control) => buildFilterControl({ control, value: values[control.name] }))
             .join("")}

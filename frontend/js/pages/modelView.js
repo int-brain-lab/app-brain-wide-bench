@@ -82,7 +82,7 @@ const RANKING_FOOTER = buildSectionFooter(DETAILS_BUTTON, { hidden: true });
 function dashboardSections() {
   return [
     {
-      ratio: "1-2-2",
+      ratio: [1, 2, 2],
       sections: [
         { id: "ranking", title: "Ranking" },
         { id: "details", title: "Details" },
@@ -192,7 +192,7 @@ function renderSubmissionsSection(model) {
   // last card: a stack of one puts its empty half below the button rather than above it.
   renderHtml(
     container,
-    `<div class="card-stack">
+    `<div class="grid card-stack" data-cols="1">
       ${buildSubmissionCards(recent)}
       ${buildFooter("submissions", model.submissions.length)}
     </div>`,

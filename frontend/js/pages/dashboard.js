@@ -145,7 +145,7 @@ function renderSection(id, content, count) {
 function renderCards(id, cards, count) {
   const footer = buildFooter(id, count, { showing: count <= MAX_CARDS });
 
-  renderHtml(getSectionBody(id), `<div class="card-stack">${cards}${footer}</div>`, {
+  renderHtml(getSectionBody(id), `<div class="grid card-stack" data-cols="1">${cards}${footer}</div>`, {
     refresh: true,
   });
 }

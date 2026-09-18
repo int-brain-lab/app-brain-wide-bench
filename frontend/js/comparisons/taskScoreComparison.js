@@ -22,6 +22,7 @@ import {
   taskTypeOf,
 } from "../core/suites.js";
 import { loadTaskSubmission } from "../api/taskSubmissionApi.js";
+import { applyGrid, toGridAttrs } from "../components/layout.js";
 import { REGION_TASK_TYPE, toScoreDetail } from "../utils/recordingScoreUtils.js";
 import { SERIES_COLOURS } from "../plots/palette.js";
 import {
@@ -356,7 +357,7 @@ function createTaskComparison({
   }
 
   // A row per task type, its mean on the left and its own recordings to the right of it —
-  // a fifth of the row against four, see `.section-row.ratio-5`. Split by type rather than
+  // a fifth of the row against four. Split by type rather than
   // pooled: a behavioural readout and a
   // neural reconstruction share neither a metric nor a scale, so the plots of one are not
   // read against the plots of the other.
@@ -374,7 +375,8 @@ function createTaskComparison({
             .map(
               (group) => `
             <div
-              class="section-row ratio-5"
+              class="section-row"
+              ${toGridAttrs({ shares: [1, 4] })}
               data-${GROUP_ROW}="${escapeHtml(group.key)}"
             >
               <div data-role="means"></div>
@@ -487,7 +489,11 @@ function createTaskComparison({
   function buildPlotCells(group) {
     const element = document.createElement("div");
 
-    element.className = nested ? "column gap-lg" : "grid-3 gap-xs";
+    if (nested) {
+      element.className = "column gap-lg";
+    } else {
+      applyGrid(element, { cols: 3, gap: "xs" });
+    }
 
     const categories = categoriesFor(group.key);
 
