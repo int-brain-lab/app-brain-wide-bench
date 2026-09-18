@@ -167,7 +167,10 @@ a {
   gap: var(--gap-lg);
 }
 
-.step-number {
+/* `.tab-number` is on the same rule rather than beside it: a step's tab carries the number
+   the card carried, and two rules would be two chances to disagree. */
+.step-number,
+.tab-number {
   flex: none;
   width: 28px;
   height: 28px;
@@ -806,19 +809,26 @@ SECTIONS
 
    Flush with the sections below it, with no side padding or margin of its own, so the title
    starts at the same edge as "Task suites" and the cards. */
+/* Three blocks: the text, the picture and the figures. A grid rather than a row, because the
+   figures span the whole of it here and take a column of their own below the small
+   breakpoint — see the landing tiers at the foot of this file. */
 .page-hero {
-  display: flex;
+  display: grid;
+  grid-template-columns: 66% minmax(0, 1fr);
   align-items: center;
   gap: var(--gap-xl);
   padding: var(--gap-xl) 0 var(--gap-xxl);
   text-align: left;
 }
 
+.page-hero > .hero-stats {
+  grid-column: 1 / -1;
+}
+
 /* The illustration in what the text column leaves, as tall as that column and no taller. The
    frame takes its height from `align-self: stretch`, which is the flex line's — and the line
    is the text column alone, since the image inside is out of flow and adds nothing to it. */
 .page-hero > .hero-figure {
-  flex: 1 1 0;
   align-self: stretch;
   position: relative;
   min-width: 0;
@@ -843,11 +853,8 @@ SECTIONS
   object-position: right center;
 }
 
-/* Two thirds, and nothing beside it: the description sets its own line length, and across the
-   full width it runs to a single line. */
-.page-hero > .column {
-  flex: 0 0 66%;
-}
+/* Two thirds is `.page-hero`'s first column; the description sets its own line length, and
+   across the full width it would run to a single line. */
 
 .page-section {
   display: flex;
@@ -1656,7 +1663,10 @@ RANKS
 /*----------------------------------------------------------------------------------------
 BADGES
 --------------------------------------------------------------------------------------*/
-.badge {
+/* `.tab-badge` shares the base for the same reason `.tab-number` shares `.step-number`'s:
+   a suite's tab carries the badge its card carried. */
+.badge,
+.tab-badge {
   /* inline-flex, so a badge with an icon centres it on the label and still sits in a line
      of text. The `.row` utility can't do this job — it is block-level and space-between,
      which stretches the badge across its parent and throws the icon off the label. */
@@ -2915,6 +2925,90 @@ COMPARISON
 }
 
 /*----------------------------------------------------------------------------------------
+TABS
+----------------------------------------------------------------------------------------*/
+
+/* A group of panels shown one at a time, where they no longer fit across a row — see
+   widgets/tabs.js, which adds the strip below the landing tier and takes it away above it.
+
+   Titles and nothing else: no box, no fill, and the panel under them keeps whatever look it
+   has of its own. What is selected is said by a line under it, in the colour of the thing it
+   selects. */
+/* The tabs divide the strip's width between them, so each underline marks a share of the
+   row rather than the length of a word. A tight gap: the three read as one control. */
+.tab-strip {
+  display: flex;
+  gap: var(--gap-sm);
+}
+
+.tab {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--gap-md);
+  min-height: var(--tap-min);
+  padding: 4px 8px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--font-sm);
+  cursor: pointer;
+}
+
+/* The ink a tab is marked in, named by the panel it selects — `data-tab-ink` in the markup,
+   carried onto the button by the widget. The suites name theirs; a group that names none
+   falls back to the app's own, which is what the steps take. */
+.tab[data-tab-ink="ts1"] {
+  --tab-ink: var(--ts1);
+  --tab-wash: var(--ts1-light);
+}
+
+.tab[data-tab-ink="ts2"] {
+  --tab-ink: var(--ts2);
+  --tab-wash: var(--ts2-light);
+}
+
+.tab[data-tab-ink="ts3"] {
+  --tab-ink: var(--ts3);
+  --tab-wash: var(--ts3-light);
+}
+
+/* The task family's corners and the suite's own two colours, as `.badge.tsN` takes them. */
+.tab-badge {
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--tab-wash, var(--primary-light));
+  color: var(--tab-ink, var(--primary));
+}
+
+.tab[aria-selected="true"] {
+  border-bottom-color: var(--tab-ink, var(--primary));
+  color: var(--tab-ink, var(--primary));
+  font-weight: var(--bold);
+}
+
+/* The label reads as the card title it stands in for — see `.how-panel .tab-label`, which
+   takes the same size the titles in that panel take. */
+.tab-label {
+  font-size: var(--font-md);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--bold);
+}
+
+/* The glyph beside it, at the step icon's own size and colour. */
+.tab-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+/*----------------------------------------------------------------------------------------
 LANDING PAGE
 ----------------------------------------------------------------------------------------*/
 
@@ -2922,13 +3016,12 @@ LANDING PAGE
    `data-figures`. `.hero-title` and `.hero-description` are up in GENERIC TEXT with the rest
    of the type; these are layout.
 
-   The same `--gap-xxl` as `.page-hero`'s bottom padding, which sets the space above: the strip
-   sits midway between the hero and "Task suites". */
+   The space under them is `.page-hero`'s own bottom padding, now that they are the last thing
+   in it: the strip sits midway between the hero and "Task suites". */
 .hero-stats {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(0, 1fr);
-  margin-bottom: var(--gap-xxl);
 }
 
 /* A figure, unboxed: the icon and the number on one line, the label under them. The columns
@@ -3058,7 +3151,8 @@ LANDING PAGE
    one's own: a suite icon takes its suite's from the `.tsN` on the span, which the glyph
    inherits. */
 .step-icon .field-icon,
-.suite-icon .field-icon {
+.suite-icon .field-icon,
+.tab-icon .field-icon {
   width: 25px;
   height: 25px;
 }
@@ -3067,6 +3161,12 @@ LANDING PAGE
    the words beside it. */
 .step-icon .field-icon {
   color: var(--text-muted);
+}
+
+/* A tab's glyph in the ink its tab is marked in — the suite's where the panel named one, and
+   the step's own muted grey where it did not. */
+.tab-icon .field-icon {
+  color: var(--tab-ink, var(--text-muted));
 }
 
 /* A leading glyph in a button, at the size the button's own icons are drawn. */
@@ -3087,6 +3187,15 @@ LANDING PAGE
 
 .suite-card[data-suite="ts3"] {
   background: color-mix(in srgb, var(--ts3) 5%, transparent);
+}
+
+/* The three steps, and the tabs that open one of them below the small tier — see
+   widgets/tabs.js, which writes its strip into the head of this. A plain column up here,
+   where the panel around it is the card. */
+.how-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-lg);
 }
 
 /* One panel holding the three steps and, under them, the ways on from them. A shade back from
@@ -3118,4 +3227,198 @@ LANDING PAGE
 .suite-card .link,
 .how-panel .step-number {
   font-size: var(--font-xs);
+}
+
+/* ── Tiers ───────────────────────────────────────────────────────────────────
+   1040 is `.content.landing`'s own cap: below it the column is the window's width rather
+   than its own, and the hero's two halves start to crowd. 600 is where they stop being
+   halves at all. */
+
+@media (max-width: 1040px) {
+  /* Smaller type, and with it a smaller picture: the frame takes its height from the text
+     column beside it — see .page-hero > .hero-figure — so shorter text draws a smaller
+     illustration without naming a second size for it. The cap is the floor under that. */
+  .hero-title {
+    font-size: 32px;
+  }
+
+  .hero-description {
+    font-size: var(--font-md);
+  }
+
+  .page-hero > .hero-figure {
+    max-height: 260px;
+  }
+
+  /* The figures keep their full-width size — it is the title, the text and the picture that
+     shrink here. Only the space between them gives way, so the four still share the row. */
+  .hero-stat {
+    padding: 0 var(--gap-lg);
+  }
+}
+
+@media (max-width: 840px) {
+  /* The hero reads down the middle here: the text centred over a row of the picture and the
+     figures, which is what the two equal columns are for. The text spans both.
+
+     One gap both ways, and the wider of the two: the row gap is the space under the buttons,
+     which need clearing from the picture rather than sitting against it. */
+  .page-hero {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--gap-xl);
+    text-align: center;
+  }
+
+  .page-hero > .column {
+    grid-column: 1 / -1;
+  }
+
+  /* `.column.left` and `.row.left` range their contents at the near edge, which is the one
+     thing a centred hero cannot have. */
+  .page-hero > .column.left {
+    align-items: center;
+  }
+
+  .page-hero .row.left {
+    justify-content: center;
+  }
+
+  /* The picture on the left of that row, at its own square: there is no text column beside it
+     to take a height from any more. */
+  .page-hero > .hero-figure {
+    align-self: center;
+    justify-self: center;
+    width: 100%;
+    max-width: 280px;
+    max-height: none;
+    aspect-ratio: 1;
+  }
+
+  .hero-figure > .hero-image {
+    inset: 0;
+    width: 100%;
+    object-position: center;
+  }
+
+  .hero-title {
+    font-size: 26px;
+  }
+
+  /* The figures on the right of it, one to a row. They keep the column the grid gives them,
+     so they no longer span it. */
+  .page-hero > .hero-stats {
+    grid-column: 2;
+  }
+
+  .hero-stats {
+    grid-auto-flow: row;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Smaller from here down: read as a column beside the picture rather than as a strip across
+     the page, four numbers at 32px are the loudest thing on it. */
+  .hero-stat-value {
+    font-size: var(--font-xl);
+  }
+
+  .hero-stat .field-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Ruled between rows, where a row of them was ruled between columns. The padding resets on
+     the two ends were for that row's outer edges. */
+  .hero-stat {
+    padding: var(--gap-md) 0;
+  }
+
+  .hero-stat + .hero-stat {
+    border-left: none;
+    border-top: 1px solid var(--border-color);
+  }
+
+  .hero-stat:first-child {
+    padding-top: 0;
+  }
+
+  .hero-stat:last-child {
+    padding-bottom: 0;
+  }
+
+  /* One suite card and one step at a time — see widgets/tabs.js. A tab repeats its card's
+     badge, glyph and title rather than replacing them: the strip says which three there are
+     and which is open, and the card still opens on what it is.
+
+     The subgrid comes off: lining six rows up across three cards means nothing when only one
+     of them is shown. */
+  .suite-cards {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+
+  .suite-card {
+    grid-row: auto;
+    grid-template-rows: none;
+  }
+
+  /* The two ways on are not steps and do not become tabs, so they stack instead. The rule
+     between the columns goes with the columns: stacked, it would sit between one way's
+     button and the next one's heading, which reads as a divider inside the second. The gap
+     separates them. */
+  .how-row.divided {
+    grid-auto-flow: row;
+    gap: var(--gap-xl);
+  }
+
+  .how-row.divided > .how-item + .how-item {
+    border-left: none;
+  }
+
+  .how-item {
+    padding: 0;
+  }
+
+  /* Two cards rather than one: the tabs with the step they open, and the ways on from them.
+     The panel stops being the card and becomes the column holding the two. */
+  .how-panel {
+    padding: 0;
+    background: transparent;
+  }
+
+  .how-steps,
+  .how-row.divided {
+    padding: var(--gap-lg);
+    border-radius: var(--radius-lg);
+    background: var(--surface-secondary);
+  }
+
+  /* It divided one card into two halves; there are two cards now. */
+  .how-panel > .rule {
+    display: none;
+  }
+
+  /* The step's number and glyph are its tab's; its title stays, so the card still says which
+     step it is when the tab is too narrow to. The row that held the three of them is not a row
+     any more. */
+  .how-step > .step-number,
+  .how-step > .step-icon {
+    display: none;
+  }
+
+  .how-step {
+    display: block;
+  }
+}
+
+@media (max-width: 560px) {
+  /* Three tabs of a badge, a glyph and a word do not fit a phone. The word goes, since it is
+     the one of the three the card repeats under it — see `aria-label` in widgets/tabs.js,
+     which is what still names the button. */
+  .tab-label {
+    display: none;
+  }
+
+  .tab {
+    justify-content: center;
+  }
 }

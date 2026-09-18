@@ -1,7 +1,8 @@
 // Page entry for index.html — everything on the landing page that is data rather than copy.
 //
-// Three jobs: the icons the markup names by concept, the four figures under the hero, and the
-// task and metric chips on the suite cards. The copy around them is index.html's.
+// Four jobs: the icons the markup names by concept, the four figures under the hero, the task
+// and metric chips on the suite cards, and the two groups that become tabs on a phone. The
+// copy around them is index.html's.
 //
 // Only the two counts among the hero's figures need the API. They start at "—", so a failed
 // load leaves them saying nothing rather than saying zero; everything else, the two facts
@@ -12,6 +13,7 @@ import { metricsForSuite, SUITES, taskLabel, tasksForSuite } from "../core/suite
 import { getStats } from "../api/metaApi.js";
 import { buildMetricBadgeList, buildTaskBadge } from "../components/badges.js";
 import { buildIcon } from "../components/icons.js";
+import { attachTabGroups } from "../widgets/tabs.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
@@ -28,6 +30,10 @@ const UNKNOWN = "—";
 // Every task the benchmark holds, one of the four figures. Off the suites rather than written
 // here, so a task added to TASK_NAMES is in this total.
 const N_TASKS = SUITES.flatMap(tasksForSuite).length;
+
+// Where three suite cards, or three steps, stop fitting across a row — the same width as the
+// landing's small tier in style.css, which rearranges the hero at it.
+const TABS_QUERY = "(max-width: 840px)";
 
 // ─── ICONS ───────────────────────────────────────────────────────────────────
 
@@ -121,6 +127,7 @@ async function loadLandingPage() {
   renderIcons();
   renderSuiteCards();
   renderHeroStats();
+  attachTabGroups(TABS_QUERY);
 
   // Undefined when the fetch failed, which getStats has already logged.
   const stats = await getStats();
