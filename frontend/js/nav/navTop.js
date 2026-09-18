@@ -4,6 +4,8 @@ import { initials } from "../core/utils.js";
 import { login, logout } from "../api/client.js";
 import { getCurrentUser } from "../api/userApi.js";
 import { buildSignInButton, buildSignOutButton } from "../components/buttons.js";
+import { getIcon } from "../components/icons.js";
+import { ACCOUNT_ID, attachNavDrawer, buildNavToggle } from "./navDrawer.js";
 import { DOCS_HREF } from "./navFooter.js";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
@@ -17,13 +19,20 @@ const HOME_HREF = "/index.html";
 // them — with the way into the signed-in half last. Models is the unscoped list, the same
 // page the sidebar's "My models" is at data-scope="mine"; Tasks is every scored task, which
 // is the sidebar's "All tasks".
+//
+// The icons are the drawer's: a bar reads as words, a panel of six as a list, and the same
+// concept takes the same glyph here as in the rail — see components/icons.js.
 const NAV_ITEMS = [
-  { label: "Leaderboard", href: "/html/leaderboard/leaderboard.html" },
-  { label: "Models", href: "/html/models/model_list_public.html" },
-  { label: "Tasks", href: "/html/tasks/task_list_public.html" },
-  { label: "Teams", href: "/html/teams/team_list_public.html" },
-  { label: "Documentation", href: DOCS_HREF, external: true },
-  { label: "My dashboard", href: DASHBOARD_HREF },
+  {
+    label: "Leaderboard",
+    href: "/html/leaderboard/leaderboard.html",
+    icon: getIcon("leaderboard"),
+  },
+  { label: "Models", href: "/html/models/model_list_public.html", icon: getIcon("model") },
+  { label: "Tasks", href: "/html/tasks/task_list_public.html", icon: getIcon("task") },
+  { label: "Teams", href: "/html/teams/team_list_public.html", icon: getIcon("team") },
+  { label: "Documentation", href: DOCS_HREF, external: true, icon: getIcon("docs") },
+  { label: "My dashboard", href: DASHBOARD_HREF, icon: getIcon("dashboard") },
 ];
 
 // ─── DOM ─────────────────────────────────────────────────────────────────────
@@ -70,22 +79,26 @@ function renderLogo() {
 
 // `external` is a page off this site, which never matches the path `active` is decided by.
 function renderNavItem(item, page) {
-  const active = item.href === page;
+  const classes = ["nav-link", item.href === page && "active"].filter(Boolean).join(" ");
 
   return `
     <a
       href="${item.href}"
-      ${active ? 'class="active"' : ""}
+      class="${classes}"
       ${item.external ? 'target="_blank" rel="noopener noreferrer"' : ""}
     >
+      <i class="nav-link-icon" data-lucide="${item.icon}"></i>
       ${item.label}
     </a>
   `;
 }
 
+// The head is the panel's, and wears the rail's own class so the two open the same way. The
+// bar has a mark of its own outside this, as the rail does above the breakpoint.
 function renderNavLinks(page) {
   return `
     <nav class="nav-links">
+      <a class="sidebar-logo" href="${HOME_HREF}">${renderLogo()}</a>
       ${NAV_ITEMS.map((item) => renderNavItem(item, page)).join("")}
     </nav>
   `;
@@ -114,12 +127,21 @@ function renderUserMenu(user) {
   `;
 }
 
+// The drawer's button sits with the avatar rather than opposite it: below the breakpoint
+// these are the bar's only controls, and a thumb reaches one end of it.
+//
+// The account controls are grouped and named, because on a phone they leave the bar for the
+// foot of the panel — see placeAccount in navDrawer.js, which moves this element rather than
+// drawing a second copy of it.
 async function renderAuthSection() {
   const user = await getCurrentUser();
 
   return `
     <div class="nav-auth">
-      ${user ? renderUserMenu(user) : renderLoginButton()}
+      <span class="nav-account" id="${ACCOUNT_ID}">
+        ${user ? renderUserMenu(user) : renderLoginButton()}
+      </span>
+      ${buildNavToggle()}
     </div>
   `;
 }
@@ -145,6 +167,7 @@ async function initialiseNav() {
 
   // The link lives here rather than inside renderLogo: the sidebar wraps the same mark in
   // its own anchor, and an <a> inside an <a> is invalid.
+  // Refreshed: the bar draws the drawer's button and the auth buttons' own marks.
   renderHtml(
     nav,
     `
@@ -152,9 +175,11 @@ async function initialiseNav() {
     ${renderNavLinks(currentPage())}
     ${await renderAuthSection()}
   `,
+    { refresh: true },
   );
 
   attachNavEvents();
+  attachNavDrawer();
 }
 
 initialiseNav();

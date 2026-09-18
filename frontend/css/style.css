@@ -106,6 +106,23 @@ a {
   --bold: 500;
   --xbold: 650;
 
+  /* The gutter each shell holds its content off the window by — see .content and
+     .content-private, which are the only two users. */
+  --content-pad: 24px;
+
+  /* The side padding of the bands that span the shell rather than the content column:
+     .nav and .page-footer. */
+  --shell-pad: 40px;
+
+  /* Where the chrome folds — the six top-nav links stop fitting a little under this, and
+     the rail becomes a drawer at the same width so both shells leave the same room for
+     content below it. Written out in the query as well: a custom property cannot be used in
+     a media condition, so this is here to be read, not resolved. */
+  --bp-chrome: 1100px;
+
+  /* The floor for anything a thumb has to hit. */
+  --tap-min: 44px;
+
   /* Spacing */
   --gap-xs: 2px;
   --gap-sm: 4px;
@@ -189,9 +206,16 @@ MAIN SHELLS ETC
 
   /* `width` as well as `max-width`: a flex item whose cross-axis margins are `auto` is not
      stretched, so without this the column sizes to its content and a short page comes out
-     narrower than a long one. The auto margins still centre it under the cap. */
+     narrower than a long one. The auto margins still centre it under the cap.
+
+     The auto margins are the whole of the space beside the content only once the window is
+     wider than the cap; under it they resolve to nothing and the content would otherwise run
+     to both window edges. The gutter is what holds it off them, and `box-sizing: border-box`
+     puts it inside the cap — so the content stops at 1392 either way, which is where
+     .content-private's own 24px stops it too. */
   width: 100%;
   max-width: 1440px;
+  padding-inline: var(--content-pad);
 }
 
 .content.landing {
@@ -212,7 +236,7 @@ MAIN SHELLS ETC
 .content-private {
   grid-area: content-private;
   overflow-y: auto;
-  padding: 24px;
+  padding: var(--content-pad);
   max-width: 1440px;
 
   /* The page itself, against the chrome around it: the sidebar beside it and the bar above
@@ -231,7 +255,7 @@ TOP NAVIGATION BAR
 
   /* 6px and not 14px: the links carry 8px of their own now that they are pills, so the bar
      keeps the height it had. */
-  padding: 6px 40px;
+  padding: 6px var(--shell-pad);
   border-bottom: 1px solid var(--border-color);
 
   /* A shade back from the page, so the bar reads as chrome rather than as the top of the
@@ -263,15 +287,24 @@ TOP NAVIGATION BAR
 
 /* Marked as the sidebar marks its own — see `.sidebar-item` below, which these follow. The
    pill is `--surface` on a bar that is `--surface-secondary`, so the page's own white is what
-   says which item you are on, in both navs. */
-.nav-links a {
+   says which item you are on, in both navs.
+
+   `.nav-link` rather than `.nav-links a`, which would take the panel's own head with it. */
+.nav-link {
   padding: 8px 10px;
   border-radius: var(--radius-md);
 }
 
-.nav-links a:hover {
+.nav-link:hover {
   background: var(--surface);
   color: var(--text-color);
+}
+
+/* The head and the glyphs belong to the panel the links become below the chrome breakpoint.
+   In the bar they are six words, and a mark beside each would be a second brand. */
+.nav-links > .sidebar-logo,
+.nav-link-icon {
+  display: none;
 }
 
 .nav-links .active {
@@ -282,6 +315,15 @@ TOP NAVIGATION BAR
 
 .nav-auth {
   justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The avatar and the sign-in or sign-out button as one group, so the phone tier can hand them
+   to the panel's foot without the button that opens it coming along — see placeAccount in
+   nav/navDrawer.js, which moves this element. */
+.nav-account {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -367,6 +409,199 @@ SIDE NAVIGATION BAR
 }
 
 /*----------------------------------------------------------------------------------------
+NAVIGATION DRAWER
+----------------------------------------------------------------------------------------*/
+
+/* Below the chrome breakpoint the top nav's links and the sidebar's rail are the same thing:
+   one off-canvas panel behind one button. The whole fold is here rather than split across
+   .nav, .sidebar and .main-private, because it is one behaviour and reads as one.
+
+   The state is nav/navDrawer.js's — `drawer-open` on <body>, and nothing else. */
+
+/* The private shell's bar. Above the fold the rail carries the brand and a bar would be a
+   second copy of it; below, it is the one place the button can live. */
+.main-private > .nav {
+  display: none;
+}
+
+/* Square at the tap floor, and the only chrome that appears at the fold rather than changing
+   there. */
+.nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-color);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.nav-toggle-icon {
+  width: 22px;
+  height: 22px;
+}
+
+/* Over the page and under the panel. Above the fold this stays `none` whatever <body> says,
+   so a drawer left open by a resize cannot dim a page that has no way to undim it. */
+.nav-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgb(20 20 19 / 44%);
+}
+
+@media (max-width: 1100px) {
+  :root {
+    --shell-pad: 24px;
+  }
+
+  /* The brand at one end and the controls at the other. A flex row rather than the three
+     columns above, because the links have left the flow for the panel and space-between puts
+     whatever is left at the ends. */
+  .nav {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--gap-md);
+  }
+
+  .main-private > .nav {
+    display: flex;
+  }
+
+  .nav-toggle {
+    display: flex;
+  }
+
+  /* Off the near edge, the height of the window, over the page rather than pushing it. */
+  .nav-links,
+  .sidebar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 21;
+    width: min(320px, 85vw);
+    flex-direction: column;
+    gap: 0;
+    overflow-y: auto;
+    border-right: none;
+    border-left: 1px solid var(--border-color);
+    background: var(--surface-secondary);
+    box-shadow: -8px 0 24px rgb(0 0 0 / 12%);
+    transform: translateX(100%);
+    transition: transform 0.2s ease;
+  }
+
+  /* Which of the two is the drawer is the shell's: the public one has only the bar's links,
+     the private one has a rail that already reads as a column of destinations. The rail is
+     hidden by its own `hidden` attribute on the pages that can swap — see applyShell. */
+  .main-private .nav-links {
+    display: none;
+  }
+
+  /* No padding of its own: the head spans the panel and the rows inset themselves, which is
+     how the rail is built — see .sidebar-logo and .sidebar-section. */
+  .nav-links {
+    font-size: var(--font-md);
+  }
+
+  .nav-links > .sidebar-logo {
+    display: block;
+  }
+
+  /* A row in a panel, where it was an item in a bar — at .sidebar-item's own measurements,
+     since the two are now the same thing seen in two shells. */
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-height: var(--tap-min);
+    margin: 2px var(--gap-md) 0;
+  }
+
+  .nav-link-icon {
+    display: block;
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+  }
+
+  .sidebar-item {
+    min-height: var(--tap-min);
+  }
+
+  /* The bar owns the avatar and Sign out at this width, in both shells — the public shell's
+     panel is six links with no foot to carry them, so putting them there for one shell and
+     the bar for the other would read as a bug. The panel is destinations only, and the rail's
+     own foot would be a second copy of the bar's. */
+  .sidebar-bottom {
+    display: none;
+  }
+
+  body.drawer-open .nav-links,
+  body.drawer-open .sidebar {
+    transform: none;
+  }
+
+  body.drawer-open .nav-backdrop {
+    display: block;
+  }
+
+  /* The page does not scroll behind the panel. It is the document that scrolls at this width
+     — see .main-private below — so the lock belongs on <body> rather than on a shell. */
+  body.drawer-open {
+    overflow: hidden;
+  }
+
+  /* One column, and the page scrolls as a document rather than inside a fixed shell: an
+     inner scroller fights the address bar on a phone, and the column the rail was given is
+     gone now that the rail is fixed and out of the flow. */
+  .main-private {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "nav"
+      "content-private";
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .content-private {
+    overflow-y: visible;
+  }
+}
+
+@media (max-width: 600px) {
+  :root {
+    --shell-pad: 16px;
+    --content-pad: 16px;
+  }
+
+  /* The mark alone. With the account controls gone to the panel the bar holds the brand and
+     the button, and the wordmark is the one of them saying nothing the mark does not. The
+     bar's own mark only — a direct child of it — since the panel spells it out at its head. */
+  .nav > a .nav-logo span {
+    display: none;
+  }
+
+  /* Where the account controls land: the foot of whichever panel is the drawer, at the rail's
+     own measurements — see .sidebar-bottom, which stays hidden while these stand in for it.
+     `margin-top: auto` in the panel's flex column is what puts them at the bottom. */
+  .nav-links > .nav-account,
+  .sidebar > .nav-account {
+    margin-top: auto;
+    display: flex;
+    gap: var(--gap-lg);
+    padding: 12px;
+    border-top: 1px solid var(--border-color);
+  }
+}
+
+/*----------------------------------------------------------------------------------------
 FOOTER
 ----------------------------------------------------------------------------------------*/
 
@@ -385,7 +620,7 @@ FOOTER
   position: sticky;
   bottom: 0;
   margin-top: auto;
-  padding: 14px 40px;
+  padding: 14px var(--shell-pad);
   border-top: 1px solid var(--border-color);
   background: var(--surface-secondary);
 }
@@ -666,7 +901,13 @@ GRIDS, COLUMNS AND ROWS
 /* Equal columns, as many as `--cols` says — components/layout.js writes it. One rule rather
    than one class per count: a count is data, and a breakpoint rule overriding
    `grid-template-columns` beats it without having to outrank an inline property. */
+/* Reset before reading: a custom property inherits, so a grid inside a row of three would
+   otherwise draw three columns of its own from the row's `--cols`. `initial` on the class is
+   beaten by the inline property a grid sets for itself, and wins over the inherited one. */
 .grid {
+  --cols: initial;
+  --grid-gap: initial;
+
   display: grid;
   grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr));
   gap: var(--grid-gap, var(--gap-lg));
@@ -687,6 +928,10 @@ GRIDS, COLUMNS AND ROWS
    working at a width a row of two is still fine at, and CSS cannot read `--cols` to tell
    them apart. */
 .section-row {
+  --cols: initial;
+  --shares: initial;
+  --grid-gap: initial;
+
   display: grid;
   grid-template-columns: var(--shares, repeat(var(--cols, 1), minmax(0, 1fr)));
   gap: var(--grid-gap, var(--gap-lg));
@@ -2222,6 +2467,11 @@ BARS
   }
 
   .file-progress > i {
+    transition: none;
+  }
+
+  .nav-links,
+  .sidebar {
     transition: none;
   }
 }

@@ -69,6 +69,7 @@ const ICONS = {
   viewAll: "arrow-right",
   expand: "plus",
   collapse: "minus",
+  menu: "menu",
   down: "chevron-down",
   up: "chevron-up",
 
