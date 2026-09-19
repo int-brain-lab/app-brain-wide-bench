@@ -163,11 +163,40 @@ function buildFieldLabel(key, field) {
   );
 }
 
+// The only two schemes followed. A stored value is whoever entered it typing into a box, and
+// `javascript:` in an href is script that runs on click.
+const LINK_SCHEMES = ["http:", "https:"];
+
+// The value as somewhere to go, or null where it is not one. `new URL` throws on anything that
+// is not an absolute URL, which is what keeps a field holding prose — or a bare DOI — as text.
+function toLinkHref(value) {
+  try {
+    const { protocol, href } = new URL(String(value));
+
+    return LINK_SCHEMES.includes(protocol) ? href : null;
+  } catch {
+    return null;
+  }
+}
+
+// `noopener` because a tab opened from here can otherwise reach back through `window.opener`.
+function buildDisplayLink(value) {
+  const href = toLinkHref(value);
+
+  if (!href) return escapeHtml(value);
+
+  return `
+    <a class="link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">
+      ${escapeHtml(value)}
+    </a>
+  `;
+}
+
 // `valueBadge` is a field qualifying its own value — (record) => markup, or "" for a value
 // that needs no mark. The row is only made a flex row where there is one to place.
 function buildDisplayValue(key, state, field) {
   const value = displayValue(field, state[key]);
-  const shown = value == null || value === "" ? "—" : escapeHtml(value);
+  const shown = value == null || value === "" ? "—" : buildDisplayLink(value);
   const badge = field.valueBadge?.(state) ?? "";
 
   if (!badge) return `<p class="field-value">${shown}</p>`;
@@ -424,7 +453,7 @@ function buildDisplayFields(keys, state, fields, inline = false) {
 // column needs no wrapper, more than one needs a grid.
 function wrapColumns(html, columns) {
   return columns > 1
-    ? `<div class="grid" ${toGridAttrs({ cols: columns })}>${html}</div>`
+    ? `<div class="grid field-grid" ${toGridAttrs({ cols: columns })}>${html}</div>`
     : html;
 }
 

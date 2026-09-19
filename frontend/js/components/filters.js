@@ -481,17 +481,8 @@ function buildFilterControl({ control, value, className = "" }) {
 // fives, six are two threes, and no row is left holding one control at a fifth of the width.
 const ROW_MAX = 5;
 
-function toFilterRows(controls) {
-  const count = Math.ceil(controls.length / ROW_MAX);
-  const perRow = Math.ceil(controls.length / count);
-
-  const rows = [];
-
-  for (let at = 0; at < controls.length; at += perRow) {
-    rows.push(controls.slice(at, at + perRow));
-  }
-
-  return { rows, perRow };
+function toPerRow(controls) {
+  return Math.ceil(controls.length / Math.ceil(controls.length / ROW_MAX));
 }
 
 /**
@@ -505,26 +496,16 @@ function toFilterRows(controls) {
 function buildFilterBar(controls, values = {}) {
   if (controls.length === 0) return "";
 
-  // A pinned cell grows downwards as chips are added, so each row is topped rather than
+  // A pinned cell grows downwards as chips are added, so the rows are topped rather than
   // stretched.
   const pinned = controls.some((control) => control.type === "pinned");
 
-  const { rows, perRow } = toFilterRows(controls);
-
-  const align = pinned ? " align-start" : "";
-  const attrs = toGridAttrs({ cols: perRow });
-
+  // One grid, not one per row: a breakpoint narrowing the columns then repacks the whole run,
+  // where separate grids each keep their own remainder.
   return `
-    <div class="column gap-lg">
-      ${rows
-        .map(
-          (row) => `
-        <div class="grid${align}" ${attrs}>
-          ${row
-            .map((control) => buildFilterControl({ control, value: values[control.name] }))
-            .join("")}
-        </div>`,
-        )
+    <div class="grid${pinned ? " align-start" : ""}" ${toGridAttrs({ cols: toPerRow(controls) })}>
+      ${controls
+        .map((control) => buildFilterControl({ control, value: values[control.name] }))
         .join("")}
     </div>
   `;

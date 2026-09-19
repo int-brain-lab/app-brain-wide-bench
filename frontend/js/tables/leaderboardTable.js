@@ -16,8 +16,8 @@
 
 import { suiteFromTask } from "../core/suites.js";
 import { createTable } from "./table.js";
+import { buildMeanSem } from "../components/scores.js";
 import {
-  buildMeanSem,
   meanSorter,
   modelFormatter,
   rankFormatter,
@@ -52,8 +52,7 @@ const COLUMNS_WITH_ROOM = 4;
 // the metric is the wider of the two — "Poisson D²" at --font-xs runs to about 62px, on top of
 // the 16px the header spends on its own padding and the 14px it reserves for the sort arrow.
 //
-// The bare word and not the badge the metric wears elsewhere: a pill's padding and border cost
-// 14px here, which on a phone is a sixth of what the scores have to scroll through.
+// The bare word and not the badge the metric wears elsewhere: a pill costs 14px more here.
 const TASK_WIDTH = 92;
 
 // Whether the board can be stretched to fill the page, and whether its columns are then wide
@@ -93,9 +92,8 @@ function getColumns(taskIds, metrics) {
       // A number, not a layout name: a column's `width` is a width, and Tabulator reads
       // anything else as none at all.
       //
-      // As narrow as a rank goes: three digits and the medal's own wash, at the floor anything
-      // a thumb hits is held to. It is frozen, so every pixel here is one the scores never get
-      // back — on a phone this column and the model beside it hold half the window.
+      // Frozen, so its width is width the scores never get: three digits and the medal's wash,
+      // at the `--tap-min` floor.
       width: 44,
       frozen: true,
     },

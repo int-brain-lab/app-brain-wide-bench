@@ -19,6 +19,9 @@ import {
 import { canManageMembers, getTeamSubtitle } from "../utils/teamUtils.js";
 import { dateSorter } from "../tables/formatters.js";
 import { buildBestScoresTable, createTaskScoresTable } from "../tables/taskScoreTable.js";
+import { buildBestTaskCards, createTaskScoreCardGrid } from "../cards/taskCards.js";
+import { PHONE_QUERY } from "../core/breakpoints.js";
+import { attachSectionView } from "../widgets/sectionView.js";
 import { previewRows } from "../tables/table.js";
 import { SCORE_PANEL } from "../comparisons/taskScoreComparison.js";
 import { buildCreateCard } from "../cards/createCard.js";
@@ -43,6 +46,7 @@ import {
 } from "../components/sections.js";
 import { createDeleteControl } from "../widgets/deleteRecord.js";
 import {
+  buildMemberCards,
   buildMemberTable,
   buildMembersPanel,
   createMembersSection,
@@ -128,6 +132,8 @@ function dashboardSections(canEdit) {
     {
       // Equal columns: both hold the same card, so neither earns more room. What the team
       // holds is said once in the page's own header, not in cards over these.
+      className: "team-lists",
+
       sections: [
         { id: "models", title: "Models" },
         { id: "submissions", title: "Submissions" },
@@ -230,11 +236,11 @@ function renderScoresSection(scoreRows) {
   // Every one of them, not a preview: there is one row per task the team has scored, so at
   // most as many as the benchmark has tasks. The link is the way to the rest of the scores
   // behind each best, and to the filters and the comparison over them.
-  renderSection(
-    "scores",
-    buildBestScoresTable({ rows: best, total: scoreRows.length }),
-    scoreRows.length,
-  );
+  attachSectionView("scores", {
+    render: (content) => renderSection("scores", content, scoreRows.length),
+    table: () => buildBestScoresTable({ rows: best, total: scoreRows.length }),
+    cards: () => buildBestTaskCards(best),
+  });
 }
 
 // Only reached for a member — the section itself isn't built for anyone else.
@@ -246,7 +252,14 @@ function renderMembersSection(team) {
     return;
   }
 
-  renderHtml(container, buildMemberTable(team.members));
+  attachSectionView("members", {
+    render: (content) => renderHtml(container, content),
+    table: () => buildMemberTable(team.members),
+    cards: () => buildMemberCards(team.members),
+
+    // Three short columns, where the tables CARDS_QUERY is for carry a record's whole shape.
+    query: PHONE_QUERY,
+  });
 }
 
 function renderDashboardView(context, router) {
@@ -260,7 +273,7 @@ function renderDashboardView(context, router) {
               EDIT_DETAILS_BUTTON,
               buildCreateButton({
                 href: CREATE_MODEL_HREF,
-                label: "New model",
+                noun: "model",
               }),
             ]
           : [],
@@ -308,6 +321,8 @@ function renderScoresView({ team, models, scoreRows }) {
 
     rows: scoreRows,
 
+    createCards: () => createTaskScoreCardGrid(display),
+
     createTable: ({ rows, selection }) =>
       createTaskScoresTable({
         ...display,
@@ -347,7 +362,7 @@ function renderDetailsView({
     createdNext: {
       detail: "Go to the team dashboard, or register a new model associated with this team.",
       href: CREATE_MODEL_HREF,
-      label: "New model",
+      noun: "model",
     },
 
     dashboard: true,

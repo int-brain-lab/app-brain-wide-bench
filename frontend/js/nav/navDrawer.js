@@ -5,6 +5,7 @@
 // Escape, and closing on the way out. Which of the two slides is style.css's, scoped to the
 // shell, so neither nav module has to know it has become a drawer.
 
+import { CHROME_QUERY, PHONE_QUERY } from "../core/breakpoints.js";
 import { getIcon } from "../components/icons.js";
 import { getElement } from "../core/render.js";
 
@@ -16,17 +17,12 @@ const BACKDROP_ID = "nav-backdrop";
 // On <body>, so both panels and the backdrop answer to one class.
 const OPEN_CLASS = "drawer-open";
 
-// The same width as the chrome query in style.css. Above it the button is not drawn, so an
-// open drawer would have nothing left to close it.
-const CHROME_QUERY = "(max-width: 1200px)";
-
 // Every link either panel holds, which is every way out of the page a panel offers.
 const PANEL_LINK = ".nav-links a, .sidebar a";
 
 // The account controls, which the bar hands to the panel's foot on a phone — see the query
 // of the same width in style.css.
 const ACCOUNT_ID = "nav-account";
-const PHONE_QUERY = "(max-width: 600px)";
 
 // ─── MARKUP ──────────────────────────────────────────────────────────────────
 

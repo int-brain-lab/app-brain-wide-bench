@@ -113,7 +113,7 @@ function toRowMap(rows, getKey) {
 // `total` is the count before filtering.
 function buildGridHtml({ visibleRows, buildCards, total, noun, page, pageCount }) {
   return `
-    <div class="grid" ${toGridAttrs({ cols: 2 })} data-role="cards">
+    <div class="grid card-grid" ${toGridAttrs({ cols: 2 })} data-role="cards">
       ${buildCards(visibleRows)}
     </div>
 

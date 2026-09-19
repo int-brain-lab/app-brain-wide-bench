@@ -165,10 +165,10 @@ function createTaskSection({ taskSuites, onChange } = {}) {
     const header = suite ? buildSuiteBadgeList([suite]) : "";
 
     return `
-      <div class="column gap-xs">
+      <div class="picker-group column gap-xs">
         ${header}
 
-        <div class="column gap-xs">
+        <div class="picker-tasks column gap-xs">
           ${suiteTasks.map(buildTaskItem).join("")}
         </div>
       </div>
@@ -266,7 +266,7 @@ function createTaskSection({ taskSuites, onChange } = {}) {
           ${buildButton({
             label: task.confirmed ? "Saved" : "Save selection",
             icon: getIcon(task.confirmed ? "tick" : "save"),
-            className: "primary task-confirm",
+            className: "sm primary task-confirm",
             data: { task: taskId },
             disabled: task.confirmed,
           })}

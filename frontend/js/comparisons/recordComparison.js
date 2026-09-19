@@ -36,7 +36,8 @@ import { createTaskPlot } from "../plots/recordPlots.js";
 import { buildMetricBadge, buildTaskBadge } from "../components/badges.js";
 import { SCORE_RANGE } from "../plots/taskScorePlots.js";
 import { SERIES_COLOURS } from "../plots/palette.js";
-import { buildDiff, buildMeanSem } from "../tables/formatters.js";
+import { buildDiff } from "../tables/formatters.js";
+import { buildMeanSem } from "../components/scores.js";
 import {
   TABLE_VIEW,
   PLOT_VIEW,
@@ -52,7 +53,7 @@ import { buildOptions, buildSelect } from "../components/filters.js";
 import { buildEmptyMessage, buildInfoMessage } from "../components/messages.js";
 import { buildSections, getSection, getSectionBody } from "../components/sections.js";
 import { createComparison } from "./comparison.js";
-import { buildRecordingsToggle, createTaskComparison } from "./taskScoreComparison.js";
+import { createTaskComparison } from "./taskScoreComparison.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
@@ -83,10 +84,8 @@ const SCORES_ID = "compare-scores-toggle";
 // read: a difference is the set's question, not one task's.
 const BASELINE_ROW_ID = "compare-baseline-row";
 
-// The two view controls, one per state: every task drawn as plots or a table, or the one being
-// read drawn as bars or a heatmap.
+// Every task drawn as plots or as a table.
 const TASK_VIEW_ID = "compare-task-view";
-const SCORE_VIEW_ID = "compare-score-view";
 
 const SHOW_SCORES = "Show breakdown";
 const HIDE_SCORES = "Hide breakdown";
@@ -586,7 +585,6 @@ function createRecordComparison({
     // is the set's other half.
     getElement(BASELINE_ROW_ID).hidden = showScores;
     getElement(TASK_VIEW_ID).hidden = showScores;
-    getElement(SCORE_VIEW_ID).hidden = !showScores;
 
     disposeAll(breakdownCharts);
     breakdownCharts = [];
@@ -813,10 +811,7 @@ function createRecordComparison({
                 icon: getIcon("expand"),
                 className: "sm muted",
               }),
-            actions: [
-              `<span id="${TASK_VIEW_ID}">${buildPlotTableToggle(BREAKDOWN)}</span>`,
-              `<span id="${SCORE_VIEW_ID}" hidden>${buildRecordingsToggle()}</span>`,
-            ],
+            actions: [`<span id="${TASK_VIEW_ID}">${buildPlotTableToggle(BREAKDOWN)}</span>`],
             className: "chart-pickable",
             collapsible: true,
             hidden: true,

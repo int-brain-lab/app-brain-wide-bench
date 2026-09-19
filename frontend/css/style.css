@@ -114,20 +114,32 @@ a {
      .nav and .page-footer. */
   --shell-pad: 40px;
 
-  /* Where the chrome folds — the six top-nav links stop fitting a little under this now
-     that each carries a glyph, and the rail becomes a drawer at the same width so both
-     shells leave the same room for content below it. Written out in the query as well: a
-     custom property cannot be used in a media condition, so this is here to be read, not
-     resolved. */
+  /* The three widths more than one component answers to, and the only ones named here — a
+     component with a width of its own declares it beside its own rules. js/core/breakpoints.js
+     holds the same three for the modules that read them. Each is written out again in the
+     query it belongs to: a custom property cannot be used in a media condition, so these are
+     here to be read rather than resolved.
+
+     Chrome: the six top-nav links stop fitting a little under this now that each carries a
+     glyph, and the rail becomes a drawer at the same width so both shells leave the same room
+     for content below it. */
   --bp-chrome: 1200px;
+
+  /* Cards: a table of a record's fields stops fitting across the page, and a list or a section
+     shows its cards in place of it. */
+  --bp-cards: 800px;
+
+  /* Phone: one column of whatever was a row, and the chrome at a thumb's measurements. */
+  --bp-phone: 600px;
 
   /* The window height below which the footer stops being sticky — see `.page-footer`. The
      band is about 51px; above this there is enough page left that holding it in view costs
-     little, and below it there is not. Written out in the query too, for the same reason as
-     the one above. */
+     little, and below it there is not. Written out in the query too, for the same reason. */
   --bp-short: 1000px;
 
-  /* The floor for anything a thumb has to hit. */
+  /* The floor for anything a thumb has to hit — see the phone tier under `.pager-page`,
+     `.chip-remove`, `.task-item` and `.field-help-trigger`, which are the controls small
+     enough to need telling. */
   --tap-min: 44px;
 
   /* Spacing */
@@ -812,6 +824,18 @@ BUTTONS
   gap: 8px;
 }
 
+/* What a button makes, where the button says so — "New model". Dropped on a phone, which
+   leaves "New": the page it sits on already names the thing, and a header of two or three
+   buttons spelling it out is the row that pushes the heading off its line.
+
+   The label keeps its own span whatever the width, so the noun is separated from it by a word
+   space rather than by `.btn.with-icon`'s 8px gap — see buttonBody in components/buttons.js. */
+@media (max-width: 600px) {
+  .btn-noun {
+    display: none;
+  }
+}
+
 /* Sized to the button's --font-sm text; flex-shrink: 0 so a narrow header can't
    squash the glyph before it wraps the label. */
 .btn-icon {
@@ -998,6 +1022,106 @@ CREATE CARD
   flex: 1;
 }
 
+/* The account's three lists, as the width allows. Teams and Models keep a row of two at 800,
+   and Submissions — the last of them — takes the row under it with its cards across that row
+   rather than down it. At 600 all three are rows of their own. */
+@media (max-width: 800px) {
+  .account-lists {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* `.page-section`'s own 50px is spacing between sections, and shows between these once any
+     of them are stacked — the row's gap is what separates them. The last keeps it, which is
+     the space under the whole row. */
+  .account-lists > .page-section:not(:last-child) {
+    margin-bottom: 0;
+  }
+
+  .account-lists > .page-section:last-child {
+    grid-column: 1 / -1;
+  }
+
+  /* Its cards across the width it was given. `.card-stack`'s two equal rows are for sections
+     sharing a row, which this one no longer does. */
+  .account-lists > .page-section:last-child .card-stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: none;
+  }
+
+  .account-lists > .page-section:last-child .card-stack > .section-footer {
+    grid-column: 1 / -1;
+  }
+}
+
+/* The model's summary row: the ranking and the details keep their 1:2, and the submissions
+   preview — the last of them — takes the row under. */
+@media (max-width: 1200px) {
+  .model-summary {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  }
+
+  .model-summary > .page-section:last-child {
+    grid-column: 1 / -1;
+  }
+
+  /* Rows of its contents: `.card-stack`'s two equal rows keep cards one size across sections
+     sharing a row, and this one shares with nothing — a stack holding one submission leaves
+     the second row empty under it. */
+  .model-summary > .page-section:last-child .card-stack {
+    grid-template-rows: none;
+  }
+
+  .model-summary > .page-section:not(:last-child) {
+    margin-bottom: 0;
+  }
+}
+
+/* And the ranking and the details take rows of their own — the ranking is a figure and a list
+   of suites, the details a run of label-and-value pairs, and neither reads at a fraction of
+   this. */
+@media (max-width: 600px) {
+  .model-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The submission's narrative over its task submissions: the narrative is prose at a third of
+   the row, and the tasks a table of methodology at two. */
+@media (max-width: 1100px) {
+  .submission-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .submission-summary > .page-section:not(:last-child) {
+    margin-bottom: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .account-lists,
+  .team-lists {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .team-lists > .page-section:not(:last-child) {
+    margin-bottom: 0;
+  }
+
+  .team-lists .card-stack {
+    grid-template-rows: none;
+  }
+
+  .account-lists > .page-section:last-child .card-stack {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Rows of their contents: two equal rows keep cards one size across sections sharing a row,
+     and there is no shared row left — a section holding one card leaves the second row empty. */
+  .account-lists .card-stack {
+    grid-template-rows: none;
+  }
+}
+
 /* The "new X" control on the list pages — js/cards/createCard.js.
    Dashed rather than solid, so it reads as a slot for something that doesn't exist yet
    next to cards that are real records. No explicit height: as a grid cell it stretches to
@@ -1174,57 +1298,6 @@ CARDS
   box-shadow: inset 3px 0 0 var(--row-ink, transparent);
 }
 
-/* The heatmap: one row per score, one cell per recording. A grid rather than a table so the
-   cells share one track sizing — every row's columns line up with the header's without the
-   browser measuring their contents, which are empty. */
-.heat-row {
-  display: grid;
-  grid-template-columns: 200px repeat(var(--heat-columns), minmax(0, 1fr));
-  gap: 2px;
-  align-items: center;
-}
-
-.heat-row + .heat-row {
-  margin-top: 2px;
-}
-
-/* The gap between cells is the surface showing through, which is what keeps two dark
-   neighbours from reading as one block. */
-.heat-cell {
-  height: 20px;
-  border-radius: 2px;
-}
-
-/* Not measured here, which is a different answer from measured and worst — so it is the
-   surface with an outline rather than the palest step of the ramp. */
-.heat-empty {
-  border: 1px solid var(--border-color);
-  background: var(--surface);
-}
-
-.heat-label {
-  padding-right: var(--gap-lg);
-  overflow: hidden;
-}
-
-/* Rotated, because a region name under a 30px cell fits no other way. */
-.heat-column {
-  font-size: var(--font-xs);
-  color: var(--text-muted);
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  justify-self: center;
-  white-space: nowrap;
-}
-
-/* The key's swatches are cells, so they need a width the grid isn't giving them here. */
-.heat-key .heat-cell {
-  width: 20px;
-}
-
-.heatmap + .heatmap {
-  margin-top: var(--gap-xl);
-}
 
 /* Set apart from what it follows, where a section's own gap reads as too close — the control
    under a grid it is not part of. */
@@ -1311,6 +1384,26 @@ CARDS
   justify-content: center;
 }
 
+/* A member card's role and the way to take them off it, on one row. The select gives up
+   `.input-select`'s full width, which would leave the button none. */
+.member-actions .input-select {
+  width: auto;
+}
+
+/* One card across, where a card is the content's own width. */
+@media (max-width: 600px) {
+  .card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* And one field across in a panel — see wrapColumns in forms/fields.js, which lays the
+     two-column panels out. A label over its value is half the card's width here, and an
+     input at that width is narrower than most of what goes in it. */
+  .field-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /*----------------------------------------------------------------------------------------
 HEADERS
 --------------------------------------------------------------------------------------*/
@@ -1326,6 +1419,37 @@ HEADERS
 
 .page-header.side {
   margin-top: 10px;
+}
+
+/* The title, then its buttons under it: two ends of a row need a row wide enough for both.
+   The wrapper is the one buildHeader puts round the pair — see components/sections.js. */
+@media (max-width: 500px) {
+  /* The margin under the header is now between the title and the buttons, so the space below
+     them is the wrapper's own. */
+  .row:has(> .page-header) {
+    flex-direction: column;
+    align-items: stretch;
+    margin-bottom: var(--gap-lg);
+  }
+
+  /* One row of buttons whatever they were written as: buildActions groups them into a column
+     of rows where a caller asks for more than one, and `contents` dissolves those rows. */
+  .row:has(> .page-header) > .column {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--gap-md);
+  }
+
+  .row:has(> .page-header) > .column > .row {
+    display: contents;
+  }
+
+  /* Across the row they have to themselves, rather than at the end of the one they used to
+     share with the heading. */
+  .row:has(> .page-header) > .row.right {
+    justify-content: space-between;
+  }
 }
 
 /*----------------------------------------------------------------------------------------
@@ -1468,6 +1592,21 @@ GENERIC TEXT
   color: var(--text-muted);
   line-height: 1.4;
   padding-bottom: 10px;
+}
+
+/* A subtitle's parts one under the other — see buildSubtitle, which is what a description
+   holds when it is a run of counts rather than a sentence. The separators go with the row
+   they separated: they are the bare spans between the parts, which wear `.row`. */
+@media (max-width: 1000px) {
+  .section-description > .row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--gap-sm);
+  }
+
+  .section-description > .row > span:not(.row) {
+    display: none;
+  }
 }
 
 .card-title {
@@ -1640,6 +1779,18 @@ GENERIC TEXT
 .field-help-trigger[aria-expanded="true"] + .field-help-text {
   visibility: hidden;
   opacity: 0;
+}
+
+/* The mark stays 14px; the box round it is what a thumb hits. Only the one that answers to a
+   click: on a read-only row the "?" hovers and nothing else, so a target there would promise
+   what the cursor already says it will not do. */
+@media (max-width: 600px) {
+  .field-help-trigger[data-help-for] {
+    width: var(--tap-min);
+    height: var(--tap-min);
+    border-color: transparent;
+    font-size: var(--font-sm);
+  }
 }
 
 /* The pinned copy: between a label and its control, written out rather than floating.
@@ -2113,6 +2264,17 @@ table {
   padding: 10px 16px;
 }
 
+/* A column ranged against the table's far edge — `.row.right`'s sense, for a cell. */
+.table th.right,
+.table td.right {
+  text-align: right;
+}
+
+/* A select in one of those: `.input-select` fills its cell, which leaves nothing to range. */
+.table td.right .input-select {
+  width: auto;
+}
+
 .tabulator .tabulator-header .tabulator-col {
   background: transparent;
   border-right: none;
@@ -2347,9 +2509,18 @@ table {
   background: var(--surface);
 }
 
-/* The card grid's pager, sharing the table paginator's rules below: the two footers say the
-   same thing in the same place, so their buttons are one definition rather than two that
-   drift the first time either is restyled. */
+/* The card grid's pager, sharing the table paginator's rules: the two footers say the same
+   thing in the same place, so their buttons are one definition rather than two that drift the
+   first time either is restyled.
+
+   The type is part of that definition rather than left to inherit, which is where the two had
+   already drifted: ours took `.table-footer`'s own `--font-sm` while Tabulator's kept whatever
+   its stylesheet sets, so the same nine buttons came out a size apart and the card row ran onto
+   a second line first. A size down from the footer's text for both — the count beside them is
+   `.metadata`, which is this size too.
+
+   `line-height: normal` and the longhands rather than the `font` shorthand, which would take
+   the body's 1.6 with it and draw a button half a line taller than a button's own default. */
 .tabulator .tabulator-footer .tabulator-page,
 .pager-page {
   border: 1px solid var(--border-color);
@@ -2358,6 +2529,10 @@ table {
   color: var(--text-muted);
   padding: 3px 9px;
   margin: 0 2px;
+  font-family: inherit;
+  font-size: var(--font-xs);
+  font-weight: normal;
+  line-height: normal;
 }
 
 .tabulator .tabulator-footer .tabulator-page.active,
@@ -2368,16 +2543,32 @@ table {
   font-weight: var(--bold);
 }
 
-/* A <button> doesn't inherit the footer's font — Tabulator sets one on its own paginator
-   buttons, and ours takes the footer's instead.
+/* The count over the pages rather than at the other end of a row from them: nine page buttons
+   are wider than a phone on their own, so beside a sentence they were never on the same line —
+   they were on the same line as its *last* word, which is worse than a row of their own.
 
-   The three longhands and not the `font` shorthand, which also inherits line-height: at the
-   body's 1.6 that drew a button half a line taller than Tabulator's, which keeps a button's
-   own `normal`. */
-.pager-page {
-  font-family: inherit;
-  font-size: inherit;
-  font-weight: inherit;
+   Both footers, the hand-written one and Tabulator's, as with the padding and the buttons
+   above. `stretch`, so the count keeps the left it reads from — a sentence that moves when the
+   row under it does is a sentence you have to find again.
+
+   The pages are what centres: they were at the right because the count held the left of a row,
+   and stacked there is no row left for them to be the other end of. Each pager is told in the
+   terms it was written in — ours is a flex row, Tabulator's is `text-align: right`. */
+@media (max-width: 500px) {
+  .table-footer,
+  .tabulator .tabulator-footer .tabulator-footer-contents {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--gap-lg);
+  }
+
+  .table-footer [data-role="pager"] {
+    justify-content: center;
+  }
+
+  .tabulator .tabulator-footer .tabulator-paginator {
+    text-align: center;
+  }
 }
 
 /* Tabulator's own arrows go grey and unclickable at either end of the range; ours are
@@ -2389,6 +2580,16 @@ table {
 
 .pager-page:not(:disabled) {
   cursor: pointer;
+}
+
+/* A page button is 12px of text in 3px of padding — about 20px square. 24px, not `--tap-min`:
+   the pager is nine buttons on one line, and at the 44px a standalone control is held to it is
+   wider than a phone twice over. */
+@media (max-width: 600px) {
+  .pager-page {
+    min-width: 24px;
+    min-height: 24px;
+  }
 }
 
 /*----------------------------------------------------------------------------------------
@@ -2467,8 +2668,11 @@ BARS
   overflow: hidden;
 }
 
+/* Wrapping rather than a breakpoint of its own: the card folds where its own contents run out
+   of room, which is what makes it fit inside a narrow panel as well as a narrow window. */
 .file-main {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--gap-lg);
   padding: 14px 16px;
@@ -2486,10 +2690,13 @@ BARS
   color: var(--text-muted);
 }
 
+/* The basis is what decides the fold: the name and its size keep a line to themselves down to
+   14rem, and the actions take the next one below that. `min-width: 0` so the name may then
+   wrap inside what is left rather than widening the card — see `.file-name`. */
 .file-text {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 14rem;
   min-width: 0;
 }
 
@@ -2505,6 +2712,8 @@ BARS
   font-variant-numeric: tabular-nums;
 }
 
+/* `margin-left: auto` rather than the row's own alignment: it holds the far edge on the line
+   it shares with the name and on one of its own. */
 .file-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2512,6 +2721,7 @@ BARS
   justify-content: flex-end;
   gap: var(--gap-md);
   flex: none;
+  margin-left: auto;
 }
 
 /* Sits on the card's edge, so the bar has no radius of its own to disagree with. */
@@ -2613,6 +2823,18 @@ BARS
   font-size: var(--font-sm);
   font-weight: 400;
   color: var(--text-muted);
+}
+
+/* A note inside a panel is a remark about that panel's own fields — the upload's wait and
+   verdicts, a cleared-fields warning, an empty list. One standing on the page is the page's
+   own news, and keeps the size above. */
+.card.secondary .state-note {
+  padding: 10px 12px;
+  font-size: var(--font-sm);
+}
+
+.card.secondary .state-note .sub {
+  font-size: var(--font-xs);
 }
 
 /* The one animation in the app. Two states of the upload panel are waits with no
@@ -2947,15 +3169,59 @@ FORM PANELS
   white-space: nowrap;
 }
 
+/* The picker over the form rather than beside it, and a row per suite — the badge, then that
+   suite's tasks across from it. */
+@media (max-width: 700px) {
+  .task-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* A band above the form has nothing to stay put against. */
+  .task-picker {
+    position: static;
+  }
+
+  .picker-group {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--gap-md);
+  }
+
+  /* The rest of the row, wrapping inside it. `min-width: 0` because a flex item will not
+     shrink past its contents on its own, which is what the wrap needs. */
+  .picker-tasks {
+    flex: 1;
+    min-width: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--gap-sm);
+  }
+
+  /* Sized to its own label, where a column of them shares one width. */
+  .task-item {
+    width: auto;
+  }
+}
+
+/* 8px of padding round an 18px marker and one line of text is about 34px. */
+@media (max-width: 600px) {
+  .task-item {
+    min-height: var(--tap-min);
+  }
+}
+
 /*----------------------------------------------------------------------------------------
 COMPARISON
 --------------------------------------------------------------------------------------*/
 
 /* .input-select is width:100%, which in a flex row beside its label would swallow the rest
    of the line. The wrapper is what gives it a size to be 100% of. */
+/* `max-width` because `flex: none` is `flex-shrink: 0`: without it the 280px stands whatever
+   the row has left, and a narrow card is a select hanging off its edge. */
 .inline-select {
   flex: none;
   width: 280px;
+  max-width: 100%;
 }
 
 /* The one that adds a record to the comparison — see buildAddSelect in templates/comparePage.js.
@@ -3068,6 +3334,14 @@ COMPARISON
 .chip-remove:hover {
   background: var(--danger-light);
   color: var(--danger);
+}
+
+/* Padding rather than a size: the ✕ sits inside a chip, and a 44px box would be a chip drawn
+   round a button. This grows the chip a little and the target a lot. */
+@media (max-width: 600px) {
+  .chip-remove {
+    padding: 8px;
+  }
 }
 
 /* Already used by the suite bars on the model page, where it had no rule at all: a suite
@@ -3664,6 +3938,16 @@ COMPARE LAYOUT
   .plot-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
+
+  /* A task type's mean takes a third of its row rather than a fifth, and the recordings beside
+     it two across rather than three — see renderGroupRows in taskScoreComparison.js. */
+  .task-group {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  }
+
+  .recording-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* Four, then three, as the row narrows. Written widest first, so each takes over from the one
@@ -3671,6 +3955,18 @@ COMPARE LAYOUT
 @media (max-width: 1000px) {
   .plot-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* The mean and its recordings share the row evenly, and the recordings run down their half
+   one at a time. */
+@media (max-width: 900px) {
+  .task-group {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .recording-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -3710,7 +4006,17 @@ COMPARE LAYOUT
     grid-column: auto;
   }
 
-  /* The details table goes, rather than being scrolled sideways: it is a column per model over
+  /* A task type's plots one to a row: its mean over its recordings rather than beside them, and
+   the recordings one across — see renderGroupRows and buildPlotCells in
+   comparisons/taskScoreComparison.js. */
+@media (max-width: 600px) {
+  .task-group,
+  .recording-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The details table goes, rather than being scrolled sideways: it is a column per model over
      rows of methodology, so at this width every column is narrower than the values in it and
      nothing lines up to be compared — which is the only reason to read it.
 
@@ -3719,5 +4025,104 @@ COMPARE LAYOUT
      being compared is still named. */
   .compare-details {
     display: none;
+  }
+}
+
+/*----------------------------------------------------------------------------------------
+LIST PAGES
+----------------------------------------------------------------------------------------*/
+
+/* A list is a table beside its cards down to 800, where a record's fields stop fitting across
+   a row — a model's name, team, modalities, parameter count and dates are eight columns, and
+   a table narrower than its own headings is a row of wrapped fragments. Below it the list is
+   its cards, and the choice is not offered: createListView draws them whatever was last
+   pressed, so a toggle left on the page would be a control saying nothing happens. Then 600,
+   where two cards across stop fitting either.
+
+   See CARDS_QUERY in templates/listView.js, which is this same width read as a query. */
+
+/* While the cards are the only view, which createListView marks the toolbar with — see
+   renderView. A state and not a width: a caller may set its own `cardsQuery`, and the toolbar
+   has to change with whatever it chose. */
+.list-toolbar.cards-only .list-toggle {
+  display: none;
+}
+
+/* The row was laid out for two ends and now has one thing in it. */
+.list-toolbar.cards-only {
+  justify-content: flex-end;
+}
+
+/* And where the toggle was the whole of it, there is no row left to draw — a list with
+   nothing to compare has no other tenant. */
+.list-toolbar.cards-only:has(> .list-toggle:only-child) {
+  display: none;
+}
+
+/* The hint back beside the buttons, as it is above 1200: it was given a line of its own
+   because the toggle was on this row too, and the toggle has just gone. `contents` rather than
+   a width, so the hint is the row's own item again and the row is exactly what it would be
+   without the wrapper — see `.hint-line`.
+
+   An empty hint still takes no line: `.hint-line:has(.action-hint:empty)` is the more specific
+   of the two and keeps hiding it. */
+.list-toolbar.cards-only .hint-line {
+  display: contents;
+}
+
+/* And it stays there rather than being put back on a line of its own the moment the row runs
+   short. A wrapping row decides where to break from each item's own width — the hint's basis
+   clamped by its 38ch — so it would leave the line long before it was asked to give any of
+   that width up. Nowrap takes the escape away.
+
+   `min-width: 0` is what it gives way with: a flex item will not shrink past its contents
+   without it. The buttons are held at their own size, so the sentence is what narrows. */
+.list-toolbar.cards-only > .row.right {
+  flex-wrap: nowrap;
+}
+
+.list-toolbar.cards-only .action-hint {
+  min-width: 0;
+}
+
+.list-toolbar.cards-only > .row.right > .btn {
+  flex: none;
+}
+
+@media (max-width: 800px) {
+  /* A bar of five or more gives up one — the task scores' ten, which toFilterRows splits into
+     two rows of five. A bar of three keeps its own thirds. */
+  #filters .grid:has(> :nth-child(5)) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  /* The hint goes, and the row is buttons alone: the list's Compare and the page's New, which
+     moves down beside it at this width — see attachCreatePlacement in templates/listPage.js.
+     A sentence between two buttons here is the widest thing on the page, and it is explaining
+     the narrowest.
+
+     What it said about how many are picked is not said anywhere else at this width. The chips
+     naming them are, which is the count in the form that matters — see `.compare-picks`. */
+  .list-toolbar .action-hint {
+    display: none;
+  }
+
+  /* The bar two across rather than the three or five toFilterRows laid it out for — a select
+     showing a placeholder and the chips pinned under it needs more than a third of a phone.
+
+     `#filters` and not `.grid`, so this is the list's bar alone: the leaderboard's is
+     `.filter-flow`, which has its own tiers, and every other grid on the page is content. */
+  #filters .grid,
+  #filters .grid:has(> :nth-child(5)) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* And a search takes the row it starts: it is the one control whose value is typed rather
+     than chosen, so it is read at the width of what someone types into it, and the two that
+     narrow what it found sit under it. */
+  #filters .grid > input[type="search"] {
+    grid-column: 1 / -1;
   }
 }

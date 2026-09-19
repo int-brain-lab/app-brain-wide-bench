@@ -10,6 +10,7 @@
 // /api/leaderboard has no notion of a caller, so which rows are the reader's is an
 // intersection done here.
 
+import { PHONE_QUERY } from "../core/breakpoints.js";
 import { getLeaderboard } from "../api/leaderboardApi.js";
 import { getTasks } from "../api/metaApi.js";
 import { getMyTeams } from "../api/teamApi.js";
@@ -65,9 +66,6 @@ const COMPARE_ID = "compare-models";
 // The line beside the buttons saying what they are for — see getHint.
 const HINT_ID = "compare-hint";
 
-// Where the two control sections arrive closed, so a reader lands on the board rather than
-// on two panels of filters. The same width as `.board-controls`'s own tier in style.css.
-const NARROW_QUERY = "(max-width: 600px)";
 
 // This page's own two, beside the pair every comparison shares — see DONE_LABEL and
 // GO_COMPARE_LABEL in components/buttons.js.
@@ -128,7 +126,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
               description: "Select the suites or a combination of tasks to include in the ranking",
               compact: true,
               collapsible: true,
-              collapsed: matchMedia(NARROW_QUERY).matches,
+              collapsed: matchMedia(PHONE_QUERY).matches,
             },
             {
               id: FILTERS_SECTION,
@@ -137,7 +135,7 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
                 "Apply filters to restrict models or tasks included in the ranking. Click more filters to show all",
               compact: true,
               collapsible: true,
-              collapsed: matchMedia(NARROW_QUERY).matches,
+              collapsed: matchMedia(PHONE_QUERY).matches,
               actions: buildFilterActions(),
             },
           ],

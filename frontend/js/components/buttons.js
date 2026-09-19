@@ -26,10 +26,17 @@ export const PLOT_VIEW = "plot-view";
 export const DONE_LABEL = "Done";
 export const GO_COMPARE_LABEL = "Go to comparison";
 
-function buttonBody({ label, icon }) {
+// `noun` is the tail of the label the phone tier drops — see `.btn-noun` in style.css. It sits
+// inside the label's span: a direct child of `.btn.with-icon` takes the glyph's gap, not a
+// word space.
+function buttonBody({ label, icon, noun = null }) {
+  const text = noun
+    ? `<span class="btn-label">${escapeHtml(label)} <span class="btn-noun">${escapeHtml(noun)}</span></span>`
+    : escapeHtml(label);
+
   return `
     <i class="btn-icon" data-lucide="${escapeHtml(icon)}"></i>
-    ${escapeHtml(label)}
+    ${text}
   `;
 }
 
@@ -48,6 +55,8 @@ export function setButtonLabel(button, { label, icon }) {
 /**
  * @param id     omit for a button nothing looks up by id.
  * @param label  the text.
+ * @param noun   the tail of that text, which the phone tier drops — see buttonBody. Omit for
+ *               a label that is read whole at every width.
  * @param icon   a lucide name — see components/icons.js.
  * @param href   where it goes. Without one it is a `<button>`.
  * @param view   a view of the page it is already on: the router picks it up by data-view
@@ -62,6 +71,7 @@ export function setButtonLabel(button, { label, icon }) {
 export function buildButton({
   id = null,
   label,
+  noun = null,
   icon,
   href = null,
   view = null,
@@ -89,7 +99,7 @@ export function buildButton({
     .filter(Boolean)
     .join(" ");
 
-  const body = buttonBody({ label, icon });
+  const body = buttonBody({ label, icon, noun });
 
   if (view) {
     return `<a ${attributes} href="#" data-view="${escapeHtml(view)}">${body}</a>`;
@@ -140,15 +150,19 @@ export function buildCompareButton({
 // Filled: making a new thing is what a list page is for, and the one thing a note saying you
 // have none offers. `className` is still the caller's, for a create button that should read
 // with the ones beside it rather than lead them — "" leaves `.btn`'s own fill.
+//
+// The label is "New" and the noun its droppable tail — see buttonBody.
 export function buildCreateButton({
   id = CREATE_BUTTON_ID,
   href = null,
+  noun = null,
   label = "New",
   className = "primary",
 } = {}) {
   return buildButton({
     id,
     label,
+    noun,
     href,
     icon: getIcon("create"),
     className,
@@ -243,10 +257,12 @@ export function buildDetailsButton({
   href = null,
   view = null,
   label = "View details",
+  noun = null,
   className = "sm",
 } = {}) {
   return buildButton({
     label,
+    noun,
     icon: getIcon("details"),
     href,
     view,
@@ -258,7 +274,8 @@ export function buildDetailsButton({
 // details view and stops there: the Edit button on that view is what starts the editor.
 export const EDIT_DETAILS_BUTTON = buildDetailsButton({
   view: "details",
-  label: "Edit details",
+  label: "Edit",
+  noun: "details",
   className: "",
 });
 

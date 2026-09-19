@@ -1,7 +1,7 @@
 // Compare several task scores side by side, in two panels:
 //
 //   means        one bar per score, for the metric its task type is read in
-//   recordings   the categories behind each score, as plots or a heatmap
+//   recordings   the categories behind each score, as plots
 //
 // Scores are grouped by task type, so every score in one plot is measured the same way and
 // can be offered the same metrics.
@@ -25,15 +25,9 @@ import { loadTaskSubmission } from "../api/taskSubmissionApi.js";
 import { applyGrid, toGridAttrs } from "../components/layout.js";
 import { REGION_TASK_TYPE, toScoreDetail } from "../utils/recordingScoreUtils.js";
 import { SERIES_COLOURS } from "../plots/palette.js";
-import {
-  SCORE_RANGE,
-  buildScoreHeatmaps,
-  createCategoryPlot,
-  createMeanPlot,
-} from "../plots/taskScorePlots.js";
+import { SCORE_RANGE, createCategoryPlot, createMeanPlot } from "../plots/taskScorePlots.js";
 import { createTaskPlot } from "../plots/recordPlots.js";
 import { buildMetricBadge, buildTaskBadge } from "../components/badges.js";
-import { buildToggle } from "../components/buttons.js";
 import { buildPicks, dropFromClick } from "../components/comparisonGrid.js";
 import { buildEmptyMessage } from "../components/messages.js";
 import { buildSections, getSection, getSectionBody } from "../components/sections.js";
@@ -60,14 +54,6 @@ const METRIC = "metric";
 // The data attribute a group's cell carries its task type in, which is what `selectedMetrics`
 // is keyed on.
 const METRIC_GROUP = "metrics";
-
-const BARS_VIEW = "bars-view";
-const HEATMAP_VIEW = "heatmap-view";
-
-const VIEWS = [
-  { id: BARS_VIEW, label: "Bars", icon: "score" },
-  { id: HEATMAP_VIEW, label: "Heatmap", icon: "suite" },
-];
 
 // ─── SCORE DATA ──────────────────────────────────────────────────────────────
 
@@ -214,16 +200,6 @@ function buildMetricBadges(taskType, metric) {
   `;
 }
 
-/**
- * How the recordings are drawn, for a host placing it away from them — the buttons are found
- * by id, so it may sit anywhere on the page.
- *
- * @returns the markup.
- */
-function buildRecordingsToggle() {
-  return buildToggle(VIEWS);
-}
-
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
 
 /**
@@ -250,7 +226,6 @@ function createTaskComparison({
   meansContainer = null,
   ...options
 }) {
-  let view = BARS_VIEW;
   let comparison = null;
 
   // Keyed by task type.
@@ -375,7 +350,7 @@ function createTaskComparison({
             .map(
               (group) => `
             <div
-              class="section-row"
+              class="section-row task-group"
               ${toGridAttrs({ shares: [1, 4] })}
               data-${GROUP_ROW}="${escapeHtml(group.key)}"
             >
@@ -492,7 +467,7 @@ function createTaskComparison({
     if (nested) {
       element.className = "column gap-lg";
     } else {
-      applyGrid(element, { cols: 3, gap: "xs" });
+      applyGrid(element, { cols: 3, gap: "xs", className: "recording-grid" });
     }
 
     const categories = categoriesFor(group.key);
@@ -519,8 +494,8 @@ function createTaskComparison({
   function renderRecordings() {
     clearPlots();
 
-    // Nested, the whole section is the recordings: no rows to fill and no heatmap, the host
-    // having given this panel one narrow column beside the task it is of.
+    // Nested, the whole section is the recordings: no rows to fill, the host having given
+    // this panel one narrow column beside the task it is of.
     if (nested) {
       const wrapper = document.createElement("div");
 
@@ -540,20 +515,6 @@ function createTaskComparison({
 
       if (!slot) continue;
 
-      // A block per way of measuring, and a row is one of those — so a task type's heatmap
-      // sits where its plots would.
-      if (view === HEATMAP_VIEW) {
-        renderHtml(
-          slot,
-          buildScoreHeatmaps({
-            allSeries: toScoreSeries(group.scores, metricFor(group.key)),
-            categoriesFor,
-          }),
-        );
-
-        continue;
-      }
-
       slot.replaceChildren(buildPlotCells(group));
     }
   }
@@ -568,7 +529,6 @@ function createTaskComparison({
 
     updateGroups();
 
-    setActiveView(view);
     renderPicks();
 
     clearContent(getElement(PROMPT_ID));
@@ -582,22 +542,6 @@ function createTaskComparison({
     refreshIcons();
   }
 
-  // ─── VIEW CONTROLS ─────────────────────────────────────────────────────────
-
-  function setActiveView(selected) {
-    for (const { id } of VIEWS) {
-      getElement(id)?.classList.toggle("primary-inv", id === selected);
-    }
-  }
-
-  function setView(selected) {
-    if (selected === view) return;
-
-    view = selected;
-    setActiveView(view);
-    renderRecordings();
-  }
-
   // ─── EVENTS ────────────────────────────────────────────────────────────────
 
   function attachEvents() {
@@ -608,12 +552,6 @@ function createTaskComparison({
         comparison.drop(key);
       }
     });
-
-    for (const { id } of VIEWS) {
-      getElement(id)?.addEventListener("click", () => {
-        setView(id);
-      });
-    }
 
     for (const root of [
       getSectionBody(SCORES_SECTION),
@@ -641,12 +579,8 @@ function createTaskComparison({
 
   function setup() {
     // Untitled — a plot of scores says what it is, and the panel is opened by the rows above
-    // it rather than found by its heading. Nested, the toggle is the host's too — see
-    // buildRecordingsToggle.
-    const scores = {
-      id: SCORES_SECTION,
-      actions: nested ? [] : [buildToggle(VIEWS)],
-    };
+    // it rather than found by its heading.
+    const scores = { id: SCORES_SECTION };
 
     renderHtml(
       container,
@@ -725,4 +659,4 @@ const SCORE_PANEL = {
   create: (container) => createTaskComparison({ container, toPick: toScorePick }),
 };
 
-export { SCORE_PANEL, buildRecordingsToggle, createTaskComparison };
+export { SCORE_PANEL, createTaskComparison };
