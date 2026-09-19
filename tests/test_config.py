@@ -21,5 +21,5 @@ def test_wildcard_cors_is_refused_against_a_real_tenant():
 def test_pinned_cors_is_fine_against_a_real_tenant():
     Settings(
         auth0_domain="brainwidebench.us.auth0.com",
-        cors_origins="https://brainwidebench.iblcore.org",
+        cors_origins="https://bwb.iblcore.org",
     )

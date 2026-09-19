@@ -65,7 +65,7 @@ service is behind the `local` profile because production points `DATABASE_URL` a
 managed RDS instance instead — omit `--profile local` to match that. Deploy to EC2
 happens via `.github/workflows/deploy.yml` on push to `main`.
 
-The production instance runs at `https://brainwidebench.iblcore.org` (EC2 t3.small,
+The production instance runs at `https://bwb.iblcore.org` (EC2 t3.small,
 us-east-1). Full deployment instructions, resource IDs, and operational notes are on the
 private IBL dev site:
 [`ibldevtools/00_dev_site/deployments/brain_wide_bench.md`](https://github.com/int-brain-lab/ibldevtools/blob/main/00_dev_site/deployments/brain_wide_bench.md).

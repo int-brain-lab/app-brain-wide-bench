@@ -149,7 +149,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--origin",
-        default="https://brainwidebench.iblcore.org",
+        default="https://bwb.iblcore.org",
         help="Origin the browser will upload from, checked against the bucket's CORS.",
     )
     args = parser.parse_args()

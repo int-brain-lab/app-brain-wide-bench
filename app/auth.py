@@ -36,7 +36,7 @@ DEV_NAME = "Dev User"
 _jwks_cache: dict | None = None
 
 
-_CLAIM_NS = "https://brainwidebench.iblcore.org/"
+_CLAIM_NS = "https://bwb.iblcore.org/"
 
 
 def _claim(claims: dict, name: str) -> str | None:
