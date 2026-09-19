@@ -36,7 +36,8 @@ import { createTaskPlot } from "../plots/recordPlots.js";
 import { buildMetricBadge, buildTaskBadge } from "../components/badges.js";
 import { SCORE_RANGE } from "../plots/taskScorePlots.js";
 import { SERIES_COLOURS } from "../plots/palette.js";
-import { buildDiff, buildMeanSem } from "../tables/formatters.js";
+import { buildDiff } from "../tables/formatters.js";
+import { buildMeanSem } from "../components/scores.js";
 import {
   TABLE_VIEW,
   PLOT_VIEW,
@@ -45,13 +46,14 @@ import {
   setButtonLabel,
 } from "../components/buttons.js";
 import { getIcon } from "../components/icons.js";
+import { applyGrid, toGridAttrs } from "../components/layout.js";
 import { buildComparisonGrid, buildPicks, dropFromClick } from "../components/comparisonGrid.js";
 import { methodologyCells, methodologyColumns } from "../components/methodologyGrid.js";
 import { buildOptions, buildSelect } from "../components/filters.js";
 import { buildEmptyMessage, buildInfoMessage } from "../components/messages.js";
 import { buildSections, getSection, getSectionBody } from "../components/sections.js";
 import { createComparison } from "./comparison.js";
-import { buildRecordingsToggle, createTaskComparison } from "./taskScoreComparison.js";
+import { createTaskComparison } from "./taskScoreComparison.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
@@ -82,13 +84,11 @@ const SCORES_ID = "compare-scores-toggle";
 // read: a difference is the set's question, not one task's.
 const BASELINE_ROW_ID = "compare-baseline-row";
 
-// The two view controls, one per state: every task drawn as plots or a table, or the one being
-// read drawn as bars or a heatmap.
+// Every task drawn as plots or as a table.
 const TASK_VIEW_ID = "compare-task-view";
-const SCORE_VIEW_ID = "compare-score-view";
 
-const SHOW_SCORES = "See scores breakdown";
-const HIDE_SCORES = "See every task";
+const SHOW_SCORES = "Show breakdown";
+const HIDE_SCORES = "Hide breakdown";
 
 // ─── DETAILS ─────────────────────────────────────────────────────────────────
 
@@ -481,7 +481,7 @@ function createRecordComparison({
 
     const element = document.createElement("div");
 
-    element.className = "grid-3 gap-lg";
+    applyGrid(element, { cols: 3, className: "table-grid" });
 
     for (const task of allTasks()) {
       const cell = document.createElement("div");
@@ -545,7 +545,7 @@ function createRecordComparison({
     const element = document.createElement("div");
     const charts = [];
 
-    element.className = "grid-3 gap-lg";
+    applyGrid(element, { cols: 3, className: "plot-grid" });
 
     for (const plot of plots) {
       const built = createTaskPlot({
@@ -573,7 +573,7 @@ function createRecordComparison({
 
     // Reading one task: a column for its plot and the rest for the recordings beside it —
     // see `.scores-rest`.
-    getElement(LAYOUT_ID).className = showScores ? "grid-3 gap-lg" : "";
+    applyGrid(getElement(LAYOUT_ID), showScores ? { cols: 3 } : null);
     getElement(TASK_DETAIL_ID).className = showScores ? "scores-rest" : "";
 
     // Reading one task, the mean of it stands in for its card in the grid.
@@ -585,7 +585,6 @@ function createRecordComparison({
     // is the set's other half.
     getElement(BASELINE_ROW_ID).hidden = showScores;
     getElement(TASK_VIEW_ID).hidden = showScores;
-    getElement(SCORE_VIEW_ID).hidden = !showScores;
 
     disposeAll(breakdownCharts);
     breakdownCharts = [];
@@ -635,7 +634,7 @@ function createRecordComparison({
         })),
         {
           selected: getBaseline(),
-          placeholder: `Select a baseline ${noun} to see differences`,
+          placeholder: "Show difference from",
         },
       ),
     );
@@ -792,7 +791,7 @@ function createRecordComparison({
 
   function setup() {
     const pageHtml = `
-      <div class="section-row">
+      <div class="section-row compare-layout" ${toGridAttrs({ cols: 2 })}>
         ${buildSections([
           {
             id: BREAKDOWN,
@@ -800,18 +799,26 @@ function createRecordComparison({
             // No heading: the baseline the plots are read against sits where one would be.
             // Wrapped, so it can be hidden whole while a single task is being read — a
             // difference is the set's question, not one task's.
-            controls: `<span id="${BASELINE_ROW_ID}">${buildBaselineSelect()}</span>`,
-            actions: [
-              `<span id="${TASK_VIEW_ID}">${buildPlotTableToggle(BREAKDOWN)}</span>`,
-              `<span id="${SCORE_VIEW_ID}" hidden>${buildRecordingsToggle()}</span>`,
-            ],
+            // The baseline to read the plots against, and the way into the scores behind
+            // them. Beside that row rather than inside it: the row is hidden while the
+            // breakdown is open — see renderBreakdown — and a toggle in it would go with it,
+            // leaving no way back.
+            controls:
+              `<span id="${BASELINE_ROW_ID}">${buildBaselineSelect()}</span>` +
+              buildButton({
+                id: SCORES_ID,
+                label: SHOW_SCORES,
+                icon: getIcon("expand"),
+                className: "sm muted",
+              }),
+            actions: [`<span id="${TASK_VIEW_ID}">${buildPlotTableToggle(BREAKDOWN)}</span>`],
             className: "chart-pickable",
             collapsible: true,
             hidden: true,
           },
         ])}
 
-        <div class="column gap-lg">
+        <div class="column gap-lg compare-details">
           ${buildSections([
             {
               id: DETAILS,
@@ -847,20 +854,10 @@ function createRecordComparison({
       `
         <div id="${DETAILS_GRID_ID}"></div>
 
-        <div class="column gap-sm push-down">
-          <span class="row left gap-sm">
-            ${buildButton({
-              id: SCORES_ID,
-              label: SHOW_SCORES,
-              icon: getIcon("expand"),
-              className: "sm muted",
-            })}
-          </span>
-        </div>
         ${
           picksContainer
             ? ""
-            : `<span class="row left gap-sm compare-picks" id="${PICKS_ID}"></span>`
+            : `<span class="row left gap-sm compare-picks push-down" id="${PICKS_ID}"></span>`
         }
       `,
     );

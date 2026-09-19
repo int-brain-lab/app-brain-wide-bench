@@ -16,14 +16,8 @@
 
 import { suiteFromTask } from "../core/suites.js";
 import { createTable } from "./table.js";
-import {
-  buildMeanSem,
-  meanSorter,
-  modelFormatter,
-  rankFormatter,
-  rankSorter,
-  taskHeader,
-} from "./formatters.js";
+import { buildMeanSem } from "../components/scores.js";
+import { meanSorter, modelFormatter, rankFormatter, rankSorter, taskHeader } from "./formatters.js";
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
 
@@ -51,6 +45,8 @@ const COLUMNS_WITH_ROOM = 4;
 // rather than by the numbers under it: a stacked heading is a task name over its metric, and
 // the metric is the wider of the two — "Poisson D²" at --font-xs runs to about 62px, on top of
 // the 16px the header spends on its own padding and the 14px it reserves for the sort arrow.
+//
+// The bare word and not the badge the metric wears elsewhere: a pill costs 14px more here.
 const TASK_WIDTH = 92;
 
 // Whether the board can be stretched to fill the page, and whether its columns are then wide
@@ -89,7 +85,10 @@ function getColumns(taskIds, metrics) {
       sorter: rankSorter,
       // A number, not a layout name: a column's `width` is a width, and Tabulator reads
       // anything else as none at all.
-      width: 60,
+      //
+      // Frozen, so its width is width the scores never get: three digits and the medal's wash,
+      // at the `--tap-min` floor.
+      width: 44,
       frozen: true,
     },
     {

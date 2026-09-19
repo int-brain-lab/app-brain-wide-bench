@@ -4,6 +4,7 @@ import { logout } from "../api/client.js";
 import { getCurrentUser } from "../api/userApi.js";
 import { buildSignOutButton } from "../components/buttons.js";
 import { getIcon } from "../components/icons.js";
+import { DOCS_HREF } from "./navFooter.js";
 import { renderLogo } from "./navTop.js";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
@@ -62,6 +63,7 @@ const PUBLIC_NAV_ITEMS = [
     href: "/html/teams/team_list_public.html",
     icon: getIcon("team"),
   },
+  { label: "Docs", href: DOCS_HREF, external: true, icon: getIcon("docs") },
   { label: "Home", href: "/index.html", icon: getIcon("home") },
 ];
 
@@ -84,11 +86,17 @@ function currentPage() {
 
 // ─── RENDERING ───────────────────────────────────────────────────────────────
 
+// `external` is a page off this site, which never matches the path `active` is decided by —
+// and which opens in its own tab, as the same link does in the bar and the footer.
 function renderSidebarItem(item, page) {
   const active = item.href === page;
 
   return `
-    <a class="sidebar-item${active ? " active" : ""}" href="${item.href}">
+    <a
+      class="sidebar-item${active ? " active" : ""}"
+      href="${item.href}"
+      ${item.external ? 'target="_blank" rel="noopener noreferrer"' : ""}
+    >
       <i class="sidebar-icon" data-lucide="${item.icon}"></i>
       ${item.label}
     </a>

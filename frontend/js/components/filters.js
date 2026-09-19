@@ -12,6 +12,7 @@
 import { escapeHtml } from "../core/html.js";
 import { suiteLabel, SUITES } from "../core/suites.js";
 import { getIcon } from "./icons.js";
+import { toGridAttrs } from "./layout.js";
 import { buildRange } from "./ranges.js";
 
 // ─── MATCHERS ────────────────────────────────────────────────────────────────
@@ -474,25 +475,14 @@ function buildFilterControl({ control, value, className = "" }) {
 // ─── BAR ─────────────────────────────────────────────────────────────────────
 
 // A grid rather than a flex row: the controls carry width:100% from .input-select and
-// .input-text, so only a grid gives them equal shares. A single control has no share to take
-// and stays stacked.
-const GRID_CLASS = { 2: "grid-2", 3: "grid-3", 4: "grid-4", 5: "grid-5" };
+// .input-text, so only a grid gives them equal shares.
 
 // Five to a row at most, and the rows are even rather than filled: ten controls are two
 // fives, six are two threes, and no row is left holding one control at a fifth of the width.
 const ROW_MAX = 5;
 
-function toFilterRows(controls) {
-  const count = Math.ceil(controls.length / ROW_MAX);
-  const perRow = Math.ceil(controls.length / count);
-
-  const rows = [];
-
-  for (let at = 0; at < controls.length; at += perRow) {
-    rows.push(controls.slice(at, at + perRow));
-  }
-
-  return { rows, perRow };
+function toPerRow(controls) {
+  return Math.ceil(controls.length / Math.ceil(controls.length / ROW_MAX));
 }
 
 /**
@@ -506,29 +496,16 @@ function toFilterRows(controls) {
 function buildFilterBar(controls, values = {}) {
   if (controls.length === 0) return "";
 
-  // A pinned cell grows downwards as chips are added, so each row is topped rather than
+  // A pinned cell grows downwards as chips are added, so the rows are topped rather than
   // stretched.
   const pinned = controls.some((control) => control.type === "pinned");
 
-  const { rows, perRow } = toFilterRows(controls);
-
-  // Not on the stacked fallback, where `align-items: start` would take a lone control down
-  // to its content width.
-  const grid = GRID_CLASS[perRow];
-  const layout = grid ?? "column gap-lg";
-  const align = pinned && grid ? " align-start" : "";
-
+  // One grid, not one per row: a breakpoint narrowing the columns then repacks the whole run,
+  // where separate grids each keep their own remainder.
   return `
-    <div class="column gap-lg">
-      ${rows
-        .map(
-          (row) => `
-        <div class="${layout}${align}">
-          ${row
-            .map((control) => buildFilterControl({ control, value: values[control.name] }))
-            .join("")}
-        </div>`,
-        )
+    <div class="grid${pinned ? " align-start" : ""}" ${toGridAttrs({ cols: toPerRow(controls) })}>
+      ${controls
+        .map((control) => buildFilterControl({ control, value: values[control.name] }))
         .join("")}
     </div>
   `;

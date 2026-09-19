@@ -6,6 +6,7 @@
 
 import { clearContent, refreshIcons, renderHtml } from "../core/render.js";
 import { buildTableCount } from "../components/count.js";
+import { toGridAttrs } from "../components/layout.js";
 import { buildEmptyMessage } from "../components/messages.js";
 
 const MAX_PAGE_BUTTONS = 5;
@@ -112,7 +113,7 @@ function toRowMap(rows, getKey) {
 // `total` is the count before filtering.
 function buildGridHtml({ visibleRows, buildCards, total, noun, page, pageCount }) {
   return `
-    <div class="grid-2" data-role="cards">
+    <div class="grid card-grid" ${toGridAttrs({ cols: 2 })} data-role="cards">
       ${buildCards(visibleRows)}
     </div>
 

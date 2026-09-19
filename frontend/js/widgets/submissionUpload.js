@@ -82,11 +82,16 @@ function buildFileCard() {
         </span>
 
         <span class="file-actions">
-          <span class="badge" id="file-status" hidden></span>
+          <span class="badge sm" id="file-status" hidden></span>
 
           <!-- A disabled button takes no pointer events, so its hover text hangs here. -->
           <span id="file-remove-lock">
-            ${buildButton({ id: "file-remove", label: "Delete", icon: getIcon("delete") })}
+            ${buildButton({
+              id: "file-remove",
+              label: "Delete",
+              icon: getIcon("delete"),
+              className: "sm",
+            })}
           </span>
         </span>
       </div>
@@ -132,7 +137,7 @@ function buildUploadPanel() {
           id: "file-upload",
           label: UPLOAD_LABEL,
           icon: getIcon("submit"),
-          className: "primary",
+          className: "sm primary",
         })}
 
         <span class="metadata" id="file-reassure"></span>
@@ -243,7 +248,7 @@ function createUploadSection({ state, onFile, onTasks, onVerdict }) {
     elements.fileStatus.hidden = !status;
 
     if (status) {
-      elements.fileStatus.className = `badge ${status.kind}`;
+      elements.fileStatus.className = `badge sm ${status.kind}`;
       setText(elements.fileStatus, status.text);
     }
 

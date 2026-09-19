@@ -109,7 +109,7 @@ const SUITE_METRICS = {
 };
 
 /**
- * How a metric is written wherever one is shown — a badge, a button, a heatmap block.
+ * How a metric is written wherever one is shown — a badge, a button, a plot's corner.
  *
  * A metric this does not name reads as it arrived, as an unnamed task does: one the benchmark
  * has added shows up before it is named here.

@@ -1,11 +1,9 @@
 // What taskScoreComparison.js draws: one plot per score over its categories — a recording for
-// TS1 and TS2, a brain region for TS3 — one plot of means per task type, and the same numbers
-// as heatmap blocks. This says what a category is; the marks are bar.js.
+// TS1 and TS2, a brain region for TS3 — and one plot of means per task type. This says what a
+// category is; the marks are bar.js.
 
-import { metricLabel } from "../core/suites.js";
 import { REGION_TASK_TYPE } from "../utils/recordingScoreUtils.js";
 import { createBarPlot } from "./bar.js";
-import { buildHeatmaps } from "./heatmap.js";
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
@@ -13,42 +11,11 @@ import { buildHeatmaps } from "./heatmap.js";
 // read against any other.
 const SCORE_RANGE = { min: 0, max: 1 };
 
-// How many categories an axis names, by how many plots share the width of the page.
-const NAMED_TICKS = { 1: 10, 2: 6, 3: 4 };
-const NARROWEST = 4;
-
 // A category plot holds tens of bars a few px wide, where the mean plot beside it holds one
 // per score: finer than the house whisker, which would otherwise be wider than the bar.
 const CATEGORY_SEM = { width: 1, cap: 2 };
 
-/**
- * What a category is named on the axis.
- *
- * @param key
- * @param taskType the plot's own — region names are shown whole, being few and short.
- * @param index    the category's position.
- * @param count    how many categories the axis holds.
- * @param columns  how many plots the page holds across.
- * @returns the label, or null to leave the tick unnamed. A recording id is a uuid, so a named
- *          one is the eight-character head of it, sat in the middle of its stride so the
- *          first is clear of the y axis.
- */
-function categoryTickLabel(key, { taskType, index, count, columns }) {
-  if (taskType === REGION_TASK_TYPE) return key;
-
-  const named = NAMED_TICKS[columns] ?? NARROWEST;
-  const stride = Math.max(1, Math.ceil(count / named));
-
-  return index % stride === Math.floor(stride / 2) ? String(key).slice(0, 8) : null;
-}
-
 // ─── PLOTS ───────────────────────────────────────────────────────────────────
-
-// One block per way of measuring: a behavioural readout and a neural reconstruction reported
-// in one metric are not one reading.
-function blockKeyOf(series) {
-  return `${series.taskType}|${series.metric}`;
-}
 
 // What the axis holds, named once under it rather than tick by tick: a recording id is a
 // uuid, and a plot three across has no room to name forty of them.
@@ -107,37 +74,4 @@ function createMeanPlot({ series, categories, categoryLabel, height }) {
   });
 }
 
-/**
- * The same scores as blocks of cells, one block per way of measuring.
- *
- * @param allSeries     one per score — see toScoreSeries.
- * @param categoriesFor (taskType) => the categories every block of it shows.
- * @returns the markup.
- */
-function buildScoreHeatmaps({ allSeries, categoriesFor }) {
-  const blocks = new Map();
-
-  for (const series of allSeries) {
-    const key = blockKeyOf(series);
-
-    blocks.set(key, [...(blocks.get(key) ?? []), series]);
-  }
-
-  const plots = [...blocks].map(([key, members]) => ({
-    id: key,
-    taskType: members[0].taskType,
-    name: metricLabel(members[0].metric),
-    categories: categoriesFor(members[0].taskType),
-    yRange: SCORE_RANGE,
-    series: members,
-  }));
-
-  return buildHeatmaps({
-    plots,
-    xTickLabel: categoryTickLabel,
-    // Uuids are unreadable at a cell's width; a region name is the point of the row.
-    showHeader: (taskType) => taskType === REGION_TASK_TYPE,
-  });
-}
-
-export { SCORE_RANGE, buildScoreHeatmaps, createCategoryPlot, createMeanPlot };
+export { SCORE_RANGE, createCategoryPlot, createMeanPlot };

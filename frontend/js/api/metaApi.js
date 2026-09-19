@@ -1,4 +1,5 @@
 import { apiFetch, apiFetchOptional } from "./client.js";
+import { formatEnumValue } from "../core/utils.js";
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 
@@ -52,10 +53,13 @@ async function getStats() {
 // on this document, `record: "model"` names whose field descriptions to read.
 
 // One field's options, in the {value, label, description} shape fields.js draws.
+//
+// The label is the value written out — see formatEnumValue. The value itself is untouched:
+// it is what a filter sends back and what the `disabledOptionsWhen` rules name.
 function optionsFor(field, meta) {
   return (meta.enums[field.enum] ?? []).map(({ value, description }) => ({
     value,
-    label: value,
+    label: formatEnumValue(value),
     description,
   }));
 }

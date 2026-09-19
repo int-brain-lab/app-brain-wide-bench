@@ -21,6 +21,8 @@ import { toTeamRows } from "../utils/teamUtils.js";
 import { getUserSubtitle, getWelcome, isNewAccount } from "../utils/userUtils.js";
 import { dateSorter } from "../tables/formatters.js";
 import { buildBestScoresTable, createTaskScoresTable } from "../tables/taskScoreTable.js";
+import { buildBestTaskCards, createTaskScoreCardGrid } from "../cards/taskCards.js";
+import { attachSectionView } from "../widgets/sectionView.js";
 import { previewRows } from "../tables/table.js";
 import { SCORE_PANEL } from "../comparisons/taskScoreComparison.js";
 import { buildCreateCard } from "../cards/createCard.js";
@@ -93,6 +95,8 @@ const DASHBOARD_SECTIONS = [
   {
     // Equal columns: all three hold the same card, so none of them earns more room. What
     // the account holds is said once in the page's own header, not in cards over these.
+    className: "account-lists",
+
     sections: [
       { id: "teams", title: "Teams" },
       { id: "models", title: "Models" },
@@ -145,9 +149,13 @@ function renderSection(id, content, count) {
 function renderCards(id, cards, count) {
   const footer = buildFooter(id, count, { showing: count <= MAX_CARDS });
 
-  renderHtml(getSectionBody(id), `<div class="card-stack">${cards}${footer}</div>`, {
-    refresh: true,
-  });
+  renderHtml(
+    getSectionBody(id),
+    `<div class="grid card-stack" data-cols="1">${cards}${footer}</div>`,
+    {
+      refresh: true,
+    },
+  );
 }
 
 function renderTeamsSection(teams) {
@@ -201,11 +209,11 @@ function renderScoresSection(scoreRows) {
   // Every one of them, not a preview: there is one row per task the account has scored, so
   // at most as many as the benchmark has tasks. The link is the way to the rest of the
   // scores behind each best, and to the filters and the comparison over them.
-  renderSection(
-    "scores",
-    buildBestScoresTable({ rows: best, total: scoreRows.length }),
-    scoreRows.length,
-  );
+  attachSectionView("scores", {
+    render: (content) => renderSection("scores", content, scoreRows.length),
+    table: () => buildBestScoresTable({ rows: best, total: scoreRows.length }),
+    cards: () => buildBestTaskCards(best),
+  });
 }
 
 function renderGettingStarted(user) {
@@ -264,6 +272,8 @@ function renderScoresView({ models, scoreRows }) {
     empty: "No scored tasks yet.",
 
     rows: scoreRows,
+
+    createCards: () => createTaskScoreCardGrid(display),
 
     createTable: ({ rows, selection }) =>
       createTaskScoresTable({

@@ -22,9 +22,19 @@ import { initials } from "../core/utils.js";
 import { escapeHtml } from "../core/html.js";
 import { buildEmptyMessage } from "../components/messages.js";
 import { renderHtml } from "../core/render.js";
+import { toGridAttrs } from "../components/layout.js";
 
 // The server's TeamRole. Ordered as the select shows them, most privileged first.
 const ROLES = ["owner", "collaborator"];
+
+// Where this table gives up and the members are read as cards. Its own rather than
+// cards/cardGrid.js's CARDS_QUERY: it carries a select and a button as well as the three
+// columns the read-only table has, and runs out of room before either of them.
+const MEMBER_CARDS_QUERY = "(max-width: 850px)";
+
+// The width watch of the section on the page. One at a time: a second createMembersSection
+// would otherwise leave the first still redrawing a list it no longer owns.
+let stopWidthWatch = null;
 
 // ─── DOM ─────────────────────────────────────────────────────────────────────
 
@@ -62,7 +72,7 @@ function buildMemberTable(members) {
         <tr>
           <td><span class="label">${escapeHtml(member.name || "—")}</span></td>
           <td><span class="metadata">${escapeHtml(member.email)}</span></td>
-          <td>${buildRoleBadge(member.role, "sm")}</td>
+          <td class="right">${buildRoleBadge(member.role, "sm")}</td>
         </tr>
       `,
     )
@@ -75,7 +85,7 @@ function buildMemberTable(members) {
           <tr>
             <th>Name</th>
             <th>Email</th>
-            <th>Role</th>
+            <th class="right">Role</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -85,6 +95,29 @@ function buildMemberTable(members) {
           ${buildTableCount(members.length, members.length, "member")}
         </span>
       </div>
+    </div>
+  `;
+}
+
+// The same members as cards, for a width a table of three columns no longer fits — see
+// attachSectionView in widgets/sectionView.js, which chooses between the two.
+function buildMemberCard(member) {
+  return `
+    <div class="card column gap-xs">
+      <div class="row gap-md">
+        <span class="label">${escapeHtml(member.name || "—")}</span>
+        ${buildRoleBadge(member.role, "sm")}
+      </div>
+
+      <span class="metadata">${escapeHtml(member.email)}</span>
+    </div>
+  `;
+}
+
+function buildMemberCards(members) {
+  return `
+    <div class="grid card-grid" ${toGridAttrs({ cols: 2 })}>
+      ${members.map(buildMemberCard).join("")}
     </div>
   `;
 }
@@ -173,6 +206,19 @@ function createMembersSection({ getTeam, canRemove = () => true }) {
     `;
   }
 
+  // The app's bin, as the delete buttons carry: taking a member off the team is the same kind
+  // of act, not the ✕ that clears a field.
+  function buildRemoveButton(member) {
+    if (!editing || !canRemove(member)) return "";
+
+    return buildButton({
+      label: "Remove",
+      icon: getIcon("delete"),
+      className: "sm primary member-remove",
+      data: { "user-id": member.id, email: member.email },
+    });
+  }
+
   // The action cell's flex layout goes on a div inside the <td>, not on the <td> itself.
   // `.row` is `display: flex`, and setting that on a table cell takes it out of the table's
   // layout entirely — the cell stops sizing with its column, so it no longer lines up with
@@ -182,24 +228,29 @@ function createMembersSection({ getTeam, canRemove = () => true }) {
       <tr>
         <td><span class="label">${escapeHtml(member.name || "—")}</span></td>
         <td><span class="metadata">${escapeHtml(member.email)}</span></td>
-        <td>${buildRoleCell(member)}</td>
+        <td class="right">${buildRoleCell(member)}</td>
         <td>
-          <div class="row right">
-            ${
-              editing && canRemove(member)
-                ? buildButton({
-                    label: "Remove",
-                    // The app's bin, as the delete buttons carry: taking a member off the
-                    // team is the same kind of act, not the ✕ that clears a field.
-                    icon: getIcon("delete"),
-                    className: "sm primary member-remove",
-                    data: { "user-id": member.id, email: member.email },
-                  })
-                : ""
-            }
-          </div>
+          <div class="row right">${buildRemoveButton(member)}</div>
         </td>
       </tr>
+    `;
+  }
+
+  // The same member as a card — see `.member-actions` in style.css, where the select gives up
+  // the full width `.input-select` takes.
+  function buildMemberCard(member) {
+    return `
+      <div class="card column gap-md">
+        <div class="column gap-xs">
+          <span class="label">${escapeHtml(member.name || "—")}</span>
+          <span class="metadata">${escapeHtml(member.email)}</span>
+        </div>
+
+        <div class="row gap-md member-actions">
+          ${buildRoleCell(member)}
+          ${buildRemoveButton(member)}
+        </div>
+      </div>
     `;
   }
 
@@ -218,14 +269,20 @@ function createMembersSection({ getTeam, canRemove = () => true }) {
       return;
     }
 
-    elements.list.innerHTML = `
+    const build = matchMedia(MEMBER_CARDS_QUERY).matches ? buildCards : buildTable;
+
+    renderHtml(elements.list, build(members));
+  }
+
+  function buildTable(members) {
+    return `
       <div class="table">
         <table>
           <thead>
             <tr>
               <th>Name</th>
               <th>Email</th>
-              <th>Role</th>
+              <th class="right">Role</th>
               <th></th>
             </tr>
           </thead>
@@ -238,6 +295,14 @@ function createMembersSection({ getTeam, canRemove = () => true }) {
             ${buildTableCount(members.length, members.length, "member")}
           </span>
         </div>
+      </div>
+    `;
+  }
+
+  function buildCards(members) {
+    return `
+      <div class="grid card-grid" ${toGridAttrs({ cols: 2 })}>
+        ${members.map(buildMemberCard).join("")}
       </div>
     `;
   }
@@ -261,7 +326,9 @@ function createMembersSection({ getTeam, canRemove = () => true }) {
         ${buildButton({
           label: "Add",
           icon: getIcon("add"),
-          className: "primary add-member",
+
+          // `sm` as the Remove buttons in the table below are: both act on one member.
+          className: "sm primary add-member",
           data: { id: user.id, email: user.email, name: user.name ?? "" },
         })}
       </div>
@@ -283,13 +350,20 @@ function createMembersSection({ getTeam, canRemove = () => true }) {
       return;
     }
 
-    elements.results.hidden = false;
-    elements.results.innerHTML = available.map(renderSearchResult).join("");
+    renderHtml(elements.results, available.map(renderSearchResult).join(""), { show: true });
   }
 
   function render() {
     renderMembers();
   }
+
+  // The width is a redraw like any other change to the list.
+  const media = matchMedia(MEMBER_CARDS_QUERY);
+  const onWidthChange = () => renderMembers();
+
+  stopWidthWatch?.();
+  media.addEventListener("change", onWidthChange);
+  stopWidthWatch = () => media.removeEventListener("change", onWidthChange);
 
   // ─── MEMBER CHANGES ────────────────────────────────────────────────────────
 
@@ -474,4 +548,4 @@ function createMembersSection({ getTeam, canRemove = () => true }) {
   };
 }
 
-export { buildMemberTable, buildMembersPanel, createMembersSection };
+export { buildMemberCards, buildMemberTable, buildMembersPanel, createMembersSection };

@@ -10,6 +10,15 @@ function pluralise(noun) {
   return `${noun}s`;
 }
 
+// A stored enum value as it should read: "single_session" is written "single session". The
+// values are the server's own enum members — see ENUMS in app/routers/meta.py — so the
+// underscore is a separator we chose, not part of the word.
+//
+// Nothing else: the case is left alone, so an acronym stays one ("TSS", not "Tss").
+function formatEnumValue(value) {
+  return typeof value === "string" ? value.replaceAll("_", " ") : value;
+}
+
 function initials(name) {
   return name
     .split(/\s+/)
@@ -103,4 +112,14 @@ function score(value) {
   return value == null ? "—" : value.toFixed(3);
 }
 
-export { formatCount, formatDate, initials, formatBytes, mean, pluralise, score, sem };
+export {
+  formatCount,
+  formatDate,
+  formatEnumValue,
+  initials,
+  formatBytes,
+  mean,
+  pluralise,
+  score,
+  sem,
+};

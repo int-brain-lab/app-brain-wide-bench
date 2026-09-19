@@ -214,7 +214,7 @@ function buildDashboardButton(noun, dashboard) {
 
 // The record exists; these are the ways on from it.
 function buildCreatedActions(noun, next, dashboard) {
-  const create = next ? buildCreateButton({ href: next.href, label: next.label }) : "";
+  const create = next ? buildCreateButton({ href: next.href, noun: next.noun }) : "";
 
   return (dashboard ? buildDashboardButton(noun, dashboard) : "") + create;
 }

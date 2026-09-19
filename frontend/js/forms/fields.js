@@ -11,7 +11,8 @@
 // escaping uniformly means no reader has to work out which slot is which.
 
 import { installFieldHelp } from "../components/fieldHelp.js";
-import { formatDate } from "../core/utils.js";
+import { toGridAttrs } from "../components/layout.js";
+import { formatDate, formatEnumValue } from "../core/utils.js";
 import { escapeHtml } from "../core/html.js";
 import { disabledOptionValues, isHelpPinned, isInactive, isLocked } from "./form.js";
 
@@ -120,11 +121,18 @@ function optionsHelpText(field) {
 
 // A checkbox-list's array is joined rather than left to String(array), and an empty one
 // reads as unset rather than "".
+//
+// An enum field's value is written out the way its own option is — see formatEnumValue. Only
+// an enum field: the option lists filled from the API hold team and model names, where an
+// underscore is part of the name rather than a separator of ours.
 function displayValue(field, raw) {
   if (field.input === "datetime-local") return formatDate(raw);
-  if (Array.isArray(raw)) return raw.length ? raw.join(", ") : null;
+
+  const written = (value) => (field.enum ? formatEnumValue(value) : value);
+
+  if (Array.isArray(raw)) return raw.length ? raw.map(written).join(", ") : null;
   if (typeof raw === "boolean") return raw ? "Yes" : "No";
-  return raw;
+  return written(raw);
 }
 
 // A textarea's value is prose, so its row takes the whole width whatever the card's
@@ -155,11 +163,40 @@ function buildFieldLabel(key, field) {
   );
 }
 
+// The only two schemes followed. A stored value is whoever entered it typing into a box, and
+// `javascript:` in an href is script that runs on click.
+const LINK_SCHEMES = ["http:", "https:"];
+
+// The value as somewhere to go, or null where it is not one. `new URL` throws on anything that
+// is not an absolute URL, which is what keeps a field holding prose — or a bare DOI — as text.
+function toLinkHref(value) {
+  try {
+    const { protocol, href } = new URL(String(value));
+
+    return LINK_SCHEMES.includes(protocol) ? href : null;
+  } catch {
+    return null;
+  }
+}
+
+// `noopener` because a tab opened from here can otherwise reach back through `window.opener`.
+function buildDisplayLink(value) {
+  const href = toLinkHref(value);
+
+  if (!href) return escapeHtml(value);
+
+  return `
+    <a class="link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">
+      ${escapeHtml(value)}
+    </a>
+  `;
+}
+
 // `valueBadge` is a field qualifying its own value — (record) => markup, or "" for a value
 // that needs no mark. The row is only made a flex row where there is one to place.
 function buildDisplayValue(key, state, field) {
   const value = displayValue(field, state[key]);
-  const shown = value == null || value === "" ? "—" : escapeHtml(value);
+  const shown = value == null || value === "" ? "—" : buildDisplayLink(value);
   const badge = field.valueBadge?.(state) ?? "";
 
   if (!badge) return `<p class="field-value">${shown}</p>`;
@@ -412,15 +449,12 @@ function buildDisplayFields(keys, state, fields, inline = false) {
 
 // ─── CARDS AND GRIDS ─────────────────────────────────────────────────────────
 
-// A `columns` value with no class here falls back to the card's own flex column, rather
-// than emitting a class style.css has no rule for.
-const GRID_CLASS = { 2: "grid-2", 3: "grid-3", 4: "grid-4" };
-
 // Fields arrive as a flat run of siblings, so the container decides how they flow: one
 // column needs no wrapper, more than one needs a grid.
 function wrapColumns(html, columns) {
-  const gridClass = GRID_CLASS[columns];
-  return gridClass ? `<div class="${gridClass}">${html}</div>` : html;
+  return columns > 1
+    ? `<div class="grid field-grid" ${toGridAttrs({ cols: columns })}>${html}</div>`
+    : html;
 }
 
 // One panel as a card: its title above its fields. A panel group is `{title, keys, inline,

@@ -27,6 +27,12 @@ import {
   toTaskSubmissionRows,
 } from "../utils/taskSubmissionUtils.js";
 import {
+  buildSubmissionScoreCards,
+  buildTaskSubmissionCards,
+  createTaskSubmissionCardGrid,
+} from "../cards/taskCards.js";
+import { attachSectionView } from "../widgets/sectionView.js";
+import {
   buildStaticTaskSubmissionsTable,
   buildSubmissionScoresTable,
   createTaskSubmissionsTable,
@@ -92,7 +98,8 @@ const DETAILS_FOOTER = buildSectionFooter(buildDetailsButton({ view: "details" }
 
 const DASHBOARD_SECTIONS = [
   {
-    ratio: 3,
+    className: "submission-summary",
+    ratio: [1, 2],
     sections: [
       { id: "narrative", title: "Narrative" },
       { id: "methodology", title: "Task submissions" },
@@ -162,16 +169,19 @@ function renderMethodologySection(submission, canEdit) {
     return;
   }
 
-  renderSection(
-    "methodology",
-    buildStaticTaskSubmissionsTable({
-      rows,
-      showEdit: canEdit,
-      showScore: false,
-      limit: MAX_TASKS,
-    }),
-    buildFooter("methodology", rows.length),
-  );
+  attachSectionView("methodology", {
+    render: (content) =>
+      renderSection("methodology", content, buildFooter("methodology", rows.length)),
+    table: () =>
+      buildStaticTaskSubmissionsTable({
+        rows,
+        showEdit: canEdit,
+        showScore: false,
+        limit: MAX_TASKS,
+      }),
+    cards: () =>
+      buildTaskSubmissionCards(rows, { showEdit: canEdit, showScore: false, limit: MAX_TASKS }),
+  });
 }
 
 // Hidden rather than emptied for a submission with nothing scored: the tasks table below
@@ -182,7 +192,11 @@ function renderScoresSection(rows) {
     return;
   }
 
-  renderSection("scores", buildSubmissionScoresTable({ rows }), buildFooter("scores", rows.length));
+  attachSectionView("scores", {
+    render: (content) => renderSection("scores", content, buildFooter("scores", rows.length)),
+    table: () => buildSubmissionScoresTable({ rows }),
+    cards: () => buildSubmissionScoreCards(rows),
+  });
 }
 
 function renderDashboardView(context) {
@@ -267,6 +281,8 @@ function renderTasksView({ submission, canEdit }) {
 
     rows: toTaskSubmissionRows(submission),
 
+    createCards: () => createTaskSubmissionCardGrid({ showEdit: canEdit, showScore: false }),
+
     createTable: ({ rows, selection }) =>
       createTaskSubmissionsTable({
         rows,
@@ -292,6 +308,8 @@ function renderScoresView({ submission }) {
     empty: "No tasks yet.",
 
     rows: toTaskSubmissionRows(submission),
+
+    createCards: () => createTaskSubmissionCardGrid(),
 
     createTable: ({ rows, selection }) =>
       createTaskSubmissionsTable({

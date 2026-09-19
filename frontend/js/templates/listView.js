@@ -29,6 +29,7 @@ import { getIcon } from "../components/icons.js";
 import { dispose } from "../core/disposable.js";
 import { refreshIcons, renderHtml, setText } from "../core/render.js";
 import { pluralise } from "../core/utils.js";
+import { CARDS_QUERY } from "../core/breakpoints.js";
 import { createCardBinding, createTableBinding } from "../comparisons/binding.js";
 import { createPicks } from "../comparisons/picks.js";
 
@@ -60,6 +61,9 @@ const HINT_ID = "list-hint";
  * @param createCards    () => a card grid — see cards/cardGrid.js. Omit for a table-only
  *                       list.
  * @param createTable    ({ rows, selection }) => { element, table } — see tables/table.js.
+ * @param cardsQuery     the width below which the cards are the only view. Omit for
+ *                       CARDS_QUERY, which is where a table of a record's fields stops
+ *                       fitting.
  * @param filterControls (rows) => controls for the bar, read once — see
  *                       components/filterState.js. Omit for no filter bar.
  * @param panel          `{ title, label, always, create }` — the comparison drawn from the
@@ -86,6 +90,7 @@ function createListView({
   noun = "row",
   createCards = null,
   createTable,
+  cardsQuery = CARDS_QUERY,
   filterControls = null,
   panel = null,
   picking = null,
@@ -95,7 +100,11 @@ function createListView({
 
   element.className = "column gap-lg";
 
-  let currentView = getInitialView();
+  const cardsOnly = matchMedia(cardsQuery);
+
+  // What the reader last asked for, which below CARDS_QUERY is not what is drawn.
+  let chosenView = getInitialView();
+  let currentView = getShownView(chosenView);
 
   // A list that is only ever picking — a scores list, whose whole point is the comparison
   // under it. No button to press first, and nothing to press to stop.
@@ -112,7 +121,8 @@ function createListView({
   // Whether there is anything to compare at all, which is what puts the buttons on the page.
   const comparable = Boolean(panel || picking);
 
-  const compareLabel = picking?.label ?? panel?.label ?? `Compare ${pluralise(noun)}`;
+  // No noun: the list it stands on is the one it would name. The hint quotes this label.
+  const compareLabel = picking?.label ?? panel?.label ?? "Compare";
 
   // Once, not per use: the bar's markup and the state behind it read the same descriptors,
   // and a pinned control's options are what its chips are labelled from.
@@ -134,6 +144,13 @@ function createListView({
     return createCards && rows.length <= maxCards ? CARD_TOGGLE_ID : TABLE_TOGGLE_ID;
   }
 
+  // What is drawn, as opposed to what was chosen.
+  function getShownView(view) {
+    if (!createCards) return TABLE_TOGGLE_ID;
+
+    return cardsOnly.matches ? CARD_TOGGLE_ID : view;
+  }
+
   function getSlot(selector) {
     return element.querySelector(selector);
   }
@@ -145,7 +162,12 @@ function createListView({
   }
 
   function renderView(view) {
-    currentView = createCards ? view : TABLE_TOGGLE_ID;
+    chosenView = createCards ? view : TABLE_TOGGLE_ID;
+    currentView = getShownView(chosenView);
+
+    // The stylesheet lays the toolbar out from this rather than from a width of its own — see
+    // `.list-toolbar.cards-only`, which is the state a caller's own `cardsQuery` decides.
+    getSlot(".list-toolbar")?.classList.toggle("cards-only", cardsOnly.matches);
 
     setActiveView(currentView);
 
@@ -414,21 +436,23 @@ function createListView({
 
     return `
       <div class="row right gap-lg">
-        <span class="card metadata bold action-hint" id="${HINT_ID}"></span>
+        <span class="hint-line"><span class="card metadata bold action-hint" id="${HINT_ID}"></span></span>
         ${buttons}
       </div>
     `;
   }
 
   function buildToolbar() {
-    const toggle = createCards ? buildCardTableToggle() : "";
+    // Wrapped for `.list-toggle`, which hides the pair below CARDS_QUERY. They stay in the
+    // document: the width may give them back.
+    const toggle = createCards ? `<span class="list-toggle">${buildCardTableToggle()}</span>` : "";
     const compare = buildCompareControls();
 
     if (!toggle && !compare) return "";
 
     // `right` where there is no toggle, since a row of one otherwise puts its only child at
     // the near end.
-    return `<div class="row${toggle ? "" : " right"} gap-lg">${toggle}${compare}</div>`;
+    return `<div class="row list-toolbar${toggle ? "" : " right"} gap-lg">${toggle}${compare}</div>`;
   }
 
   // Hidden until Go: the comparison is what the reader asked for, not what the list opens on.
@@ -508,10 +532,18 @@ function createListView({
   }
 
   attachEvents();
-  renderView(currentView);
+
+  // The same path as a press, which builds the card view and keeps the choice behind it.
+  const onWidthChange = () => renderView(chosenView);
+
+  cardsOnly.addEventListener("change", onWidthChange);
+
+  renderView(chosenView);
   updateCompare();
 
   function destroy() {
+    cardsOnly.removeEventListener("change", onWidthChange);
+
     destroyTable();
     cardView?.destroy();
 

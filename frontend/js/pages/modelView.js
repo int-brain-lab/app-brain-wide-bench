@@ -19,6 +19,8 @@ import { dateSorter } from "../tables/formatters.js";
 import { createSubmissionsTable } from "../tables/submissionTable.js";
 import { previewRows } from "../tables/table.js";
 import { buildLatestScoresTable, createTaskScoresTable } from "../tables/taskScoreTable.js";
+import { buildLatestTaskCards, createTaskScoreCardGrid } from "../cards/taskCards.js";
+import { attachSectionView } from "../widgets/sectionView.js";
 import { SCORE_PANEL } from "../comparisons/taskScoreComparison.js";
 import { buildCreateCard } from "../cards/createCard.js";
 import { buildDetailsCard } from "../cards/detailsCard.js";
@@ -82,7 +84,8 @@ const RANKING_FOOTER = buildSectionFooter(DETAILS_BUTTON, { hidden: true });
 function dashboardSections() {
   return [
     {
-      ratio: "1-2-2",
+      className: "model-summary",
+      ratio: [1, 2, 2],
       sections: [
         { id: "ranking", title: "Ranking" },
         { id: "details", title: "Details" },
@@ -143,11 +146,11 @@ function renderScoresSection(rows) {
   // Every one of them, not a preview: a model stands on one entry per task, so there are at
   // most as many rows as the benchmark has tasks. The button is still the way to the scores
   // these superseded, and to the filters and the comparison over them.
-  renderSection(
-    "scores",
-    buildLatestScoresTable({ rows: latest }),
-    buildFooter("scores", rows.length),
-  );
+  attachSectionView("scores", {
+    render: (content) => renderSection("scores", content, buildFooter("scores", rows.length)),
+    table: () => buildLatestScoresTable({ rows: latest }),
+    cards: () => buildLatestTaskCards(latest),
+  });
 }
 
 // The keys come off the schema's own panel rather than a list here, so a link added to
@@ -192,7 +195,7 @@ function renderSubmissionsSection(model) {
   // last card: a stack of one puts its empty half below the button rather than above it.
   renderHtml(
     container,
-    `<div class="card-stack">
+    `<div class="grid card-stack" data-cols="1">
       ${buildSubmissionCards(recent)}
       ${buildFooter("submissions", model.submissions.length)}
     </div>`,
@@ -223,7 +226,7 @@ function renderDashboardView(context) {
           EDIT_DETAILS_BUTTON,
           buildCreateButton({
             href: getSubmitHref(model),
-            label: "New submission",
+            noun: "submission",
           }),
         ],
         [compare],
@@ -261,7 +264,7 @@ function renderDetailsView({ model, fields, canEdit, edit, created }) {
     createdNext: {
       detail: "Go to the model dashboard, or make your first submission for this model.",
       href: getSubmitHref(model),
-      label: "New submission",
+      noun: "submission",
     },
 
     dashboard: true,
@@ -337,6 +340,8 @@ function renderScoresView({ model, ranking }) {
     empty: "No scored tasks yet.",
 
     rows: markRankedRows(toScoreRows(model.submissions ?? []), ranking),
+
+    createCards: () => createTaskScoreCardGrid(display),
 
     createTable: ({ rows, selection }) =>
       createTaskScoresTable({

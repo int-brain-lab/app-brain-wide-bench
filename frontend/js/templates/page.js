@@ -38,10 +38,11 @@ function applyShell(mine) {
   replaceClass(".main, .main-private", `main${from}`, `main${to}`);
   replaceClass(".content, .content-private", `content${from}`, `content${to}`);
 
-  const topNav = document.getElementById("top-nav");
+  // The bar is the stylesheet's: the private shell shows it only below the chrome
+  // breakpoint, where it is the one place the drawer's button can live. The rail is still
+  // hidden here, because the record pages carry it with `hidden` already set.
   const sidebar = document.getElementById("side-nav");
 
-  if (topNav) topNav.hidden = mine;
   if (sidebar) sidebar.hidden = !mine;
 
   // The footer belongs to the public shell, as the pages built private from the start show:

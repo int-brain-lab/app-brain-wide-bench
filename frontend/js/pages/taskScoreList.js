@@ -8,6 +8,7 @@ import { getTaskSubmissions } from "../api/taskSubmissionApi.js";
 import { loadTaskFields } from "../schemas/taskSubmissionSchema.js";
 import { getTaskScoreFilters, toScoreResultRows } from "../utils/taskScoreUtils.js";
 import { createTaskScoresTable } from "../tables/taskScoreTable.js";
+import { createTaskScoreCardGrid } from "../cards/taskCards.js";
 import { SCORE_PANEL } from "../comparisons/taskScoreComparison.js";
 import { loadListPage } from "../templates/listPage.js";
 
@@ -37,7 +38,14 @@ loadListPage({
 
   recordsToRows: toScoreResultRows,
 
-  // No cards: a score is a row of numbers, and there is no card that reads them.
+  // The task, the score as a number and a bar, and two methodology fields. Also what the page
+  // shows below CARDS_QUERY, which has no table view.
+  createCards: () => createTaskScoreCardGrid(DISPLAY),
+
+  // Sooner than the shared width: this table carries the five methodology columns as well as
+  // the task, the score and the two records it came from.
+  cardsQuery: "(max-width: 900px)",
+
   createTable: ({ rows, selection }) =>
     createTaskScoresTable({
       ...DISPLAY,

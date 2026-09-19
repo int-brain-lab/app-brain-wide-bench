@@ -157,7 +157,7 @@ async function loadSubmissionContext() {
       detail: "A submission belongs to a model, so there has to be one to submit against.",
       actions: buildCreateButton({
         href: MODEL_CREATE_HREF,
-        label: "New model",
+        noun: "model",
       }),
     });
 

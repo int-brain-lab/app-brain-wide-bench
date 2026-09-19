@@ -9,9 +9,10 @@
 import { escapeHtml } from "../core/html.js";
 import { hrefForRecord } from "../core/links.js";
 import { buildScoreBar } from "../components/bars.js";
+import { buildMeanSem, emptyMetadata, EMPTY_VALUE } from "../components/scores.js";
 import { buildButton } from "../components/buttons.js";
 import { metricLabel, suiteFromTask, taskFullLabel, taskLabel } from "../core/suites.js";
-import { formatDate, score } from "../core/utils.js";
+import { formatDate, formatEnumValue, score } from "../core/utils.js";
 import {
   buildMetricBadge,
   buildMetricBadgeList,
@@ -26,14 +27,8 @@ import { buildIcon, getIcon } from "../components/icons.js";
 
 // ─── VALUES ──────────────────────────────────────────────────────────────────
 
-const EMPTY_VALUE = "—";
-
 // modelFormatter builds its own link rather than taking the page, as the buildLink* ones do.
 const MODEL_PAGE = "/html/models/models.html";
-
-function emptyMetadata() {
-  return `<span class="metadata">${EMPTY_VALUE}</span>`;
-}
 
 const MEDAL_CLASSES = {
   1: "rank-gold",
@@ -47,24 +42,6 @@ function rankBadge(rank) {
   const medalClass = MEDAL_CLASSES[rank];
 
   return medalClass ? `<span class="${medalClass}">${escapeHtml(rank)}</span>` : String(rank);
-}
-
-/**
- * @param stacked the spread on its own line under the value, for a cell too narrow to hold
- *                both on one — the compare grid gives a task an eighth of the page.
- */
-function buildMeanSem(mean, sem, { stacked = false } = {}) {
-  if (mean == null) return emptyMetadata();
-
-  const value = `<span class="value">${escapeHtml(score(mean))}</span>`;
-
-  if (sem == null) return value;
-
-  const spread = `<span class="metadata">± ${escapeHtml(score(sem))}</span>`;
-
-  // No alignment of its own: the two lines stretch, so the column they are in decides where
-  // they sit — a mean with no spread is a bare value and follows it either way.
-  return stacked ? `<span class="column gap-xs">${value}${spread}</span>` : `${value} ${spread}`;
 }
 
 function taskLinkAttributes(row) {
@@ -371,18 +348,20 @@ function editFormatter(cell) {
   });
 }
 
+// A methodology column's cell — the only columns this is given, so its values are the
+// server's enum members and are written out as such. See formatEnumValue.
 function parameterFormatter(cell) {
   const value = cell.getValue();
 
   if (Array.isArray(value)) {
     return value.length
-      ? `<span class="metadata">${escapeHtml(value.join(", "))}</span>`
+      ? `<span class="metadata">${escapeHtml(value.map(formatEnumValue).join(", "))}</span>`
       : emptyMetadata();
   }
 
   return value == null || value === ""
     ? emptyMetadata()
-    : `<span class="metadata">${escapeHtml(value)}</span>`;
+    : `<span class="metadata">${escapeHtml(formatEnumValue(value))}</span>`;
 }
 
 function rankFormatter(cell) {
@@ -440,7 +419,6 @@ function taskHeader(taskId, metric, { stacked = true, align = "left" } = {}) {
 export {
   buildDiff,
   buildLinkFormatter,
-  buildMeanSem,
   buildModelNameFormatter,
   buildFlagFormatter,
   buildScoreSemFormatter,
