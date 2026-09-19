@@ -16,7 +16,9 @@ const GRID_PROPERTIES = ["--cols", "--shares", "--grid-gap"];
 // child — a table, a Tabulator grid — is clipped by its column rather than widening it.
 // A share that is not a number is a track written out: "240px", "auto".
 function toShares(shares) {
-  return shares.map((share) => (typeof share === "number" ? `minmax(0, ${share}fr)` : share)).join(" ");
+  return shares
+    .map((share) => (typeof share === "number" ? `minmax(0, ${share}fr)` : share))
+    .join(" ");
 }
 
 function toColumnCount({ cols, shares }) {

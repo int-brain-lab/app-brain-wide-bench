@@ -17,13 +17,7 @@
 import { suiteFromTask } from "../core/suites.js";
 import { createTable } from "./table.js";
 import { buildMeanSem } from "../components/scores.js";
-import {
-  meanSorter,
-  modelFormatter,
-  rankFormatter,
-  rankSorter,
-  taskHeader,
-} from "./formatters.js";
+import { meanSorter, modelFormatter, rankFormatter, rankSorter, taskHeader } from "./formatters.js";
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
 

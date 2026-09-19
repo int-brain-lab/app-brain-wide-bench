@@ -170,7 +170,8 @@ function renderMethodologySection(submission, canEdit) {
   }
 
   attachSectionView("methodology", {
-    render: (content) => renderSection("methodology", content, buildFooter("methodology", rows.length)),
+    render: (content) =>
+      renderSection("methodology", content, buildFooter("methodology", rows.length)),
     table: () =>
       buildStaticTaskSubmissionsTable({
         rows,

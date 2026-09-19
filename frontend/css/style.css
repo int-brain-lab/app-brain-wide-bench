@@ -1298,7 +1298,6 @@ CARDS
   box-shadow: inset 3px 0 0 var(--row-ink, transparent);
 }
 
-
 /* Set apart from what it follows, where a section's own gap reads as too close — the control
    under a grid it is not part of. */
 .push-down {
@@ -4006,17 +4005,15 @@ COMPARE LAYOUT
     grid-column: auto;
   }
 
-  /* A task type's plots one to a row: its mean over its recordings rather than beside them, and
-   the recordings one across — see renderGroupRows and buildPlotCells in
-   comparisons/taskScoreComparison.js. */
-@media (max-width: 600px) {
+  /* A task type's plots one to a row: its mean over its recordings rather than beside them,
+     and the recordings one across — see renderGroupRows and buildPlotCells in
+     comparisons/taskScoreComparison.js. */
   .task-group,
   .recording-grid {
     grid-template-columns: minmax(0, 1fr);
   }
-}
 
-/* The details table goes, rather than being scrolled sideways: it is a column per model over
+  /* The details table goes, rather than being scrolled sideways: it is a column per model over
      rows of methodology, so at this width every column is narrower than the values in it and
      nothing lines up to be compared — which is the only reason to read it.
 

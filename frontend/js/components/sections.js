@@ -210,9 +210,7 @@ function buildSectionFooter(action, { hidden = false } = {}) {
 }
 
 function buildRow({ sections, ratio, stretch = true, className = "" }) {
-  const classes = ["section-row", className, !stretch && "align-start"]
-    .filter(Boolean)
-    .join(" ");
+  const classes = ["section-row", className, !stretch && "align-start"].filter(Boolean).join(" ");
 
   return `
     <div

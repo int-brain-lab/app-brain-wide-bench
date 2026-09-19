@@ -66,7 +66,6 @@ const COMPARE_ID = "compare-models";
 // The line beside the buttons saying what they are for — see getHint.
 const HINT_ID = "compare-hint";
 
-
 // This page's own two, beside the pair every comparison shares — see DONE_LABEL and
 // GO_COMPARE_LABEL in components/buttons.js.
 const COMPARE_LABEL = "Compare models";
