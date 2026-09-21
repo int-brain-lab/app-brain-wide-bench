@@ -33,9 +33,10 @@ class TaskScoreOut(BaseModel):
 class TaskScoreDetail(TaskScoreOut):
     """A score with the breakdown behind it — one entry per recording, per metric.
 
-    ``{"recordings": [{"recording_id", "label", "metrics": {name: {mean, sem, n}}}]}``, as
-    the scorers wrote it. What every per-recording table and plot is drawn from, and the
-    reason to ask for a single task submission by id.
+    ``{"recordings": [{"recording_id", "label", "metrics": {name: {mean, sem, n}}}],
+    "overall": {name: {mean, sem, n}}}``, as the scorers wrote it. What every
+    per-recording table and plot is drawn from, and the reason to ask for a single task
+    submission by id.
     """
 
     metrics: dict | None = None
