@@ -21,6 +21,7 @@ import app.routers.submissions as submissions_router
 from app.config import settings
 from app.database import get_session
 from app.main import app
+from app.models import User, UserRole
 from tests.fixtures.load import load_fixture, seed_tasks
 
 FIXTURE_PATH = Path(__file__).parent.joinpath("fixtures", "api_tests.json")
@@ -207,6 +208,22 @@ async def caller(client):
 async def me(caller):
     """The caller's user id."""
     return uuid.UUID(caller["id"])
+
+
+@pytest_asyncio.fixture
+async def admin(me, session_factory):
+    """Promote the caller to ``admin``.
+
+    The caller rather than a fixture row: dev mode authenticates every request as the stub
+    user, so a seeded admin could be acted *on* but never acted *as*. They belong to no
+    team, which is what makes each pass a real bypass rather than membership.
+    """
+    async with session_factory() as session:
+        user = await session.get(User, me)
+        user.role = UserRole.admin
+        await session.commit()
+
+    return me
 
 
 @pytest_asyncio.fixture

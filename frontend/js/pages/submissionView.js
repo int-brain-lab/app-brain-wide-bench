@@ -5,7 +5,12 @@ import { renderHtml } from "../core/render.js";
 import { suiteFromTask, suiteLabel } from "../core/suites.js";
 import { escapeHtml } from "../core/html.js";
 import { loadModelBreakdown } from "../api/modelApi.js";
-import { deleteSubmission, loadSubmission, updateSubmission } from "../api/submissionApi.js";
+import {
+  deleteSubmission,
+  loadSubmission,
+  rescoreSubmission,
+  updateSubmission,
+} from "../api/submissionApi.js";
 import { updateTaskSubmissions } from "../api/taskSubmissionApi.js";
 import {
   loadSubmissionFields,
@@ -43,8 +48,10 @@ import {
   buildCancelButton,
   buildDetailsButton,
   buildEditButton,
+  buildRescoreButton,
   buildSaveButton,
   buildViewAllButton,
+  EDIT_BUTTONS,
   EDIT_DETAILS_BUTTON,
 } from "../components/buttons.js";
 import { getIcon } from "../components/icons.js";
@@ -59,6 +66,7 @@ import {
   getSectionBody,
 } from "../components/sections.js";
 import { createDeleteControl } from "../widgets/deleteRecord.js";
+import { createRescoreControl } from "../widgets/rescoreRecord.js";
 import { renderRecordDetailsView } from "../templates/recordDetails.js";
 import { loadRecordPage } from "../templates/recordPage.js";
 import { renderRecordListView } from "../templates/recordList.js";
@@ -243,6 +251,9 @@ function renderDetailsView({ submission, fields, canEdit, edit, created }) {
     created,
     dashboard: true,
 
+    // Admin only, and only once the tasks are chosen — the API decides, see `can_rescore`.
+    actions: submission.can_rescore ? [...EDIT_BUTTONS, buildRescoreButton()] : EDIT_BUTTONS,
+
     // Any member may delete a submission, which is the rule that gates editing it.
     deletable: true,
 
@@ -260,6 +271,16 @@ function renderDetailsView({ submission, fields, canEdit, edit, created }) {
     // button is the caller that wants the narrower rule.
     remove: () => deleteSubmission(submission.id, { force: true }),
     onDeleted: () => window.location.assign(SUBMISSION_LIST_HREF),
+  }).attach();
+
+  createRescoreControl({
+    name: () => submission.label,
+    tasks: () => (submission.task_submissions ?? []).map((entry) => entry.task_id),
+
+    rescore: () => rescoreSubmission(submission.id),
+
+    // The run happens on the worker; the reload lands on the `scoring` status it leaves.
+    onQueued: () => window.location.reload(),
   }).attach();
 
   return page.attachEditor({ save: (draft) => updateSubmission(submission.id, draft) });

@@ -13,8 +13,6 @@ The main rules are:
 - Every one of these is refused for a plain user, who is what the caller is by default.
 """
 
-import pytest_asyncio
-
 from app.models import User, UserRole
 from tests.conftest import MODELS, SUBMISSIONS, TEAMS, USERS
 
@@ -31,22 +29,6 @@ UNSUBMITTED_MODEL = MODELS["unsubmitted-net"]
 # public submission. So "everything" and "what an outsider sees" are different numbers.
 ALL_SUBMISSIONS = 5
 ALL_MODELS = 3
-
-
-@pytest_asyncio.fixture
-async def admin(me, session_factory):
-    """Promote the caller to ``admin``.
-
-    The caller rather than a fixture row: dev mode authenticates every request as the stub
-    user, so a seeded admin could be acted *on* but never acted *as*. They belong to no
-    team, which is what makes each pass below a real bypass rather than membership.
-    """
-    async with session_factory() as session:
-        user = await session.get(User, me)
-        user.role = UserRole.admin
-        await session.commit()
-
-    return me
 
 
 def labels(response):

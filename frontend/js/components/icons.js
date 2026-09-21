@@ -64,6 +64,7 @@ const ICONS = {
   delete: "trash-2",
   train: "database",
   submit: "cloud-upload",
+  rescore: "refresh-cw",
   next: "arrow-right",
   filter: "funnel",
   viewAll: "arrow-right",

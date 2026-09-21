@@ -2899,7 +2899,7 @@ BARS
 /* What a delete takes with it, listed inside its confirmation. The markers need their
    indent back: the universal reset zeroes padding, which leaves a bare `ul` drawing them
    over its own text. */
-.delete-list {
+.note-list {
   margin-top: var(--gap-sm);
   padding-left: 1.2em;
 }

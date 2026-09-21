@@ -12,6 +12,7 @@ export const SAVE_BUTTON_ID = "save-button";
 export const DELETE_BUTTON_ID = "delete-button";
 export const MEMBERS_BUTTON_ID = "members-button";
 export const SUBMIT_BUTTON_ID = "submit-button";
+export const RESCORE_BUTTON_ID = "rescore-button";
 
 export const TABLE_TOGGLE_ID = "table-toggle";
 export const CARD_TOGGLE_ID = "card-toggle";
@@ -192,6 +193,12 @@ export function buildDeleteButton({
     icon: getIcon("delete"),
     className: "danger",
   });
+}
+
+// Only ever shown where the API said the caller may run it — see `can_rescore` on
+// SubmissionDetail.
+export function buildRescoreButton({ id = RESCORE_BUTTON_ID, label = "Re-score" } = {}) {
+  return buildButton({ id, label, icon: getIcon("rescore") });
 }
 
 export function buildCancelButton({

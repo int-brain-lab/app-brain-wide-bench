@@ -17,6 +17,7 @@ from sqlalchemy.orm import selectinload
 from app.auth import (
     get_current_user,
     get_current_user_optional,
+    is_admin,
     is_team_member,
     member_team_ids,
     require_team_member,
@@ -107,6 +108,10 @@ ABANDONABLE = (
     SubmissionStatus.unchecked,
     SubmissionStatus.pending,
 )
+
+# What ``rescore`` may run again: a submission whose tasks are already chosen. ``scoring``
+# is here for a run whose worker died, and a live worker would be raced rather than stopped.
+RESCORABLE = (SubmissionStatus.done, SubmissionStatus.failed, SubmissionStatus.scoring)
 
 
 def arrived() -> ColumnElement[bool]:
@@ -657,10 +662,12 @@ async def _load_submission_detail(
 
     detail = SubmissionDetail.from_submission(submission)
 
-    if await is_team_member(user_id, submission.model.team_id, session):
-        return detail.model_copy(update={"is_mine": True})
+    if not await is_team_member(user_id, submission.model.team_id, session):
+        return detail.withhold_private()
 
-    return detail.withhold_private()
+    rescorable = submission.status in RESCORABLE and await is_admin(user_id, session)
+
+    return detail.model_copy(update={"is_mine": True, "can_rescore": rescorable})
 
 
 # ── Endpoints ──────────────────────────────────────────────────────
@@ -964,6 +971,50 @@ async def submit(
 
     # Reread the submission: the commit's ``onupdate`` expires ``updated_at``, and building
     # the response would then have to fetch it from outside a greenlet.
+    submission = await _get_submission_as_member(submission_id, user.id, session)
+
+    return SubmissionResponse.from_submission(submission)
+
+
+@router.post("/{submission_id}/rescore", response_model=SubmissionResponse)
+async def rescore(
+    submission_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> SubmissionResponse:
+    """Score an uploaded file again, against the tasks it was already submitted with.
+
+    No task rows are created and none are read from the request: the submission keeps the
+    tasks it entered. The scores on those tasks are replaced when the run finishes, and
+    left as they are if it fails.
+
+    Admin only. A re-score republishes whatever the current scoring code produces over
+    numbers the public leaderboard is already standing on, and a submission left at
+    ``scoring`` by a dead worker is raced rather than stopped if that worker is alive.
+
+    Raises 404 if the submission does not exist.
+    Raises 403 if the user is not a member of its team, or is not an admin.
+    Raises 409 if the submission's tasks have not been chosen yet.
+    """
+    submission = await _get_submission_as_member(submission_id, user.id, session)
+
+    if not await is_admin(user.id, session):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only an admin can re-score a submission")
+
+    if submission.status not in RESCORABLE:
+        allowed = " or ".join(state.value for state in RESCORABLE)
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"A submission is re-scored from {allowed}, not {submission.status.value}",
+        )
+
+    submission.status = SubmissionStatus.scoring
+    await session.commit()
+
+    # The scoring task moves it to done or failed once it finishes.
+    score_submission.delay(str(submission.id))
+
+    # Reread it, as ``submit`` does: the commit's ``onupdate`` expires ``updated_at``.
     submission = await _get_submission_as_member(submission_id, user.id, session)
 
     return SubmissionResponse.from_submission(submission)

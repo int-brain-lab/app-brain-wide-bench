@@ -5,9 +5,9 @@ sync too, against a file-backed SQLite engine with ``NullPool``: each of the tas
 opens its own connection, which an in-memory database or a pooled one could not survive.
 
 Only ground truth is mocked. The submission's own file is reached through the
-local-directory branch of ``_materialise`` — ``s3_key`` naming a directory is how a
-submission made with no object store validates — so download and extraction are the real
-code path rather than a stub.
+local-directory branch of ``app.tasks.files.materialise`` — ``s3_key`` naming a directory
+is how a submission made with no object store validates — so download and extraction are
+the real code path rather than a stub.
 """
 
 import asyncio

@@ -10,13 +10,14 @@ import uuid
 from collections import defaultdict
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
 
 from app.database import async_session_factory
 from app.models import Submission, SubmissionStatus, Task, TaskScore
-from app.scoring import BaseScorer, get_scorer
-from app.storage import download_ground_truth, download_submission
+from app.scoring import get_scorer
+from app.storage import download_ground_truth
+from app.tasks.files import materialise
 from app.worker import celery_app
 
 
@@ -65,7 +66,8 @@ async def _finish_scoring(
     """Persist final status and, on success, write one :class:`TaskScore` per task.
 
     The scalar columns are a copy of ``overall``'s entry for the task's primary metric, as
-    ``Task.primary_metric`` names it.
+    ``Task.primary_metric`` names it. Scores already on these tasks are replaced, so a
+    re-score of a submission that has been through scoring before writes over them.
 
     ``False`` when the submission is gone, as :func:`_start_scoring` returns ``None``: the
     task rows the scores would hang off went with it.
@@ -87,6 +89,14 @@ async def _finish_scoring(
                 rows_by_task[row["task"]].append(row)
 
             primary = await _primary_metrics(session, [task_id for _, task_id in ts_list])
+
+            # A re-score writes over what the first run left; task_submission_id is unique.
+            # In the same transaction as the inserts, so a failure keeps the existing rows.
+            await session.execute(
+                delete(TaskScore)
+                .where(TaskScore.task_submission_id.in_([ts_id for ts_id, _ in ts_list]))
+                .execution_options(synchronize_session=False)
+            )
 
             for ts_id, task_id in ts_list:
                 if task_id not in overall:
@@ -146,11 +156,11 @@ def score_submission(submission_id: str) -> str:
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
         try:
-            zip_path = download_submission(s3_key, tmpdir.joinpath("submission.zip"))
-
+            # Ground truth first: a missing oracle fails before the submission is
+            # downloaded and unpacked. A local ``s3_gt_prefix`` is used as it stands.
             gt_dir = download_ground_truth(suites, tmpdir.joinpath("gt"))
 
-            pred_dir = BaseScorer.extract(zip_path, tmpdir.joinpath("pred"))
+            pred_dir = materialise(s3_key, tmpdir)
 
             # overall is keyed by flat task id, which is unique across suites; rows carry
             # their own task.
