@@ -317,14 +317,16 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
     }
   }
 
-  // How many models placed on the board, over how many tasks. Every row is one: a model not
-  // scored on every chosen task never reaches the board — see toLeaderboardRows in
-  // utils/leaderboardUtils.js.
+  // How many models placed, over how many tasks, and how many are on the board without a
+  // position — a model scored on only some of the chosen tasks is shown unranked, see
+  // toLeaderboardRows in utils/leaderboardUtils.js.
   function renderSummary(rows) {
-    setText(
-      getElement(SUMMARY_ID),
-      `${buildCount(rows.length, "model")} ranked across ${buildCount(chosen.length, "task")}`,
-    );
+    const ranked = rows.filter((row) => row.rank != null).length;
+    const unranked = rows.length - ranked;
+
+    const placed = `${buildCount(ranked, "model")} ranked across ${buildCount(chosen.length, "task")}`;
+
+    setText(getElement(SUMMARY_ID), unranked ? `${placed}, ${unranked} unranked` : placed);
   }
 
   function renderBoard() {
@@ -354,14 +356,14 @@ function renderLeaderboardPage({ tasks, myTeamIds }) {
 
     const rows = toLeaderboardRows(standings, chosen, myTeamIds);
 
-    // Two ways to an empty board: nothing scored at all, or nothing scored on every one of
-    // these tasks. The second is answered by choosing fewer, so it is worth saying which.
+    // Two ways to an empty board: nothing scored at all, or nothing scored on any of these
+    // tasks. The second is answered by choosing others, so it is worth saying which.
     if (!rows.length) {
       renderHtml(
         body,
         buildEmptyMessage(
           standings.length
-            ? "No model is scored on every chosen task"
+            ? "No model is scored on any of the chosen tasks"
             : "No models have been scored yet",
         ),
       );

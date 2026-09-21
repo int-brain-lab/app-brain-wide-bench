@@ -50,8 +50,9 @@ function toLeaderboardRow(standing, myTeamIds) {
  * @param taskIds   the tasks the board is ranked over, in column order.
  * @param myTeamIds Set of the viewer's own team ids, as strings. Empty for a signed-out
  *                  reader, who owns none of the board.
- * @returns one row per ranked model, in position order. A model not scored on every chosen
- *          task has no position and is left off the board.
+ * @returns one row per model scored on at least one chosen task, ranked rows in position
+ *          order and the unranked behind them. A model not scored on every chosen task has
+ *          no position, and its `rank` is null.
  */
 function toLeaderboardRows(standings, taskIds, myTeamIds = new Set()) {
   const rows = (standings ?? []).map((standing) => toLeaderboardRow(standing, myTeamIds));
@@ -59,9 +60,8 @@ function toLeaderboardRows(standings, taskIds, myTeamIds = new Set()) {
   assignMeanRank(rows, taskIds);
   assignPositions(rows);
 
-  // In position order, which is the order the board opens on and the order any other reader
-  // of these rows gets.
-  return rows.filter((row) => row.rank != null).sort(byPosition);
+  // The order the board opens on, and the order any other reader of these rows gets.
+  return rows.filter((row) => row.tasksScored > 0).sort(byPosition);
 }
 
 // ─── RANKING ─────────────────────────────────────────────────────────────────
@@ -76,7 +76,7 @@ const EPSILON = 1e-10;
  * and outranks one placed second on all eight — and on this board that is not an edge case,
  * since the suites are largely disjoint cohorts.
  *
- * A model without one is off the board altogether — see toLeaderboardRows.
+ * A model without one is shown unranked rather than dropped — see toLeaderboardRows.
  */
 function assignMeanRank(rows, taskIds) {
   for (const row of rows) {
@@ -90,8 +90,8 @@ function assignMeanRank(rows, taskIds) {
 /**
  * Standard competition ranking (1224) by `meanRank`, ascending. Ties share a position and
  * the next is skipped; a row without a figure is left unranked rather than ranked last — it
- * hasn't placed below the others so much as not competed against them, and toLeaderboardRows
- * drops it rather than showing it under them.
+ * hasn't placed below the others so much as not competed against them, and the board shows
+ * it under them.
  */
 function assignPositions(rows) {
   const ranked = [...rows]
@@ -112,10 +112,15 @@ function assignPositions(rows) {
   }
 }
 
-// Every row reaching this has a position, and two sharing one are tied outright, so the
-// sort leaves them in the order they were handed.
+// Ranked rows first, in position order; the unranked behind them, by how many of the chosen
+// tasks they scored and then by name. Two sharing a position are tied outright, and the sort
+// leaves them in the order they were handed.
 function byPosition(a, b) {
-  return a.rank - b.rank;
+  if (a.rank != null && b.rank != null) return a.rank - b.rank;
+  if (a.rank != null) return -1;
+  if (b.rank != null) return 1;
+
+  return b.tasksScored - a.tasksScored || (a.model_name ?? "").localeCompare(b.model_name ?? "");
 }
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
