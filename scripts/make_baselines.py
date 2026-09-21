@@ -78,6 +78,9 @@ CREATED_AT = "2026-09-10T00:00:00Z"
 # Fixed namespace, so an id depends only on the natural key and not on when it was made.
 _NS = uuid.uuid5(uuid.NAMESPACE_URL, "https://brainwidebench.org/baselines")
 
+# Task.primary_metric, as the initial migration seeds it.
+PRIMARY_METRIC_OF = {row["id"]: row["primary_metric"] for row in _TASK_ROWS}
+
 # Task ids the lookup table holds. A prediction for anything else has nowhere to hang.
 TASK_IDS = {row["id"] for row in _TASK_ROWS}
 
@@ -247,11 +250,11 @@ def report(entries: list[Entry], pred_root: Path) -> list[Entry]:
 
 
 def score(entry: Entry, gt_root: Path) -> dict:
-    """Score one submission, one scorer per suite it enters. Empty summary when nothing matched.
+    """Score one submission, one scorer per suite it enters. Empty overall when nothing matched.
 
-    Task ids are unique across suites, so merging the per-suite summaries cannot collide.
+    Task ids are unique across suites, so merging the per-suite aggregates cannot collide.
     """
-    results: dict = {"rows": [], "summary": {}}
+    results: dict = {"rows": [], "overall": {}}
     started = time.monotonic()
 
     for suite in entry.suites:
@@ -263,18 +266,19 @@ def score(entry: Entry, gt_root: Path) -> dict:
             print(f"  {suite} FAILED: {type(exc).__name__}: {exc}")
             continue
         results["rows"].extend(scored["rows"])
-        results["summary"].update(scored["summary"])
+        results["overall"].update(scored["overall"])
 
     elapsed = time.monotonic() - started
-    if not results["summary"]:
+    if not results["overall"]:
         print(f"  FAILED after {elapsed:.0f}s: no prediction/ground-truth pairs matched")
         return results
 
     print(f"  scored in {elapsed:.0f}s")
-    for task_id, stats in sorted(results["summary"].items()):
-        sem = f" ± {stats['sem']:.4f}" if stats.get("sem") is not None else ""
-        print(f"    {task_id:<32} {stats['mean']:.4f}{sem}  ({stats['n']} recording(s))")
-    if missing := sorted(set(entry.task_submissions) - set(results["summary"])):
+    for task_id, metrics in sorted(results["overall"].items()):
+        stats = metrics[PRIMARY_METRIC_OF[task_id]]
+        sem = f" ± {stats['sem']:.4f}" if stats["sem"] is not None else ""
+        print(f"    {task_id:<32} {stats['mean']:.4f}{sem}  ({stats['n']} seed(s))")
+    if missing := sorted(set(entry.task_submissions) - set(results["overall"])):
         print(f"    nothing scored for: {', '.join(missing)}")
 
     return results
@@ -293,17 +297,17 @@ def revive(snapshot: Path) -> dict[str, dict]:
         if row["submission_id"] in label_of
     }
 
-    results: dict[str, dict] = defaultdict(lambda: {"rows": [], "summary": {}})
+    results: dict[str, dict] = defaultdict(lambda: {"rows": [], "overall": {}})
     for row in data.get("task_scores", []):
         if row["task_submission_id"] not in entered:
             continue
+        metrics = row.get("metrics") or {}
+        # A snapshot written before ``overall`` existed is re-scored, not revived.
+        if "overall" not in metrics:
+            continue
         label, task_id = entered[row["task_submission_id"]]
-        results[label]["summary"][task_id] = {
-            "mean": row["primary_metric_mean"],
-            "sem": row["primary_metric_sem"],
-            "n": row["n_seeds"],
-        }
-        results[label]["rows"].extend(row.get("metrics", {}).get("recordings", []))
+        results[label]["overall"][task_id] = metrics["overall"]
+        results[label]["rows"].extend(metrics.get("recordings", []))
 
     return dict(results)
 
@@ -383,14 +387,14 @@ def build(
             )
 
         results = scored.get(entry.label, {})
-        summary = results.get("summary", {})
+        overall = results.get("overall", {})
         submission_id = _id("submission", str(model_id), entry.label.lower())
         data["submissions"].append(
             {
                 "id": str(submission_id),
                 "model_id": str(model_id),
                 "label": entry.label,
-                "status": "done" if set(entry.task_submissions) <= set(summary) else "failed",
+                "status": "done" if set(entry.task_submissions) <= set(overall) else "failed",
                 # Where the predictions were read from; nothing parses it.
                 "s3_key": str(entry.directory),
                 **entry.submission,
@@ -417,18 +421,23 @@ def build(
                 }
             )
 
-            if task_id not in summary:
+            if task_id not in overall:
                 continue
+
+            metrics = overall[task_id]
+            primary = metrics[PRIMARY_METRIC_OF[task_id]]
 
             data["task_scores"].append(
                 {
                     "id": str(_id("taskscore", str(entry_id))),
                     "task_submission_id": str(entry_id),
-                    # Recordings behind the mean; each recording's own n is its seeds.
-                    "n_seeds": summary[task_id]["n"],
-                    "primary_metric_mean": summary[task_id]["mean"],
-                    "primary_metric_sem": summary[task_id]["sem"],
-                    "metrics": {"recordings": recordings_per_task[task_id]},
+                    "n_seeds": primary["n"],
+                    "primary_metric_mean": primary["mean"],
+                    "primary_metric_sem": primary["sem"],
+                    "metrics": {
+                        "recordings": recordings_per_task[task_id],
+                        "overall": metrics,
+                    },
                 }
             )
 
@@ -500,7 +509,7 @@ def main(args: argparse.Namespace) -> int:
         print(f"\n[{index}/{len(pending)}] {entry.label}  "
               f"({entry.files} files, {_size(entry.n_bytes)})")
         results = score(entry, gt_root)
-        if results["summary"]:
+        if results["overall"]:
             scored[entry.label] = results
         else:
             failed += 1

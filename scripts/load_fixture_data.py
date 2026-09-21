@@ -6,7 +6,7 @@ local script here once did — silently diverges from the migrations, which is e
 class of bug that put enum columns in production where the ORM expected JSON.
 
     docker compose exec -T web uv run python scripts/load_fixture_data.py \\
-        tests/fixtures/2026_09_baselines.json
+        tests/fixtures/2026_09_16_baselines.json
 
 The fixture path is required. Refuses rather than proceeding if the database is not at the
 migration head, or if it already holds data — see the two checks below for why.
