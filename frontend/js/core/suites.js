@@ -187,6 +187,7 @@ function tasksForSuite(suite) {
 }
 
 export {
+  MACRO_REGION,
   REGION_SEPARATOR,
   SUITES,
   metricLabel,
