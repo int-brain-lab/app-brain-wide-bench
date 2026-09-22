@@ -34,7 +34,7 @@ deploy but is not part of the edit loop.
 
 | File | Does |
 | --- | --- |
-| `frontend/vite.config.js` | lists the HTML entries, turns on sourcemaps |
+| `frontend/vite.config.js` | lists the HTML entries, turns on sourcemaps, injects the analytics tag |
 | `Dockerfile` | a `node:22-alpine` stage runs the build; the runtime image gets `dist/` |
 | `Dockerfile.dockerignore` | prunes the build context, which is the parent directory |
 | `app/main.py` | `StaticCacheMiddleware` — `immutable` for `/assets/`, `no-cache` for the rest |
@@ -45,6 +45,25 @@ needs no config change.
 
 Node exists only in the build stage. Nothing npm-managed reaches the browser and no Node
 process runs in production.
+
+## Analytics
+
+A `transformIndexHtml` plugin in `vite.config.js` puts the umami tag in every entry's `<head>`.
+It is not written into the page markup: entries are discovered rather than listed, so a tag
+added per page would miss the next one.
+
+Two attributes on it shape what is reported:
+
+- `data-domains="bwb.iblcore.org"` — production only. An unbuilt development tree has no tag at
+  all, and a local `npm run preview` carries one that reports nothing.
+- `data-exclude-search="true"` — the reported URL is the path alone. Record ids (`?id=`) and the
+  one-shot flags (`&edit`, `&created`) stay out of it.
+
+Excluding the query string also silences the `?view=` history writes on a routed record page,
+which the tag would otherwise count twice: once for the document and again for the
+`replaceState` that `core/router.js` runs at boot. Those view changes are reported explicitly
+instead, by `core/analytics.js` from the router's two navigation points — the tag patches
+`pushState` but not `popstate`, so Back and Forward between views would otherwise go unrecorded.
 
 ## Why the caching is safe
 
@@ -82,6 +101,8 @@ curl -sI $SITE/js/pages/modelView.js | head -1                   # 404 — the s
 
 ASSET=$(curl -s $SITE/html/models/models.html | grep -o '/assets/[^"]*\.js' | head -1)
 curl -sI -H 'Accept-Encoding: gzip' "$SITE$ASSET" | grep -iE 'cache-control|content-encoding'
+
+curl -s  $SITE/index.html | grep -o 'cloud.umami.is[^"]*'      # the analytics tag is present
 ```
 
 In a browser, a hard reload should issue no `/js/…` request, and a second navigation no
