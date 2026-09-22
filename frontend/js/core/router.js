@@ -1,7 +1,14 @@
+import { trackPageview } from "./analytics.js";
 import { dispose } from "./disposable.js";
 import { refreshIcons } from "./render.js";
 
 // One document, several views of a single record. `?view=` is the state.
+
+// What a view is reported as. The record's own `id` is left out, matching the `?view=`-only
+// URL the umami tag is configured to report for the document itself.
+function urlForView(name) {
+  return `${location.pathname}?view=${name}`;
+}
 
 // Two kinds of URL extra, and they clean up at opposite ends:
 //
@@ -93,6 +100,7 @@ function createRecordRouter({
     history.pushState({ view: name }, "", `?${withView(name, extra)}`);
 
     showView(name, extra);
+    trackPageview(urlForView(name));
   }
 
   function attach() {
@@ -126,7 +134,12 @@ function createRecordRouter({
 
     // No pushState here — pushing on a popstate adds an entry per press and the page
     // becomes impossible to leave.
-    addEventListener("popstate", () => showView(viewFromUrl(), paramsFromUrl()));
+    addEventListener("popstate", () => {
+      const name = viewFromUrl();
+
+      showView(name, paramsFromUrl());
+      trackPageview(urlForView(name));
+    });
   }
 
   // Read once at boot and deleted from the URL, so a flag can't ride along to a later view

@@ -16,9 +16,30 @@ const PAGES = [
     .map((path) => `html/${path}`),
 ];
 
+// Analytics, added to every entry below rather than to each page's markup: a new page is
+// discovered, not listed, and a tag written per page would miss it.
+//
+// `domains` reports from production only, leaving a local preview build silent. `exclude-search`
+// drops record ids and one-shot flags from the reported URL, and leaves the in-page `?view=`
+// pageviews to core/router.js — see js/core/analytics.js.
+const UMAMI_TAG = `<script
+      defer
+      src="https://cloud.umami.is/script.js"
+      data-website-id="6acf9769-434a-410e-9102-7946d698dd13"
+      data-domains="bwb.iblcore.org"
+      data-exclude-search="true"
+    ></script>`;
+
 export default defineConfig({
   build: {
     sourcemap: true,
     rollupOptions: { input: PAGES },
   },
+
+  plugins: [
+    {
+      name: "umami-tag",
+      transformIndexHtml: (html) => html.replace("</head>", `  ${UMAMI_TAG}\n  </head>`),
+    },
+  ],
 });
