@@ -4,7 +4,7 @@ Four layers, deliberately separated:
 
 1. **extract / routing** — format-independent glue in ``BaseScorer`` / ``get_scorer``.
 2. **wrapper logic** — each ``*Scorer.score`` transforms the tuple-keyed ``core.scoring``
-   output into rows/summary and picks the headline metric. This logic never touches
+   output into rows/overall. This logic never touches
    ``.safetensors`` files, so ``core.scoring.<suite>.score_dir`` is monkeypatched with a
    canned result. These run everywhere, including CI, and stay valid while the on-disk
    prediction format is in flux (they mock the *metric dict* boundary, not the format).
@@ -91,7 +91,7 @@ def test_get_scorer_unknown_task():
 
 # ── wrapper logic (core.score_dir monkeypatched) ─────────────────────────────────
 def test_ts1_wrapper_shape(monkeypatch):
-    """TS1Scorer flattens the summary and picks the readout-spec primary metric."""
+    """TS1Scorer keys rows by (label, task, recording_id) and aggregates each over seeds."""
     raw = {
         ("m", "ts1-choice", "recA", 42): {"bacc": 0.80, "f1": 0.7, "ap": 0.6},
         ("m", "ts1-choice", "recA", 43): {"bacc": 0.90, "f1": 0.8, "ap": 0.7},
@@ -104,12 +104,14 @@ def test_ts1_wrapper_shape(monkeypatch):
     assert {"label", "task", "recording_id", "metrics"} <= row.keys()
     assert set(row["metrics"]) == {"bacc", "f1", "ap"}
     assert row["metrics"]["bacc"]["n"] == 2
-    # headline for ts1-choice is bacc → mean of 0.80 and 0.90
-    assert result["summary"]["ts1-choice"]["mean"] == pytest.approx(0.85)
+    # One recording: each seed's mean over recordings is its own value.
+    assert result["overall"]["ts1-choice"]["bacc"] == pytest.approx(
+        {"mean": 0.85, "sem": 0.05, "n": 2}
+    )
 
 
 def test_ts2_wrapper_shape(monkeypatch):
-    """TS2Scorer keys rows by (label, task, recording_id); headline is the primary metric."""
+    """TS2Scorer keys rows by (label, task, recording_id); overall carries every metric."""
     # Derive the key from the scorer's own constant so the mock can't drift from it;
     # scorer-vs-core name agreement is covered by the real-data test below.
     from app.scoring.ts2 import PRIMARY_METRIC as TS2_PRIMARY
@@ -128,12 +130,13 @@ def test_ts2_wrapper_shape(monkeypatch):
     # both seeds aggregated → n == 2 with a defined SEM
     assert row["metrics"][TS2_PRIMARY]["n"] == 2
     assert row["metrics"][TS2_PRIMARY]["sem"] is not None
-    # headline is the primary metric (not bps) → mean of 0.10 and 0.30
-    assert result["summary"]["ts2-co_smoothing"]["mean"] == pytest.approx(0.20)
+    overall = result["overall"]["ts2-co_smoothing"]
+    assert set(overall) == {TS2_PRIMARY, "bps"}
+    assert overall[TS2_PRIMARY] == pytest.approx({"mean": 0.20, "sem": 0.10, "n": 2})
 
 
 def test_ts3_wrapper_shape(monkeypatch):
-    """TS3Scorer keys rows by label only; headline is macro/f1-score."""
+    """TS3Scorer keys rows by label only; overall is taken over seeds."""
     raw = {
         ("m", 42): {"macro/f1-score": 0.60, "macro/precision": 0.5, "VISp/f1-score": 0.4},
         ("m", 43): {"macro/f1-score": 0.80, "macro/precision": 0.7, "VISp/f1-score": 0.6},
@@ -148,8 +151,9 @@ def test_ts3_wrapper_shape(monkeypatch):
     assert row["task"] == "ts3-unit_cosmos"
     assert "recording_id" not in row  # TS3 classifies the whole population at once
     assert "macro/f1-score" in row["metrics"]
-    # headline is macro/f1-score → mean of 0.60 and 0.80
-    assert result["summary"]["ts3-unit_cosmos"]["mean"] == pytest.approx(0.70)
+    assert result["overall"]["ts3-unit_cosmos"]["macro/f1-score"] == pytest.approx(
+        {"mean": 0.70, "sem": 0.10, "n": 2}
+    )
 
 
 def test_ts1_clips_r2_at_zero_per_seed(monkeypatch):
@@ -168,7 +172,8 @@ def test_ts1_clips_r2_at_zero_per_seed(monkeypatch):
     # the SEM is taken over the clipped seeds too
     assert row["metrics"]["r2"]["sem"] == pytest.approx(0.30)
     assert row["metrics"]["pearson"]["mean"] == pytest.approx(-0.10)
-    assert result["summary"]["ts1-wheel_speed"]["mean"] == pytest.approx(0.30)
+    # The clip reaches overall the same way: over seeds, not over the per-recording mean.
+    assert result["overall"]["ts1-wheel_speed"]["r2"]["mean"] == pytest.approx(0.30)
 
 
 def test_ts2_clips_poisson_d2_and_bps(monkeypatch):
@@ -184,14 +189,16 @@ def test_ts2_clips_poisson_d2_and_bps(monkeypatch):
     (row,) = result["rows"]
     assert row["metrics"]["poisson_d2"]["mean"] == pytest.approx(0.20)
     assert row["metrics"]["bps"]["mean"] == pytest.approx(0.10)
-    assert result["summary"]["ts2-co_smoothing"]["mean"] == pytest.approx(0.20)
+    overall = result["overall"]["ts2-co_smoothing"]
+    assert overall["poisson_d2"]["mean"] == pytest.approx(0.20)
+    assert overall["bps"]["mean"] == pytest.approx(0.10)
 
 
 def test_wrapper_empty_input(monkeypatch):
     """An empty core result yields an empty but valid structure for every suite."""
     for suite, mod in (("ts1", "ts1"), ("ts2", "ts2"), ("ts3", "ts3")):
         monkeypatch.setattr(f"ibl_bwb_eval.scoring.{mod}.score_dir", lambda p, g: {})
-        assert get_scorer(suite).score(Path("pred"), Path("gt")) == {"rows": [], "summary": {}}
+        assert get_scorer(suite).score(Path("pred"), Path("gt")) == {"rows": [], "overall": {}}
 
 
 # ── generated fixtures (the pair validation and scoring must share) ───────────────
@@ -216,7 +223,9 @@ def test_a_valid_submission_is_also_scorable(tmp_path):
 
     results = get_scorer("ts1").score(pred_dir, gt_dir)
 
-    assert results["summary"] == {"ts1-reward": {"mean": 0.5, "sem": None, "n": 1}}
+    assert results["overall"]["ts1-reward"]["bacc"] == pytest.approx(
+        {"mean": 0.5, "sem": 0.0, "n": 3}
+    )
     assert [row["task"] for row in results["rows"]] == ["ts1-reward"]
 
 
@@ -235,7 +244,7 @@ def test_score_real_fixtures(suite, baseline, expect_recording_id):
     result = get_scorer(suite).score(BASELINES_DIR.joinpath(baseline), GT_DIR)
 
     assert result["rows"], "expected at least one scored row"
-    assert result["summary"], "expected at least one task summary"
+    assert result["overall"], "expected at least one task aggregate"
 
     for row in result["rows"]:
         assert {"label", "task", "metrics"} <= row.keys()
@@ -246,12 +255,15 @@ def test_score_real_fixtures(suite, baseline, expect_recording_id):
             if name in CLIPPED_METRICS:
                 assert metric["mean"] >= 0
 
-    for task_summary in result["summary"].values():
-        assert math.isfinite(task_summary["mean"])
+    for task_metrics in result["overall"].values():
+        for name, metric in task_metrics.items():
+            assert math.isfinite(metric["mean"])
+            if name in CLIPPED_METRICS:
+                assert metric["mean"] >= 0
 
 
 @requires_fixtures
 def test_score_missing_gt(tmp_path):
     """Missing GT files are skipped gracefully (empty but valid result)."""
     result = get_scorer("ts1").score(BASELINES_DIR.joinpath("mlp-baseline"), tmp_path)
-    assert result == {"rows": [], "summary": {}}
+    assert result == {"rows": [], "overall": {}}

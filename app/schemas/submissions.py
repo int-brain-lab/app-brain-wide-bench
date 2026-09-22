@@ -186,6 +186,10 @@ class SubmissionDetail(SubmissionBase):
     is_deterministic: bool = False
     task_submissions: list[TaskSubmissionDetail] = []
 
+    # Whether ``rescore`` would run for this caller: an admin, on a submission whose tasks
+    # are already chosen. A fact, never a decision — the endpoint checks for itself.
+    can_rescore: bool = False
+
     # Populated by ``from_submission`` via ``model_validate``, which reads the eager-loaded
     # ``Submission.model`` relationship straight off the ORM object.
     model: SubmissionModelOut | None = None

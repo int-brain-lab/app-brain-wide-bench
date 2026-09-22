@@ -1,11 +1,8 @@
 """TS2 scorer: thin OOP wrapper over ``ibl_bwb_eval.scoring.ts2``."""
 
-from collections import defaultdict
 from pathlib import Path
 
-import numpy as np
-
-from app.scoring.base import BaseScorer
+from app.scoring.base import BaseScorer, to_result
 
 PRIMARY_METRIC = "poisson_d2"  # Poisson deviance R² (D²), the headline TS2 metric
 
@@ -13,45 +10,12 @@ PRIMARY_METRIC = "poisson_d2"  # Poisson deviance R² (D²), the headline TS2 me
 class TS2Scorer(BaseScorer):
     """Score TS2 submissions against the ground-truth oracle.
 
-    Same (label, task, recording_id) row/summary shape as :class:`~app.scoring.ts1.TS1Scorer`,
-    but TS2's metrics (``poisson_d2``, ``bps``) are fixed rather than per-task.
-
-    Aggregated through :func:`ibl_bwb_eval.scoring.aggregation.aggregate`, which floors both
-    ``poisson_d2`` and ``bps`` at 0 per seed before the mean and SEM are taken.
+    Same result shape as :class:`~app.scoring.ts1.TS1Scorer`; TS2's metrics
+    (``poisson_d2``, ``bps``) are fixed rather than per-task.
     """
 
     def score(self, pred_dir: Path, gt_dir: Path) -> dict:
         """Score predictions and return a JSON-serialisable result dict."""
-        from ibl_bwb_eval.scoring.aggregation import aggregate
         from ibl_bwb_eval.scoring.ts2 import score_dir
 
-        raw = score_dir(pred_dir, gt_dir)
-        summary = aggregate(raw)  # {(label, task, recording_id): {metric: (mean, sem, n)}}
-
-        rows = []
-        per_task_primary: dict[str, list[float]] = defaultdict(list)
-        for (label, task, recording_id), metrics in sorted(summary.items()):
-            rows.append(
-                {
-                    "label": label,
-                    "task": task,
-                    "recording_id": recording_id,
-                    "metrics": {
-                        name: {"mean": mean, "sem": sem, "n": n}
-                        for name, (mean, sem, n) in metrics.items()
-                    },
-                }
-            )
-            if PRIMARY_METRIC in metrics:
-                per_task_primary[task].append(metrics[PRIMARY_METRIC][0])
-
-        task_summary = {}
-        for task, means in per_task_primary.items():
-            n = len(means)
-            task_summary[task] = {
-                "mean": float(np.mean(means)),
-                "sem": float(np.std(means, ddof=1) / np.sqrt(n)) if n > 1 else None,
-                "n": n,
-            }
-
-        return {"rows": rows, "summary": task_summary}
+        return to_result(score_dir(pred_dir, gt_dir))

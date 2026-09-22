@@ -110,7 +110,7 @@ requires-dist = [
     { name = "celery", extras = ["redis"], specifier = ">=5.4" },
     { name = "fastapi", specifier = ">=0.136.3" },
     { name = "httpx", specifier = ">=0.27" },
-    { name = "ibl-bwb-eval", specifier = "==0.0.1" },
+    { name = "ibl-bwb-eval", specifier = "==0.1.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic-settings", specifier = ">=2.0" },
     { name = "python-dotenv", specifier = ">=1.0" },
@@ -526,7 +526,7 @@ wheels = [
 
 [[package]]
 name = "ibl-bwb-eval"
-version = "0.0.1"
+version = "0.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
@@ -538,9 +538,9 @@ dependencies = [
     { name = "torch", version = "2.10.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'linux'" },
     { name = "torchmetrics" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/66/c8/36469f1cfcf51f011c5944186b874364b5594a1f94351c9a7c52a98a8741/ibl_bwb_eval-0.0.1.tar.gz", hash = "sha256:d566cf00bc117a4e564423dbdd509095ab58316c94c59eeac34c30996273dfd4", size = 28938, upload-time = "2026-09-14T05:51:51.586Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/41/a4/d51f1ca26b48caea38eb1932ca88646e8f6b60303629eaeb740372cdb924/ibl_bwb_eval-0.1.0.tar.gz", hash = "sha256:e1354c181dc87459d99e98e97dc718965ad87e20c0aa859884d8b3da74508a42", size = 31107, upload-time = "2026-09-21T15:05:04.864Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0e/7b/693a3944f9dcaeda301266df3f49e7369c609d8aa31d323ca2b63b702f6e/ibl_bwb_eval-0.0.1-py3-none-any.whl", hash = "sha256:c48fcb1693ab9014fe428e104162e66cca06ebea9f74b71722c464a2f799cc0d", size = 38769, upload-time = "2026-09-14T05:51:50.519Z" },
+    { url = "https://files.pythonhosted.org/packages/bf/2f/542914fb2e2ae773101e83a76b5b8275506a826924e63e13398a11849620/ibl_bwb_eval-0.1.0-py3-none-any.whl", hash = "sha256:baba6efafbb978708ec939eccdf58daca3297dcc5c17fd777f0623b98d8c51be", size = 40412, upload-time = "2026-09-21T15:05:03.817Z" },
 ]
 
 [[package]]
@@ -1322,13 +1322,13 @@ resolution-markers = [
     "sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "filelock" },
-    { name = "fsspec" },
-    { name = "jinja2" },
-    { name = "networkx" },
-    { name = "setuptools" },
-    { name = "sympy" },
-    { name = "typing-extensions" },
+    { name = "filelock", marker = "sys_platform != 'linux'" },
+    { name = "fsspec", marker = "sys_platform != 'linux'" },
+    { name = "jinja2", marker = "sys_platform != 'linux'" },
+    { name = "networkx", marker = "sys_platform != 'linux'" },
+    { name = "setuptools", marker = "sys_platform != 'linux'" },
+    { name = "sympy", marker = "sys_platform != 'linux'" },
+    { name = "typing-extensions", marker = "sys_platform != 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ec/23/2c9fe0c9c27f7f6cb865abcea8a4568f29f00acaeadfc6a37f6801f84cb4/torch-2.10.0-2-cp313-none-macosx_11_0_arm64.whl", hash = "sha256:e521c9f030a3774ed770a9c011751fb47c4d12029a3d6522116e48431f2ff89e", size = 79498254, upload-time = "2026-02-10T21:44:44.095Z" },
@@ -1350,13 +1350,13 @@ resolution-markers = [
     "sys_platform == 'linux'",
 ]
 dependencies = [
-    { name = "filelock" },
-    { name = "fsspec" },
-    { name = "jinja2" },
-    { name = "networkx" },
-    { name = "setuptools" },
-    { name = "sympy" },
-    { name = "typing-extensions" },
+    { name = "filelock", marker = "sys_platform == 'linux'" },
+    { name = "fsspec", marker = "sys_platform == 'linux'" },
+    { name = "jinja2", marker = "sys_platform == 'linux'" },
+    { name = "networkx", marker = "sys_platform == 'linux'" },
+    { name = "setuptools", marker = "sys_platform == 'linux'" },
+    { name = "sympy", marker = "sys_platform == 'linux'" },
+    { name = "typing-extensions", marker = "sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313-linux_aarch64.whl", hash = "sha256:fd215f3d0f681905c5b56b0630a3d666900a37fcc3ca5b937f95275c66f9fd9c", upload-time = "2026-01-23T15:10:34Z" },

@@ -10,13 +10,14 @@ import uuid
 from collections import defaultdict
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
 
 from app.database import async_session_factory
-from app.models import Submission, SubmissionStatus, TaskScore
-from app.scoring import BaseScorer, get_scorer
-from app.storage import download_ground_truth, download_submission
+from app.models import Submission, SubmissionStatus, Task, TaskScore
+from app.scoring import get_scorer
+from app.storage import download_ground_truth
+from app.tasks.files import materialise
 from app.worker import celery_app
 
 
@@ -50,6 +51,12 @@ async def _start_scoring(
     return s3_key, ts_list
 
 
+async def _primary_metrics(session, task_ids: list[str]) -> dict[str, str]:
+    """Return ``{task id: primary metric name}`` for ``task_ids``."""
+    rows = await session.execute(select(Task.id, Task.primary_metric).where(Task.id.in_(task_ids)))
+    return {task_id: metric.value for task_id, metric in rows}
+
+
 async def _finish_scoring(
     submission_id: uuid.UUID,
     status: SubmissionStatus,
@@ -57,6 +64,10 @@ async def _finish_scoring(
     results: dict | None = None,
 ) -> bool:
     """Persist final status and, on success, write one :class:`TaskScore` per task.
+
+    The scalar columns are a copy of ``overall``'s entry for the task's primary metric, as
+    ``Task.primary_metric`` names it. Scores already on these tasks are replaced, so a
+    re-score of a submission that has been through scoring before writes over them.
 
     ``False`` when the submission is gone, as :func:`_start_scoring` returns ``None``: the
     task rows the scores would hang off went with it.
@@ -71,23 +82,38 @@ async def _finish_scoring(
 
         submission.status = status
 
-        if results and "summary" in results:
-            summary = results["summary"]
+        if results and "overall" in results:
+            overall = results["overall"]
             rows_by_task: dict[str, list] = defaultdict(list)
             for row in results.get("rows", []):
                 rows_by_task[row["task"]].append(row)
 
+            primary = await _primary_metrics(session, [task_id for _, task_id in ts_list])
+
+            # A re-score writes over what the first run left; task_submission_id is unique.
+            # In the same transaction as the inserts, so a failure keeps the existing rows.
+            await session.execute(
+                delete(TaskScore)
+                .where(TaskScore.task_submission_id.in_([ts_id for ts_id, _ in ts_list]))
+                .execution_options(synchronize_session=False)
+            )
+
             for ts_id, task_id in ts_list:
-                if task_id not in summary:
+                if task_id not in overall:
                     continue
-                s = summary[task_id]
+                metrics = overall[task_id]
+                # KeyError when the task's primary metric is not one the suite computed.
+                entry = metrics[primary[task_id]]
                 session.add(
                     TaskScore(
                         task_submission_id=ts_id,
-                        n_seeds=s["n"],
-                        primary_metric_mean=s["mean"],
-                        primary_metric_sem=s.get("sem"),
-                        metrics={"recordings": rows_by_task.get(task_id, [])},
+                        n_seeds=entry["n"],
+                        primary_metric_mean=entry["mean"],
+                        primary_metric_sem=entry["sem"],
+                        metrics={
+                            "recordings": rows_by_task.get(task_id, []),
+                            "overall": metrics,
+                        },
                     )
                 )
 
@@ -130,19 +156,19 @@ def score_submission(submission_id: str) -> str:
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
         try:
-            zip_path = download_submission(s3_key, tmpdir.joinpath("submission.zip"))
-
+            # Ground truth first: a missing oracle fails before the submission is
+            # downloaded and unpacked. A local ``s3_gt_prefix`` is used as it stands.
             gt_dir = download_ground_truth(suites, tmpdir.joinpath("gt"))
 
-            pred_dir = BaseScorer.extract(zip_path, tmpdir.joinpath("pred"))
+            pred_dir = materialise(s3_key, tmpdir)
 
-            # summary is keyed by flat task id, which is unique across suites, so merging
-            # cannot collide; rows carry their own task.
-            results: dict = {"rows": [], "summary": {}}
+            # overall is keyed by flat task id, which is unique across suites; rows carry
+            # their own task.
+            results: dict = {"rows": [], "overall": {}}
             for suite in suites:
                 scored = get_scorer(suite).score(pred_dir, gt_dir)
                 results["rows"].extend(scored["rows"])
-                results["summary"].update(scored["summary"])
+                results["overall"].update(scored["overall"])
 
             if not asyncio.run(_finish_scoring(sid, SubmissionStatus.done, ts_list, results)):
                 return "gone"

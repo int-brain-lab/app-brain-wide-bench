@@ -30,7 +30,7 @@ function buildDeleteCard({ noun, name, items = [], failure = "" }) {
     ? `
       <div class="sub">
         This will also delete:
-        <ul class="delete-list">
+        <ul class="note-list">
           ${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
         </ul>
       </div>

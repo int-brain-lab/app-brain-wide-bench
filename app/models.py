@@ -601,12 +601,17 @@ class TaskSubmission(SQLModel, table=True):
 class TaskScore(SQLModel, table=True):
     """Mean ± SEM over seeds for one TaskSubmission.
 
-    ``primary_metric_*`` are scalar columns for fast leaderboard ORDER BY;
-    all metrics live in ``metrics`` JSON: ``{"r2": {"mean": 0.42, "sem": 0.03}, ...}``.
+    ``n_seeds`` and ``primary_metric_*`` are scalar columns for fast leaderboard ORDER BY,
+    copied from ``metrics["overall"]``'s entry for the task's primary metric.
 
-    ``r2`` and ``poisson_d2`` are floored at 0 per seed before aggregation, here and in the
-    scalar columns; ``bps`` is not, and can be negative. Rows written before that floor was
-    applied hold unclipped means.
+    ``metrics`` JSON holds ``recordings``, one entry per recording with each metric
+    aggregated over that recording's seeds, and ``overall``, each metric aggregated over
+    seeds with the recordings averaged within each seed first.
+
+    ``r2``, ``poisson_d2`` and ``bps`` are floored at 0 per seed before aggregation, here
+    and in the scalar columns. Rows written before that floor was applied hold unclipped
+    means; rows written before ``overall`` existed carry ``n_seeds`` as a count of
+    recordings, and a SEM taken across them rather than across seeds.
     """
 
     __tablename__ = "task_scores"

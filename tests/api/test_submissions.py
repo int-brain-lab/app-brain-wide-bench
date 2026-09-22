@@ -16,6 +16,9 @@ The main rules are:
 - The size limit is enforced against the assembled object, not the size the client claimed.
 - Deleting is member-only. It stops at a submitted submission unless the caller sends
   ``force``, which is the details page rather than the create form's Remove button.
+- Re-scoring is admin-only, reuses the tasks the submission already entered, and leaves
+  the scores it has in place until the new run finishes. It is refused outright when the
+  file it would read is gone, rather than queueing a run that can only fail.
 """
 
 import uuid
@@ -181,6 +184,10 @@ def upload_url(submission_id, action=None):
 
 def submit_url(submission_id):
     return f"{submissions_url(submission_id)}/submit"
+
+
+def rescore_url(submission_id):
+    return f"{submissions_url(submission_id)}/rescore"
 
 
 def validation_url(submission_id):
@@ -1169,6 +1176,102 @@ async def test_submit_not_found(seeded_client, add, me):
     response = await seeded_client.post(submit_url(uuid.uuid4()), json=submit_body("ts1-reward"))
 
     assert response.status_code == 404
+
+
+# ── POST /api/submissions/{id}/rescore ────────────────────────────────────────
+
+
+async def test_rescore_as_non_member(seeded_client):
+    """A non-member cannot re-score a submission."""
+    response = await seeded_client.post(rescore_url(PUBLIC))
+
+    assert response.status_code == 403
+
+
+async def test_rescore_as_a_member_who_is_not_an_admin(seeded_client, add, me, queued):
+    """Team membership is not enough: re-scoring republishes a public number."""
+    await add(UserTeam(user_id=me, team_id=MY_TEAM))
+
+    response = await seeded_client.post(rescore_url(PUBLIC))
+
+    assert response.status_code == 403
+    assert queued["score"] == []
+
+
+async def test_rescore_unknown_submission(seeded_client, admin):
+    """An id with no submission behind it is a 404, admin or not."""
+    response = await seeded_client.post(rescore_url(uuid.uuid4()))
+
+    assert response.status_code == 404
+
+
+async def test_rescore_before_the_tasks_are_chosen(seeded_client, admin, queued):
+    """A submission that has not been submitted has no tasks to score."""
+    response = await seeded_client.post(rescore_url(SUBMISSIONS["mlp-ts1-queued"]))
+
+    assert response.status_code == 409
+    assert "pending" in response.json()["detail"]
+    assert queued["score"] == []
+
+
+@pytest_asyncio.fixture
+def stored(monkeypatch, tmp_path):
+    """A stub submission directory, so the file a re-score wants is there to read."""
+    monkeypatch.setattr(settings, "stub_submission_dir", str(tmp_path))
+
+    return tmp_path
+
+
+async def test_rescore_when_the_file_is_gone(seeded_client, admin, queued):
+    """Nothing is queued and the status is left alone when there is no file to score."""
+    response = await seeded_client.post(rescore_url(PUBLIC))
+
+    assert response.status_code == 409
+    assert "no longer stored" in response.json()["detail"]
+    assert queued["score"] == []
+
+
+async def test_rescore_queues_scoring_and_keeps_what_it_has(
+    seeded_client, admin, stored, queued, session_factory, remaining
+):
+    """An admin re-scores a done submission: same tasks, same scores, a new run queued."""
+    entries = list(TASK_SUBMISSIONS["mlp-ts1-baseline"].values())
+
+    response = await seeded_client.post(rescore_url(PUBLIC))
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "scoring"
+    assert queued["score"] == [str(PUBLIC)]
+
+    async with session_factory() as session:
+        submission = await session.get(
+            Submission, PUBLIC, options=[selectinload(Submission.task_submissions)]
+        )
+
+    assert submission.status == SubmissionStatus.scoring
+    # No task row is added or removed: the submission keeps the tasks it entered.
+    assert sorted(ts.id for ts in submission.task_submissions) == sorted(entries)
+    # The scores stand until the run that replaces them commits.
+    assert len(await remaining(TaskScore.task_submission_id, entries)) == len(entries)
+
+
+async def test_rescore_a_run_left_scoring(seeded_client, admin, stored, queued, add):
+    """A submission stranded at ``scoring`` by a dead worker can be run again."""
+    stranded = uuid.uuid4()
+    await add(
+        Submission(
+            id=stranded,
+            model_id=BASELINE,
+            label="mlp-ts1-stranded",
+            s3_key=f"submissions/{stranded}/mlp-ts1-stranded.zip",
+            status=SubmissionStatus.scoring,
+        )
+    )
+
+    response = await seeded_client.post(rescore_url(stranded))
+
+    assert response.status_code == 200
+    assert queued["score"] == [str(stranded)]
 
 
 # ── GET /api/submissions ──────────────────────────────────────────────────────

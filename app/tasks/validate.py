@@ -17,13 +17,8 @@ from sqlalchemy import select
 from app.config import settings
 from app.database import async_session_factory
 from app.models import Submission, SubmissionStatus, TaskSuite
-from app.scoring import BaseScorer
-from app.storage import (
-    delete_submission_file,
-    download_ground_truth,
-    download_submission,
-    is_stubbed,
-)
+from app.storage import delete_submission_file, download_ground_truth
+from app.tasks.files import materialise
 from app.validation.validate_submission import ValidationResult, validate_folder
 from app.worker import celery_app
 
@@ -153,41 +148,6 @@ def _suites_in(pred_dir: Path) -> set[str]:
     return named & {suite.value for suite in TaskSuite}
 
 
-def _materialise(s3_key: str, tmpdir: Path) -> Path:
-    """Return the prediction root for ``s3_key``, downloading and extracting if needed.
-
-    Two local paths come before the download. A key naming a directory is used in place,
-    which is how the baseline submissions loaded from a fixture are validated. And
-    with no object store there was no upload to read back, so ``stub_submission_dir`` stands
-    in for it — every transition and the whole validator still run, over a submission the
-    developer put there rather than the one the form chose.
-
-    Raises
-    ------
-    FileNotFoundError
-        Stubbed with no readable ``stub_submission_dir``, which leaves nothing to check.
-        Raised rather than returned so the submission lands ``unchecked``: a mode that
-        cannot look at anything must not report a file as invalid.
-    """
-    local = Path(s3_key)
-    if local.is_dir():
-        return local
-
-    if is_stubbed():
-        stub = Path(settings.stub_submission_dir) if settings.stub_submission_dir else None
-
-        if stub is None or not stub.is_dir():
-            raise FileNotFoundError(
-                f"No object store, and stub_submission_dir is not a directory: "
-                f"{settings.stub_submission_dir!r}"
-            )
-
-        return stub
-
-    zip_path = download_submission(s3_key, tmpdir.joinpath("submission.zip"))
-    return BaseScorer.extract(zip_path, tmpdir.joinpath("pred"))
-
-
 @celery_app.task(name="validate_submission")
 def validate_submission(submission_id: str) -> str:
     """Validate a submission's uploaded file and record the outcome.
@@ -220,7 +180,7 @@ def validate_submission(submission_id: str) -> str:
         tmpdir = Path(tmp)
 
         try:
-            pred_dir = _materialise(s3_key, tmpdir)
+            pred_dir = materialise(s3_key, tmpdir)
             gt_dir = download_ground_truth(_suites_in(pred_dir), tmpdir.joinpath("gt"))
 
             result = validate_folder(

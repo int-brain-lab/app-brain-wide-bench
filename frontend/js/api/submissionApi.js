@@ -111,6 +111,12 @@ async function deleteSubmission(submissionId, { force = false } = {}) {
   });
 }
 
+// Score the uploaded file again against the tasks it already entered. Admin-only, and
+// refused unless the submission has been submitted — see `can_rescore` on the detail.
+async function rescoreSubmission(submissionId) {
+  return await apiFetch(`/api/submissions/${submissionId}/rescore`, { method: "POST" });
+}
+
 // ─── VALIDATION ──────────────────────────────────────────────────────────────
 
 async function getValidation(submissionId) {
@@ -128,5 +134,6 @@ export {
   getValidation,
   loadSubmission,
   prevalidateEntries,
+  rescoreSubmission,
   updateSubmission,
 };

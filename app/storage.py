@@ -14,6 +14,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import boto3
+from botocore.exceptions import ClientError
 
 from app.config import settings
 
@@ -185,6 +186,27 @@ def submission_size(s3_key: str) -> int | None:
         return None
 
     return _client().head_object(Bucket=settings.s3_bucket, Key=s3_key)["ContentLength"]
+
+
+def submission_file_exists(s3_key: str) -> bool:
+    """Whether a submission's object is still in the bucket.
+
+    ``True`` when there is no object store to ask: a stubbed caller has nothing to check.
+    Any error other than a missing key is raised, so a denied bucket does not read as an
+    absent file.
+    """
+    if is_stubbed():
+        return True
+
+    try:
+        _client().head_object(Bucket=settings.s3_bucket, Key=s3_key)
+    except ClientError as exc:
+        if exc.response.get("Error", {}).get("Code") in ("404", "NoSuchKey"):
+            return False
+
+        raise
+
+    return True
 
 
 def delete_submission_file(s3_key: str) -> None:
