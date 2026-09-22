@@ -63,6 +63,7 @@ from app.storage import (
     submission_key,
     submission_size,
 )
+from app.tasks.files import is_available
 from app.tasks.score import score_submission
 from app.tasks.validate import validate_submission
 from app.validation.validate_submission import (
@@ -994,7 +995,7 @@ async def rescore(
 
     Raises 404 if the submission does not exist.
     Raises 403 if the user is not a member of its team, or is not an admin.
-    Raises 409 if the submission's tasks have not been chosen yet.
+    Raises 409 if the submission's tasks have not been chosen yet, or its file is gone.
     """
     submission = await _get_submission_as_member(submission_id, user.id, session)
 
@@ -1006,6 +1007,14 @@ async def rescore(
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             f"A submission is re-scored from {allowed}, not {submission.status.value}",
+        )
+
+    # Before the status moves: a run that cannot read the file lands ``failed``, and a
+    # failed submission is off the leaderboard with no endpoint to put it back.
+    if not is_available(submission.s3_key):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "This submission's file is no longer stored, so there is nothing to score",
         )
 
     submission.status = SubmissionStatus.scoring

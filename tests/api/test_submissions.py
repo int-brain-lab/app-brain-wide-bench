@@ -17,7 +17,8 @@ The main rules are:
 - Deleting is member-only. It stops at a submitted submission unless the caller sends
   ``force``, which is the details page rather than the create form's Remove button.
 - Re-scoring is admin-only, reuses the tasks the submission already entered, and leaves
-  the scores it has in place until the new run finishes.
+  the scores it has in place until the new run finishes. It is refused outright when the
+  file it would read is gone, rather than queueing a run that can only fail.
 """
 
 import uuid
@@ -1213,8 +1214,25 @@ async def test_rescore_before_the_tasks_are_chosen(seeded_client, admin, queued)
     assert queued["score"] == []
 
 
+@pytest_asyncio.fixture
+def stored(monkeypatch, tmp_path):
+    """A stub submission directory, so the file a re-score wants is there to read."""
+    monkeypatch.setattr(settings, "stub_submission_dir", str(tmp_path))
+
+    return tmp_path
+
+
+async def test_rescore_when_the_file_is_gone(seeded_client, admin, queued):
+    """Nothing is queued and the status is left alone when there is no file to score."""
+    response = await seeded_client.post(rescore_url(PUBLIC))
+
+    assert response.status_code == 409
+    assert "no longer stored" in response.json()["detail"]
+    assert queued["score"] == []
+
+
 async def test_rescore_queues_scoring_and_keeps_what_it_has(
-    seeded_client, admin, queued, session_factory, remaining
+    seeded_client, admin, stored, queued, session_factory, remaining
 ):
     """An admin re-scores a done submission: same tasks, same scores, a new run queued."""
     entries = list(TASK_SUBMISSIONS["mlp-ts1-baseline"].values())
@@ -1237,7 +1255,7 @@ async def test_rescore_queues_scoring_and_keeps_what_it_has(
     assert len(await remaining(TaskScore.task_submission_id, entries)) == len(entries)
 
 
-async def test_rescore_a_run_left_scoring(seeded_client, admin, queued, add):
+async def test_rescore_a_run_left_scoring(seeded_client, admin, stored, queued, add):
     """A submission stranded at ``scoring`` by a dead worker can be run again."""
     stranded = uuid.uuid4()
     await add(

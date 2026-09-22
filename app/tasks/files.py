@@ -4,7 +4,7 @@ from pathlib import Path
 
 from app.config import settings
 from app.scoring import BaseScorer
-from app.storage import download_submission, is_stubbed
+from app.storage import download_submission, is_stubbed, submission_file_exists
 
 
 def materialise(s3_key: str, tmpdir: Path) -> Path:
@@ -52,3 +52,21 @@ def materialise(s3_key: str, tmpdir: Path) -> Path:
 
     zip_path = download_submission(s3_key, tmpdir.joinpath("submission.zip"))
     return BaseScorer.extract(zip_path, tmpdir.joinpath("pred"))
+
+
+def is_available(s3_key: str) -> bool:
+    """Whether :func:`materialise` would find predictions to read.
+
+    The same three branches in the same order, so a caller checking before it queues work
+    and the task doing the work cannot disagree. Both local branches answer for the
+    filesystem of whichever process asks, which is the worker's only when the two share it.
+    """
+    if Path(s3_key).is_dir():
+        return True
+
+    if is_stubbed():
+        stub = settings.stub_submission_dir
+
+        return bool(stub) and Path(stub).is_dir()
+
+    return submission_file_exists(s3_key)
