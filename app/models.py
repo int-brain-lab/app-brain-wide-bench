@@ -160,17 +160,15 @@ class TrainingParadigm(DescribedEnum):
 class SupervisionRegime(DescribedEnum):
     zero_shot = (
         "zero_shot",
-        "No supervision data from this task is used to adapt the pretrained model to the eval "
-        "session.",
+        "No supervision data from this task is used to adapt the model to the eval session.",
     )
     few_shot = (
         "few_shot",
-        "A subset of the available supervised data for this task is used to calibrate the "
-        "pretrained model.",
+        "A subset of the available supervised data for this task is used to calibrate the model.",
     )
     full = (
         "full",
-        "All available supervised data for this task is used to calibrate the pretrained model.",
+        "All available supervised data for this task is used to calibrate the model.",
     )
     other = (
         "other",
@@ -340,6 +338,7 @@ class UserTeam(SQLModel, table=True):
 
 # ── Core ───────────────────────────────────────────────────────────────────────
 
+
 class Model(SQLModel, table=True):
     """A model a team submits results for — its description, not its weights."""
 
@@ -368,8 +367,12 @@ class Model(SQLModel, table=True):
     temporal_context_s: float | None = None
     # Pretraining — the detail is nullable for single-session baselines; the flag is not.
     is_pretrained: bool = Field(default=False)
-    pretrained_in_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON_LIST))
-    pretrained_out_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON_LIST))
+    pretrained_in_modalities: list[Modality] | None = Field(
+        default=None, sa_column=Column(JSON_LIST)
+    )
+    pretrained_out_modalities: list[Modality] | None = Field(
+        default=None, sa_column=Column(JSON_LIST)
+    )
     pretraining_data: str | None = None
     created_at: datetime | None = _ts()
 
@@ -388,7 +391,7 @@ class Model(SQLModel, table=True):
         "link_weights": "Link to model weights (e.g. Huggingface).",
         "link_code": "Link to model code (e.g. GitHub).",
         "publication_doi": "DOI of affiliated publication.",
-        "n_parameters": "Total number of non-embedding model parameters.",
+        "n_parameters": "Total number of backbone (excluding embedding/stitcher) parameters.",
         "n_parameters_estimated": (
             "The parameter count is approximate — a typical or median value rather than an exact "
             "figure, as for a model trained per session whose size varies between runs."
@@ -404,8 +407,7 @@ class Model(SQLModel, table=True):
         "pretrained_in_modalities": "If pretrained, which modalities were accepted as input.",
         "pretrained_out_modalities": "If pretrained, which modalities were used for supervision.",
         "pretraining_data": (
-            "Describe the corpus of pretraining data used (all sessions, a subset, external "
-            "data)."
+            "Describe the corpus of pretraining data used (all sessions, a subset, external data)."
         ),
     }
 
@@ -545,7 +547,9 @@ class TaskSubmission(SQLModel, table=True):
     training_paradigm: TrainingParadigm | None = None
     supervision_regime: SupervisionRegime | None = None
     calibration: Calibration | None = None
-    finetuning_strategy: list[FinetuningStrategy] | None = Field(default=None, sa_column=Column(JSON_LIST))
+    finetuning_strategy: list[FinetuningStrategy] | None = Field(
+        default=None, sa_column=Column(JSON_LIST)
+    )
 
     submission: Submission | None = Relationship(back_populates="task_submissions")
     task: Task | None = Relationship(back_populates="task_submissions")
@@ -562,7 +566,8 @@ class TaskSubmission(SQLModel, table=True):
         ),
         "training_paradigm": (
             "Which paradigm is used to train this model on this task? Single-session models are "
-            "trained from scratch on each session, with no pretraining used. If adapting a "
+            "trained from scratch on each session, with no pretraining used; for TS1 and TS2, "
+            "a model that is not pretrained must be single-session. If adapting a "
             "pretrained foundation model, did the pretraining objective match the supervision "
             "target of this task (Task-Suite-Supervised, TSS) or was it unrelated "
             "(Task-Suite-Unsupervised, TSU)? Note: TSS implies the training objective itself was "
@@ -572,22 +577,20 @@ class TaskSubmission(SQLModel, table=True):
         ),
         "supervision_regime": (
             "To what degree is this model supervised on this task? Zero-shot means no supervision "
-            "is needed to adapt a pretrained model on the eval session. Few-shot means a subset "
-            "of the available supervised data is used to calibrate a pretrained model. Full means "
-            "all available supervised data is used to calibrate a pretrained model. Note that "
+            "is needed to adapt the model on the eval session. Few-shot means a subset of the "
+            "available supervised data is used to calibrate the model. Full means all available "
+            "supervised data is used to calibrate the model. Note that "
             "this specifically refers to data pertaining to this task (i.e. supervision data), "
-            "not other available data in the dataset. Single-session models implicitly cannot be "
-            "used in a zero-shot fashion, though can use few-shot or use full supervision. If "
+            "not other available data in the dataset. For TS3, only zero-shot is an option. If "
             "there is another paradigm not listed, please specify in the private description."
         ),
         "calibration": (
-            "Are gradients required to update a pretrained model in order to adapt to this task, "
+            "Are gradients required to update the model in order to adapt to this task, "
             "whether that adaptation is supervised on this task directly or calibrated via some "
             "other objective (both count as transductive)? Or can it be evaluated on this task "
-            "with no updates to the model parameters (inductive)? Note: here, inductive implies "
-            "zero-shot since a model that never uses eval data to adapt also does not use "
-            "supervision on this task. Single-session models are always transductive, since they "
-            "are trained from scratch on the eval session."
+            "with no updates to the model parameters (inductive)? For TS1 and TS2, a model that "
+            "is not pretrained is always transductive, since it is trained from scratch on the "
+            "eval session."
         ),
         "finetuning_strategy": (
             "If finetuning was done from a pretrained model, what kind of strategy was used? "
