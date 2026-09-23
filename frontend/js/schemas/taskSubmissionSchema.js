@@ -9,6 +9,9 @@ import { fieldsForPanel } from "./schemaPanels.js";
 // because every caller awaits that loader first. Empty until then, which disables nothing.
 let suiteOutputModality = {};
 
+// The suites where a model that is not pretrained must be single-session and transductive.
+const SINGLE_SESSION_SUITES = ["ts1", "ts2"];
+
 const TASK_FIELDS = {
   id: {
     label: "Task id",
@@ -54,17 +57,17 @@ const TASK_FIELDS = {
     enum: "training_paradigm",
     disabledOptionsWhen: (state) => {
       const model = state.model;
+      const suite = suiteFromTask(state.task_id);
 
-      // Pretrained is false → rule out TSS/TSU, only single-session is an option
+      // Not pretrained → nothing ruled out on ts3; only single-session on ts1/ts2
       if (!model?.is_pretrained) {
-        return ["TSS", "TSU"];
+        return isSingleSessionSuite(suite) ? ["TSS", "TSU"] : [];
       }
 
       // Pretrained is true → rule out single-session.
       const disabled = ["single_session"];
 
       // If the models modalities don't match the pretraining modalities -> rule out TSS
-      const suite = suiteFromTask(state.task_id);
       const outputModality = suiteOutputModality[suite];
       const inputMatches = model.pretrained_in_modalities?.includes("spikes");
       const outputMatches =
@@ -82,26 +85,9 @@ const TASK_FIELDS = {
     input: "select",
     panel: "methodology",
     enum: "supervision_regime",
-    disabledOptionsWhen: (state) => {
-      const disabled = new Set();
-
-      // Pretrained is false -> rule out zero-shot
-      if (!state.model?.is_pretrained) {
-        disabled.add("zero_shot");
-      }
-
-      // For inductive calibration, only zero-shot is an option.
-      if (state.calibration === "inductive") {
-        ["few_shot", "full", "other"].forEach((option) => disabled.add(option));
-      }
-
-      // For ts3, only zero-shot is an option
-      if (suiteFromTask(state.task_id) === "ts3") {
-        ["few_shot", "full", "other"].forEach((option) => disabled.add(option));
-      }
-
-      return [...disabled];
-    },
+    // For ts3, only zero-shot is an option
+    disabledOptionsWhen: (state) =>
+      suiteFromTask(state.task_id) === "ts3" ? ["few_shot", "full", "other"] : [],
   },
 
   calibration: {
@@ -109,8 +95,11 @@ const TASK_FIELDS = {
     input: "select",
     panel: "methodology",
     enum: "calibration",
-    // Single-session models are always transductive (trained from scratch).
-    disabledOptionsWhen: (state) => (state.model?.is_pretrained ? [] : ["inductive"]),
+    // Models not pretrained are always transductive on ts1/ts2.
+    disabledOptionsWhen: (state) =>
+      !state.model?.is_pretrained && isSingleSessionSuite(suiteFromTask(state.task_id))
+        ? ["inductive"]
+        : [],
   },
 
   finetuning_strategy: {
@@ -128,6 +117,10 @@ const TASK_FIELDS = {
 const TASK_PANELS = {
   methodology: { type: "fields", title: "Methodology", columns: 2 },
 };
+
+function isSingleSessionSuite(suite) {
+  return SINGLE_SESSION_SUITES.includes(suite);
+}
 
 // Options, help text and the suite output modalities, from /api/meta. Every caller awaits
 // this before rendering. In place rather than returning a copy — see applyFieldMeta.
