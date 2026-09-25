@@ -118,7 +118,7 @@ def matches_model(
 def matches_entry(
     entry: TaskSubmission,
     *,
-    extra_input_modality: Iterable[Any] = (),
+    input_modalities: Iterable[Any] = (),
     training_paradigm: Iterable[Any] = (),
     supervision_regime: Iterable[Any] = (),
     calibration: Iterable[Any] = (),
@@ -126,7 +126,7 @@ def matches_entry(
 ) -> bool:
     """Whether this entry is one of the results the board is asked to show."""
     return (
-        _overlaps(entry.extra_input_modality, extra_input_modality)
+        _overlaps(entry.input_modalities, input_modalities)
         and _has(entry.training_paradigm, training_paradigm)
         and _has(entry.supervision_regime, supervision_regime)
         and _has(entry.calibration, calibration)

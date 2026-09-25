@@ -31,22 +31,21 @@ const TASK_FIELDS = {
     editable: false,
   },
 
-  extra_input_modality: {
-    label: "Extra modality",
+  input_modalities: {
+    label: "Input modalities",
     input: "checkbox-list",
     panel: "methodology",
     enum: "modality",
-    // Spikes is the baseline input (not "extra"); the suite's own
-    // supervision target can't be used as an input either.
+    default: ["spikes"],
+    // The suite's supervision target can't be used as an input modality. On ts2 it is
+    // spikes, which is also the baseline input — so nothing is disabled there.
     disabledOptionsWhen: (state) => {
-      // Spikes is a default input modality for all tasks
-      const disabled = ["spikes"];
       const suite = suiteFromTask(state.task_id);
       // For ts1, the target is behavior, so it can't be used as an input modality.
-      if (suite === "ts1") disabled.push("behavior");
+      if (suite === "ts1") return ["behavior"];
       // For ts3, the target is anatomy, so it can't be used as an input modality.
-      if (suite === "ts3") disabled.push("anatomy");
-      return disabled;
+      if (suite === "ts3") return ["anatomy"];
+      return [];
     },
   },
 
@@ -67,9 +66,12 @@ const TASK_FIELDS = {
       // Pretrained is true → rule out single-session.
       const disabled = ["single_session"];
 
-      // If the models modalities don't match the pretraining modalities -> rule out TSS
+      // If the model's pretraining modalities don't cover the task's inputs and output
+      // -> rule out TSS
       const outputModality = suiteOutputModality[suite];
-      const inputMatches = model.pretrained_in_modalities?.includes("spikes");
+      const inputMatches = (state.input_modalities ?? []).every((modality) =>
+        model.pretrained_in_modalities?.includes(modality),
+      );
       const outputMatches =
         outputModality && model.pretrained_out_modalities?.includes(outputModality);
       if (!inputMatches || !outputMatches) {

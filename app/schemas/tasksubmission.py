@@ -95,7 +95,7 @@ class TaskMetadata(BaseModel):
     other. Same arrangement as ``ModelMetadata``.
     """
 
-    extra_input_modality: list[Modality] | None = None
+    input_modalities: list[Modality] | None = None
     training_paradigm: TrainingParadigm | None = None
     supervision_regime: SupervisionRegime | None = None
     calibration: Calibration | None = None

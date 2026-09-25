@@ -394,7 +394,7 @@ async def test_a_list_field_matches_on_overlap(seeded_client, add):
     entry = TaskSubmission(
         submission_id=run.id,
         task_id="ts1-choice",
-        extra_input_modality=["behavior"],
+        input_modalities=["behavior"],
     )
 
     await add(
@@ -404,13 +404,13 @@ async def test_a_list_field_matches_on_overlap(seeded_client, add):
     )
 
     overlapping = await seeded_client.get(
-        LEADERBOARD_URL, params={"extra_input_modality": ["behavior", "anatomy"]}
+        LEADERBOARD_URL, params={"input_modalities": ["behavior", "anatomy"]}
     )
 
     assert labels(overlapping) == ["ssl-extra-input"]
 
     disjoint = await seeded_client.get(
-        LEADERBOARD_URL, params={"extra_input_modality": "anatomy"}
+        LEADERBOARD_URL, params={"input_modalities": "anatomy"}
     )
 
     assert disjoint.json() == []

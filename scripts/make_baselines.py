@@ -93,7 +93,7 @@ _TASKSUB_KEYS = set(TaskSubmission.model_fields) - {"id", "submission_id", "task
 _ENUM_FIELDS = {
     "pretrained_in_modalities": Modality,
     "pretrained_out_modalities": Modality,
-    "extra_input_modality": Modality,
+    "input_modalities": Modality,
     "training_paradigm": TrainingParadigm,
     "supervision_regime": SupervisionRegime,
     "calibration": Calibration,

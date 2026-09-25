@@ -178,7 +178,7 @@ async def test_update_as_member(seeded_client, add, me):
         json={
             "calibration": "transductive",
             "supervision_regime": "few_shot",
-            "extra_input_modality": ["lfp", "behavior"],
+            "input_modalities": ["lfp", "behavior"],
             "finetuning_strategy": ["linear_probe"],
         },
     )
@@ -189,7 +189,7 @@ async def test_update_as_member(seeded_client, add, me):
 
     assert body["calibration"] == "transductive"
     assert body["supervision_regime"] == "few_shot"
-    assert body["extra_input_modality"] == ["lfp", "behavior"]
+    assert body["input_modalities"] == ["lfp", "behavior"]
     assert body["finetuning_strategy"] == ["linear_probe"]
 
     # PATCH is partial.
