@@ -87,7 +87,7 @@ different paradigms.
 | `task_id` | str | flat task id, FK into the static `tasks` table, e.g. `"ts1-reward"` |
 | `training_paradigm` | `TrainingParadigm` \| null | `TSS` (task-specific supervised) \| `TSU` (task-specific unsupervised, pretrained backbone) \| `single_session` |
 | `calibration` | `Calibration` \| null | `inductive` (gradient-free at eval time) \| `transductive` (requires gradients on eval set) |
-| `extra_input_modality` | str \| null | present in the schema, unused in this fixture |
+| `input_modalities` | str \| null | present in the schema, unused in this fixture |
 | `supervision_regime` | `SupervisionRegime` \| null | `zero_shot` \| `few_shot` \| `full` \| `other` — unused in this fixture |
 | `finetuning_strategy` | `FinetuningStrategy` \| null | `linear_probe` \| `mlp_probe` \| `gradual_unfreezing` \| `full_finetuning` \| `other` — unused in this fixture |
 

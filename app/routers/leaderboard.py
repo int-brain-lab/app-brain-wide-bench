@@ -37,7 +37,7 @@ async def leaderboard(
     n_parameters_max: Annotated[int | None, Query(ge=0)] = None,
     temporal_context_s_min: Annotated[float | None, Query(ge=0)] = None,
     temporal_context_s_max: Annotated[float | None, Query(ge=0)] = None,
-    extra_input_modality: Annotated[list[Modality] | None, Query()] = None,
+    input_modalities: Annotated[list[Modality] | None, Query()] = None,
     training_paradigm: Annotated[list[TrainingParadigm] | None, Query()] = None,
     supervision_regime: Annotated[list[SupervisionRegime] | None, Query()] = None,
     calibration: Annotated[list[Calibration] | None, Query()] = None,
@@ -120,7 +120,7 @@ async def leaderboard(
     def keep(entry: TaskSubmission) -> bool:
         return matches_entry(
             entry,
-            extra_input_modality=extra_input_modality or (),
+            input_modalities=input_modalities or (),
             training_paradigm=training_paradigm or (),
             supervision_regime=supervision_regime or (),
             calibration=calibration or (),

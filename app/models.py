@@ -229,7 +229,7 @@ class Metric(str, enum.Enum):
 
 # What each task suite asks a model to predict. Domain fact rather than a column: it is
 # fixed by what the suites are, and both the submission forms (which modality can't be an
-# *extra input* when it is the target) and /api/meta read it. Here so there is one copy —
+# input when it is the target) and /api/meta read it. Here so there is one copy —
 # it previously lived only in the frontend's task schema.
 SUITE_OUTPUT_MODALITY: dict[TaskSuite, Modality] = {
     TaskSuite.ts1: Modality.behavior,
@@ -543,7 +543,7 @@ class TaskSubmission(SQLModel, table=True):
     id: uuid.UUID = _uuid()
     submission_id: uuid.UUID = Field(foreign_key="submissions.id")
     task_id: str = Field(foreign_key="tasks.id")
-    extra_input_modality: list[Modality] | None = Field(default=None, sa_column=Column(JSON_LIST))
+    input_modalities: list[Modality] | None = Field(default=None, sa_column=Column(JSON_LIST))
     training_paradigm: TrainingParadigm | None = None
     supervision_regime: SupervisionRegime | None = None
     calibration: Calibration | None = None
@@ -560,8 +560,8 @@ class TaskSubmission(SQLModel, table=True):
 
     # See Model.FIELD_DESCRIPTIONS.
     FIELD_DESCRIPTIONS: ClassVar[dict[str, str]] = {
-        "extra_input_modality": (
-            "Does this model require any modalities other than spikes as input for this task? "
+        "input_modalities": (
+            "Which modalities does this model take as input for this task? "
             "This necessarily excludes task-related supervision targets within the target window."
         ),
         "training_paradigm": (
