@@ -41,7 +41,7 @@ def factory(tmp_path, monkeypatch):
             await connection.run_sync(SQLModel.metadata.create_all)
 
     asyncio.run(create_schema())
-    monkeypatch.setattr(validate_task, "async_session_factory", sessions)
+    monkeypatch.setattr(validate_task, "worker_session_factory", sessions)
 
     return sessions
 

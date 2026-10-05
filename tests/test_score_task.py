@@ -76,7 +76,7 @@ def factory(tmp_path, monkeypatch):
             await session.commit()
 
     asyncio.run(build())
-    monkeypatch.setattr(score_task, "async_session_factory", sessions)
+    monkeypatch.setattr(score_task, "worker_session_factory", sessions)
 
     return sessions
 
