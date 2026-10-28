@@ -709,6 +709,28 @@ FOOTER
   box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
 }
 
+/* A funder's logo on the landing page: one height, so wide and square marks sit level. */
+.funders {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.funder-logo {
+  display: block;
+  height: 56px;
+  width: auto;
+}
+
+/* Evened out by eye: the Simons mark is small and light inside its square, and ARNI's wordmark
+   is solid and wide. */
+.funder-logo.lg {
+  height: 80px;
+}
+
+.funder-logo.sm {
+  height: 40px;
+}
+
 /*----------------------------------------------------------------------------------------
 USER LOGO
 ----------------------------------------------------------------------------------------*/
