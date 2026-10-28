@@ -13,7 +13,7 @@ from pathlib import Path
 from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
 
-from app.database import async_session_factory
+from app.database import worker_session_factory
 from app.models import Submission, SubmissionStatus, Task, TaskScore
 from app.scoring import get_scorer
 from app.storage import download_ground_truth
@@ -32,7 +32,7 @@ async def _start_scoring(
     ``None`` when the submission is gone: a delete racing this task is a submitter
     abandoning their submission, and the outcome they asked for is that nothing is scored.
     """
-    async with async_session_factory() as session:
+    async with worker_session_factory() as session:
         submission = (
             await session.execute(
                 select(Submission)
@@ -72,7 +72,7 @@ async def _finish_scoring(
     ``False`` when the submission is gone, as :func:`_start_scoring` returns ``None``: the
     task rows the scores would hang off went with it.
     """
-    async with async_session_factory() as session:
+    async with worker_session_factory() as session:
         submission = (
             await session.execute(select(Submission).where(Submission.id == submission_id))
         ).scalar_one_or_none()

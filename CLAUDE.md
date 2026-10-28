@@ -58,7 +58,7 @@ you want the current cleanup or refactor work for that area.
 - `docs/leaderboard_optimisation_plan_todo.md` — where the 55 ms in `GET /api/leaderboard` goes,
   and the Redis response-cache design the measurements point to
 - `docs/upload_lifecycle_todo.md` — every way a submission's file can stall, fail or be
-  abandoned: the state it leaves behind, what the code does about it now, and the eleven
+  abandoned: the state it leaves behind, what the code does about it now, and the twelve
   decisions outstanding, plus the open points carried over from the validation plan
 - `docs/worker_disk_plan_todo.md` — what a 10 GB submission costs the worker's scratch space,
   why that space currently shares a filesystem with Postgres, and the fixes in order of value

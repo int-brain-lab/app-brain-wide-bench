@@ -29,6 +29,7 @@ What the submitter and the bucket are left with, per scenario, as the code stand
 | Worker killed mid-task | **`validating` forever** | kept | Delete from the details page |
 | Task hangs, worker alive | **`validating` forever** | kept | Delete from the details page |
 | Broker message lost | **`validating` forever** | kept | Delete from the details page |
+| Database unreachable at task start | **`validating` forever** | kept | Delete from the details page |
 | Passed, tab closed | `pending` | kept | the details page — Delete, or submit it |
 | Scoring raises | `failed` | kept | Delete from the details page, or a new label |
 
@@ -335,9 +336,44 @@ private ops docs is the answer rather than deletion. A re-score endpoint, mirror
 `failed` recoverable instead of merely deletable — the file is intact and it is our failure,
 the same argument as `unchecked`.
 
+## 12. Database unreachable while a task runs
+
+**Now.** Neither task retries. An `OperationalError` from `_start_validation` or
+`_start_scoring` is raised before either task's `try`, so the row keeps the `validating` or
+`scoring` the router set and nothing comes for it. One from the final `_finish_*` lands in the
+`except`: validation tries to write `unchecked`, scoring `failed`, and both fail again if the
+database is still down.
+
+Stale pooled connections were the frequent cause and are gone: the worker's sessions use
+`worker_session_factory` (`NullPool`), and the API's engine sets `pool_pre_ping`. What is
+left is a real outage overlapping a run — an RDS failover, a maintenance window, a network
+blip. Rare; leave it until it is seen.
+
+**Problems.**
+
+- A start-time failure wedges the row exactly as item 1's dead worker does.
+- A failure at scoring's final write leaves `failed` with the old `TaskScore` rows kept. A
+  re-score of a `done` submission drops it off the leaderboard until an admin re-scores again.
+
+**Approach.** `autoretry_for=(OperationalError,)`, `retry_backoff=True`, `max_retries=3` on
+both tasks. Re-running is safe for the rows: `_finish_scoring` deletes and inserts in one
+transaction against a unique `task_submission_id`, and `_finish_validation` overwrites two
+columns.
+
+- Alone it is enough. Without guards a retry proceeds from whatever status it finds, so a
+  scoring `except` that wrote `failed` is overwritten by the re-run's `done`.
+- What it leaves open: a commit that lands but whose acknowledgement is lost. The retry then
+  drags `pending` or `done` back to `validating` or `scoring`. Item 1's guards close it.
+- With item 1's guards it needs one more change, or the guard skips the retry and scoring
+  stays `failed`: on an `OperationalError`, scoring's `except` writes `failed` only on the last
+  attempt (`bind=True`, `self.request.retries`), and otherwise leaves `scoring` for the retry.
+  An exhausted run then stays `scoring`, which is in `RESCORABLE`.
+- A retry repeats the S3 download and the whole check or scorer.
+- It does nothing for a worker that dies mid-task; that is item 1's `acks_late`.
+
 ## Carried over
 
-Open points from the validation plan that these eleven items do not otherwise cover. The plan
+Open points from the validation plan that these twelve items do not otherwise cover. The plan
 itself is gone: phase 1 is built, and what follows is its residue.
 
 - **May a submitter configure only some of the tasks in their file?** `submit` refuses tasks
@@ -381,5 +417,7 @@ Checked and needing nothing.
 - **A different file of a different size.** `_restart_upload` aborts the old multipart and
   starts a fresh one. Its only residual is `abort_multipart` tolerating `NoSuchUpload` —
   see Carried over, below.
+- **Stale database connections in the worker.** `worker_session_factory` uses `NullPool`, so
+  each `asyncio.run` connects afresh and nothing idles long enough for RDS to drop it.
 - **A worker that is down before receiving the message.** It waits in Redis and runs on
   restart. Only a worker dying *while running* loses the task (item 1).

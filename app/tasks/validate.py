@@ -15,7 +15,7 @@ from pathlib import Path
 from sqlalchemy import select
 
 from app.config import settings
-from app.database import async_session_factory
+from app.database import worker_session_factory
 from app.models import Submission, SubmissionStatus, TaskSuite
 from app.storage import delete_submission_file, download_ground_truth
 from app.tasks.files import materialise
@@ -90,7 +90,7 @@ async def _start_validation(submission_id: uuid.UUID) -> tuple[str, bool] | None
     ``None`` when the submission is gone: a delete racing this task is a submitter
     abandoning their submission, and the outcome they asked for is that nothing is checked.
     """
-    async with async_session_factory() as session:
+    async with worker_session_factory() as session:
         submission = (
             await session.execute(select(Submission).where(Submission.id == submission_id))
         ).scalar_one_or_none()
@@ -115,7 +115,7 @@ async def _finish_validation(
     A delete racing this task takes the verdict with it: there is no row to record it on,
     and the file it describes has been released already.
     """
-    async with async_session_factory() as session:
+    async with worker_session_factory() as session:
         submission = (
             await session.execute(select(Submission).where(Submission.id == submission_id))
         ).scalar_one_or_none()
